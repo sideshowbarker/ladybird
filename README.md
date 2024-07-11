@@ -51,3 +51,4 @@ A general guide for contributing can be found in [`CONTRIBUTING.md`](CONTRIBUTIN
 ## License
 
 Ladybird is licensed under a 2-clause BSD license.
+
