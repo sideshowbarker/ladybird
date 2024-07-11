@@ -1,0 +1,13 @@
+name: Add Reviewed-By trailers
+on: pull_request_review
+jobs:
+  review:
+    name: Add Reviewed-By trailer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: fregante/setup-git-user@v2
+      - run: |
+          git commit --amend -m "$(git log --format=%B -n1)" --trailer "Reviewed-By:${GITHUB_ACTOR}"
+          echo "${GITHUB_REF#refs/heads/}"
+          git push -f origin "${GITHUB_REF#refs/heads/}"
