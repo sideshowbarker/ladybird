@@ -1719,9 +1719,10 @@ void HTMLParser::handle_in_body(HTMLToken& token)
 
         // Otherwise, for each attribute on the token, check to see if the attribute is already present on the top element of the stack of open elements.
         // If it is not, add the attribute and its corresponding value to that element.
+        auto& top_element = m_stack_of_open_elements.first();
         token.for_each_attribute([&](auto& attribute) {
-            if (!current_node().has_attribute(attribute.local_name))
-                MUST(current_node().set_attribute(attribute.local_name, attribute.value));
+            if (!top_element.has_attribute(attribute.local_name))
+                top_element.append_attribute(attribute.local_name, attribute.value);
             return IterationDecision::Continue;
         });
         return;
@@ -1743,7 +1744,6 @@ void HTMLParser::handle_in_body(HTMLToken& token)
 
     // -> A start tag whose tag name is "body"
     if (token.is_start_tag() && token.tag_name() == HTML::TagNames::body) {
-
         // Parse error.
         log_parse_error();
 
@@ -1763,7 +1763,7 @@ void HTMLParser::handle_in_body(HTMLToken& token)
         auto& body_element = m_stack_of_open_elements.elements().at(1);
         token.for_each_attribute([&](auto& attribute) {
             if (!body_element->has_attribute(attribute.local_name))
-                MUST(body_element->set_attribute(attribute.local_name, attribute.value));
+                body_element->append_attribute(attribute.local_name, attribute.value);
             return IterationDecision::Continue;
         });
         return;
