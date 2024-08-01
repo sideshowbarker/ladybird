@@ -94,15 +94,17 @@ endif()
 
 if (ENABLE_ADDRESS_SANITIZER)
     add_cxx_compile_options(-fsanitize=address -fno-omit-frame-pointer)
-    set(LINKER_FLAGS "${LINKER_FLAGS} -fsanitize=address")
+    add_cxx_link_options(-fsanitize=address)
+    add_swift_compile_options(-sanitize=address)
+    add_swift_link_options(-sanitize=address)
 endif()
 
 if (ENABLE_MEMORY_SANITIZER)
     add_cxx_compile_options(-fsanitize=memory -fsanitize-memory-track-origins -fno-omit-frame-pointer)
-    set(LINKER_FLAGS "${LINKER_FLAGS} -fsanitize=memory -fsanitize-memory-track-origins")
+    add_cxx_link_options(-fsanitize=memory -fsanitize-memory-track-origins)
 endif()
 
-if (ENABLE_UNDEFINED_SANITIZER)
+if (ENABLE_UNDEFINED_SANITIZER AND (APPLE OR NOT ENABLE_SWIFT))
     add_cxx_compile_options(-fsanitize=undefined -fno-omit-frame-pointer)
     if (UNDEFINED_BEHAVIOR_IS_FATAL)
         add_cxx_compile_options(-fno-sanitize-recover=undefined)
@@ -110,7 +112,9 @@ if (ENABLE_UNDEFINED_SANITIZER)
     if (APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang$" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "17")
         add_cxx_compile_options(-fno-sanitize=function)
     endif()
-    set(LINKER_FLAGS "${LINKER_FLAGS} -fsanitize=undefined")
+    add_cxx_link_options(-fsanitize=undefined)
+    add_swift_compile_options(-sanitize=undefined)
+    add_swift_link_options(-sanitize=undefined)
 endif()
 
 if (ENABLE_COMPILETIME_FORMAT_CHECK)
@@ -580,9 +584,13 @@ if (BUILD_TESTING)
         ../../Tests/LibWasm/test-wasm.cpp
         ../../Userland/Libraries/LibTest/JavaScriptTestRunnerMain.cpp)
     target_link_libraries(test-wasm AK LibCore LibFileSystem LibTest LibWasm LibJS LibCrypto)
+    set(wasm_test_root "${SERENITY_PROJECT_ROOT}")
+    if (INCLUDE_WASM_SPEC_TESTS)
+       set(wasm_test_root "${CMAKE_CURRENT_BINARY_DIR}")
+    endif()
     add_test(
         NAME Wasm
-        COMMAND test-wasm --show-progress=false ${CMAKE_CURRENT_BINARY_DIR}/Userland/Libraries/LibWasm/Tests
+        COMMAND test-wasm --show-progress=false "${wasm_test_root}/Userland/Libraries/LibWasm/Tests"
     )
 endif()
 
