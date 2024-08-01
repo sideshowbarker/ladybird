@@ -15,10 +15,12 @@ static ErrorOr<NonnullRefPtr<ClientType>> launch_server_process(
     StringView server_name,
     ReadonlySpan<ByteString> candidate_server_paths,
     Vector<ByteString> arguments,
-    WebView::EnableCallgrindProfiling enable_callgrind_profiling,
     ClientArguments&&... client_arguments)
 {
-    if (enable_callgrind_profiling == WebView::EnableCallgrindProfiling::Yes) {
+    auto process_type = WebView::process_type_from_name(server_name);
+    auto const& chrome_options = WebView::Application::chrome_options();
+
+    if (chrome_options.profile_helper_process == process_type) {
         arguments.prepend({
             "--tool=callgrind"sv,
             "--instr-atstart=no"sv,
@@ -26,10 +28,13 @@ static ErrorOr<NonnullRefPtr<ClientType>> launch_server_process(
         });
     }
 
+    if (chrome_options.debug_helper_process == process_type)
+        arguments.append("--wait-for-debugger"sv);
+
     for (auto [i, path] : enumerate(candidate_server_paths)) {
         Core::ProcessSpawnOptions options { .name = server_name, .arguments = arguments };
 
-        if (enable_callgrind_profiling == WebView::EnableCallgrindProfiling::Yes) {
+        if (chrome_options.profile_helper_process == process_type) {
             options.executable = "valgrind"sv;
             options.search_for_executable_in_path = true;
             arguments[2] = path;
@@ -45,9 +50,9 @@ static ErrorOr<NonnullRefPtr<ClientType>> launch_server_process(
             if constexpr (requires { process.client->set_pid(pid_t {}); })
                 process.client->set_pid(process.process.pid());
 
-            WebView::Application::the().add_child_process(WebView::Process { WebView::process_type_from_name(server_name), process.client, move(process.process) });
+            WebView::Application::the().add_child_process(WebView::Process { process_type, process.client, move(process.process) });
 
-            if (enable_callgrind_profiling == WebView::EnableCallgrindProfiling::Yes) {
+            if (chrome_options.profile_helper_process == process_type) {
                 dbgln();
                 dbgln("\033[1;45mLaunched {} process under callgrind!\033[0m", server_name);
                 dbgln("\033[100mRun `\033[4mcallgrind_control -i on\033[24m` to start instrumentation and `\033[4mcallgrind_control -i off\033[24m` stop it again.\033[0m");
@@ -89,8 +94,6 @@ ErrorOr<NonnullRefPtr<WebView::WebContentClient>> launch_web_content_process(
         arguments.append("--layout-test-mode"sv);
     if (web_content_options.use_lagom_networking == WebView::UseLagomNetworking::Yes)
         arguments.append("--use-lagom-networking"sv);
-    if (web_content_options.wait_for_debugger == WebView::WaitForDebugger::Yes)
-        arguments.append("--wait-for-debugger"sv);
     if (web_content_options.log_all_js_exceptions == WebView::LogAllJSExceptions::Yes)
         arguments.append("--log-all-js-exceptions"sv);
     if (web_content_options.enable_idl_tracing == WebView::EnableIDLTracing::Yes)
@@ -111,7 +114,7 @@ ErrorOr<NonnullRefPtr<WebView::WebContentClient>> launch_web_content_process(
     arguments.append("--image-decoder-socket"sv);
     arguments.append(ByteString::number(image_decoder_socket.fd()));
 
-    return launch_server_process<WebView::WebContentClient>("WebContent"sv, candidate_web_content_paths, move(arguments), web_content_options.enable_callgrind_profiling, view);
+    return launch_server_process<WebView::WebContentClient>("WebContent"sv, candidate_web_content_paths, move(arguments), view);
 }
 
 ErrorOr<NonnullRefPtr<ImageDecoderClient::Client>> launch_image_decoder_process(ReadonlySpan<ByteString> candidate_image_decoder_paths)
@@ -122,7 +125,7 @@ ErrorOr<NonnullRefPtr<ImageDecoderClient::Client>> launch_image_decoder_process(
         arguments.append(server.value());
     }
 
-    return launch_server_process<ImageDecoderClient::Client>("ImageDecoder"sv, candidate_image_decoder_paths, arguments, WebView::EnableCallgrindProfiling::No);
+    return launch_server_process<ImageDecoderClient::Client>("ImageDecoder"sv, candidate_image_decoder_paths, arguments);
 }
 
 ErrorOr<NonnullRefPtr<Web::HTML::WebWorkerClient>> launch_web_worker_process(ReadonlySpan<ByteString> candidate_web_worker_paths, RefPtr<Protocol::RequestClient> request_client)
@@ -133,10 +136,10 @@ ErrorOr<NonnullRefPtr<Web::HTML::WebWorkerClient>> launch_web_worker_process(Rea
         arguments.append("--request-server-socket"sv);
         arguments.append(ByteString::number(socket.fd()));
         arguments.append("--use-lagom-networking"sv);
-        return launch_server_process<Web::HTML::WebWorkerClient>("WebWorker"sv, candidate_web_worker_paths, move(arguments), WebView::EnableCallgrindProfiling::No);
+        return launch_server_process<Web::HTML::WebWorkerClient>("WebWorker"sv, candidate_web_worker_paths, move(arguments));
     }
 
-    return launch_server_process<Web::HTML::WebWorkerClient>("WebWorker"sv, candidate_web_worker_paths, move(arguments), WebView::EnableCallgrindProfiling::No);
+    return launch_server_process<Web::HTML::WebWorkerClient>("WebWorker"sv, candidate_web_worker_paths, move(arguments));
 }
 
 ErrorOr<NonnullRefPtr<Protocol::RequestClient>> launch_request_server_process(ReadonlySpan<ByteString> candidate_request_server_paths, StringView serenity_resource_root)
@@ -156,7 +159,7 @@ ErrorOr<NonnullRefPtr<Protocol::RequestClient>> launch_request_server_process(Re
         arguments.append(server.value());
     }
 
-    return launch_server_process<Protocol::RequestClient>("RequestServer"sv, candidate_request_server_paths, move(arguments), WebView::EnableCallgrindProfiling::No);
+    return launch_server_process<Protocol::RequestClient>("RequestServer"sv, candidate_request_server_paths, move(arguments));
 }
 
 ErrorOr<IPC::File> connect_new_request_server_client(Protocol::RequestClient& client)
