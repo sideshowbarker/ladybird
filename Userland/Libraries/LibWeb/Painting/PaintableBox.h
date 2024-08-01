@@ -113,6 +113,8 @@ public:
 
     [[nodiscard]] bool has_scrollable_overflow() const { return m_overflow_data->has_scrollable_overflow; }
 
+    bool has_css_transform() const { return computed_values().transformations().size() > 0; }
+
     [[nodiscard]] Optional<CSSPixelRect> scrollable_overflow_rect() const
     {
         if (!m_overflow_data.has_value())
@@ -199,7 +201,7 @@ public:
     void set_outline_offset(CSSPixels outline_offset) { m_outline_offset = outline_offset; }
     CSSPixels outline_offset() const { return m_outline_offset; }
 
-    CSSPixelRect compute_absolute_padding_rect_with_css_transform_applied() const;
+    CSSPixelRect compute_absolute_padding_rect_with_scroll_offset_applied() const;
 
     Optional<CSSPixelRect> get_clip_rect() const;
 
@@ -243,8 +245,6 @@ private:
 
     Optional<CSSPixelRect> mutable m_absolute_rect;
     Optional<CSSPixelRect> mutable m_absolute_paint_rect;
-
-    mutable bool m_clipping_overflow { false };
 
     RefPtr<ScrollFrame const> m_enclosing_scroll_frame;
     RefPtr<ClipFrame const> m_enclosing_clip_frame;
