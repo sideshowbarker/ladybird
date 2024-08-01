@@ -45,6 +45,7 @@ void visit_edges(JS::Object& object, JS::Cell::Visitor& visitor)
     if (auto maybe_cache = Detail::s_caches.get(global_object); maybe_cache.has_value()) {
         auto& cache = maybe_cache.release_value();
         visitor.visit(cache.function_instances());
+        visitor.visit(cache.imported_objects());
     }
 }
 
@@ -181,11 +182,12 @@ JS::ThrowCompletionOr<NonnullOwnPtr<Wasm::ModuleInstance>> instantiate_module(JS
             TRY(import_name.type.visit(
                 [&](Wasm::TypeIndex index) -> JS::ThrowCompletionOr<void> {
                     dbgln("Trying to resolve a function {}::{}, type index {}", import_name.module, import_name.name, index.value());
-                    auto& type = module.type(index);
+                    auto& type = module.type_section().types()[index.value()];
                     // FIXME: IsCallable()
                     if (!import_.is_function())
                         return {};
                     auto& function = import_.as_function();
+                    cache.add_imported_object(function);
                     // FIXME: If this is a function created by create_native_function(),
                     //        just extract its address and resolve to that.
                     Wasm::HostFunction host_function {
