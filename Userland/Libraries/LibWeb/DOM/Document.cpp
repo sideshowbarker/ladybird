@@ -354,11 +354,17 @@ JS::NonnullGCPtr<Document> Document::create(JS::Realm& realm, URL::URL const& ur
     return realm.heap().allocate<Document>(realm, realm, url);
 }
 
-Document::Document(JS::Realm& realm, const URL::URL& url)
+JS::NonnullGCPtr<Document> Document::create_for_fragment_parsing(JS::Realm& realm)
+{
+    return realm.heap().allocate<Document>(realm, realm, "about:blank"sv, TemporaryDocumentForFragmentParsing::Yes);
+}
+
+Document::Document(JS::Realm& realm, const URL::URL& url, TemporaryDocumentForFragmentParsing temporary_document_for_fragment_parsing)
     : ParentNode(realm, *this, NodeType::DOCUMENT_NODE)
     , m_page(Bindings::host_defined_page(realm))
     , m_style_computer(make<CSS::StyleComputer>(*this))
     , m_url(url)
+    , m_temporary_document_for_fragment_parsing(temporary_document_for_fragment_parsing)
 {
     m_legacy_platform_object_flags = PlatformObject::LegacyPlatformObjectFlags {
         .supports_named_properties = true,
@@ -407,12 +413,6 @@ WebIDL::ExceptionOr<void> Document::populate_with_html_head_and_body()
     TRY(html->append_child(body));
 
     return {};
-}
-
-void Document::finalize()
-{
-    Base::finalize();
-    page().client().page_did_destroy_document(*this);
 }
 
 void Document::visit_edges(Cell::Visitor& visitor)
@@ -484,6 +484,7 @@ void Document::visit_edges(Cell::Visitor& visitor)
 
     visitor.visit(m_top_layer_elements);
     visitor.visit(m_top_layer_pending_removals);
+    visitor.visit(m_console_client);
 }
 
 // https://w3c.github.io/selection-api/#dom-document-getselection
@@ -5253,7 +5254,7 @@ JS::NonnullGCPtr<Document> Document::parse_html_unsafe(JS::VM& vm, StringView ht
     // FIXME: 1. Let compliantHTML to the result of invoking the Get Trusted Type compliant string algorithm with TrustedHTML, this's relevant global object, html, "Document parseHTMLUnsafe", and "script".
 
     // 2. Let document be a new Document, whose content type is "text/html".
-    JS::NonnullGCPtr<DOM::Document> document = Document::create(realm);
+    auto document = Document::create_for_fragment_parsing(realm);
     document->set_content_type("text/html"_string);
 
     // 3. Set document's allow declarative shadow roots to true.

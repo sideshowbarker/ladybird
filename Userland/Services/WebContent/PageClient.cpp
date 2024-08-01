@@ -80,7 +80,6 @@ void PageClient::visit_edges(JS::Cell::Visitor& visitor)
 {
     Base::visit_edges(visitor);
     visitor.visit(m_page);
-    visitor.ignore(m_console_clients);
 }
 
 ConnectionFromClient& PageClient::client() const
@@ -342,13 +341,15 @@ void PageClient::page_did_create_new_document(Web::DOM::Document& document)
 
 void PageClient::page_did_change_active_document_in_top_level_browsing_context(Web::DOM::Document& document)
 {
-    VERIFY(m_console_clients.contains(document));
-    m_top_level_document_console_client = *m_console_clients.get(document).value();
-}
+    auto& realm = document.realm();
 
-void PageClient::page_did_destroy_document(Web::DOM::Document& document)
-{
-    destroy_js_console(document);
+    if (auto console_client = document.console_client()) {
+        auto& web_content_console_client = verify_cast<WebContentConsoleClient>(*console_client);
+        m_top_level_document_console_client = web_content_console_client;
+
+        auto console_object = realm.intrinsics().console_object();
+        console_object->console().set_client(*console_client);
+    }
 }
 
 void PageClient::page_did_finish_loading(URL::URL const& url)
@@ -663,17 +664,15 @@ ErrorOr<void> PageClient::connect_to_webdriver(ByteString const& webdriver_ipc_p
 
 void PageClient::initialize_js_console(Web::DOM::Document& document)
 {
+    if (document.is_temporary_document_for_fragment_parsing())
+        return;
+
     auto& realm = document.realm();
+
     auto console_object = realm.intrinsics().console_object();
     auto console_client = heap().allocate_without_realm<WebContentConsoleClient>(console_object->console(), document.realm(), *this);
-    console_object->console().set_client(*console_client);
 
-    m_console_clients.set(document, console_client);
-}
-
-void PageClient::destroy_js_console(Web::DOM::Document& document)
-{
-    m_console_clients.remove(document);
+    document.set_console_client(console_client);
 }
 
 void PageClient::js_console_input(ByteString const& js_source)
