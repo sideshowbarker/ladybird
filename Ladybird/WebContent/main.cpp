@@ -100,11 +100,11 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
     bool is_layout_test_mode = false;
     bool expose_internals_object = false;
     bool use_lagom_networking = false;
-    bool use_skia_painter = false;
     bool wait_for_debugger = false;
     bool log_all_js_exceptions = false;
     bool enable_idl_tracing = false;
     bool enable_http_cache = false;
+    bool force_cpu_painting = false;
 
     Core::ArgsParser args_parser;
     args_parser.add_option(command_line, "Chrome process command line", "command-line", 0, "command_line");
@@ -116,12 +116,12 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
     args_parser.add_option(expose_internals_object, "Expose internals object", "expose-internals-object");
     args_parser.add_option(use_lagom_networking, "Enable Lagom servers for networking", "use-lagom-networking");
     args_parser.add_option(certificates, "Path to a certificate file", "certificate", 'C', "certificate");
-    args_parser.add_option(use_skia_painter, "Enable Skia painter", "use-skia-painting");
     args_parser.add_option(wait_for_debugger, "Wait for debugger", "wait-for-debugger");
     args_parser.add_option(mach_server_name, "Mach server name", "mach-server-name", 0, "mach_server_name");
     args_parser.add_option(log_all_js_exceptions, "Log all JavaScript exceptions", "log-all-js-exceptions");
     args_parser.add_option(enable_idl_tracing, "Enable IDL tracing", "enable-idl-tracing");
     args_parser.add_option(enable_http_cache, "Enable HTTP cache", "enable-http-cache");
+    args_parser.add_option(force_cpu_painting, "Force CPU painting", "force-cpu-painting");
 
     args_parser.parse(arguments);
 
@@ -129,15 +129,17 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
         Core::Process::wait_for_debugger_and_break();
     }
 
-    // Layout test mode implies internals object is exposed
-    if (is_layout_test_mode)
+    // Layout test mode implies internals object is exposed and the Skia CPU backend is used
+    if (is_layout_test_mode) {
         expose_internals_object = true;
+        force_cpu_painting = true;
+    }
 
     Web::set_chrome_process_command_line(command_line);
     Web::set_chrome_process_executable_path(executable_path);
 
     // Always use the CPU backend for layout tests, as the GPU backend is not deterministic
-    WebContent::PageClient::set_use_skia_painter(is_layout_test_mode ? WebContent::PageClient::UseSkiaPainter::CPUBackend : WebContent::PageClient::UseSkiaPainter::GPUBackendIfAvailable);
+    WebContent::PageClient::set_use_skia_painter(force_cpu_painting ? WebContent::PageClient::UseSkiaPainter::CPUBackend : WebContent::PageClient::UseSkiaPainter::GPUBackendIfAvailable);
 
     if (enable_http_cache) {
         Web::Fetch::Fetching::g_http_cache_enabled = true;
