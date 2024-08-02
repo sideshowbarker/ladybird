@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, Andreas Kling <kling@serenityos.org>
+ * Copyright (c) 2018-2024, Andreas Kling <andreas@ladybird.org>
  *
  * SPDX-License-Identifier: BSD-2-Clause
  */
@@ -15,6 +15,7 @@
 #include <LibWeb/CSS/ComputedValues.h>
 #include <LibWeb/CSS/LengthBox.h>
 #include <LibWeb/CSS/PropertyID.h>
+#include <LibWeb/CSS/StyleProperty.h>
 
 namespace Web::CSS {
 
@@ -23,48 +24,39 @@ public:
     StyleProperties() = default;
 
     static NonnullRefPtr<StyleProperties> create() { return adopt_ref(*new StyleProperties); }
+    NonnullRefPtr<StyleProperties> clone() const;
 
     template<typename Callback>
     inline void for_each_property(Callback callback) const
     {
         for (size_t i = 0; i < m_property_values.size(); ++i) {
-            if (m_property_values[i].style)
-                callback((CSS::PropertyID)i, *m_property_values[i].style);
+            if (m_property_values[i])
+                callback((CSS::PropertyID)i, *m_property_values[i]);
         }
     }
-
-    enum class Important {
-        No,
-        Yes
-    };
 
     enum class Inherited {
         No,
         Yes
     };
 
-    struct StyleAndSourceDeclaration {
-        RefPtr<StyleValue const> style;
-        JS::GCPtr<CSS::CSSStyleDeclaration const> declaration;
-        Important important { Important::No };
-        Inherited inherited { Inherited::No };
-    };
-    using PropertyValues = Array<StyleAndSourceDeclaration, to_underlying(CSS::last_property_id) + 1>;
-
-    auto& properties() { return m_property_values; }
-    auto const& properties() const { return m_property_values; }
+    static constexpr size_t number_of_properties = to_underlying(CSS::last_property_id) + 1;
 
     HashMap<CSS::PropertyID, NonnullRefPtr<StyleValue const>> const& animated_property_values() const { return m_animated_property_values; }
     void reset_animated_properties();
 
     bool is_property_important(CSS::PropertyID property_id) const;
     bool is_property_inherited(CSS::PropertyID property_id) const;
+    void set_property_important(CSS::PropertyID, Important);
+    void set_property_inherited(CSS::PropertyID, Inherited);
 
-    void set_property(CSS::PropertyID, NonnullRefPtr<StyleValue const> value, CSS::CSSStyleDeclaration const* source_declaration = nullptr, Inherited = Inherited::No, Important = Important::No);
+    void set_property(CSS::PropertyID, NonnullRefPtr<StyleValue const> value, Inherited = Inherited::No, Important = Important::No);
     void set_animated_property(CSS::PropertyID, NonnullRefPtr<StyleValue const> value);
     NonnullRefPtr<StyleValue const> property(CSS::PropertyID) const;
     RefPtr<StyleValue const> maybe_null_property(CSS::PropertyID) const;
-    CSS::CSSStyleDeclaration const* property_source_declaration(CSS::PropertyID) const;
+
+    JS::GCPtr<CSS::CSSStyleDeclaration const> animation_name_source() const { return m_animation_name_source; }
+    void set_animation_name_source(JS::GCPtr<CSS::CSSStyleDeclaration const> declaration) { m_animation_name_source = declaration; }
 
     CSS::Size size_value(CSS::PropertyID) const;
     LengthPercentage length_percentage_or_fallback(CSS::PropertyID, LengthPercentage const& fallback) const;
@@ -188,7 +180,13 @@ public:
 private:
     friend class StyleComputer;
 
-    PropertyValues m_property_values;
+    // FIXME: This needs protection from GC!
+    JS::GCPtr<CSS::CSSStyleDeclaration const> m_animation_name_source;
+
+    Array<RefPtr<CSS::StyleValue const>, number_of_properties> m_property_values;
+    Array<u8, ceil_div(number_of_properties, 8uz)> m_property_important {};
+    Array<u8, ceil_div(number_of_properties, 8uz)> m_property_inherited {};
+
     HashMap<CSS::PropertyID, NonnullRefPtr<StyleValue const>> m_animated_property_values;
 
     Optional<CSS::Overflow> overflow(CSS::PropertyID) const;
