@@ -610,7 +610,6 @@ static ErrorOr<String> domain_to_ascii(StringView domain, bool be_strict)
 }
 
 // https://url.spec.whatwg.org/#concept-host-parser
-// NOTE: This is a very bare-bones implementation.
 static Optional<Host> parse_host(StringView input, bool is_opaque = false)
 {
     // 1. If input starts with U+005B ([), then:
@@ -1486,8 +1485,7 @@ URL Parser::basic_parse(StringView raw_input, Optional<URL> const& base_url, Opt
                 // 3. Otherwise, run these steps:
                 else {
                     // 1. Let host be the result of host parsing buffer with url is not special.
-                    // FIXME: It seems we are not passing through url is not special through here
-                    auto host = parse_host(buffer.string_view(), true);
+                    auto host = parse_host(buffer.string_view(), !url->is_special());
 
                     // 2. If host is failure, then return failure.
                     if (!host.has_value())
