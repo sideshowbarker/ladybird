@@ -8,8 +8,10 @@
 #include <LibWeb/Bindings/Intrinsics.h>
 #include <LibWeb/DOM/Document.h>
 #include <LibWeb/HTML/History.h>
+#include <LibWeb/HTML/Navigation.h>
 #include <LibWeb/HTML/StructuredSerialize.h>
 #include <LibWeb/HTML/TraversableNavigable.h>
+#include <LibWeb/HTML/Window.h>
 
 namespace Web::HTML {
 
@@ -148,9 +150,12 @@ bool can_have_its_url_rewritten(DOM::Document const& document, URL::URL const& t
 
     // 4. If targetURL's scheme is "file", and targetURL and documentURL differ in their path component,
     //    then return false. (Differences in query and fragment are allowed for file: URLs.)
+    // FIXME: There's a bug in the spec here. We should return true if the scheme is "file" and the path components don't differ.
+    //        Spec bug: https://github.com/whatwg/html/issues/10551
     bool path_components_match = target_url.paths() == document_url.paths();
-    if (target_url.scheme() == "file"sv && !path_components_match)
-        return false;
+    if (target_url.scheme() == "file"sv) {
+        return path_components_match;
+    }
 
     // 5. If targetURL and documentURL differ in their path component or query components, then return false.
     //    (Only differences in fragment are allowed for other types of URLs.)
@@ -203,11 +208,17 @@ WebIDL::ExceptionOr<void> History::shared_history_push_replace_state(JS::Value d
             return WebIDL::SecurityError::create(realm(), "Cannot pushState or replaceState to incompatible URL"_fly_string);
     }
 
-    // FIXME: 7. Let navigation be history's relevant global object's navigation API.
-    // FIXME: 8. Let continue be the result of firing a push/replace/reload navigate event at navigation
-    ///          with navigationType set to historyHandling, isSameDocument set to true, destinationURL set to newURL,
-    //           and classicHistoryAPIState set to serializedData.
-    // FIXME: 9. If continue is false, then return.
+    // 7. Let navigation be history's relevant global object's navigation API.
+    auto navigation = verify_cast<Window>(relevant_global_object(*this)).navigation();
+
+    // 8. Let continue be the result of firing a push/replace/reload navigate event at navigation
+    //    with navigationType set to historyHandling, isSameDocument set to true, destinationURL set to newURL,
+    //    and classicHistoryAPIState set to serializedData.
+    auto navigation_type = history_handling == HistoryHandlingBehavior::Push ? Bindings::NavigationType::Push : Bindings::NavigationType::Replace;
+    auto continue_ = navigation->fire_a_push_replace_reload_navigate_event(navigation_type, new_url, true, UserNavigationInvolvement::None, {}, {}, serialized_data);
+    // 9. If continue is false, then return.
+    if (!continue_)
+        return {};
 
     // 10. Run the URL and history update steps given document and newURL, with serializedData set to
     //     serializedData and historyHandling set to historyHandling.
