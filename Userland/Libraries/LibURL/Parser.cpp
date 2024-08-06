@@ -583,7 +583,8 @@ static bool ends_in_a_number_checker(StringView input)
         return true;
 
     // 5. If parsing last as an IPv4 number does not return failure, then return true.
-    if (parse_ipv4_number(last).has_value())
+    // NOTE: This is equivalent to checking that last is "0X" or "0x", followed by zero or more ASCII hex digits.
+    if (last.starts_with("0x"sv, CaseSensitivity::CaseInsensitive) && all_of(last.substring_view(2), is_ascii_hex_digit))
         return true;
 
     // 6. Return false.
@@ -596,14 +597,26 @@ static ErrorOr<String> domain_to_ascii(StringView domain, bool be_strict)
     // 1. Let result be the result of running Unicode ToASCII with domain_name set to domain, UseSTD3ASCIIRules set to beStrict, CheckHyphens set to false, CheckBidi set to true, CheckJoiners set to true, Transitional_Processing set to false, and VerifyDnsLength set to beStrict. [UTS46]
     // 2. If result is a failure value, domain-to-ASCII validation error, return failure.
 
-    // OPTIMIZATION: Fast path for all-ASCII domain strings.
-    if (all_of(domain, is_ascii)) {
+    // OPTIMIZATION: If beStrict is false, domain is an ASCII string, and strictly splitting domain on U+002E (.)
+    //               does not produce any item that starts with an ASCII case-insensitive match for "xn--", this
+    //               step is equivalent to ASCII lowercasing domain.
+    if (!be_strict && all_of(domain, is_ascii)) {
         // 3. If result is the empty string, domain-to-ASCII validation error, return failure.
         if (domain.is_empty())
             return Error::from_string_literal("Empty domain");
 
-        auto lowercase_domain = domain.to_lowercase_string();
-        return String::from_utf8_without_validation(lowercase_domain.bytes());
+        bool slow_path = false;
+        for (auto part : domain.split_view('.')) {
+            if (part.starts_with("xn--"sv, CaseSensitivity::CaseInsensitive)) {
+                slow_path = true;
+                break;
+            }
+        }
+
+        if (!slow_path) {
+            auto lowercase_domain = domain.to_lowercase_string();
+            return String::from_utf8_without_validation(lowercase_domain.bytes());
+        }
     }
 
     Unicode::IDNA::ToAsciiOptions const options {
@@ -793,9 +806,7 @@ ErrorOr<String> Parser::percent_encode_after_encoding(StringView input, PercentE
 // NOTE: This parser assumes a UTF-8 encoding.
 URL Parser::basic_parse(StringView raw_input, Optional<URL> const& base_url, Optional<URL> url, Optional<State> state_override)
 {
-    dbgln_if(URL_PARSER_DEBUG, "URL::Parser::parse: Parsing '{}'", raw_input);
-    if (raw_input.is_empty())
-        return base_url.has_value() ? *base_url : URL {};
+    dbgln_if(URL_PARSER_DEBUG, "URL::Parser::basic_parse: Parsing '{}'", raw_input);
 
     size_t start_index = 0;
     size_t end_index = raw_input.length();
@@ -1729,7 +1740,7 @@ URL Parser::basic_parse(StringView raw_input, Optional<URL> const& base_url, Opt
     }
 
     url->m_data->valid = true;
-    dbgln_if(URL_PARSER_DEBUG, "URL::Parser::parse: Parsed URL to be '{}'.", url->serialize());
+    dbgln_if(URL_PARSER_DEBUG, "URL::Parser::basic_parse: Parsed URL to be '{}'.", url->serialize());
 
     // 10. Return url.
     return url.release_value();
