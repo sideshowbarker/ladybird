@@ -791,11 +791,6 @@ ErrorOr<String> Parser::percent_encode_after_encoding(StringView input, PercentE
 
 // https://url.spec.whatwg.org/#concept-basic-url-parser
 // NOTE: This parser assumes a UTF-8 encoding.
-// NOTE: Refrain from using the URL classes setters inside this algorithm. Rather, set the values directly. This bypasses the setters' built-in
-//       validation, which is strictly unnecessary since we set m_valid=true at the end anyways. Furthermore, this algorithm may be used in the
-//       future for validation of URLs, which would then lead to infinite recursion.
-//       The same goes for base_url, because e.g. the port() getter does not always return m_port, and we are interested in the underlying member
-//       variables' values here, not what the URL class presents to its users.
 URL Parser::basic_parse(StringView raw_input, Optional<URL> const& base_url, Optional<URL> url, Optional<State> state_override)
 {
     dbgln_if(URL_PARSER_DEBUG, "URL::Parser::parse: Parsing '{}'", raw_input);
@@ -812,33 +807,23 @@ URL Parser::basic_parse(StringView raw_input, Optional<URL> const& base_url, Opt
 
         // 2. If input contains any leading or trailing C0 control or space, invalid-URL-unit validation error.
         // 3. Remove any leading and trailing C0 control or space from input.
-        //
-        // FIXME: We aren't checking exactly for 'trailing C0 control or space' here.
-
         bool has_validation_error = false;
-        for (size_t i = 0; i < raw_input.length(); ++i) {
-            i8 ch = raw_input[i];
-            if (0 <= ch && ch <= 0x20) {
-                ++start_index;
-                has_validation_error = true;
-            } else {
+
+        for (; start_index < raw_input.length(); ++start_index) {
+            if (!is_ascii_c0_control_or_space(raw_input[start_index]))
                 break;
-            }
+            has_validation_error = true;
         }
-        for (ssize_t i = raw_input.length() - 1; i >= 0; --i) {
-            i8 ch = raw_input[i];
-            if (0 <= ch && ch <= 0x20) {
-                --end_index;
-                has_validation_error = true;
-            } else {
+
+        for (; end_index > start_index; --end_index) {
+            if (!is_ascii_c0_control_or_space(raw_input[end_index - 1]))
                 break;
-            }
+            has_validation_error = true;
         }
+
         if (has_validation_error)
             report_validation_error();
     }
-    if (start_index >= end_index)
-        return {};
 
     ByteString processed_input = raw_input.substring_view(start_index, end_index - start_index);
 
@@ -1458,10 +1443,6 @@ URL Parser::basic_parse(StringView raw_input, Optional<URL> const& base_url, Opt
                 if (base_url.has_value() && base_url->m_data->scheme == "file") {
                     // 1. Set url’s host to base’s host.
                     url->m_data->host = base_url->m_data->host;
-
-                    // FIXME: The spec does not seem to mention these steps.
-                    url->m_data->paths = base_url->m_data->paths;
-                    url->m_data->paths.remove(url->m_data->paths.size() - 1);
 
                     // 2. If the code point substring from pointer to the end of input does not start with a Windows drive letter and base’s path[0] is a normalized Windows drive letter, then append base’s path[0] to url’s path.
                     auto substring_from_pointer = input.substring_view(iterator - input.begin()).as_string();
