@@ -186,7 +186,7 @@ public:
     CSS::StyleProperties* computed_css_values() { return m_computed_css_values.ptr(); }
     CSS::StyleProperties const* computed_css_values() const { return m_computed_css_values.ptr(); }
     void set_computed_css_values(RefPtr<CSS::StyleProperties>);
-    NonnullRefPtr<CSS::StyleProperties> resolved_css_values();
+    NonnullRefPtr<CSS::StyleProperties> resolved_css_values(Optional<CSS::Selector::PseudoElement::Type> = {});
 
     void set_pseudo_element_computed_css_values(CSS::Selector::PseudoElement::Type, RefPtr<CSS::StyleProperties>);
     RefPtr<CSS::StyleProperties> pseudo_element_computed_css_values(CSS::Selector::PseudoElement::Type);
@@ -241,10 +241,11 @@ public:
     virtual void did_receive_focus() { }
     virtual void did_lose_focus() { }
 
-    static JS::GCPtr<Layout::Node> create_layout_node_for_display_type(DOM::Document&, CSS::Display const&, NonnullRefPtr<CSS::StyleProperties>, Element*);
+    static JS::GCPtr<Layout::NodeWithStyle> create_layout_node_for_display_type(DOM::Document&, CSS::Display const&, NonnullRefPtr<CSS::StyleProperties>, Element*);
 
-    void set_pseudo_element_node(Badge<Layout::TreeBuilder>, CSS::Selector::PseudoElement::Type, JS::GCPtr<Layout::Node>);
-    JS::GCPtr<Layout::Node> get_pseudo_element_node(CSS::Selector::PseudoElement::Type) const;
+    void set_pseudo_element_node(Badge<Layout::TreeBuilder>, CSS::Selector::PseudoElement::Type, JS::GCPtr<Layout::NodeWithStyle>);
+    JS::GCPtr<Layout::NodeWithStyle> get_pseudo_element_node(CSS::Selector::PseudoElement::Type) const;
+    bool has_pseudo_elements() const;
     void clear_pseudo_element_nodes(Badge<Layout::TreeBuilder>);
     void serialize_pseudo_elements_as_json(JsonArraySerializer<StringBuilder>& children_array) const;
 
@@ -453,7 +454,7 @@ private:
     HashMap<FlyString, CSS::StyleProperty> m_custom_properties;
 
     struct PseudoElement {
-        JS::GCPtr<Layout::Node> layout_node;
+        JS::GCPtr<Layout::NodeWithStyle> layout_node;
         RefPtr<CSS::StyleProperties> computed_css_values;
         HashMap<FlyString, CSS::StyleProperty> custom_properties;
     };

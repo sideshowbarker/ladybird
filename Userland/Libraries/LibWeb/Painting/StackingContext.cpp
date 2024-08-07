@@ -293,7 +293,6 @@ void StackingContext::paint(PaintContext& context) const
         .opacity = opacity,
         .is_fixed_position = paintable().is_fixed_position(),
         .source_paintable_rect = source_paintable_rect,
-        .image_rendering = paintable().computed_values().image_rendering(),
         .transform = {
             .origin = transform_origin.scaled(to_device_pixels_scale),
             .matrix = matrix_with_scaled_translation(transform_matrix, to_device_pixels_scale),
@@ -415,9 +414,21 @@ TraversalDecision StackingContext::hit_test(CSSPixelPoint position, HitTestType 
             return TraversalDecision::Break;
     }
 
+    CSSPixelPoint enclosing_scroll_offset;
+    if (is<PaintableBox>(paintable())) {
+        auto const& paintable_box = static_cast<PaintableBox const&>(paintable());
+        enclosing_scroll_offset = paintable_box.enclosing_scroll_frame_offset();
+    } else if (is<InlinePaintable>(paintable())) {
+        auto const& inline_paintable = static_cast<InlinePaintable const&>(paintable());
+        enclosing_scroll_offset = inline_paintable.enclosing_scroll_frame_offset();
+    }
+
+    auto position_adjusted_by_scroll_offset = transformed_position;
+    position_adjusted_by_scroll_offset.translate_by(-enclosing_scroll_offset);
+
     // 1. the background and borders of the element forming the stacking context.
     if (paintable().is_paintable_box()) {
-        if (paintable_box().absolute_border_box_rect().contains(transformed_position.x(), transformed_position.y())) {
+        if (paintable_box().absolute_border_box_rect().contains(position_adjusted_by_scroll_offset.x(), position_adjusted_by_scroll_offset.y())) {
             auto hit_test_result = HitTestResult { .paintable = const_cast<PaintableBox&>(paintable_box()) };
             if (callback(hit_test_result) == TraversalDecision::Break)
                 return TraversalDecision::Break;
