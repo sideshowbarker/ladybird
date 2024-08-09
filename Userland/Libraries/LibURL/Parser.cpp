@@ -14,6 +14,8 @@
 #include <AK/StringBuilder.h>
 #include <AK/StringUtils.h>
 #include <AK/Utf8View.h>
+#include <LibTextCodec/Decoder.h>
+#include <LibTextCodec/Encoder.h>
 #include <LibURL/Parser.h>
 #include <LibUnicode/IDNA.h>
 
@@ -768,43 +770,54 @@ void Parser::shorten_urls_path(URL& url)
 }
 
 // https://url.spec.whatwg.org/#string-percent-encode-after-encoding
-ErrorOr<String> Parser::percent_encode_after_encoding(StringView input, PercentEncodeSet percent_encode_set, bool space_as_plus)
+ErrorOr<String> Parser::percent_encode_after_encoding(TextCodec::Encoder& encoder, StringView input, PercentEncodeSet percent_encode_set, bool space_as_plus)
 {
-    // NOTE: This is written somewhat ad-hoc since we don't yet implement the Encoding spec.
-
+    // 1. Let encodeOutput be an empty I/O queue.
     StringBuilder output;
 
-    // 3. For each byte of encodeOutput converted to a byte sequence:
-    for (u8 byte : input) {
-        // 1. If spaceAsPlus is true and byte is 0x20 (SP), then append U+002B (+) to output and continue.
-        if (space_as_plus && byte == ' ') {
-            output.append('+');
-            continue;
-        }
+    // 2. Set potentialError to the result of running encode or fail with inputQueue, encoder, and encodeOutput.
+    TRY(encoder.process(
+        Utf8View(input),
 
-        // 2. Let isomorph be a code point whose value is byte’s value.
-        u32 isomorph = byte;
+        // 3. For each byte of encodeOutput converted to a byte sequence:
+        [&](u8 byte) -> ErrorOr<void> {
+            // 1. If spaceAsPlus is true and byte is 0x20 (SP), then append U+002B (+) to output and continue.
+            if (space_as_plus && byte == ' ') {
+                output.append('+');
+                return {};
+            }
 
-        // 3. Assert: percentEncodeSet includes all non-ASCII code points.
+            // 2. Let isomorph be a code point whose value is byte’s value.
+            u32 isomorph = byte;
 
-        // 4. If isomorphic is not in percentEncodeSet, then append isomorph to output.
-        if (!code_point_is_in_percent_encode_set(isomorph, percent_encode_set)) {
-            output.append_code_point(isomorph);
-        }
+            // 3. Assert: percentEncodeSet includes all non-ASCII code points.
 
-        // 5. Otherwise, percent-encode byte and append the result to output.
-        else {
-            output.appendff("%{:02X}", byte);
-        }
-    }
+            // 4. If isomorphic is not in percentEncodeSet, then append isomorph to output.
+            if (!code_point_is_in_percent_encode_set(isomorph, percent_encode_set)) {
+                output.append_code_point(isomorph);
+            }
+
+            // 5. Otherwise, percent-encode byte and append the result to output.
+            else {
+                output.appendff("%{:02X}", byte);
+            }
+
+            return {};
+        },
+
+        // 4. If potentialError is non-null, then append "%26%23", followed by the shortest sequence of ASCII digits
+        //    representing potentialError in base ten, followed by "%3B", to output.
+        [&](u32 error) -> ErrorOr<void> {
+            output.appendff("%26%23{}%3B", error);
+            return {};
+        }));
 
     // 6. Return output.
     return output.to_string();
 }
 
 // https://url.spec.whatwg.org/#concept-basic-url-parser
-// NOTE: This parser assumes a UTF-8 encoding.
-URL Parser::basic_parse(StringView raw_input, Optional<URL> const& base_url, Optional<URL> url, Optional<State> state_override)
+URL Parser::basic_parse(StringView raw_input, Optional<URL> const& base_url, Optional<URL> url, Optional<State> state_override, Optional<StringView> encoding)
 {
     dbgln_if(URL_PARSER_DEBUG, "URL::Parser::basic_parse: Parsing '{}'", raw_input);
 
@@ -851,7 +864,13 @@ URL Parser::basic_parse(StringView raw_input, Optional<URL> const& base_url, Opt
     // 4. Let state be state override if given, or scheme start state otherwise.
     State state = state_override.value_or(State::SchemeStart);
 
-    // FIXME: 5. Set encoding to the result of getting an output encoding from encoding.
+    // 5. Set encoding to the result of getting an output encoding from encoding.
+    Optional<TextCodec::Encoder&> encoder = {};
+    if (encoding.has_value())
+        encoder = TextCodec::encoder_for(TextCodec::get_output_encoding(*encoding));
+    if (!encoder.has_value())
+        encoder = TextCodec::encoder_for("utf-8"sv);
+    VERIFY(encoder.has_value());
 
     // 6. Let buffer be the empty string.
     StringBuilder buffer;
@@ -1684,7 +1703,7 @@ URL Parser::basic_parse(StringView raw_input, Optional<URL> const& base_url, Opt
                 auto query_percent_encode_set = url->is_special() ? PercentEncodeSet::SpecialQuery : PercentEncodeSet::Query;
 
                 // 2. Percent-encode after encoding, with encoding, buffer, and queryPercentEncodeSet, and append the result to url’s query.
-                url->m_data->query = percent_encode_after_encoding(buffer.string_view(), query_percent_encode_set).release_value_but_fixme_should_propagate_errors();
+                url->m_data->query = percent_encode_after_encoding(*encoder, buffer.string_view(), query_percent_encode_set).release_value_but_fixme_should_propagate_errors();
 
                 // 3. Set buffer to the empty string.
                 buffer.clear();
@@ -1726,7 +1745,7 @@ URL Parser::basic_parse(StringView raw_input, Optional<URL> const& base_url, Opt
                 // NOTE: The percent-encode is done on EOF on the entire buffer.
                 buffer.append_code_point(code_point);
             } else {
-                url->m_data->fragment = percent_encode_after_encoding(buffer.string_view(), PercentEncodeSet::Fragment).release_value_but_fixme_should_propagate_errors();
+                url->m_data->fragment = percent_encode_after_encoding(*encoder, buffer.string_view(), PercentEncodeSet::Fragment).release_value_but_fixme_should_propagate_errors();
                 buffer.clear();
             }
             break;
