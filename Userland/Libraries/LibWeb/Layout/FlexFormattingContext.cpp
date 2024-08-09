@@ -6,7 +6,6 @@
  */
 
 #include "InlineFormattingContext.h"
-#include <AK/Function.h>
 #include <AK/QuickSort.h>
 #include <AK/StdLibExtras.h>
 #include <LibWeb/Layout/BlockContainer.h>
@@ -622,19 +621,19 @@ void FlexFormattingContext::determine_flex_base_size_and_hypothetical_main_size(
         //       in the various helpers that calculate the intrinsic sizes of a flex item,
         //       e.g. calculate_min_content_main_size().
 
-        if (item.used_flex_basis->has<CSS::FlexBasisContent>()) {
+        if (item.used_flex_basis->has<CSS::FlexBasisContent>())
             return calculate_max_content_main_size(item);
-        }
 
         return calculate_fit_content_main_size(item);
     }();
 
-    // AD-HOC: This is not mentioned in the spec, but if the item has an aspect ratio,
-    //         we may need to adjust the main size in these ways:
-    //         - using stretch-fit main size if the flex basis is indefinite and there is no cross size to resolve the ratio against.
+    // AD-HOC: This is not mentioned in the spec, but if the item has an aspect ratio, we may need
+    //         to adjust the main size in these ways:
+    //         - using stretch-fit main size if the flex basis is indefinite, there is no
+    //           intrinsic size and no cross size to resolve the ratio against.
     //         - in response to cross size min/max constraints.
     if (item.box->has_natural_aspect_ratio()) {
-        if (!item.used_flex_basis_is_definite && !has_definite_cross_size(item)) {
+        if (!item.used_flex_basis_is_definite && !item.box->has_natural_width() && !item.box->has_natural_height() && !has_definite_cross_size(item)) {
             item.flex_base_size = inner_main_size(m_flex_container_state);
         }
         item.flex_base_size = adjust_main_size_through_aspect_ratio_for_cross_size_min_max_constraints(child_box, item.flex_base_size, computed_cross_min_size(child_box), computed_cross_max_size(child_box));
@@ -1020,7 +1019,7 @@ void FlexFormattingContext::resolve_flexible_lengths()
     }
 }
 
-// https://drafts.csswg.org/css-flexbox-1/#algo-cross-item
+// https://www.w3.org/TR/css-flexbox-1/#hypothetical-cross-size
 void FlexFormattingContext::determine_hypothetical_cross_size_of_item(FlexItem& item, bool resolve_percentage_min_max_sizes)
 {
     // Determine the hypothetical cross size of each item by performing layout
@@ -1150,7 +1149,7 @@ void FlexFormattingContext::calculate_cross_size_of_each_flex_line()
     }
 }
 
-// https://www.w3.org/TR/css-flexbox-1/#algo-stretch
+// https://www.w3.org/TR/css-flexbox-1/#cross-sizing
 void FlexFormattingContext::determine_used_cross_size_of_each_flex_item()
 {
     for (auto& flex_line : m_flex_lines) {
