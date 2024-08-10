@@ -1931,11 +1931,15 @@ ErrorOr<void, Web::WebDriver::Error> WebDriverConnection::wait_for_navigation_to
     if (m_page_client->page().top_level_browsing_context().has_navigable_been_destroyed())
         return {};
 
-    // FIXME: 3. Start a timer. If this algorithm has not completed before timer reaches the session’s session page load timeout in milliseconds, return an error with error code timeout.
+    // 3. Start a timer. If this algorithm has not completed before timer reaches the session’s session page load timeout in milliseconds, return an error with error code timeout.
+    auto page_load_timeout_fired = false;
+    auto timer = Core::Timer::create_single_shot(m_timeouts_configuration.page_load_timeout, [&] {
+        page_load_timeout_fired = true;
+    });
 
     // 4. If there is an ongoing attempt to navigate the current browsing context that has not yet matured, wait for navigation to mature.
     Web::Platform::EventLoopPlugin::the().spin_until([&] {
-        return m_page_client->page().top_level_traversable()->ongoing_navigation() == Empty {};
+        return page_load_timeout_fired || m_page_client->page().top_level_traversable()->ongoing_navigation() == Empty {};
     });
 
     // 5. Let readiness target be the document readiness state associated with the current session’s page loading strategy, which can be found in the table of page load strategies.
@@ -1951,12 +1955,14 @@ ErrorOr<void, Web::WebDriver::Error> WebDriverConnection::wait_for_navigation_to
     }();
 
     // 6. Wait for the current browsing context’s document readiness state to reach readiness target,
-    // FIXME: or for the session page load timeout to pass, whichever occurs sooner.
+    //    or for the session page load timeout to pass, whichever occurs sooner.
     Web::Platform::EventLoopPlugin::the().spin_until([&]() {
-        return m_page_client->page().top_level_browsing_context().active_document()->readiness() == readiness_target;
+        return page_load_timeout_fired || page_load_timeout_fired || m_page_client->page().top_level_browsing_context().active_document()->readiness() == readiness_target;
     });
 
-    // FIXME: 7. If the previous step completed by the session page load timeout being reached and the browser does not have an active user prompt, return error with error code timeout.
+    // 7. If the previous step completed by the session page load timeout being reached and the browser does not have an active user prompt, return error with error code timeout.
+    if (page_load_timeout_fired && !m_page_client->page().has_pending_dialog())
+        return Web::WebDriver::Error::from_code(Web::WebDriver::ErrorCode::Timeout, "Navigation timed out"sv);
 
     // 8. Return success with data null.
     return {};
@@ -1969,10 +1975,15 @@ void WebDriverConnection::restore_the_window()
     m_page_client->page_did_request_restore_window();
 
     // Do not return from this operation until the visibility state of the top-level browsing context’s active document has reached the visible state, or until the operation times out.
-    // FIXME: Implement timeouts.
-    Web::Platform::EventLoopPlugin::the().spin_until([this]() {
+    // FIXME: It isn't clear which timeout should be used here.
+    auto page_load_timeout_fired = false;
+    auto timer = Core::Timer::create_single_shot(m_timeouts_configuration.page_load_timeout, [&] {
+        page_load_timeout_fired = true;
+    });
+
+    Web::Platform::EventLoopPlugin::the().spin_until([&]() {
         auto state = m_page_client->page().top_level_traversable()->system_visibility_state();
-        return state == Web::HTML::VisibilityState::Visible;
+        return page_load_timeout_fired || state == Web::HTML::VisibilityState::Visible;
     });
 }
 
@@ -1993,10 +2004,15 @@ Gfx::IntRect WebDriverConnection::iconify_the_window()
     auto rect = m_page_client->page_did_request_minimize_window();
 
     // Do not return from this operation until the visibility state of the top-level browsing context’s active document has reached the hidden state, or until the operation times out.
-    // FIXME: Implement timeouts.
-    Web::Platform::EventLoopPlugin::the().spin_until([this]() {
+    // FIXME: It isn't clear which timeout should be used here.
+    auto page_load_timeout_fired = false;
+    auto timer = Core::Timer::create_single_shot(m_timeouts_configuration.page_load_timeout, [&] {
+        page_load_timeout_fired = true;
+    });
+
+    Web::Platform::EventLoopPlugin::the().spin_until([&]() {
         auto state = m_page_client->page().top_level_traversable()->system_visibility_state();
-        return state == Web::HTML::VisibilityState::Hidden;
+        return page_load_timeout_fired || state == Web::HTML::VisibilityState::Hidden;
     });
 
     return rect;
