@@ -1065,9 +1065,8 @@
     "animation-type": "none",
     "inherited": true,
     "initial": "ltr",
-    "valid-identifiers": [
-      "ltr",
-      "rtl"
+    "valid-types": [
+      "direction"
     ]
   },
   "display": {
@@ -2471,7 +2470,7 @@
   "text-align": {
     "animation-type": "discrete",
     "inherited": true,
-    "initial": "left",
+    "initial": "start",
     "valid-types": [
       "text-align"
     ]

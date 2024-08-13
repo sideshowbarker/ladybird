@@ -104,7 +104,7 @@ public:
     static CSS::ContentVisibility content_visibility() { return CSS::ContentVisibility::Visible; }
     static CSS::Cursor cursor() { return CSS::Cursor::Auto; }
     static CSS::WhiteSpace white_space() { return CSS::WhiteSpace::Normal; }
-    static CSS::TextAlign text_align() { return CSS::TextAlign::Left; }
+    static CSS::TextAlign text_align() { return CSS::TextAlign::Start; }
     static CSS::TextJustify text_justify() { return CSS::TextJustify::Auto; }
     static CSS::Positioning position() { return CSS::Positioning::Static; }
     static CSS::TextDecorationLine text_decoration_line() { return CSS::TextDecorationLine::None; }
@@ -178,6 +178,7 @@ public:
     static CSS::TableLayout table_layout() { return CSS::TableLayout::Auto; }
     static QuotesData quotes() { return QuotesData { .type = QuotesData::Type::Auto }; }
     static CSS::TransformBox transform_box() { return CSS::TransformBox::ViewBox; }
+    static CSS::Direction direction() { return CSS::Direction::Ltr; }
 
     // https://www.w3.org/TR/SVG/geometry.html
     static LengthPercentage cx() { return CSS::Length::make_px(0); }
@@ -422,6 +423,7 @@ public:
     Vector<Vector<String>> const& grid_template_areas() const { return m_noninherited.grid_template_areas; }
     CSS::ObjectFit object_fit() const { return m_noninherited.object_fit; }
     CSS::ObjectPosition object_position() const { return m_noninherited.object_position; }
+    CSS::Direction direction() const { return m_inherited.direction; }
 
     CSS::LengthBox const& inset() const { return m_noninherited.inset; }
     const CSS::LengthBox& margin() const { return m_noninherited.margin; }
@@ -531,6 +533,7 @@ protected:
         CSS::ListStylePosition list_style_position { InitialValues::list_style_position() };
         CSS::Visibility visibility { InitialValues::visibility() };
         CSS::QuotesData quotes { InitialValues::quotes() };
+        CSS::Direction direction { InitialValues::direction() };
 
         Optional<SVGPaint> fill;
         CSS::FillRule fill_rule { InitialValues::fill_rule() };
@@ -756,6 +759,7 @@ public:
     void set_quotes(CSS::QuotesData value) { m_inherited.quotes = value; }
     void set_object_fit(CSS::ObjectFit value) { m_noninherited.object_fit = value; }
     void set_object_position(CSS::ObjectPosition value) { m_noninherited.object_position = value; }
+    void set_direction(CSS::Direction value) { m_inherited.direction = value; }
 
     void set_fill(SVGPaint value) { m_inherited.fill = value; }
     void set_stroke(SVGPaint value) { m_inherited.stroke = value; }

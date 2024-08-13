@@ -144,6 +144,10 @@
     "zoom-in",
     "zoom-out"
   ],
+  "direction": [
+    "ltr",
+    "rtl"
+  ],
   "display-box": [
     "contents",
     "none"
@@ -386,6 +390,8 @@
   "text-align": [
     "center",
     "justify",
+    "start",
+    "end",
     "left",
     "right",
     "-libweb-center",
