@@ -81,7 +81,6 @@ void PaintableBox::set_scroll_offset(CSSPixelPoint offset)
     if (!scrollable_overflow_rect.has_value())
         return;
 
-    document().set_needs_to_refresh_clip_state(true);
     document().set_needs_to_refresh_scroll_state(true);
 
     auto padding_rect = absolute_padding_box_rect();
@@ -680,9 +679,9 @@ void PaintableWithLines::paint(PaintContext& context, PaintPhase phase) const
             context.display_list_recorder().add_rounded_rect_clip(corner_radii, context.rounded_device_rect(clip_box).to_type<int>(), CornerClip::Outside);
         }
 
-        context.display_list_recorder().save();
-        auto scroll_offset = context.rounded_device_point(this->scroll_offset());
-        context.display_list_recorder().translate(-scroll_offset.to_type<int>());
+        if (own_scroll_frame_id().has_value()) {
+            context.display_list_recorder().set_scroll_frame_id(own_scroll_frame_id().value());
+        }
     }
 
     // Text shadows
@@ -709,7 +708,6 @@ void PaintableWithLines::paint(PaintContext& context, PaintPhase phase) const
     }
 
     if (should_clip_overflow) {
-        context.display_list_recorder().restore();
         context.display_list_recorder().restore();
     }
 }
@@ -821,7 +819,6 @@ TraversalDecision PaintableBox::hit_test(CSSPixelPoint position, HitTestType typ
         viewport_paintable.build_stacking_context_tree_if_needed();
         viewport_paintable.document().update_paint_and_hit_testing_properties_if_needed();
         viewport_paintable.refresh_scroll_state();
-        viewport_paintable.refresh_clip_state();
         return stacking_context()->hit_test(position, type, callback);
     }
 
