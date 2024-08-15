@@ -195,7 +195,7 @@ Optional<PropertyID> property_id_from_string(StringView);
 [[nodiscard]] FlyString const& string_from_property_id(PropertyID);
 [[nodiscard]] FlyString const& camel_case_string_from_property_id(PropertyID);
 bool is_inherited_property(PropertyID);
-NonnullRefPtr<StyleValue> property_initial_value(JS::Realm&, PropertyID);
+NonnullRefPtr<CSSStyleValue> property_initial_value(JS::Realm&, PropertyID);
 
 enum class ValueType {
     Angle,
@@ -223,7 +223,7 @@ enum class ValueType {
     Url,
 };
 bool property_accepts_type(PropertyID, ValueType);
-bool property_accepts_identifier(PropertyID, ValueID);
+bool property_accepts_keyword(PropertyID, Keyword);
 Optional<ValueType> property_resolves_percentages_relative_to(PropertyID);
 
 // These perform range-checking, but are also safe to call with properties that don't accept that type. (They'll just return false.)
@@ -373,7 +373,7 @@ ErrorOr<void> generate_implementation_file(JsonObject& properties, Core::File& f
 #include <LibWeb/CSS/Enums.h>
 #include <LibWeb/CSS/Parser/Parser.h>
 #include <LibWeb/CSS/PropertyID.h>
-#include <LibWeb/CSS/StyleValue.h>
+#include <LibWeb/CSS/CSSStyleValue.h>
 #include <LibWeb/CSS/StyleValues/PercentageStyleValue.h>
 #include <LibWeb/CSS/StyleValues/TimeStyleValue.h>
 #include <LibWeb/Infra/Strings.h>
@@ -628,9 +628,9 @@ bool property_affects_stacking_context(PropertyID property_id)
     }
 }
 
-NonnullRefPtr<StyleValue> property_initial_value(JS::Realm& context_realm, PropertyID property_id)
+NonnullRefPtr<CSSStyleValue> property_initial_value(JS::Realm& context_realm, PropertyID property_id)
 {
-    static Array<RefPtr<StyleValue>, to_underlying(last_property_id) + 1> initial_values;
+    static Array<RefPtr<CSSStyleValue>, to_underlying(last_property_id) + 1> initial_values;
     if (auto initial_value = initial_values[to_underlying(property_id)])
         return initial_value.release_nonnull();
 
@@ -811,7 +811,7 @@ bool property_accepts_type(PropertyID property_id, ValueType value_type)
     }
 }
 
-bool property_accepts_identifier(PropertyID property_id, ValueID identifier)
+bool property_accepts_keyword(PropertyID property_id, Keyword keyword)
 {
     switch (property_id) {
 )~~~");
@@ -824,12 +824,12 @@ bool property_accepts_identifier(PropertyID property_id, ValueID identifier)
         property_generator.appendln("    case PropertyID::@name:titlecase@: {");
 
         if (auto maybe_valid_identifiers = object.get_array("valid-identifiers"sv); maybe_valid_identifiers.has_value() && !maybe_valid_identifiers->is_empty()) {
-            property_generator.appendln("        switch (identifier) {");
+            property_generator.appendln("        switch (keyword) {");
             auto& valid_identifiers = maybe_valid_identifiers.value();
-            for (auto& identifier : valid_identifiers.values()) {
-                auto identifier_generator = generator.fork();
-                identifier_generator.set("identifier:titlecase", title_casify(identifier.as_string()));
-                identifier_generator.appendln("        case ValueID::@identifier:titlecase@:");
+            for (auto& keyword : valid_identifiers.values()) {
+                auto keyword_generator = generator.fork();
+                keyword_generator.set("keyword:titlecase", title_casify(keyword.as_string()));
+                keyword_generator.appendln("        case Keyword::@keyword:titlecase@:");
             }
             property_generator.append(R"~~~(
             return true;
@@ -849,7 +849,7 @@ bool property_accepts_identifier(PropertyID property_id, ValueID identifier)
                 auto type_generator = generator.fork();
                 type_generator.set("type_name:snakecase", snake_casify(type_name));
                 type_generator.append(R"~~~(
-        if (value_id_to_@type_name:snakecase@(identifier).has_value())
+        if (keyword_to_@type_name:snakecase@(keyword).has_value())
             return true;
 )~~~");
             }

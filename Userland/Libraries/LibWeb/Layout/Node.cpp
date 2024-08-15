@@ -10,8 +10,8 @@
 #include <LibWeb/CSS/StyleValues/BackgroundRepeatStyleValue.h>
 #include <LibWeb/CSS/StyleValues/BackgroundSizeStyleValue.h>
 #include <LibWeb/CSS/StyleValues/BorderRadiusStyleValue.h>
+#include <LibWeb/CSS/StyleValues/CSSKeywordValue.h>
 #include <LibWeb/CSS/StyleValues/EdgeStyleValue.h>
-#include <LibWeb/CSS/StyleValues/IdentifierStyleValue.h>
 #include <LibWeb/CSS/StyleValues/IntegerStyleValue.h>
 #include <LibWeb/CSS/StyleValues/LengthStyleValue.h>
 #include <LibWeb/CSS/StyleValues/MathDepthStyleValue.h>
@@ -344,7 +344,7 @@ void NodeWithStyle::apply_style(const CSS::StyleProperties& computed_style)
                 return 1;
         };
 
-        auto value_for_layer = [](auto& style_value, size_t layer_index) -> RefPtr<CSS::StyleValue const> {
+        auto value_for_layer = [](auto& style_value, size_t layer_index) -> RefPtr<CSS::CSSStyleValue const> {
             if (style_value->is_value_list())
                 return style_value->as_value_list().value_at(layer_index, true);
             return style_value;
@@ -373,15 +373,15 @@ void NodeWithStyle::apply_style(const CSS::StyleProperties& computed_style)
                 }
             }
 
-            if (auto attachment_value = value_for_layer(attachments, layer_index); attachment_value && attachment_value->is_identifier()) {
-                switch (attachment_value->to_identifier()) {
-                case CSS::ValueID::Fixed:
+            if (auto attachment_value = value_for_layer(attachments, layer_index); attachment_value && attachment_value->is_keyword()) {
+                switch (attachment_value->to_keyword()) {
+                case CSS::Keyword::Fixed:
                     layer.attachment = CSS::BackgroundAttachment::Fixed;
                     break;
-                case CSS::ValueID::Local:
+                case CSS::Keyword::Local:
                     layer.attachment = CSS::BackgroundAttachment::Local;
                     break;
-                case CSS::ValueID::Scroll:
+                case CSS::Keyword::Scroll:
                     layer.attachment = CSS::BackgroundAttachment::Scroll;
                     break;
                 default:
@@ -389,27 +389,27 @@ void NodeWithStyle::apply_style(const CSS::StyleProperties& computed_style)
                 }
             }
 
-            auto as_box = [](auto value_id) {
-                switch (value_id) {
-                case CSS::ValueID::BorderBox:
+            auto as_box = [](auto keyword) {
+                switch (keyword) {
+                case CSS::Keyword::BorderBox:
                     return CSS::BackgroundBox::BorderBox;
-                case CSS::ValueID::ContentBox:
+                case CSS::Keyword::ContentBox:
                     return CSS::BackgroundBox::ContentBox;
-                case CSS::ValueID::PaddingBox:
+                case CSS::Keyword::PaddingBox:
                     return CSS::BackgroundBox::PaddingBox;
-                case CSS::ValueID::Text:
+                case CSS::Keyword::Text:
                     return CSS::BackgroundBox::Text;
                 default:
                     VERIFY_NOT_REACHED();
                 }
             };
 
-            if (auto origin_value = value_for_layer(origins, layer_index); origin_value && origin_value->is_identifier()) {
-                layer.origin = as_box(origin_value->to_identifier());
+            if (auto origin_value = value_for_layer(origins, layer_index); origin_value && origin_value->is_keyword()) {
+                layer.origin = as_box(origin_value->to_keyword());
             }
 
-            if (auto clip_value = value_for_layer(clips, layer_index); clip_value && clip_value->is_identifier()) {
-                layer.clip = as_box(clip_value->to_identifier());
+            if (auto clip_value = value_for_layer(clips, layer_index); clip_value && clip_value->is_keyword()) {
+                layer.clip = as_box(clip_value->to_keyword());
             }
 
             if (auto position_value = value_for_layer(x_positions, layer_index); position_value && position_value->is_edge()) {
@@ -430,12 +430,12 @@ void NodeWithStyle::apply_style(const CSS::StyleProperties& computed_style)
                     layer.size_type = CSS::BackgroundSize::LengthPercentage;
                     layer.size_x = size.size_x();
                     layer.size_y = size.size_y();
-                } else if (size_value->is_identifier()) {
-                    switch (size_value->to_identifier()) {
-                    case CSS::ValueID::Contain:
+                } else if (size_value->is_keyword()) {
+                    switch (size_value->to_keyword()) {
+                    case CSS::Keyword::Contain:
                         layer.size_type = CSS::BackgroundSize::Contain;
                         break;
-                    case CSS::ValueID::Cover:
+                    case CSS::Keyword::Cover:
                         layer.size_type = CSS::BackgroundSize::Cover;
                         break;
                     default:
@@ -720,14 +720,14 @@ void NodeWithStyle::apply_style(const CSS::StyleProperties& computed_style)
                     return max(CSSPixels { 0 }, value->as_calculated().resolve_length(*this)->to_px(*this));
                 if (value->is_length())
                     return value->as_length().length().to_px(*this);
-                if (value->is_identifier()) {
+                if (value->is_keyword()) {
                     // https://www.w3.org/TR/css-backgrounds-3/#valdef-line-width-thin
-                    switch (value->to_identifier()) {
-                    case CSS::ValueID::Thin:
+                    switch (value->to_keyword()) {
+                    case CSS::Keyword::Thin:
                         return 1;
-                    case CSS::ValueID::Medium:
+                    case CSS::Keyword::Medium:
                         return 3;
-                    case CSS::ValueID::Thick:
+                    case CSS::Keyword::Thick:
                         return 5;
                     default:
                         VERIFY_NOT_REACHED();
@@ -843,22 +843,22 @@ void NodeWithStyle::apply_style(const CSS::StyleProperties& computed_style)
     if (aspect_ratio->is_value_list()) {
         auto& values_list = aspect_ratio->as_value_list().values();
         if (values_list.size() == 2
-            && values_list[0]->is_identifier() && values_list[0]->as_identifier().id() == CSS::ValueID::Auto
+            && values_list[0]->is_keyword() && values_list[0]->as_keyword().keyword() == CSS::Keyword::Auto
             && values_list[1]->is_ratio()) {
             computed_values.set_aspect_ratio({ true, values_list[1]->as_ratio().ratio() });
         }
-    } else if (aspect_ratio->is_identifier() && aspect_ratio->as_identifier().id() == CSS::ValueID::Auto) {
+    } else if (aspect_ratio->is_keyword() && aspect_ratio->as_keyword().keyword() == CSS::Keyword::Auto) {
         computed_values.set_aspect_ratio({ true, {} });
     } else if (aspect_ratio->is_ratio()) {
         computed_values.set_aspect_ratio({ false, aspect_ratio->as_ratio().ratio() });
     }
 
     auto math_shift_value = computed_style.property(CSS::PropertyID::MathShift);
-    if (auto math_shift = value_id_to_math_shift(math_shift_value->to_identifier()); math_shift.has_value())
+    if (auto math_shift = keyword_to_math_shift(math_shift_value->to_keyword()); math_shift.has_value())
         computed_values.set_math_shift(math_shift.value());
 
     auto math_style_value = computed_style.property(CSS::PropertyID::MathStyle);
-    if (auto math_style = value_id_to_math_style(math_style_value->to_identifier()); math_style.has_value())
+    if (auto math_style = keyword_to_math_style(math_style_value->to_keyword()); math_style.has_value())
         computed_values.set_math_style(math_style.value());
 
     computed_values.set_math_depth(computed_style.math_depth());
