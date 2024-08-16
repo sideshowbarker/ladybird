@@ -662,6 +662,11 @@ struct UnderlyingSink;
 struct UnderlyingSource;
 }
 
+namespace Web::StorageAPI {
+class NavigatorStorage;
+class StorageManager;
+}
+
 namespace Web::SVG {
 class SVGAnimatedLength;
 class SVGAnimatedRect;
