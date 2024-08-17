@@ -279,6 +279,7 @@ SVGDescElement
 SVGElement
 SVGEllipseElement
 SVGForeignObjectElement
+SVGGElement
 SVGGeometryElement
 SVGGradientElement
 SVGGraphicsElement
@@ -287,6 +288,7 @@ SVGLineElement
 SVGLinearGradientElement
 SVGMaskElement
 SVGMatrix
+SVGMetadataElement
 SVGPathElement
 SVGPoint
 SVGPolygonElement

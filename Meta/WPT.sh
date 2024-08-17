@@ -8,10 +8,19 @@ LADYBIRD_SOURCE_DIR="$(realpath "${DIR}"/..)"
 WPT_SOURCE_DIR=${WPT_SOURCE_DIR:-"${LADYBIRD_SOURCE_DIR}/Tests/LibWeb/WPT/wpt"}
 WPT_REPOSITORY_URL=${WPT_REPOSITORY_URL:-"https://github.com/web-platform-tests/wpt.git"}
 
-LADYBIRD_BINARY=${LADYBIRD_BINARY:-"${LADYBIRD_SOURCE_DIR}/Build/ladybird/bin/Ladybird"}
-WEBDRIVER_BINARY=${WEBDRIVER_BINARY:-"${LADYBIRD_SOURCE_DIR}/Build/ladybird/bin/WebDriver"}
+# shellcheck source=/dev/null
+. "${DIR}/shell_include.sh"
 
-WPT_PROCESSES=${WPT_PROCESSES:-$(nproc)}
+default_binary_path() {
+    if [ "$(uname -s)" = "Darwin" ]; then
+        echo "${LADYBIRD_SOURCE_DIR}/Build/ladybird/bin/Ladybird.app/Contents/MacOS/"
+    else
+        echo "${LADYBIRD_SOURCE_DIR}/Build/ladybird/bin/"
+    fi
+}
+LADYBIRD_BINARY=${LADYBIRD_BINARY:-"$(default_binary_path)/Ladybird"}
+WEBDRIVER_BINARY=${WEBDRIVER_BINARY:-"$(default_binary_path)/WebDriver"}
+WPT_PROCESSES=${WPT_PROCESSES:-$(get_number_of_processing_units)}
 WPT_CERTIFICATES=(
   "tools/certs/cacert.pem"
   "${LADYBIRD_SOURCE_DIR}/Build/ladybird/Lagom/cacert.pem"
@@ -75,9 +84,6 @@ if [ "$ARG" = "--log" ]; then
 fi
 TEST_LIST=( "$@" )
 
-# shellcheck source=/dev/null
-. "${DIR}/shell_include.sh"
-
 exit_if_running_as_root "Do not run WPT.sh as root"
 
 ensure_wpt_repository() {
@@ -85,6 +91,12 @@ ensure_wpt_repository() {
     pushd "${WPT_SOURCE_DIR}" > /dev/null
         if [ ! -d .git ]; then
             git clone --depth 1 "${WPT_REPOSITORY_URL}" "${WPT_SOURCE_DIR}"
+        fi
+
+        # Update hosts file if needed
+        if [ "$(comm -13 <(sort -u /etc/hosts) <(./wpt make-hosts-file | sort -u) | wc -l)" -gt 0 ]; then
+            echo "Enter superuser password to append wpt hosts to /etc/hosts"
+            ./wpt make-hosts-file | sudo tee -a /etc/hosts
         fi
     popd > /dev/null
 }
@@ -109,7 +121,7 @@ execute_wpt() {
             fi
             WPT_ARGS+=( "--webdriver-arg=--certificate=${certificate_path}" )
         done
-        QT_QPA_PLATFORM="minimal" ./wpt run "${WPT_ARGS[@]}" ladybird "${TEST_LIST[@]}"
+        QT_QPA_PLATFORM="offscreen" ./wpt run "${WPT_ARGS[@]}" ladybird "${TEST_LIST[@]}"
     popd > /dev/null
 }
 
