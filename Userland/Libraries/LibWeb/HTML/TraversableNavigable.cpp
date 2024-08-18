@@ -619,11 +619,11 @@ TraversableNavigable::HistoryStepResult TraversableNavigable::apply_the_history_
                 //    targetSnapshotParams, with allowPOST set to allowPOST and completionSteps set to queue a global task on the navigation and traversal task source given
                 //    navigable's active window to run afterDocumentPopulated.
                 Platform::EventLoopPlugin::the().deferred_invoke([populated_target_entry, potentially_target_specific_source_snapshot_params, target_snapshot_params, this, allow_POST, navigable, after_document_populated = JS::create_heap_function(this->heap(), move(after_document_populated))] {
-                    navigable->populate_session_history_entry_document(populated_target_entry, *potentially_target_specific_source_snapshot_params, target_snapshot_params, {}, Empty {}, CSPNavigationType::Other, allow_POST, [this, after_document_populated, populated_target_entry]() mutable {
+                    navigable->populate_session_history_entry_document(populated_target_entry, *potentially_target_specific_source_snapshot_params, target_snapshot_params, {}, Empty {}, CSPNavigationType::Other, allow_POST, JS::create_heap_function(this->heap(), [this, after_document_populated, populated_target_entry]() mutable {
                                  queue_global_task(Task::Source::NavigationAndTraversal, *active_window(), JS::create_heap_function(this->heap(), [after_document_populated, populated_target_entry]() mutable {
                                      after_document_populated->function()(true, populated_target_entry);
                                  }));
-                             })
+                             }))
                         .release_value_but_fixme_should_propagate_errors();
                 });
             }
@@ -971,7 +971,7 @@ void TraversableNavigable::traverse_the_history_by_delta(int delta, Optional<DOM
     }
 
     // 4. Append the following session history traversal steps to traversable:
-    append_session_history_traversal_steps([this, delta, source_snapshot_params = move(source_snapshot_params), initiator_to_check, user_involvement] {
+    append_session_history_traversal_steps(JS::create_heap_function(heap(), [this, delta, source_snapshot_params = move(source_snapshot_params), initiator_to_check, user_involvement] {
         // 1. Let allSteps be the result of getting all used history steps for traversable.
         auto all_steps = get_all_used_history_steps();
 
@@ -989,7 +989,7 @@ void TraversableNavigable::traverse_the_history_by_delta(int delta, Optional<DOM
         // 5. Apply the traverse history step allSteps[targetStepIndex] to traversable, given sourceSnapshotParams,
         //    initiatorToCheck, and userInvolvement.
         apply_the_traverse_history_step(all_steps[target_step_index], source_snapshot_params, initiator_to_check, user_involvement);
-    });
+    }));
 }
 
 // https://html.spec.whatwg.org/multipage/browsing-the-web.html#update-for-navigable-creation/destruction
