@@ -74,9 +74,25 @@ private:
 
 class Value {
 public:
-    Value()
+    explicit Value(ValueType type)
         : m_value(u128())
     {
+        switch (type.kind()) {
+        case ValueType::I32:
+        case ValueType::I64:
+        case ValueType::F32:
+        case ValueType::F64:
+        case ValueType::V128:
+            break;
+        case ValueType::FunctionReference:
+            // ref.null funcref
+            m_value = u128(0, 2);
+            break;
+        case ValueType::ExternReference:
+            // ref.null externref
+            m_value = u128(0, 3);
+            break;
+        }
     }
 
     template<typename T>
@@ -392,6 +408,9 @@ public:
             return false;
         for (size_t i = previous_size; i < m_elements.size(); ++i)
             m_elements[i] = fill_value;
+
+        m_type = TableType { m_type.element_type(), Limits(m_type.limits().min() + size_to_grow, m_type.limits().max()) };
+
         return true;
     }
 
