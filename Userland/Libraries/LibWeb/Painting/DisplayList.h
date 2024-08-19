@@ -29,6 +29,7 @@
 #include <LibWeb/Painting/Command.h>
 #include <LibWeb/Painting/GradientData.h>
 #include <LibWeb/Painting/PaintBoxShadowParams.h>
+#include <LibWeb/Painting/ScrollFrame.h>
 
 namespace Web::Painting {
 
@@ -71,6 +72,7 @@ private:
     virtual void add_rounded_rect_clip(AddRoundedRectClip const&) = 0;
     virtual void add_mask(AddMask const&) = 0;
     virtual void paint_nested_display_list(PaintNestedDisplayList const&) = 0;
+    virtual void paint_scrollbar(PaintScrollBar const&) = 0;
     virtual bool would_be_fully_clipped_by_painter(Gfx::IntRect) const = 0;
 };
 
@@ -83,8 +85,6 @@ public:
 
     void append(Command&& command, Optional<i32> scroll_frame_id);
 
-    void apply_scroll_offsets(Vector<Gfx::IntPoint> const& offsets_by_frame_id);
-
     struct CommandListItem {
         Optional<i32> scroll_frame_id;
         Command command;
@@ -92,10 +92,19 @@ public:
 
     AK::SegmentedVector<CommandListItem, 512> const& commands() const { return m_commands; }
 
+    void set_scroll_state(Vector<RefPtr<ScrollFrame>> scroll_state) { m_scroll_state = move(scroll_state); }
+
+    Vector<RefPtr<ScrollFrame>> const& scroll_state() const { return m_scroll_state; }
+
+    void set_device_pixels_per_css_pixel(double device_pixels_per_css_pixel) { m_device_pixels_per_css_pixel = device_pixels_per_css_pixel; }
+    double device_pixels_per_css_pixel() const { return m_device_pixels_per_css_pixel; }
+
 private:
     DisplayList() = default;
 
     AK::SegmentedVector<CommandListItem, 512> m_commands;
+    Vector<RefPtr<ScrollFrame>> m_scroll_state;
+    double m_device_pixels_per_css_pixel;
 };
 
 }

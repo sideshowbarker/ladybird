@@ -66,13 +66,9 @@ void ViewportPaintable::paint_all_phases(PaintContext& context)
 
 void ViewportPaintable::assign_scroll_frames()
 {
-    auto viewport_scroll_frame = adopt_ref(*new ScrollFrame());
-    viewport_scroll_frame->id = 0;
-    scroll_state.set(this, move(viewport_scroll_frame));
-
-    int next_id = 1;
-    for_each_in_subtree_of_type<PaintableBox>([&](auto& paintable_box) {
-        if (paintable_box.has_scrollable_overflow()) {
+    int next_id = 0;
+    for_each_in_inclusive_subtree_of_type<PaintableBox>([&](auto& paintable_box) {
+        if (paintable_box.has_scrollable_overflow() || is<ViewportPaintable>(paintable_box)) {
             auto scroll_frame = adopt_ref(*new ScrollFrame());
             scroll_frame->id = next_id++;
             paintable_box.set_own_scroll_frame(scroll_frame);
@@ -166,14 +162,15 @@ void ViewportPaintable::refresh_scroll_state()
     for (auto& it : scroll_state) {
         auto const& paintable_box = *it.key;
         auto& scroll_frame = *it.value;
-        CSSPixelPoint offset;
+        CSSPixelPoint cumulative_offset;
         for (auto const* block = &paintable_box.layout_box(); block; block = block->containing_block()) {
             auto const& block_paintable_box = *block->paintable_box();
-            offset.translate_by(block_paintable_box.scroll_offset());
+            cumulative_offset.translate_by(block_paintable_box.scroll_offset());
             if (block->is_fixed_position())
                 break;
         }
-        scroll_frame.offset = -offset;
+        scroll_frame.cumulative_offset = -cumulative_offset;
+        scroll_frame.own_offset = -paintable_box.scroll_offset();
     }
 }
 

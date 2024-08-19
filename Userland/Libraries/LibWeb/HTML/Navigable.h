@@ -22,6 +22,7 @@
 #include <LibWeb/HTML/StructuredSerialize.h>
 #include <LibWeb/HTML/TokenizedFeatures.h>
 #include <LibWeb/Page/EventHandler.h>
+#include <LibWeb/Painting/DisplayList.h>
 #include <LibWeb/PixelUnits.h>
 #include <LibWeb/XHR/FormDataEntry.h>
 
@@ -170,7 +171,6 @@ public:
     void perform_scroll_of_viewport(CSSPixelPoint position);
 
     void set_needs_display();
-    void set_needs_display(CSSPixelRect const&);
 
     void set_is_popup(TokenizedFeature::Popup is_popup) { m_is_popup = is_popup; }
 
@@ -178,16 +178,6 @@ public:
     [[nodiscard]] bool has_a_rendering_opportunity() const;
 
     [[nodiscard]] TargetSnapshotParams snapshot_target_snapshot_params();
-
-    [[nodiscard]] bool needs_repaint() const { return m_needs_repaint; }
-
-    struct PaintConfig {
-        bool paint_overlay { false };
-        bool should_show_line_box_borders { false };
-        bool has_focus { false };
-        Optional<Gfx::IntRect> canvas_fill_rect {};
-    };
-    RefPtr<Painting::DisplayList> record_display_list(PaintConfig);
 
     Page& page() { return m_page; }
     Page const& page() const { return m_page; }
@@ -244,8 +234,6 @@ private:
 
     CSSPixelSize m_size;
     CSSPixelPoint m_viewport_scroll_offset;
-
-    bool m_needs_repaint { false };
 
     Web::EventHandler m_event_handler;
 };

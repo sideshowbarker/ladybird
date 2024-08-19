@@ -24,28 +24,39 @@ static Optional<Gfx::IntRect> command_bounding_rectangle(Command const& command)
         });
 }
 
-void DisplayList::apply_scroll_offsets(Vector<Gfx::IntPoint> const& offsets_by_frame_id)
-{
-    for (auto& command_with_scroll_id : m_commands) {
-        if (command_with_scroll_id.scroll_frame_id.has_value()) {
-            auto const& scroll_frame_id = command_with_scroll_id.scroll_frame_id.value();
-            auto const& scroll_offset = offsets_by_frame_id[scroll_frame_id];
-            command_with_scroll_id.command.visit(
-                [&](auto& command) {
-                    if constexpr (requires { command.translate_by(scroll_offset); })
-                        command.translate_by(scroll_offset);
-                });
-        }
-    }
-}
-
 void DisplayListPlayer::execute(DisplayList& display_list)
 {
     auto const& commands = display_list.commands();
+    auto const& scroll_state = display_list.scroll_state();
+    auto device_pixels_per_css_pixel = display_list.device_pixels_per_css_pixel();
 
     size_t next_command_index = 0;
     while (next_command_index < commands.size()) {
-        auto const& command = commands[next_command_index++].command;
+        auto scroll_frame_id = commands[next_command_index].scroll_frame_id;
+        auto command = commands[next_command_index++].command;
+
+        if (command.has<PaintScrollBar>()) {
+            auto& paint_scroll_bar = command.get<PaintScrollBar>();
+            auto const& scroll_offset = scroll_state[paint_scroll_bar.scroll_frame_id]->own_offset;
+            if (paint_scroll_bar.vertical) {
+                auto offset = scroll_offset.y() * paint_scroll_bar.scroll_size;
+                paint_scroll_bar.rect.translate_by(0, -offset.to_int() * device_pixels_per_css_pixel);
+            } else {
+                auto offset = scroll_offset.x() * paint_scroll_bar.scroll_size;
+                paint_scroll_bar.rect.translate_by(-offset.to_int() * device_pixels_per_css_pixel, 0);
+            }
+        }
+
+        if (scroll_frame_id.has_value()) {
+            auto const& scroll_offset = scroll_state[scroll_frame_id.value()]->cumulative_offset.to_type<double>().scaled(device_pixels_per_css_pixel).to_type<int>();
+            command.visit(
+                [&](auto& command) {
+                    if constexpr (requires { command.translate_by(scroll_offset); }) {
+                        command.translate_by(scroll_offset);
+                    }
+                });
+        }
+
         auto bounding_rect = command_bounding_rectangle(command);
         if (bounding_rect.has_value() && (bounding_rect->is_empty() || would_be_fully_clipped_by_painter(*bounding_rect))) {
             continue;
@@ -86,6 +97,7 @@ void DisplayListPlayer::execute(DisplayList& display_list)
         else HANDLE_COMMAND(DrawTriangleWave, draw_triangle_wave)
         else HANDLE_COMMAND(AddRoundedRectClip, add_rounded_rect_clip)
         else HANDLE_COMMAND(AddMask, add_mask)
+        else HANDLE_COMMAND(PaintScrollBar, paint_scrollbar)
         else HANDLE_COMMAND(PaintNestedDisplayList, paint_nested_display_list)
         else VERIFY_NOT_REACHED();
         // clang-format on
