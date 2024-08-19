@@ -275,6 +275,8 @@ set(SOURCES
     HTML/CustomElements/CustomElementReactionNames.cpp
     HTML/CustomElements/CustomElementRegistry.cpp
     HTML/DataTransfer.cpp
+    HTML/DataTransferItem.cpp
+    HTML/DataTransferItemList.cpp
     HTML/Dates.cpp
     HTML/DecodedImageData.cpp
     HTML/DedicatedWorkerGlobalScope.cpp
@@ -282,6 +284,7 @@ set(SOURCES
     HTML/DOMParser.cpp
     HTML/DOMStringList.cpp
     HTML/DOMStringMap.cpp
+    HTML/DragDataStore.cpp
     HTML/DragEvent.cpp
     HTML/ElementInternals.cpp
     HTML/EmbedderPolicy.cpp
@@ -540,6 +543,7 @@ set(SOURCES
     NavigationTiming/EntryNames.cpp
     NavigationTiming/PerformanceNavigation.cpp
     NavigationTiming/PerformanceTiming.cpp
+    Page/DragAndDropEventHandler.cpp
     Page/EditEventHandler.cpp
     Page/EventHandler.cpp
     Page/InputEvent.cpp
@@ -773,9 +777,15 @@ set(GENERATED_SOURCES
 
 serenity_lib(LibWeb web)
 
-target_link_libraries(LibWeb PRIVATE LibCore LibCrypto LibJS LibHTTP LibGfx LibIPC LibRegex LibSyntax LibTextCodec LibUnicode LibAudio LibMedia LibWasm LibXML LibIDL LibURL LibTLS ${SKIA_LIBRARIES})
+target_link_libraries(LibWeb PRIVATE LibCore LibCrypto LibJS LibHTTP LibGfx LibIPC LibRegex LibSyntax LibTextCodec LibUnicode LibAudio LibMedia LibWasm LibXML LibIDL LibURL LibTLS LibRequests ${SKIA_LIBRARIES})
 
 generate_js_bindings(LibWeb)
 
-# Note: If you're looking for the calls to "libweb_js_bindings()",
-# they have been moved to "idl_files.cmake"
+if (ENABLE_SWIFT)
+    set(generated_headers ${GENERATED_SOURCES})
+    list(FILTER generated_headers INCLUDE REGEX "\\.h$")
+    list(TRANSFORM generated_headers PREPEND "${CMAKE_CURRENT_BINARY_DIR}/")
+    list(APPEND LIBWEB_ALL_GENERATED_HEADERS ${generated_headers})
+
+    generate_clang_module_map(LibWeb GENERATED_FILES ${LIBWEB_ALL_GENERATED_HEADERS})
+endif()

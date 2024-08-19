@@ -74,6 +74,8 @@ DOMStringList
 DOMStringMap
 DOMTokenList
 DataTransfer
+DataTransferItem
+DataTransferItemList
 DataView
 Date
 DisposableStack

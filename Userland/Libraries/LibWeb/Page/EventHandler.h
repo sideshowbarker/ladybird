@@ -13,7 +13,7 @@
 #include <LibJS/Heap/Cell.h>
 #include <LibJS/Heap/GCPtr.h>
 #include <LibWeb/Forward.h>
-#include <LibWeb/Page/EditEventHandler.h>
+#include <LibWeb/Page/InputEvent.h>
 #include <LibWeb/PixelUnits.h>
 #include <LibWeb/UIEvents/KeyCode.h>
 
@@ -30,12 +30,12 @@ public:
     bool handle_mousewheel(CSSPixelPoint, CSSPixelPoint screen_position, unsigned button, unsigned buttons, unsigned modifiers, int wheel_delta_x, int wheel_delta_y);
     bool handle_doubleclick(CSSPixelPoint, CSSPixelPoint screen_position, unsigned button, unsigned buttons, unsigned modifiers);
 
+    bool handle_drag_and_drop_event(DragEvent::Type, CSSPixelPoint, CSSPixelPoint screen_position, unsigned button, unsigned buttons, unsigned modifiers, Vector<HTML::SelectedFile> files);
+
     bool handle_keydown(UIEvents::KeyCode, unsigned modifiers, u32 code_point);
     bool handle_keyup(UIEvents::KeyCode, unsigned modifiers, u32 code_point);
 
     void set_mouse_event_tracking_paintable(Painting::Paintable*);
-
-    void set_edit_event_handler(NonnullOwnPtr<EditEventHandler> value) { m_edit_event_handler = move(value); }
 
     void handle_paste(String const& text);
 
@@ -59,6 +59,8 @@ private:
     Painting::PaintableBox* paint_root();
     Painting::PaintableBox const* paint_root() const;
 
+    bool should_ignore_device_input_event() const;
+
     JS::NonnullGCPtr<HTML::Navigable> m_navigable;
 
     bool m_in_mouse_selection { false };
@@ -66,6 +68,7 @@ private:
     JS::GCPtr<Painting::Paintable> m_mouse_event_tracking_paintable;
 
     NonnullOwnPtr<EditEventHandler> m_edit_event_handler;
+    NonnullOwnPtr<DragAndDropEventHandler> m_drag_and_drop_event_handler;
 
     WeakPtr<DOM::EventTarget> m_mousedown_target;
 

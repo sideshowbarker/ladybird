@@ -11,6 +11,7 @@
 #include <LibJS/Forward.h>
 
 namespace Web {
+class DragAndDropEventHandler;
 class EditEventHandler;
 class EventHandler;
 class LoadRequest;
@@ -324,6 +325,7 @@ struct Header;
 namespace Web::FileAPI {
 class Blob;
 class File;
+class FileList;
 }
 
 namespace Web::Geometry {
@@ -353,11 +355,15 @@ class CloseWatcher;
 class CloseWatcherManager;
 class CustomElementDefinition;
 class CustomElementRegistry;
+class DataTransfer;
+class DataTransferItem;
+class DataTransferItemList;
 class DecodedImageData;
 class DocumentState;
 class DOMParser;
 class DOMStringList;
 class DOMStringMap;
+class DragDataStore;
 class DragEvent;
 class ElementInternals;
 struct EmbedderPolicy;
