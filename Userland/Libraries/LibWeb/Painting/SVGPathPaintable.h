@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <LibGfx/Path.h>
 #include <LibWeb/Layout/SVGGraphicsBox.h>
 #include <LibWeb/Painting/SVGGraphicsPaintable.h>
 

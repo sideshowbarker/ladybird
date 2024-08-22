@@ -8,6 +8,8 @@
 
 #include <LibJS/Forward.h>
 #include <LibWeb/Bindings/PlatformObject.h>
+#include <LibWeb/WebIDL/ExceptionOr.h>
+#include <LibWeb/WebIDL/Types.h>
 
 namespace Web::HTML {
 
@@ -17,13 +19,23 @@ class DataTransferItemList : public Bindings::PlatformObject {
     JS_DECLARE_ALLOCATOR(DataTransferItemList);
 
 public:
-    static JS::NonnullGCPtr<DataTransferItemList> construct_impl(JS::Realm&);
+    static JS::NonnullGCPtr<DataTransferItemList> create(JS::Realm&, JS::NonnullGCPtr<DataTransfer>);
     virtual ~DataTransferItemList() override;
 
+    WebIDL::UnsignedLong length() const;
+
+    WebIDL::ExceptionOr<JS::GCPtr<DataTransferItem>> add(String const& data, String const& type);
+    JS::GCPtr<DataTransferItem> add(JS::NonnullGCPtr<FileAPI::File>);
+
 private:
-    DataTransferItemList(JS::Realm&);
+    DataTransferItemList(JS::Realm&, JS::NonnullGCPtr<DataTransfer>);
 
     virtual void initialize(JS::Realm&) override;
+    virtual void visit_edges(JS::Cell::Visitor&) override;
+
+    virtual Optional<JS::Value> item_value(size_t index) const override;
+
+    JS::NonnullGCPtr<DataTransfer> m_data_transfer;
 };
 
 }

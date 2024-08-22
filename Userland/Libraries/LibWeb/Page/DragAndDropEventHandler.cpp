@@ -51,7 +51,7 @@ bool DragAndDropEventHandler::handle_drag_start(
 
     // 2. Create a drag data store. All the DND events fired subsequently by the steps in this section must use this drag
     //    data store.
-    m_drag_data_store.emplace();
+    m_drag_data_store = HTML::DragDataStore::create();
 
     // 3. Establish which DOM node is the source node, as follows:
     //
@@ -185,7 +185,7 @@ bool DragAndDropEventHandler::handle_drag_move(
     unsigned buttons,
     unsigned modifiers)
 {
-    if (!m_drag_data_store.has_value())
+    if (!has_ongoing_drag_and_drop_operation())
         return false;
 
     auto fire_a_drag_and_drop_event = [&](JS::GCPtr<DOM::EventTarget> target, FlyString const& name, JS::GCPtr<DOM::EventTarget> related_target = nullptr) {
@@ -361,7 +361,7 @@ bool DragAndDropEventHandler::handle_drag_end(
     unsigned buttons,
     unsigned modifiers)
 {
-    if (!m_drag_data_store.has_value())
+    if (!has_ongoing_drag_and_drop_operation())
         return false;
 
     auto fire_a_drag_and_drop_event = [&](JS::GCPtr<DOM::EventTarget> target, FlyString const& name, JS::GCPtr<DOM::EventTarget> related_target = nullptr) {
@@ -506,8 +506,7 @@ JS::NonnullGCPtr<HTML::DragEvent> DragAndDropEventHandler::fire_a_drag_and_drop_
     }
 
     // 6. Let dataTransfer be a newly created DataTransfer object associated with the given drag data store.
-    auto data_transfer = HTML::DataTransfer::construct_impl(realm);
-    data_transfer->associate_with_drag_data_store(*m_drag_data_store);
+    auto data_transfer = HTML::DataTransfer::create(realm, *m_drag_data_store);
 
     // 7. Set the effectAllowed attribute to the drag data store's drag data store allowed effects state.
     data_transfer->set_effect_allowed_internal(m_drag_data_store->allowed_effects_state());

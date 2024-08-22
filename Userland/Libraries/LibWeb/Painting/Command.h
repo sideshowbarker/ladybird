@@ -18,6 +18,7 @@
 #include <LibGfx/ImmutableBitmap.h>
 #include <LibGfx/PaintStyle.h>
 #include <LibGfx/Palette.h>
+#include <LibGfx/Path.h>
 #include <LibGfx/Point.h>
 #include <LibGfx/Rect.h>
 #include <LibGfx/ScalingMode.h>
@@ -118,6 +119,7 @@ struct PushStackingContext {
     Gfx::IntPoint post_transform_translation;
     StackingContextTransform transform;
     Optional<StackingContextMask> mask = {};
+    Optional<Gfx::Path> clip_path = {};
 
     void translate_by(Gfx::IntPoint const& offset)
     {

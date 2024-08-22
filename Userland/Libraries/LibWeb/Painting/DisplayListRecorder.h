@@ -18,6 +18,7 @@
 #include <LibGfx/ImmutableBitmap.h>
 #include <LibGfx/PaintStyle.h>
 #include <LibGfx/Palette.h>
+#include <LibGfx/Path.h>
 #include <LibGfx/Point.h>
 #include <LibGfx/Rect.h>
 #include <LibGfx/ScalingMode.h>
@@ -122,6 +123,7 @@ public:
         Gfx::IntRect source_paintable_rect;
         StackingContextTransform transform;
         Optional<StackingContextMask> mask = {};
+        Optional<Gfx::Path> clip_path = {};
     };
     void push_stacking_context(PushStackingContextParams params);
     void pop_stacking_context();
@@ -137,7 +139,7 @@ public:
     void paint_inner_box_shadow_params(PaintBoxShadowParams params);
     void paint_text_shadow(int blur_radius, Gfx::IntRect bounding_rect, Gfx::IntRect text_rect, Gfx::GlyphRun const&, double glyph_run_scale, Color color, Gfx::IntPoint draw_location);
 
-    void fill_rect_with_rounded_corners(Gfx::IntRect const& rect, Color color, Gfx::AntiAliasingPainter::CornerRadius top_left_radius, Gfx::AntiAliasingPainter::CornerRadius top_right_radius, Gfx::AntiAliasingPainter::CornerRadius bottom_right_radius, Gfx::AntiAliasingPainter::CornerRadius bottom_left_radius);
+    void fill_rect_with_rounded_corners(Gfx::IntRect const& rect, Color color, Gfx::CornerRadius top_left_radius, Gfx::CornerRadius top_right_radius, Gfx::CornerRadius bottom_right_radius, Gfx::CornerRadius bottom_left_radius);
     void fill_rect_with_rounded_corners(Gfx::IntRect const& a_rect, Color color, int radius);
     void fill_rect_with_rounded_corners(Gfx::IntRect const& a_rect, Color color, int top_left_radius, int top_right_radius, int bottom_right_radius, int bottom_left_radius);
 

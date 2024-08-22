@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, Andreas Kling <kling@serenityos.org>
+ * Copyright (c) 2020-2024, Andreas Kling <andreas@ladybird.org>
  * Copyright (c) 2021-2022, Linus Groh <linusg@serenityos.org>
  *
  * SPDX-License-Identifier: BSD-2-Clause
@@ -10,11 +10,10 @@
 #include <AK/String.h>
 #include <AK/Variant.h>
 #include <LibGfx/AffineTransform.h>
-#include <LibGfx/AntiAliasingPainter.h>
 #include <LibGfx/Color.h>
 #include <LibGfx/Forward.h>
+#include <LibGfx/Painter.h>
 #include <LibGfx/Path.h>
-#include <LibGfx/PathClipper.h>
 #include <LibWeb/Bindings/PlatformObject.h>
 #include <LibWeb/HTML/Canvas/CanvasCompositing.h>
 #include <LibWeb/HTML/Canvas/CanvasDrawImage.h>
@@ -99,11 +98,16 @@ public:
     HTMLCanvasElement& canvas_element();
     HTMLCanvasElement const& canvas_element() const;
 
+    [[nodiscard]] Gfx::Painter* painter();
+
 private:
     explicit CanvasRenderingContext2D(JS::Realm&, HTMLCanvasElement&);
 
     virtual void initialize(JS::Realm&) override;
     virtual void visit_edges(Cell::Visitor&) override;
+
+    virtual Gfx::Painter* painter_for_canvas_state() override { return painter(); }
+    virtual Gfx::Path& path_for_canvas_state() override { return path(); }
 
     struct PreparedTextGlyph {
         String glyph;
@@ -118,29 +122,12 @@ private:
 
     void did_draw(Gfx::FloatRect const&);
 
-    template<typename TDrawFunction>
-    void draw_clipped(TDrawFunction draw_function)
-    {
-        auto painter = this->antialiased_painter();
-        if (!painter.has_value())
-            return;
-        Gfx::ScopedPathClip clipper(painter->underlying_painter(), drawing_state().clip);
-        auto draw_rect = draw_function(*painter);
-        if (drawing_state().clip.has_value())
-            draw_rect.intersect(drawing_state().clip->path.bounding_box());
-        did_draw(draw_rect);
-    }
-
     RefPtr<Gfx::Font const> current_font();
 
     PreparedText prepare_text(ByteString const& text, float max_width = INFINITY);
 
-    Gfx::Painter* painter();
-    Optional<Gfx::AntiAliasingPainter> antialiased_painter();
-
-    Gfx::Path rect_path(float x, float y, float width, float height);
-
-    Gfx::Path text_path(StringView text, float x, float y, Optional<double> max_width);
+    [[nodiscard]] Gfx::Path rect_path(float x, float y, float width, float height);
+    [[nodiscard]] Gfx::Path text_path(StringView text, float x, float y, Optional<double> max_width);
 
     void stroke_internal(Gfx::Path const&);
     void fill_internal(Gfx::Path const&, Gfx::WindingRule);

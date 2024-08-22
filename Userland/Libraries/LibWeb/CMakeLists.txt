@@ -24,6 +24,7 @@ set(SOURCES
     Bindings/OptionConstructor.cpp
     Bindings/PlatformObject.cpp
     Clipboard/Clipboard.cpp
+    Clipboard/ClipboardEvent.cpp
     Crypto/Crypto.cpp
     Crypto/CryptoAlgorithms.cpp
     Crypto/CryptoBindings.cpp
@@ -108,12 +109,17 @@ set(SOURCES
     CSS/StyleValues/BasicShapeStyleValue.cpp
     CSS/StyleValues/BorderRadiusStyleValue.cpp
     CSS/StyleValues/CalculatedStyleValue.cpp
-    CSS/StyleValues/ColorStyleValue.cpp
     CSS/StyleValues/ConicGradientStyleValue.cpp
     CSS/StyleValues/ContentStyleValue.cpp
     CSS/StyleValues/CounterDefinitionsStyleValue.cpp
     CSS/StyleValues/CounterStyleValue.cpp
+    CSS/StyleValues/CSSColorValue.cpp
+    CSS/StyleValues/CSSHSL.cpp
+    CSS/StyleValues/CSSHWB.cpp
     CSS/StyleValues/CSSKeywordValue.cpp
+    CSS/StyleValues/CSSOKLab.cpp
+    CSS/StyleValues/CSSOKLCH.cpp
+    CSS/StyleValues/CSSRGB.cpp
     CSS/StyleValues/DisplayStyleValue.cpp
     CSS/StyleValues/EasingStyleValue.cpp
     CSS/StyleValues/EdgeStyleValue.cpp

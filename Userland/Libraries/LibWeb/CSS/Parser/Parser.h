@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2020-2021, the SerenityOS developers.
- * Copyright (c) 2021-2024, Sam Atkins <atkinssj@serenityos.org>
+ * Copyright (c) 2021-2024, Sam Atkins <sam@ladybird.org>
  *
  * SPDX-License-Identifier: BSD-2-Clause
  */
@@ -194,12 +194,6 @@ private:
     Optional<TimeOrCalculated> parse_time(TokenStream<ComponentValue>&);
     Optional<TimePercentage> parse_time_percentage(TokenStream<ComponentValue>&);
 
-    Optional<Color> parse_rgb_color(Vector<ComponentValue> const&);
-    Optional<Color> parse_hsl_color(Vector<ComponentValue> const&);
-    Optional<Color> parse_hwb_color(Vector<ComponentValue> const&);
-    Optional<Color> parse_oklab_color(Vector<ComponentValue> const&);
-    Optional<Color> parse_oklch_color(Vector<ComponentValue> const&);
-    Optional<Color> parse_color(TokenStream<ComponentValue>&);
     Optional<LengthOrCalculated> parse_source_size_value(TokenStream<ComponentValue>&);
     Optional<Ratio> parse_ratio(TokenStream<ComponentValue>&);
     Optional<Gfx::UnicodeRange> parse_unicode_range(TokenStream<ComponentValue>&);
@@ -238,11 +232,14 @@ private:
     // NOTE: Implemented in generated code. (GenerateCSSMathFunctions.cpp)
     OwnPtr<CalculationNode> parse_math_function(PropertyID, Function const&);
     OwnPtr<CalculationNode> parse_a_calc_function_node(Function const&);
-    RefPtr<CSSStyleValue> parse_dimension_value(TokenStream<ComponentValue>&);
-    RefPtr<CSSStyleValue> parse_integer_value(TokenStream<ComponentValue>&);
-    RefPtr<CSSStyleValue> parse_number_value(TokenStream<ComponentValue>&);
-    RefPtr<CSSStyleValue> parse_number_or_percentage_value(TokenStream<ComponentValue>&);
     RefPtr<CSSStyleValue> parse_keyword_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_hue_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_solidus_and_alpha_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_rgb_color_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_hsl_color_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_hwb_color_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_oklab_color_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_oklch_color_value(TokenStream<ComponentValue>&);
     RefPtr<CSSStyleValue> parse_color_value(TokenStream<ComponentValue>&);
     RefPtr<CSSStyleValue> parse_counter_value(TokenStream<ComponentValue>&);
     enum class AllowReversed {
@@ -262,6 +259,22 @@ private:
     RefPtr<PositionStyleValue> parse_position_value(TokenStream<ComponentValue>&, PositionParsingMode = PositionParsingMode::Normal);
     RefPtr<CSSStyleValue> parse_filter_value_list_value(TokenStream<ComponentValue>&);
 
+    RefPtr<CSSStyleValue> parse_dimension_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_angle_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_angle_percentage_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_flex_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_frequency_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_frequency_percentage_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_integer_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_length_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_length_percentage_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_number_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_number_percentage_value(TokenStream<ComponentValue>& tokens);
+    RefPtr<CSSStyleValue> parse_percentage_value(TokenStream<ComponentValue>& tokens);
+    RefPtr<CSSStyleValue> parse_resolution_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_time_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_time_percentage_value(TokenStream<ComponentValue>&);
+
     template<typename ParseFunction>
     RefPtr<CSSStyleValue> parse_comma_separated_value_list(TokenStream<ComponentValue>&, ParseFunction);
     RefPtr<CSSStyleValue> parse_simple_comma_separated_value_list(PropertyID, TokenStream<ComponentValue>&);
@@ -280,7 +293,7 @@ private:
     RefPtr<CSSStyleValue> parse_counter_reset_value(TokenStream<ComponentValue>&);
     RefPtr<CSSStyleValue> parse_counter_set_value(TokenStream<ComponentValue>&);
     RefPtr<CSSStyleValue> parse_display_value(TokenStream<ComponentValue>&);
-    RefPtr<CSSStyleValue> parse_flex_value(TokenStream<ComponentValue>&);
+    RefPtr<CSSStyleValue> parse_flex_shorthand_value(TokenStream<ComponentValue>&);
     RefPtr<CSSStyleValue> parse_flex_flow_value(TokenStream<ComponentValue>&);
     RefPtr<CSSStyleValue> parse_font_value(TokenStream<ComponentValue>&);
     RefPtr<CSSStyleValue> parse_font_family_value(TokenStream<ComponentValue>&);

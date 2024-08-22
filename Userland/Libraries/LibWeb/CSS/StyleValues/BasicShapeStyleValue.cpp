@@ -5,6 +5,7 @@
  */
 
 #include "BasicShapeStyleValue.h"
+#include <LibGfx/Path.h>
 
 namespace Web::CSS {
 

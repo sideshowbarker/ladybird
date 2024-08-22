@@ -10,6 +10,7 @@
 #include <AK/Debug.h>
 #include <LibGfx/BoundingBox.h>
 #include <LibGfx/Font/ScaledFont.h>
+#include <LibGfx/Path.h>
 #include <LibGfx/TextLayout.h>
 #include <LibWeb/Layout/BlockFormattingContext.h>
 #include <LibWeb/Layout/SVGClipBox.h>

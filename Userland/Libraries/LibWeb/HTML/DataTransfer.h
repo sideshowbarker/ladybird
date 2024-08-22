@@ -37,6 +37,7 @@ class DataTransfer : public Bindings::PlatformObject {
     JS_DECLARE_ALLOCATOR(DataTransfer);
 
 public:
+    static JS::NonnullGCPtr<DataTransfer> create(JS::Realm&, NonnullRefPtr<DragDataStore>);
     static JS::NonnullGCPtr<DataTransfer> construct_impl(JS::Realm&);
     virtual ~DataTransfer() override;
 
@@ -49,17 +50,26 @@ public:
     void set_effect_allowed(FlyString);
     void set_effect_allowed_internal(FlyString);
 
-    ReadonlySpan<String> types() const;
+    JS::NonnullGCPtr<DataTransferItemList> items();
 
+    ReadonlySpan<String> types() const;
+    String get_data(String const& format) const;
     JS::NonnullGCPtr<FileAPI::FileList> files() const;
 
-    void associate_with_drag_data_store(DragDataStore& drag_data_store);
+    Optional<DragDataStore::Mode> mode() const;
     void disassociate_with_drag_data_store();
 
+    JS::NonnullGCPtr<DataTransferItem> add_item(DragDataStoreItem item);
+    bool contains_item_with_type(DragDataStoreItem::Kind, String const& type) const;
+    JS::NonnullGCPtr<DataTransferItem> item(size_t index) const;
+    DragDataStoreItem const& drag_data(size_t index) const;
+    size_t length() const;
+
 private:
-    DataTransfer(JS::Realm&);
+    DataTransfer(JS::Realm&, NonnullRefPtr<DragDataStore>);
 
     virtual void initialize(JS::Realm&) override;
+    virtual void visit_edges(JS::Cell::Visitor&) override;
 
     void update_data_transfer_types_list();
 
@@ -69,11 +79,15 @@ private:
     // https://html.spec.whatwg.org/multipage/dnd.html#dom-datatransfer-effectallowed
     FlyString m_effect_allowed { DataTransferEffect::none };
 
+    // https://html.spec.whatwg.org/multipage/dnd.html#dom-datatransfer-items
+    JS::GCPtr<DataTransferItemList> m_items;
+    Vector<JS::NonnullGCPtr<DataTransferItem>> m_item_list;
+
     // https://html.spec.whatwg.org/multipage/dnd.html#concept-datatransfer-types
     Vector<String> m_types;
 
     // https://html.spec.whatwg.org/multipage/dnd.html#the-datatransfer-interface:drag-data-store-3
-    Optional<DragDataStore&> m_associated_drag_data_store;
+    RefPtr<DragDataStore> m_associated_drag_data_store;
 };
 
 }

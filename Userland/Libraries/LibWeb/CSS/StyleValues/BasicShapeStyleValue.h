@@ -7,7 +7,7 @@
 #pragma once
 
 #include <AK/Variant.h>
-#include <LibGfx/Path.h>
+#include <LibGfx/DeprecatedPath.h>
 #include <LibWeb/CSS/CSSStyleValue.h>
 #include <LibWeb/CSS/PercentageOr.h>
 

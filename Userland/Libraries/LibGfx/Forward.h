@@ -26,9 +26,11 @@ template<typename T>
 class Line;
 
 class AntiAliasingPainter;
+class DeprecatedPainter;
 class Painter;
 class Palette;
 class PaletteImpl;
+class DeprecatedPath;
 class Path;
 class ShareableBitmap;
 struct SystemTheme;

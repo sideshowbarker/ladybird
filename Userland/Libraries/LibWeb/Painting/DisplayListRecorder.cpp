@@ -62,7 +62,7 @@ void DisplayListRecorder::fill_path(FillPathUsingColorParams params)
         return;
     append(FillPathUsingColor {
         .path_bounding_rect = path_bounding_rect,
-        .path = params.path,
+        .path = move(params.path),
         .color = params.color,
         .winding_rule = params.winding_rule,
         .aa_translation = aa_translation,
@@ -77,7 +77,7 @@ void DisplayListRecorder::fill_path(FillPathUsingPaintStyleParams params)
         return;
     append(FillPathUsingPaintStyle {
         .path_bounding_rect = path_bounding_rect,
-        .path = params.path,
+        .path = move(params.path),
         .paint_style = params.paint_style,
         .winding_rule = params.winding_rule,
         .opacity = params.opacity,
@@ -95,7 +95,7 @@ void DisplayListRecorder::stroke_path(StrokePathUsingColorParams params)
         return;
     append(StrokePathUsingColor {
         .path_bounding_rect = path_bounding_rect,
-        .path = params.path,
+        .path = move(params.path),
         .color = params.color,
         .thickness = params.thickness,
         .aa_translation = aa_translation,
@@ -112,7 +112,7 @@ void DisplayListRecorder::stroke_path(StrokePathUsingPaintStyleParams params)
         return;
     append(StrokePathUsingPaintStyle {
         .path_bounding_rect = path_bounding_rect,
-        .path = params.path,
+        .path = move(params.path),
         .paint_style = params.paint_style,
         .thickness = params.thickness,
         .opacity = params.opacity,
@@ -239,7 +239,7 @@ void DisplayListRecorder::draw_text(Gfx::IntRect const& rect, String raw_text, G
         { 0, 0 }, raw_text.code_points(), font, [&](Gfx::DrawGlyphOrEmoji const& glyph_or_emoji) {
             glyph_run->append(glyph_or_emoji);
         },
-        Gfx::IncludeLeftBearing::No, glyph_run_width);
+        glyph_run_width);
 
     float baseline_x = 0;
     if (alignment == Gfx::TextAlignment::CenterLeft) {
@@ -314,7 +314,8 @@ void DisplayListRecorder::push_stacking_context(PushStackingContextParams params
             .origin = params.transform.origin,
             .matrix = params.transform.matrix,
         },
-        .mask = params.mask });
+        .mask = params.mask,
+        .clip_path = params.clip_path });
     m_state_stack.append(State());
 }
 
@@ -358,7 +359,7 @@ void DisplayListRecorder::paint_text_shadow(int blur_radius, Gfx::IntRect boundi
         .draw_location = state().translation.map(draw_location) });
 }
 
-void DisplayListRecorder::fill_rect_with_rounded_corners(Gfx::IntRect const& rect, Color color, Gfx::AntiAliasingPainter::CornerRadius top_left_radius, Gfx::AntiAliasingPainter::CornerRadius top_right_radius, Gfx::AntiAliasingPainter::CornerRadius bottom_right_radius, Gfx::AntiAliasingPainter::CornerRadius bottom_left_radius)
+void DisplayListRecorder::fill_rect_with_rounded_corners(Gfx::IntRect const& rect, Color color, Gfx::CornerRadius top_left_radius, Gfx::CornerRadius top_right_radius, Gfx::CornerRadius bottom_right_radius, Gfx::CornerRadius bottom_left_radius)
 {
     if (rect.is_empty())
         return;

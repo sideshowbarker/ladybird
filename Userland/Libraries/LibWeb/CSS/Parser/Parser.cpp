@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2018-2022, Andreas Kling <kling@serenityos.org>
  * Copyright (c) 2020-2021, the SerenityOS developers.
- * Copyright (c) 2021-2024, Sam Atkins <atkinssj@serenityos.org>
+ * Copyright (c) 2021-2024, Sam Atkins <sam@ladybird.org>
  * Copyright (c) 2021, Tobias Christiansen <tobyase@serenityos.org>
  * Copyright (c) 2022, MacDue <macdue@dueutil.tech>
  * Copyright (c) 2024, Shannon Booth <shannon@serenityos.org>
@@ -42,8 +42,13 @@
 #include <LibWeb/CSS/StyleValues/BackgroundSizeStyleValue.h>
 #include <LibWeb/CSS/StyleValues/BasicShapeStyleValue.h>
 #include <LibWeb/CSS/StyleValues/BorderRadiusStyleValue.h>
+#include <LibWeb/CSS/StyleValues/CSSColorValue.h>
+#include <LibWeb/CSS/StyleValues/CSSHSL.h>
+#include <LibWeb/CSS/StyleValues/CSSHWB.h>
 #include <LibWeb/CSS/StyleValues/CSSKeywordValue.h>
-#include <LibWeb/CSS/StyleValues/ColorStyleValue.h>
+#include <LibWeb/CSS/StyleValues/CSSOKLCH.h>
+#include <LibWeb/CSS/StyleValues/CSSOKLab.h>
+#include <LibWeb/CSS/StyleValues/CSSRGB.h>
 #include <LibWeb/CSS/StyleValues/ContentStyleValue.h>
 #include <LibWeb/CSS/StyleValues/CounterDefinitionsStyleValue.h>
 #include <LibWeb/CSS/StyleValues/CounterStyleValue.h>
@@ -2310,32 +2315,42 @@ Vector<Gfx::UnicodeRange> Parser::parse_unicode_ranges(TokenStream<ComponentValu
 
 RefPtr<CSSStyleValue> Parser::parse_dimension_value(TokenStream<ComponentValue>& tokens)
 {
-    auto dimension = parse_dimension(tokens.peek_token());
-    if (!dimension.has_value())
-        return nullptr;
-    (void)tokens.next_token(); // dimension
+    if (auto dimension = parse_dimension(tokens.peek_token()); dimension.has_value()) {
+        (void)tokens.next_token(); // dimension
 
-    if (dimension->is_angle())
-        return AngleStyleValue::create(dimension->angle());
-    if (dimension->is_frequency())
-        return FrequencyStyleValue::create(dimension->frequency());
-    if (dimension->is_length())
-        return LengthStyleValue::create(dimension->length());
-    if (dimension->is_percentage())
-        return PercentageStyleValue::create(dimension->percentage());
-    if (dimension->is_resolution())
-        return ResolutionStyleValue::create(dimension->resolution());
-    if (dimension->is_time())
-        return TimeStyleValue::create(dimension->time());
-    VERIFY_NOT_REACHED();
+        if (dimension->is_angle())
+            return AngleStyleValue::create(dimension->angle());
+        if (dimension->is_frequency())
+            return FrequencyStyleValue::create(dimension->frequency());
+        if (dimension->is_length())
+            return LengthStyleValue::create(dimension->length());
+        if (dimension->is_percentage())
+            return PercentageStyleValue::create(dimension->percentage());
+        if (dimension->is_resolution())
+            return ResolutionStyleValue::create(dimension->resolution());
+        if (dimension->is_time())
+            return TimeStyleValue::create(dimension->time());
+        VERIFY_NOT_REACHED();
+    }
+
+    if (auto calc = parse_calculated_value(tokens.peek_token()); calc && calc->resolves_to_dimension()) {
+        (void)tokens.next_token(); // calc
+        return calc;
+    }
+
+    return nullptr;
 }
 
 RefPtr<CSSStyleValue> Parser::parse_integer_value(TokenStream<ComponentValue>& tokens)
 {
     auto peek_token = tokens.peek_token();
     if (peek_token.is(Token::Type::Number) && peek_token.token().number().is_integer()) {
-        (void)tokens.next_token();
+        (void)tokens.next_token(); // integer
         return IntegerStyleValue::create(peek_token.token().number().integer_value());
+    }
+    if (auto calc = parse_calculated_value(peek_token); calc && calc->resolves_to_number()) {
+        (void)tokens.next_token(); // calc
+        return calc;
     }
 
     return nullptr;
@@ -2345,25 +2360,178 @@ RefPtr<CSSStyleValue> Parser::parse_number_value(TokenStream<ComponentValue>& to
 {
     auto peek_token = tokens.peek_token();
     if (peek_token.is(Token::Type::Number)) {
-        (void)tokens.next_token();
+        (void)tokens.next_token(); // number
         return NumberStyleValue::create(peek_token.token().number().value());
+    }
+    if (auto calc = parse_calculated_value(peek_token); calc && calc->resolves_to_number()) {
+        (void)tokens.next_token(); // calc
+        return calc;
     }
 
     return nullptr;
 }
 
-RefPtr<CSSStyleValue> Parser::parse_number_or_percentage_value(TokenStream<ComponentValue>& tokens)
+RefPtr<CSSStyleValue> Parser::parse_number_percentage_value(TokenStream<ComponentValue>& tokens)
 {
     auto peek_token = tokens.peek_token();
     if (peek_token.is(Token::Type::Number)) {
-        (void)tokens.next_token();
+        (void)tokens.next_token(); // number
         return NumberStyleValue::create(peek_token.token().number().value());
     }
     if (peek_token.is(Token::Type::Percentage)) {
-        (void)tokens.next_token();
+        (void)tokens.next_token(); // percentage
         return PercentageStyleValue::create(Percentage(peek_token.token().percentage()));
     }
+    if (auto calc = parse_calculated_value(peek_token); calc && calc->resolves_to_number_percentage()) {
+        (void)tokens.next_token(); // calc
+        return calc;
+    }
 
+    return nullptr;
+}
+
+RefPtr<CSSStyleValue> Parser::parse_percentage_value(TokenStream<ComponentValue>& tokens)
+{
+    auto peek_token = tokens.peek_token();
+    if (peek_token.is(Token::Type::Percentage)) {
+        (void)tokens.next_token(); // percentage
+        return PercentageStyleValue::create(Percentage(peek_token.token().percentage()));
+    }
+    if (auto calc = parse_calculated_value(peek_token); calc && calc->resolves_to_percentage()) {
+        (void)tokens.next_token(); // calc
+        return calc;
+    }
+
+    return nullptr;
+}
+
+RefPtr<CSSStyleValue> Parser::parse_angle_value(TokenStream<ComponentValue>& tokens)
+{
+    auto transaction = tokens.begin_transaction();
+    if (auto dimension_value = parse_dimension_value(tokens)) {
+        if (dimension_value->is_angle()
+            || (dimension_value->is_calculated() && dimension_value->as_calculated().resolves_to_angle())) {
+            transaction.commit();
+            return dimension_value;
+        }
+    }
+    return nullptr;
+}
+
+RefPtr<CSSStyleValue> Parser::parse_angle_percentage_value(TokenStream<ComponentValue>& tokens)
+{
+    auto transaction = tokens.begin_transaction();
+    if (auto dimension_value = parse_dimension_value(tokens)) {
+        if (dimension_value->is_angle() || dimension_value->is_percentage()
+            || (dimension_value->is_calculated() && dimension_value->as_calculated().resolves_to_angle_percentage())) {
+            transaction.commit();
+            return dimension_value;
+        }
+    }
+    return nullptr;
+}
+
+RefPtr<CSSStyleValue> Parser::parse_flex_value(TokenStream<ComponentValue>& tokens)
+{
+    auto transaction = tokens.begin_transaction();
+    if (auto dimension_value = parse_dimension_value(tokens)) {
+        if (dimension_value->is_flex()
+            || (dimension_value->is_calculated() && dimension_value->as_calculated().resolves_to_flex())) {
+            transaction.commit();
+            return dimension_value;
+        }
+    }
+    return nullptr;
+}
+
+RefPtr<CSSStyleValue> Parser::parse_frequency_value(TokenStream<ComponentValue>& tokens)
+{
+    auto transaction = tokens.begin_transaction();
+    if (auto dimension_value = parse_dimension_value(tokens)) {
+        if (dimension_value->is_frequency()
+            || (dimension_value->is_calculated() && dimension_value->as_calculated().resolves_to_frequency())) {
+            transaction.commit();
+            return dimension_value;
+        }
+    }
+    return nullptr;
+}
+
+RefPtr<CSSStyleValue> Parser::parse_frequency_percentage_value(TokenStream<ComponentValue>& tokens)
+{
+    auto transaction = tokens.begin_transaction();
+    if (auto dimension_value = parse_dimension_value(tokens)) {
+        if (dimension_value->is_frequency() || dimension_value->is_percentage()
+            || (dimension_value->is_calculated() && dimension_value->as_calculated().resolves_to_frequency_percentage())) {
+            transaction.commit();
+            return dimension_value;
+        }
+    }
+    return nullptr;
+}
+
+RefPtr<CSSStyleValue> Parser::parse_length_value(TokenStream<ComponentValue>& tokens)
+{
+    auto transaction = tokens.begin_transaction();
+    if (auto dimension_value = parse_dimension_value(tokens)) {
+        if (dimension_value->is_length()
+            || (dimension_value->is_calculated() && dimension_value->as_calculated().resolves_to_length())) {
+            transaction.commit();
+            return dimension_value;
+        }
+    }
+    return nullptr;
+}
+
+RefPtr<CSSStyleValue> Parser::parse_length_percentage_value(TokenStream<ComponentValue>& tokens)
+{
+    auto transaction = tokens.begin_transaction();
+    if (auto dimension_value = parse_dimension_value(tokens)) {
+        if (dimension_value->is_length() || dimension_value->is_percentage()
+            || (dimension_value->is_calculated() && dimension_value->as_calculated().resolves_to_length_percentage())) {
+            transaction.commit();
+            return dimension_value;
+        }
+    }
+    return nullptr;
+}
+
+RefPtr<CSSStyleValue> Parser::parse_resolution_value(TokenStream<ComponentValue>& tokens)
+{
+    auto transaction = tokens.begin_transaction();
+    if (auto dimension_value = parse_dimension_value(tokens)) {
+        if (dimension_value->is_resolution()
+            || (dimension_value->is_calculated() && dimension_value->as_calculated().resolves_to_resolution())) {
+            transaction.commit();
+            return dimension_value;
+        }
+    }
+    return nullptr;
+}
+
+RefPtr<CSSStyleValue> Parser::parse_time_value(TokenStream<ComponentValue>& tokens)
+{
+    auto transaction = tokens.begin_transaction();
+    if (auto dimension_value = parse_dimension_value(tokens)) {
+        if (dimension_value->is_time()
+            || (dimension_value->is_calculated() && dimension_value->as_calculated().resolves_to_time())) {
+            transaction.commit();
+            return dimension_value;
+        }
+    }
+    return nullptr;
+}
+
+RefPtr<CSSStyleValue> Parser::parse_time_percentage_value(TokenStream<ComponentValue>& tokens)
+{
+    auto transaction = tokens.begin_transaction();
+    if (auto dimension_value = parse_dimension_value(tokens)) {
+        if (dimension_value->is_time() || dimension_value->is_percentage()
+            || (dimension_value->is_calculated() && dimension_value->as_calculated().resolves_to_time_percentage())) {
+            transaction.commit();
+            return dimension_value;
+        }
+    }
     return nullptr;
 }
 
@@ -2459,474 +2627,454 @@ RefPtr<CSSStyleValue> Parser::parse_rect_value(TokenStream<ComponentValue>& toke
     return RectStyleValue::create(EdgeRect { params[0], params[1], params[2], params[3] });
 }
 
-Optional<Color> Parser::parse_rgb_color(Vector<ComponentValue> const& component_values)
+// https://www.w3.org/TR/css-color-4/#typedef-hue
+RefPtr<CSSStyleValue> Parser::parse_hue_value(TokenStream<ComponentValue>& tokens)
 {
-    u8 r_val = 0;
-    u8 g_val = 0;
-    u8 b_val = 0;
+    // <hue> = <number> | <angle>
+    if (auto number = parse_number_value(tokens))
+        return number;
+    if (auto angle = parse_angle_value(tokens))
+        return angle;
 
-    auto tokens = TokenStream { component_values };
-
-    tokens.skip_whitespace();
-    auto const& red = tokens.next_token();
-
-    if (!red.is(Token::Type::Number)
-        && !red.is(Token::Type::Percentage))
-        return {};
-
-    tokens.skip_whitespace();
-    bool legacy_syntax = tokens.peek_token().is(Token::Type::Comma);
-    if (legacy_syntax) {
-        // Legacy syntax.
-        tokens.next_token();
-        tokens.skip_whitespace();
-
-        auto const& green = tokens.next_token();
-        tokens.skip_whitespace();
-
-        tokens.next_token();
-        tokens.skip_whitespace();
-
-        auto const& blue = tokens.next_token();
-
-        if (red.is(Token::Type::Percentage)) {
-            // Percentage components.
-            if (!green.is(Token::Type::Percentage) || !blue.is(Token::Type::Percentage))
-                return {};
-
-            r_val = lround(clamp(red.token().percentage() * 2.55, 0, 255));
-            g_val = lround(clamp(green.token().percentage() * 2.55, 0, 255));
-            b_val = lround(clamp(blue.token().percentage() * 2.55, 0, 255));
-        } else {
-            // Number components.
-            if (!green.is(Token::Type::Number) || !blue.is(Token::Type::Number))
-                return {};
-
-            r_val = clamp(llroundf(red.token().number_value()), 0, 255);
-            g_val = clamp(llroundf(green.token().number_value()), 0, 255);
-            b_val = clamp(llroundf(blue.token().number_value()), 0, 255);
-        }
-    } else {
-        // Modern syntax.
-
-        if (red.is(Token::Type::Number)) {
-            r_val = clamp(llroundf(red.token().number_value()), 0, 255);
-        } else {
-            r_val = lround(clamp(red.token().percentage() * 2.55, 0, 255));
-        }
-
-        auto const& green = tokens.next_token();
-        if (green.is(Token::Type::Number)) {
-            g_val = clamp(llroundf(green.token().number_value()), 0, 255);
-        } else if (green.is(Token::Type::Percentage)) {
-            g_val = lround(clamp(green.token().percentage() * 2.55, 0, 255));
-        } else {
-            return {};
-        }
-
-        tokens.skip_whitespace();
-        auto const& blue = tokens.next_token();
-        if (blue.is(Token::Type::Number)) {
-            b_val = clamp(llroundf(blue.token().number_value()), 0, 255);
-        } else if (blue.is(Token::Type::Percentage)) {
-            b_val = lround(clamp(blue.token().percentage() * 2.55, 0, 255));
-        } else {
-            return {};
-        }
-    }
-
-    u8 alpha_val = 255;
-    tokens.skip_whitespace();
-    if (tokens.has_next_token()) {
-        auto const& separator = tokens.next_token();
-        bool is_comma = separator.is(Token::Type::Comma);
-        bool is_slash = separator.is_delim('/');
-        if (legacy_syntax ? !is_comma : !is_slash)
-            return {};
-
-        tokens.skip_whitespace();
-        auto const& alpha = tokens.next_token();
-
-        if (alpha.is(Token::Type::Number))
-            alpha_val = clamp(lround(alpha.token().number_value() * 255.0), 0, 255);
-        else if (alpha.is(Token::Type::Percentage))
-            alpha_val = clamp(lround(alpha.token().percentage() * 2.55), 0, 255);
-        else
-            return {};
-
-        tokens.skip_whitespace();
-        if (tokens.has_next_token())
-            return {}; // should have consumed all arguments.
-    }
-
-    return Color(r_val, g_val, b_val, alpha_val);
+    return nullptr;
 }
 
-Optional<Color> Parser::parse_hsl_color(Vector<ComponentValue> const& component_values)
+RefPtr<CSSStyleValue> Parser::parse_solidus_and_alpha_value(TokenStream<ComponentValue>& tokens)
 {
-    float h_val = 0.0;
-    float s_val = 0.0;
-    float l_val = 0.0;
+    // [ / [<alpha-value> | none] ]?
+    // Common to the modern-syntax color functions.
+    // TODO: Parse `none`
 
-    auto tokens = TokenStream { component_values };
-
-    tokens.skip_whitespace();
-    auto const& hue = tokens.next_token();
-
-    if (!hue.is(Token::Type::Number)
-        && !hue.is(Token::Type::Dimension))
-        return {};
-
-    if (hue.is(Token::Type::Number)) {
-        h_val = fmod(hue.token().number_value(), 360.0);
-    } else {
-        auto numeric_value = hue.token().dimension_value();
-        auto unit_string = hue.token().dimension_unit();
-        auto angle_type = Angle::unit_from_name(unit_string);
-
-        if (!angle_type.has_value())
-            return {};
-
-        auto angle = Angle { numeric_value, angle_type.release_value() };
-
-        h_val = fmod(angle.to_degrees(), 360.0);
-    }
-
-    tokens.skip_whitespace();
-    bool legacy_syntax = tokens.peek_token().is(Token::Type::Comma);
-    if (legacy_syntax) {
-        // legacy syntax.
-        tokens.next_token();
-        tokens.skip_whitespace();
-
-        auto const& saturation = tokens.next_token();
-        if (!saturation.is(Token::Type::Percentage))
-            return {};
-        s_val = max(saturation.token().percentage() / 100.0, 0);
-
-        tokens.skip_whitespace();
-        tokens.next_token();
-        tokens.skip_whitespace();
-
-        auto const& lightness = tokens.next_token();
-        if (!lightness.is(Token::Type::Percentage))
-            return {};
-        l_val = lightness.token().percentage() / 100.0;
-    } else {
-        // Modern syntax.
-
-        auto const& saturation = tokens.next_token();
-        if (saturation.is(Token::Type::Number)) {
-            s_val = saturation.token().number_value() / 100.0;
-        } else if (saturation.is(Token::Type::Percentage)) {
-            s_val = saturation.token().percentage() / 100.0;
-        } else {
-            return {};
-        }
-        s_val = max(s_val, 0);
-
-        tokens.skip_whitespace();
-        auto const& lightness = tokens.next_token();
-        if (lightness.is(Token::Type::Number)) {
-            l_val = lightness.token().number_value() / 100.0;
-        } else if (lightness.is(Token::Type::Percentage)) {
-            l_val = lightness.token().percentage() / 100.0;
-        } else {
-            return {};
-        }
-    }
-
-    float alpha_val = 1.0;
-    tokens.skip_whitespace();
-    if (tokens.has_next_token()) {
-        auto const& separator = tokens.next_token();
-        bool is_comma = separator.is(Token::Type::Comma);
-        bool is_slash = separator.is_delim('/');
-        if (legacy_syntax ? !is_comma : !is_slash)
-            return {};
-
-        tokens.skip_whitespace();
-        auto const& alpha = tokens.next_token();
-
-        if (alpha.is(Token::Type::Number))
-            alpha_val = alpha.token().number_value();
-        else if (alpha.is(Token::Type::Percentage))
-            alpha_val = alpha.token().percentage() / 100.0;
-        else
-            return {};
-
-        tokens.skip_whitespace();
-        if (tokens.has_next_token())
-            return {}; // should have consumed all arguments.
-    }
-
-    return Color::from_hsla(h_val, s_val, l_val, alpha_val);
-}
-
-Optional<Color> Parser::parse_hwb_color(Vector<ComponentValue> const& component_values)
-{
-    float h_val = 0.0;
-    float w_val = 0.0;
-    float b_val = 0.0;
-
-    auto tokens = TokenStream { component_values };
-
-    tokens.skip_whitespace();
-    auto const& hue = tokens.next_token();
-
-    if (!hue.is(Token::Type::Number)
-        && !hue.is(Token::Type::Dimension))
-        return {};
-
-    if (hue.is(Token::Type::Number)) {
-        h_val = fmod(hue.token().number_value(), 360.0);
-    } else {
-        auto numeric_value = hue.token().dimension_value();
-        auto unit_string = hue.token().dimension_unit();
-        auto angle_type = Angle::unit_from_name(unit_string);
-
-        if (!angle_type.has_value())
-            return {};
-
-        auto angle = Angle { numeric_value, angle_type.release_value() };
-
-        h_val = fmod(angle.to_degrees(), 360);
-    }
-
-    tokens.skip_whitespace();
-    auto const& whiteness = tokens.next_token();
-    if (whiteness.is(Token::Type::Number)) {
-        w_val = whiteness.token().number_value() / 100.0;
-    } else if (whiteness.is(Token::Type::Percentage)) {
-        w_val = whiteness.token().percentage() / 100.0;
-    } else {
-        return {};
-    }
-
-    tokens.skip_whitespace();
-    auto const& blackness = tokens.next_token();
-    if (blackness.is(Token::Type::Number)) {
-        b_val = blackness.token().number_value() / 100.0;
-    } else if (blackness.is(Token::Type::Percentage)) {
-        b_val = blackness.token().percentage() / 100.0;
-    } else {
-        return {};
-    }
-
-    float alpha_val = 1.0;
-    tokens.skip_whitespace();
-    if (tokens.has_next_token()) {
-        auto const& separator = tokens.next_token();
-        if (!separator.is_delim('/'))
-            return {};
-
-        tokens.skip_whitespace();
-        auto const& alpha = tokens.next_token();
-
-        if (alpha.is(Token::Type::Number))
-            alpha_val = alpha.token().number_value();
-        else if (alpha.is(Token::Type::Percentage))
-            alpha_val = alpha.token().percentage() / 100.0;
-        else
-            return {};
-
-        tokens.skip_whitespace();
-        if (tokens.has_next_token())
-            return {}; // should have consumed all arguments.
-    }
-
-    if (w_val + b_val >= 1.0) {
-        u8 gray = clamp(llroundf((w_val / (w_val + b_val)) * 255), 0, 255);
-        return Color(gray, gray, gray, clamp(llroundf(alpha_val * 255), 0, 255));
-    }
-
-    float value = 1 - b_val;
-    float saturation = 1 - (w_val / value);
-    return Color::from_hsv(h_val, saturation, value).with_opacity(alpha_val);
-}
-
-Optional<Color> Parser::parse_oklab_color(Vector<ComponentValue> const& component_values)
-{
-    float L_val = 0.0;
-    float a_val = 0.0;
-    float b_val = 0.0;
-
-    auto tokens = TokenStream { component_values };
-
-    tokens.skip_whitespace();
-    auto const& lightness = tokens.next_token();
-    if (lightness.is(Token::Type::Number)) {
-        L_val = lightness.token().number_value();
-    } else if (lightness.is(Token::Type::Percentage)) {
-        L_val = lightness.token().percentage() / 100.0;
-    } else {
-        return {};
-    }
-    L_val = clamp(L_val, 0.0, 1.0);
-
-    tokens.skip_whitespace();
-    auto const& a = tokens.next_token();
-    if (a.is(Token::Type::Number)) {
-        a_val = a.token().number_value();
-    } else if (a.is(Token::Type::Percentage)) {
-        a_val = a.token().percentage() / 100.0 * 0.4;
-    } else {
-        return {};
-    }
-
-    tokens.skip_whitespace();
-    auto const& b = tokens.next_token();
-    if (b.is(Token::Type::Number)) {
-        b_val = b.token().number_value();
-    } else if (a.is(Token::Type::Percentage)) {
-        b_val = b.token().percentage() / 100.0 * 0.4;
-    } else {
-        return {};
-    }
-
-    float alpha_val = 1.0;
-    tokens.skip_whitespace();
-    if (tokens.has_next_token()) {
-        auto const& separator = tokens.next_token();
-        if (!separator.is_delim('/'))
-            return {};
-
-        tokens.skip_whitespace();
-        auto const& alpha = tokens.next_token();
-
-        if (alpha.is(Token::Type::Number))
-            alpha_val = alpha.token().number_value();
-        else if (alpha.is(Token::Type::Percentage))
-            alpha_val = alpha.token().percentage() / 100.0;
-        else
-            return {};
-
-        tokens.skip_whitespace();
-        if (tokens.has_next_token())
-            return {}; // should have consumed all arguments.
-    }
-
-    return Color::from_oklab(L_val, a_val, b_val, alpha_val);
-}
-
-Optional<Color> Parser::parse_oklch_color(Vector<ComponentValue> const& component_values)
-{
-    float L_val = 0.0;
-    float c_val = 0.0;
-    float h_val = 0.0;
-
-    auto tokens = TokenStream { component_values };
-
-    tokens.skip_whitespace();
-    auto const& lightness = tokens.next_token();
-    if (lightness.is(Token::Type::Number)) {
-        L_val = lightness.token().number_value();
-    } else if (lightness.is(Token::Type::Percentage)) {
-        L_val = lightness.token().percentage() / 100.0;
-    } else {
-        return {};
-    }
-    L_val = clamp(L_val, 0.0, 1.0);
-
-    tokens.skip_whitespace();
-    auto const& chroma = tokens.next_token();
-    if (chroma.is(Token::Type::Number)) {
-        c_val = chroma.token().number_value();
-    } else if (chroma.is(Token::Type::Percentage)) {
-        c_val = chroma.token().percentage() / 100.0 * 0.4;
-    } else {
-        return {};
-    }
-    c_val = max(c_val, 0.0);
-
-    tokens.skip_whitespace();
-    auto const& hue = tokens.next_token();
-
-    if (!hue.is(Token::Type::Number)
-        && !hue.is(Token::Type::Dimension))
-        return {};
-
-    if (hue.is(Token::Type::Number)) {
-        h_val = hue.token().number_value() * AK::Pi<float> / 180;
-    } else {
-        auto numeric_value = hue.token().dimension_value();
-        auto unit_string = hue.token().dimension_unit();
-        auto angle_type = Angle::unit_from_name(unit_string);
-
-        if (!angle_type.has_value())
-            return {};
-
-        auto angle = Angle { numeric_value, angle_type.release_value() };
-
-        h_val = angle.to_radians();
-    }
-
-    float alpha_val = 1.0;
-    tokens.skip_whitespace();
-    if (tokens.has_next_token()) {
-        auto const& separator = tokens.next_token();
-        if (!separator.is_delim('/'))
-            return {};
-
-        tokens.skip_whitespace();
-        auto const& alpha = tokens.next_token();
-
-        if (alpha.is(Token::Type::Number))
-            alpha_val = alpha.token().number_value();
-        else if (alpha.is(Token::Type::Percentage))
-            alpha_val = alpha.token().percentage() / 100.0;
-        else
-            return {};
-
-        tokens.skip_whitespace();
-        if (tokens.has_next_token())
-            return {}; // should have consumed all arguments.
-    }
-
-    return Color::from_oklab(L_val, c_val * cos(h_val), c_val * sin(h_val), alpha_val);
-}
-
-Optional<Color> Parser::parse_color(TokenStream<ComponentValue>& tokens)
-{
     auto transaction = tokens.begin_transaction();
-    auto commit_if_valid = [&](Optional<Color> color) {
-        if (color.has_value())
-            transaction.commit();
-        return color;
-    };
+    tokens.skip_whitespace();
+    if (!tokens.next_token().is_delim('/'))
+        return {};
+    tokens.skip_whitespace();
+    auto alpha = parse_number_percentage_value(tokens);
+    if (!alpha)
+        return {};
+    tokens.skip_whitespace();
 
+    transaction.commit();
+    return alpha;
+}
+
+// https://www.w3.org/TR/css-color-4/#funcdef-rgb
+RefPtr<CSSStyleValue> Parser::parse_rgb_color_value(TokenStream<ComponentValue>& outer_tokens)
+{
+    // rgb() = [ <legacy-rgb-syntax> | <modern-rgb-syntax> ]
+    // rgba() = [ <legacy-rgba-syntax> | <modern-rgba-syntax> ]
+    // <legacy-rgb-syntax> = rgb( <percentage>#{3} , <alpha-value>? ) |
+    //                       rgb( <number>#{3} , <alpha-value>? )
+    // <legacy-rgba-syntax> = rgba( <percentage>#{3} , <alpha-value>? ) |
+    //                        rgba( <number>#{3} , <alpha-value>? )
+    // <modern-rgb-syntax> = rgb(
+    //     [ <number> | <percentage> | none]{3}
+    //     [ / [<alpha-value> | none] ]?  )
+    // <modern-rgba-syntax> = rgba(
+    //     [ <number> | <percentage> | none]{3}
+    //     [ / [<alpha-value> | none] ]?  )
+    // TODO: Handle none values
+
+    auto transaction = outer_tokens.begin_transaction();
+    outer_tokens.skip_whitespace();
+
+    auto& function_token = outer_tokens.next_token();
+    if (!function_token.is_function("rgb"sv) && !function_token.is_function("rgba"sv))
+        return {};
+
+    RefPtr<CSSStyleValue> red;
+    RefPtr<CSSStyleValue> green;
+    RefPtr<CSSStyleValue> blue;
+    RefPtr<CSSStyleValue> alpha;
+
+    auto inner_tokens = TokenStream { function_token.function().values() };
+    inner_tokens.skip_whitespace();
+
+    red = parse_number_percentage_value(inner_tokens);
+    if (!red)
+        return {};
+
+    inner_tokens.skip_whitespace();
+    bool legacy_syntax = inner_tokens.peek_token().is(Token::Type::Comma);
+    if (legacy_syntax) {
+        // Legacy syntax
+        //   <percentage>#{3} , <alpha-value>?
+        //   | <number>#{3} , <alpha-value>?
+        // So, r/g/b can be numbers or percentages, as long as they're all the same type.
+
+        inner_tokens.next_token(); // comma
+        inner_tokens.skip_whitespace();
+
+        green = parse_number_percentage_value(inner_tokens);
+        if (!green)
+            return {};
+        inner_tokens.skip_whitespace();
+
+        if (!inner_tokens.next_token().is(Token::Type::Comma))
+            return {};
+        inner_tokens.skip_whitespace();
+
+        blue = parse_number_percentage_value(inner_tokens);
+        if (!blue)
+            return {};
+        inner_tokens.skip_whitespace();
+
+        if (inner_tokens.has_next_token()) {
+            // Try and read comma and alpha
+            if (!inner_tokens.next_token().is(Token::Type::Comma))
+                return {};
+            inner_tokens.skip_whitespace();
+
+            alpha = parse_number_percentage_value(inner_tokens);
+            inner_tokens.skip_whitespace();
+
+            if (inner_tokens.has_next_token())
+                return {};
+        }
+
+        // Verify we're all percentages or all numbers
+        auto is_percentage = [](CSSStyleValue const& style_value) {
+            return style_value.is_percentage()
+                || (style_value.is_calculated() && style_value.as_calculated().resolves_to_percentage());
+        };
+        bool red_is_percentage = is_percentage(*red);
+        bool green_is_percentage = is_percentage(*green);
+        bool blue_is_percentage = is_percentage(*blue);
+        if (red_is_percentage != green_is_percentage || red_is_percentage != blue_is_percentage)
+            return {};
+
+    } else {
+        // Modern syntax
+        //   [ <number> | <percentage> | none]{3}  [ / [<alpha-value> | none] ]?
+
+        green = parse_number_percentage_value(inner_tokens);
+        if (!green)
+            return {};
+        inner_tokens.skip_whitespace();
+
+        blue = parse_number_percentage_value(inner_tokens);
+        if (!blue)
+            return {};
+        inner_tokens.skip_whitespace();
+
+        if (inner_tokens.has_next_token()) {
+            alpha = parse_solidus_and_alpha_value(inner_tokens);
+            if (!alpha || inner_tokens.has_next_token())
+                return {};
+        }
+    }
+
+    if (!alpha)
+        alpha = NumberStyleValue::create(1);
+
+    transaction.commit();
+    return CSSRGB::create(red.release_nonnull(), green.release_nonnull(), blue.release_nonnull(), alpha.release_nonnull());
+}
+
+// https://www.w3.org/TR/css-color-4/#funcdef-hsl
+RefPtr<CSSStyleValue> Parser::parse_hsl_color_value(TokenStream<ComponentValue>& outer_tokens)
+{
+    // hsl() = [ <legacy-hsl-syntax> | <modern-hsl-syntax> ]
+    // hsla() = [ <legacy-hsla-syntax> | <modern-hsla-syntax> ]
+    // <modern-hsl-syntax> = hsl(
+    //     [<hue> | none]
+    //     [<percentage> | <number> | none]
+    //     [<percentage> | <number> | none]
+    //     [ / [<alpha-value> | none] ]? )
+    // <modern-hsla-syntax> = hsla(
+    //     [<hue> | none]
+    //     [<percentage> | <number> | none]
+    //     [<percentage> | <number> | none]
+    //     [ / [<alpha-value> | none] ]? )
+    // <legacy-hsl-syntax> = hsl( <hue>, <percentage>, <percentage>, <alpha-value>? )
+    // <legacy-hsla-syntax> = hsla( <hue>, <percentage>, <percentage>, <alpha-value>? )
+    // TODO: Handle none values
+
+    auto transaction = outer_tokens.begin_transaction();
+    outer_tokens.skip_whitespace();
+
+    auto& function_token = outer_tokens.next_token();
+    if (!function_token.is_function("hsl"sv) && !function_token.is_function("hsla"sv))
+        return {};
+
+    RefPtr<CSSStyleValue> h;
+    RefPtr<CSSStyleValue> s;
+    RefPtr<CSSStyleValue> l;
+    RefPtr<CSSStyleValue> alpha;
+
+    auto inner_tokens = TokenStream { function_token.function().values() };
+    inner_tokens.skip_whitespace();
+
+    h = parse_hue_value(inner_tokens);
+    if (!h)
+        return {};
+
+    inner_tokens.skip_whitespace();
+    bool legacy_syntax = inner_tokens.peek_token().is(Token::Type::Comma);
+    if (legacy_syntax) {
+        // Legacy syntax
+        //   <hue>, <percentage>, <percentage>, <alpha-value>?
+        (void)inner_tokens.next_token(); // comma
+        inner_tokens.skip_whitespace();
+
+        s = parse_percentage_value(inner_tokens);
+        if (!s)
+            return {};
+        inner_tokens.skip_whitespace();
+
+        if (!inner_tokens.next_token().is(Token::Type::Comma))
+            return {};
+        inner_tokens.skip_whitespace();
+
+        l = parse_percentage_value(inner_tokens);
+        if (!l)
+            return {};
+        inner_tokens.skip_whitespace();
+
+        if (inner_tokens.has_next_token()) {
+            // Try and read comma and alpha
+            if (!inner_tokens.next_token().is(Token::Type::Comma))
+                return {};
+            inner_tokens.skip_whitespace();
+
+            alpha = parse_number_percentage_value(inner_tokens);
+            inner_tokens.skip_whitespace();
+
+            if (inner_tokens.has_next_token())
+                return {};
+        }
+    } else {
+        // Modern syntax
+        //   [<hue> | none]
+        //   [<percentage> | <number> | none]
+        //   [<percentage> | <number> | none]
+        //   [ / [<alpha-value> | none] ]?
+
+        s = parse_number_percentage_value(inner_tokens);
+        if (!s)
+            return {};
+        inner_tokens.skip_whitespace();
+
+        l = parse_number_percentage_value(inner_tokens);
+        if (!l)
+            return {};
+        inner_tokens.skip_whitespace();
+
+        if (inner_tokens.has_next_token()) {
+            alpha = parse_solidus_and_alpha_value(inner_tokens);
+            if (!alpha || inner_tokens.has_next_token())
+                return {};
+        }
+    }
+
+    if (!alpha)
+        alpha = NumberStyleValue::create(1);
+
+    transaction.commit();
+    return CSSHSL::create(h.release_nonnull(), s.release_nonnull(), l.release_nonnull(), alpha.release_nonnull());
+}
+
+// https://www.w3.org/TR/css-color-4/#funcdef-hwb
+RefPtr<CSSStyleValue> Parser::parse_hwb_color_value(TokenStream<ComponentValue>& outer_tokens)
+{
+    // hwb() = hwb(
+    //     [<hue> | none]
+    //     [<percentage> | <number> | none]
+    //     [<percentage> | <number> | none]
+    //     [ / [<alpha-value> | none] ]? )
+
+    auto transaction = outer_tokens.begin_transaction();
+    outer_tokens.skip_whitespace();
+
+    auto& function_token = outer_tokens.next_token();
+    if (!function_token.is_function("hwb"sv))
+        return {};
+
+    RefPtr<CSSStyleValue> h;
+    RefPtr<CSSStyleValue> w;
+    RefPtr<CSSStyleValue> b;
+    RefPtr<CSSStyleValue> alpha;
+
+    auto inner_tokens = TokenStream { function_token.function().values() };
+    inner_tokens.skip_whitespace();
+
+    h = parse_hue_value(inner_tokens);
+    if (!h)
+        return {};
+    inner_tokens.skip_whitespace();
+
+    w = parse_number_percentage_value(inner_tokens);
+    if (!w)
+        return {};
+    inner_tokens.skip_whitespace();
+
+    b = parse_number_percentage_value(inner_tokens);
+    if (!b)
+        return {};
+    inner_tokens.skip_whitespace();
+
+    if (inner_tokens.has_next_token()) {
+        alpha = parse_solidus_and_alpha_value(inner_tokens);
+        if (!alpha || inner_tokens.has_next_token())
+            return {};
+    }
+
+    if (!alpha)
+        alpha = NumberStyleValue::create(1);
+
+    transaction.commit();
+    return CSSHWB::create(h.release_nonnull(), w.release_nonnull(), b.release_nonnull(), alpha.release_nonnull());
+}
+
+// https://www.w3.org/TR/css-color-4/#funcdef-oklab
+RefPtr<CSSStyleValue> Parser::parse_oklab_color_value(TokenStream<ComponentValue>& outer_tokens)
+{
+    // oklab() = oklab( [ <percentage> | <number> | none]
+    //     [ <percentage> | <number> | none]
+    //     [ <percentage> | <number> | none]
+    //     [ / [<alpha-value> | none] ]? )
+
+    auto transaction = outer_tokens.begin_transaction();
+    outer_tokens.skip_whitespace();
+
+    auto& function_token = outer_tokens.next_token();
+    if (!function_token.is_function("oklab"sv))
+        return {};
+
+    RefPtr<CSSStyleValue> l;
+    RefPtr<CSSStyleValue> a;
+    RefPtr<CSSStyleValue> b;
+    RefPtr<CSSStyleValue> alpha;
+
+    auto inner_tokens = TokenStream { function_token.function().values() };
+    inner_tokens.skip_whitespace();
+
+    l = parse_number_percentage_value(inner_tokens);
+    if (!l)
+        return {};
+    inner_tokens.skip_whitespace();
+
+    a = parse_number_percentage_value(inner_tokens);
+    if (!a)
+        return {};
+    inner_tokens.skip_whitespace();
+
+    b = parse_number_percentage_value(inner_tokens);
+    if (!b)
+        return {};
+    inner_tokens.skip_whitespace();
+
+    if (inner_tokens.has_next_token()) {
+        alpha = parse_solidus_and_alpha_value(inner_tokens);
+        if (!alpha || inner_tokens.has_next_token())
+            return {};
+    }
+
+    if (!alpha)
+        alpha = NumberStyleValue::create(1);
+
+    transaction.commit();
+    return CSSOKLab::create(l.release_nonnull(), a.release_nonnull(), b.release_nonnull(), alpha.release_nonnull());
+}
+
+// https://www.w3.org/TR/css-color-4/#funcdef-oklch
+RefPtr<CSSStyleValue> Parser::parse_oklch_color_value(TokenStream<ComponentValue>& outer_tokens)
+{
+    // oklch() = oklch( [ <percentage> | <number> | none]
+    //     [ <percentage> | <number> | none]
+    //     [ <hue> | none]
+    //     [ / [<alpha-value> | none] ]? )
+
+    auto transaction = outer_tokens.begin_transaction();
+    outer_tokens.skip_whitespace();
+
+    auto& function_token = outer_tokens.next_token();
+    if (!function_token.is_function("oklch"sv))
+        return {};
+
+    RefPtr<CSSStyleValue> l;
+    RefPtr<CSSStyleValue> c;
+    RefPtr<CSSStyleValue> h;
+    RefPtr<CSSStyleValue> alpha;
+
+    auto inner_tokens = TokenStream { function_token.function().values() };
+    inner_tokens.skip_whitespace();
+
+    l = parse_number_percentage_value(inner_tokens);
+    if (!l)
+        return {};
+    inner_tokens.skip_whitespace();
+
+    c = parse_number_percentage_value(inner_tokens);
+    if (!c)
+        return {};
+    inner_tokens.skip_whitespace();
+
+    h = parse_hue_value(inner_tokens);
+    if (!h)
+        return {};
+    inner_tokens.skip_whitespace();
+
+    if (inner_tokens.has_next_token()) {
+        alpha = parse_solidus_and_alpha_value(inner_tokens);
+        if (!alpha || inner_tokens.has_next_token())
+            return {};
+    }
+
+    if (!alpha)
+        alpha = NumberStyleValue::create(1);
+
+    transaction.commit();
+    return CSSOKLCH::create(l.release_nonnull(), c.release_nonnull(), h.release_nonnull(), alpha.release_nonnull());
+}
+
+// https://www.w3.org/TR/css-color-4/#color-syntax
+RefPtr<CSSStyleValue> Parser::parse_color_value(TokenStream<ComponentValue>& tokens)
+{
+
+    // Keywords: <system-color> | <deprecated-color> | currentColor
+    {
+        auto transaction = tokens.begin_transaction();
+        if (auto keyword = parse_keyword_value(tokens); keyword && keyword->has_color()) {
+            transaction.commit();
+            return keyword;
+        }
+    }
+
+    // Functions
+    if (auto rgb = parse_rgb_color_value(tokens))
+        return rgb;
+    if (auto hsl = parse_hsl_color_value(tokens))
+        return hsl;
+    if (auto hwb = parse_hwb_color_value(tokens))
+        return hwb;
+    if (auto oklab = parse_oklab_color_value(tokens))
+        return oklab;
+    if (auto oklch = parse_oklch_color_value(tokens))
+        return oklch;
+
+    auto transaction = tokens.begin_transaction();
     tokens.skip_whitespace();
     auto component_value = tokens.next_token();
 
-    // https://www.w3.org/TR/css-color-4/
     if (component_value.is(Token::Type::Ident)) {
         auto ident = component_value.token().ident();
 
         auto color = Color::from_string(ident);
         if (color.has_value()) {
             transaction.commit();
-            return color;
+            return CSSColorValue::create_from_color(color.release_value());
         }
         // Otherwise, fall through to the hashless-hex-color case
-    } else if (component_value.is(Token::Type::Hash)) {
+    }
+
+    if (component_value.is(Token::Type::Hash)) {
         auto color = Color::from_string(MUST(String::formatted("#{}", component_value.token().hash_value())));
-        return commit_if_valid(color);
-    } else if (component_value.is_function()) {
-        auto const& function = component_value.function();
-        auto const& values = function.values();
-        auto const function_name = function.name();
-
-        if (function_name.equals_ignoring_ascii_case("rgb"sv) || function_name.equals_ignoring_ascii_case("rgba"sv))
-            return commit_if_valid(parse_rgb_color(values));
-        if (function_name.equals_ignoring_ascii_case("hsl"sv) || function_name.equals_ignoring_ascii_case("hsla"sv))
-            return commit_if_valid(parse_hsl_color(values));
-        if (function_name.equals_ignoring_ascii_case("hwb"sv))
-            return commit_if_valid(parse_hwb_color(values));
-        if (function_name.equals_ignoring_ascii_case("oklab"sv))
-            return commit_if_valid(parse_oklab_color(values));
-        if (function_name.equals_ignoring_ascii_case("oklch"sv))
-            return commit_if_valid(parse_oklch_color(values));
-
+        if (color.has_value()) {
+            transaction.commit();
+            return CSSColorValue::create_from_color(color.release_value());
+        }
         return {};
     }
 
@@ -2986,24 +3134,14 @@ Optional<Color> Parser::parse_color(TokenStream<ComponentValue>& tokens)
         }
 
         // 6. Return the concatenation of "#" (U+0023) and serialization.
-        return commit_if_valid(Color::from_string(MUST(String::formatted("#{}", serialization))));
+        auto color = Color::from_string(MUST(String::formatted("#{}", serialization)));
+        if (color.has_value()) {
+            transaction.commit();
+            return CSSColorValue::create_from_color(color.release_value());
+        }
     }
 
     return {};
-}
-
-RefPtr<CSSStyleValue> Parser::parse_color_value(TokenStream<ComponentValue>& tokens)
-{
-    if (auto color = parse_color(tokens); color.has_value())
-        return ColorStyleValue::create(color.value());
-
-    auto transaction = tokens.begin_transaction();
-    if (auto keyword = parse_keyword_value(tokens); keyword && keyword->has_color()) {
-        transaction.commit();
-        return keyword;
-    }
-
-    return nullptr;
 }
 
 // https://drafts.csswg.org/css-lists-3/#counter-functions
@@ -4280,7 +4418,7 @@ RefPtr<CSSStyleValue> Parser::parse_single_shadow_value(TokenStream<ComponentVal
 {
     auto transaction = tokens.begin_transaction();
 
-    Optional<Color> color;
+    RefPtr<CSSStyleValue> color;
     RefPtr<CSSStyleValue> offset_x;
     RefPtr<CSSStyleValue> offset_y;
     RefPtr<CSSStyleValue> blur_radius;
@@ -4296,10 +4434,10 @@ RefPtr<CSSStyleValue> Parser::parse_single_shadow_value(TokenStream<ComponentVal
     };
 
     while (tokens.has_next_token()) {
-        if (auto maybe_color = parse_color(tokens); maybe_color.has_value()) {
-            if (color.has_value())
+        if (auto maybe_color = parse_color_value(tokens); maybe_color) {
+            if (color)
                 return nullptr;
-            color = maybe_color.release_value();
+            color = maybe_color.release_nonnull();
             continue;
         }
 
@@ -4355,9 +4493,9 @@ RefPtr<CSSStyleValue> Parser::parse_single_shadow_value(TokenStream<ComponentVal
         return nullptr;
     }
 
-    // FIXME: If color is absent, default to `currentColor`
-    if (!color.has_value())
-        color = Color::NamedColor::Black;
+    // If color is absent, default to `currentColor`
+    if (!color)
+        color = CSSKeywordValue::create(Keyword::Currentcolor);
 
     // x/y offsets are required
     if (!offset_x || !offset_y)
@@ -4374,7 +4512,7 @@ RefPtr<CSSStyleValue> Parser::parse_single_shadow_value(TokenStream<ComponentVal
         placement = ShadowPlacement::Outer;
 
     transaction.commit();
-    return ShadowStyleValue::create(color.release_value(), offset_x.release_nonnull(), offset_y.release_nonnull(), blur_radius.release_nonnull(), spread_distance.release_nonnull(), placement.release_value());
+    return ShadowStyleValue::create(color.release_nonnull(), offset_x.release_nonnull(), offset_y.release_nonnull(), blur_radius.release_nonnull(), spread_distance.release_nonnull(), placement.release_value());
 }
 
 RefPtr<CSSStyleValue> Parser::parse_content_value(TokenStream<ComponentValue>& tokens)
@@ -4695,7 +4833,7 @@ RefPtr<CSSStyleValue> Parser::parse_filter_value_list_value(TokenStream<Componen
             // drop-shadow( [ <color>? && <length>{2,3} ] )
             // Note: The following code is a little awkward to allow the color to be before or after the lengths.
             Optional<LengthOrCalculated> maybe_radius = {};
-            auto maybe_color = parse_color(tokens);
+            auto maybe_color = parse_color_value(tokens);
             auto x_offset = parse_length(tokens);
             tokens.skip_whitespace();
             if (!x_offset.has_value() || !tokens.has_next_token()) {
@@ -4707,18 +4845,17 @@ RefPtr<CSSStyleValue> Parser::parse_filter_value_list_value(TokenStream<Componen
             }
             if (tokens.has_next_token()) {
                 maybe_radius = parse_length(tokens);
-                if (!maybe_color.has_value() && (!maybe_radius.has_value() || tokens.has_next_token())) {
-                    maybe_color = parse_color(tokens);
+                if (!maybe_color && (!maybe_radius.has_value() || tokens.has_next_token())) {
+                    maybe_color = parse_color_value(tokens);
                     tokens.skip_whitespace();
-                    if (!maybe_color.has_value()) {
+                    if (!maybe_color)
                         return {};
-                    }
                 } else if (!maybe_radius.has_value()) {
                     return {};
                 }
             }
             // FIXME: Support calculated offsets and radius
-            return if_no_more_tokens_return(Filter::DropShadow { x_offset->value(), y_offset->value(), maybe_radius.map([](auto& it) { return it.value(); }), maybe_color });
+            return if_no_more_tokens_return(Filter::DropShadow { x_offset->value(), y_offset->value(), maybe_radius.map([](auto& it) { return it.value(); }), maybe_color->to_color({}) });
         } else if (filter_token == FilterToken::HueRotate) {
             // hue-rotate( [ <angle> | <zero> ]? )
             if (!tokens.has_next_token())
@@ -4783,7 +4920,7 @@ RefPtr<CSSStyleValue> Parser::parse_filter_value_list_value(TokenStream<Componen
     return FilterValueListStyleValue::create(move(filter_value_list));
 }
 
-RefPtr<CSSStyleValue> Parser::parse_flex_value(TokenStream<ComponentValue>& tokens)
+RefPtr<CSSStyleValue> Parser::parse_flex_shorthand_value(TokenStream<ComponentValue>& tokens)
 {
     auto transaction = tokens.begin_transaction();
 
@@ -5965,7 +6102,7 @@ RefPtr<CSSStyleValue> Parser::parse_transform_value(TokenStream<ComponentValue>&
                 } else {
                     // FIXME: Remove this reconsume once all parsing functions are TokenStream-based.
                     argument_tokens.reconsume_current_input_token();
-                    auto number_or_percentage = parse_number_or_percentage_value(argument_tokens);
+                    auto number_or_percentage = parse_number_percentage_value(argument_tokens);
                     if (!number_or_percentage)
                         return nullptr;
                     values.append(number_or_percentage.release_nonnull());
@@ -7078,7 +7215,7 @@ Parser::ParseErrorOr<NonnullRefPtr<CSSStyleValue>> Parser::parse_css_value(Prope
         return ParseError::SyntaxError;
     case PropertyID::Flex:
     case PropertyID::WebkitFlex:
-        if (auto parsed_value = parse_flex_value(tokens); parsed_value && !tokens.has_next_token())
+        if (auto parsed_value = parse_flex_shorthand_value(tokens); parsed_value && !tokens.has_next_token())
             return parsed_value.release_nonnull();
         return ParseError::SyntaxError;
     case PropertyID::FlexFlow:
@@ -7390,17 +7527,17 @@ Optional<Parser::PropertyAndValue> Parser::parse_css_value_for_properties(Readon
     bool property_accepts_numeric = property_accepting_integer.has_value() || property_accepting_number.has_value();
 
     if (peek_token.is(Token::Type::Number) && property_accepts_numeric) {
-        if (property_accepting_integer.has_value()) {
-            auto transaction = tokens.begin_transaction();
-            if (auto integer = parse_integer_value(tokens); integer && property_accepts_integer(*property_accepting_integer, integer->as_integer().integer())) {
-                transaction.commit();
+        if (peek_token.token().number().is_integer() && property_accepting_integer.has_value()) {
+            auto integer = IntegerStyleValue::create(peek_token.token().number().integer_value());
+            if (property_accepts_integer(*property_accepting_integer, integer->as_integer().integer())) {
+                (void)tokens.next_token(); // integer
                 return PropertyAndValue { *property_accepting_integer, integer };
             }
         }
         if (property_accepting_number.has_value()) {
-            auto transaction = tokens.begin_transaction();
-            if (auto number = parse_number_value(tokens); number && property_accepts_number(*property_accepting_number, number->as_number().number())) {
-                transaction.commit();
+            auto number = NumberStyleValue::create(peek_token.token().number().value());
+            if (property_accepts_number(*property_accepting_number, number->as_number().number())) {
+                (void)tokens.next_token(); // number
                 return PropertyAndValue { *property_accepting_number, number };
             }
         }
