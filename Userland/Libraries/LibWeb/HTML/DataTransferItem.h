@@ -25,6 +25,9 @@ public:
     String kind() const;
     String type() const;
 
+    void get_as_string(JS::GCPtr<WebIDL::CallbackType>) const;
+    JS::GCPtr<FileAPI::File> get_as_file() const;
+
 private:
     DataTransferItem(JS::Realm&, JS::NonnullGCPtr<DataTransfer>, size_t item_index);
 
