@@ -110,6 +110,23 @@ git checkout my-css-change
 ./Meta/WPT.sh run --log results.log 
 ```
 
+### Importing Web Platform Tests
+
+You can use the `Meta/import-wpt-test.py` script to import Web Platform Tests (WPT) tests into your Ladybird clone (and you _should_ — especially if any code changes you’re making cause Ladybird to pass any WPT tests it hasn’t yet been passing). Here’s how:
+
+```sh
+./Meta/import-wpt-test.py http://wpt.live/html/dom/aria-attribute-reflection.html
+```
+
+That is, you give `import-wpt-test.py` the `http://wpt.live/` URL for the WPT test you want to import. It will then download both that test and any of its JavaScript scripts, copy those to the `Tests/LibWeb/Text/input/wpt-import` directory, and then also create a corresponding test-expecations file in the `Tests/LibWeb/Text/expected/wpt-import` directory.
+
+You can then run the imported test by doing this:
+
+```sh
+./Meta/ladybird.sh run headless-browser --run-tests ./Tests/LibWeb --rebaseline \
+    -f html/dom/aria-attribute-reflection.html
+```
+
 ## Writing tests
 
 Running `Tests/LibWeb/add_libweb_test.py your-new-test-name` will create a new test HTML file in
