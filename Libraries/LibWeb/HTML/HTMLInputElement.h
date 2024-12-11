@@ -71,6 +71,10 @@ public:
     TypeAttributeState type_state() const { return m_type; }
     WebIDL::ExceptionOr<void> set_type(String const&);
 
+    // https://github.com/whatwg/html/pull/9546
+    bool switch_() const;
+    void set_switch_(bool);
+
     String default_value() const { return get_attribute_value(HTML::AttributeNames::value); }
 
     virtual String value() const override;

@@ -1412,6 +1412,20 @@ WebIDL::ExceptionOr<void> HTMLInputElement::set_type(String const& type)
     return set_attribute(HTML::AttributeNames::type, type);
 }
 
+// https://github.com/whatwg/html/pull/9546
+bool HTMLInputElement::switch_() const
+{
+    return has_attribute(HTML::AttributeNames::switch_);
+}
+
+void HTMLInputElement::set_switch_(bool state)
+{
+    if (state)
+        MUST(set_attribute(HTML::AttributeNames::switch_, String {}));
+    else
+        remove_attribute(HTML::AttributeNames::switch_);
+}
+
 // https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#valid-simple-colour
 static bool is_valid_simple_color(StringView value)
 {
@@ -2357,7 +2371,7 @@ Optional<ARIA::Role> HTMLInputElement::default_role() const
     // https://www.w3.org/TR/html-aria/#el-input-checkbox
     if (type_state() == TypeAttributeState::Checkbox) {
         // https://github.com/w3c/html-aam/issues/496
-        if (has_attribute("switch"_string))
+        if (has_attribute(HTML::AttributeNames::switch_))
             return ARIA::Role::switch_;
         return ARIA::Role::checkbox;
     }

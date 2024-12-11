@@ -81,6 +81,7 @@ bool is_boolean_attribute(FlyString const& attribute)
         || attribute.equals_ignoring_ascii_case(AttributeNames::reversed)
         || attribute.equals_ignoring_ascii_case(AttributeNames::seeking)
         || attribute.equals_ignoring_ascii_case(AttributeNames::selected)
+        || attribute.equals_ignoring_ascii_case(AttributeNames::switch_)
         || attribute.equals_ignoring_ascii_case(AttributeNames::truespeed)
         || attribute.equals_ignoring_ascii_case(AttributeNames::willvalidate);
 }
