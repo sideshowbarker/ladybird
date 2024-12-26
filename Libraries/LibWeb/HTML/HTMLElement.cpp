@@ -90,6 +90,32 @@ void HTMLElement::set_dir(String const& dir)
     MUST(set_attribute(HTML::AttributeNames::dir, dir));
 }
 
+// https://html.spec.whatwg.org/multipage/dom.html#the-translate-attribute
+bool HTMLElement::translate() const
+{
+    if (has_attribute(HTML::AttributeNames::translate)) {
+        auto translate = get_attribute_value(HTML::AttributeNames::translate);
+        if (translate.equals_ignoring_ascii_case("yes"sv) || translate.is_empty())
+            return true;
+        if (translate.equals_ignoring_ascii_case("no"sv))
+            return false;
+    }
+    // The element's translation mode is in the same state as its parent element's, if any
+    if (parent_element()) {
+        dbgln("ggg returning {} {}", parent_node()->node_name(), parent_element()->translate());
+        return parent_element()->translate();
+    }
+    // or in the translate-enabled state, if the element's parent element is null.
+    return true;
+}
+
+void HTMLElement::set_translate(bool const& is_translate_enabled)
+{
+    if (is_translate_enabled)
+        MUST(set_attribute(HTML::AttributeNames::translate, "yes"_string));
+    MUST(set_attribute(HTML::AttributeNames::translate, "no"_string));
+}
+
 bool HTMLElement::is_focusable() const
 {
     return is_editing_host();

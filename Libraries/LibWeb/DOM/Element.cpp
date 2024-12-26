@@ -3130,4 +3130,19 @@ Optional<String> Element::lang() const
     return maybe_lang.release_value();
 }
 
+// https://html.spec.whatwg.org/multipage/dom.html#the-translate-attribute
+// Each element (even non-HTML elements) has a translation mode, which is in either the translate-enabled state or the
+// no-translate state.
+bool Element::translate() const
+{
+    dbgln("ggg getting translate");
+    return m_is_translate_enabled;
+}
+
+void Element::set_translate(bool const& is_translate_enabled)
+{
+    dbgln("ggg setting translate");
+    m_is_translate_enabled = is_translate_enabled;
+}
+
 }

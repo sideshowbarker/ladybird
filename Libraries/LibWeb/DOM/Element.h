@@ -127,6 +127,9 @@ public:
 
     Optional<String> lang() const;
 
+    virtual bool translate() const;
+    virtual void set_translate(bool const&);
+
     WebIDL::ExceptionOr<void> set_attribute(FlyString const& name, String const& value);
 
     WebIDL::ExceptionOr<void> set_attribute_ns(Optional<FlyString> const& namespace_, FlyString const& qualified_name, String const& value);
@@ -462,6 +465,8 @@ private:
     Array<CSSPixelPoint, 3> m_scroll_offset;
 
     bool m_in_top_layer { false };
+
+    bool m_is_translate_enabled { true };
 
     OwnPtr<CSS::CountersSet> m_counters_set;
 };

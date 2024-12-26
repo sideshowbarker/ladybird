@@ -75,6 +75,9 @@ public:
     StringView dir() const;
     void set_dir(String const&);
 
+    virtual bool translate() const override;
+    virtual void set_translate(bool const&) override;
+
     virtual bool is_focusable() const override;
     bool is_content_editable() const;
     StringView content_editable() const;
