@@ -8,10 +8,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -23,7 +21,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -52,10 +49,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -67,7 +62,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -96,10 +90,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -127,7 +119,7 @@
     "prohibitedProperties": [],
     "requiredContextRoles": [],
     "requiredOwnedElements": [],
-    "nameFromSource": "Author",
+    "nameFromSource": null,
     "accessibleNameRequired": false,
     "childrenArePresentational": false,
     "implicitValueForRole": {}
@@ -143,8 +135,7 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-activedescendant",
@@ -157,7 +148,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -172,7 +162,7 @@
     "prohibitedProperties": [],
     "requiredContextRoles": [],
     "requiredOwnedElements": [],
-    "nameFromSource": "Author",
+    "nameFromSource": null,
     "accessibleNameRequired": false,
     "childrenArePresentational": false,
     "implicitValueForRole": {}
@@ -233,10 +223,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -248,7 +236,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -277,10 +264,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -290,7 +275,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-live",
       "aria-owns",
@@ -300,6 +284,8 @@
     "requiredProperties": [],
     "prohibitedStates": [],
     "prohibitedProperties": [
+      "aria-braillelabel",
+      "aria-brailleroledescription",
       "aria-label",
       "aria-labelledby",
       "aria-roledescription"
@@ -320,10 +306,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -335,7 +319,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-live",
       "aria-owns",
@@ -346,6 +329,7 @@
     "requiredProperties": [],
     "prohibitedStates": [],
     "prohibitedProperties": [
+      "aria-braillelabel",
       "aria-label",
       "aria-labelledby"
     ],
@@ -365,14 +349,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid",
-      "aria-valuemax",
-      "aria-valuemin",
-      "aria-valuenow",
-      "aria-valuetext"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -384,14 +362,17 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
       "aria-live",
       "aria-owns",
       "aria-relevant",
-      "aria-roledescription"
+      "aria-roledescription",
+      "aria-valuemax",
+      "aria-valuemin",
+      "aria-valuenow",
+      "aria-valuetext"
     ],
     "requiredStates": [],
     "requiredProperties": [],
@@ -399,7 +380,7 @@
     "prohibitedProperties": [],
     "requiredContextRoles": [],
     "requiredOwnedElements": [],
-    "nameFromSource": "Author",
+    "nameFromSource": null,
     "accessibleNameRequired": false,
     "childrenArePresentational": false,
     "implicitValueForRole": {}
@@ -413,10 +394,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -428,7 +407,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -446,7 +424,9 @@
       "table",
       "treegrid"
     ],
-    "requiredOwnedElements": [],
+    "requiredOwnedElements": [
+      "row"
+    ],
     "nameFromSource": "Author",
     "accessibleNameRequired": false,
     "childrenArePresentational": false,
@@ -461,10 +441,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -476,7 +454,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -505,10 +482,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -520,9 +495,7 @@
       "aria-details",
       "aria-dropeffect",
       "aria-dropeffect",
-      "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -551,10 +524,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -566,9 +537,7 @@
       "aria-details",
       "aria-dropeffect",
       "aria-dropeffect",
-      "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -599,8 +568,7 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -612,7 +580,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -627,7 +594,7 @@
     "prohibitedProperties": [],
     "requiredContextRoles": [],
     "requiredOwnedElements": [],
-    "nameFromSource": "Author",
+    "nameFromSource": null,
     "accessibleNameRequired": false,
     "childrenArePresentational": false,
     "implicitValueForRole": {}
@@ -641,10 +608,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -656,7 +621,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -671,7 +635,7 @@
     "prohibitedProperties": [],
     "requiredContextRoles": [],
     "requiredOwnedElements": [],
-    "nameFromSource": "AuthorContent",
+    "nameFromSource": null,
     "accessibleNameRequired": false,
     "childrenArePresentational": false,
     "implicitValueForRole": {}
@@ -687,8 +651,7 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -700,7 +663,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -740,9 +702,7 @@
       "aria-busy",
       "aria-current",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid",
-      "aria-orientation"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -754,11 +714,11 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
       "aria-live",
+      "aria-orientation",
       "aria-owns",
       "aria-relevant",
       "aria-roledescription"
@@ -785,10 +745,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -800,7 +758,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -831,10 +788,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -846,7 +801,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -856,7 +810,6 @@
       "aria-roledescription",
       "aria-valuemax",
       "aria-valuemin",
-      "aria-valuenow",
       "aria-valuetext"
     ],
     "requiredStates": [],
@@ -879,15 +832,14 @@
     "specLink": "https://www.w3.org/TR/wai-aria-1.2/#progressbar",
     "description": "An element that displays the progress status for tasks that take a long time.\n// NOTE: Progresbar also inherits from Widgetfrom Cell, but we can't do that in C++ due to Progressbar already inheriting from Widget\n//       This is fine because behavior is still correct and is() will still work as expected.",
     "superClassRoles": [
-      "Range"
+      "Range",
+      "Widget"
     ],
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -899,7 +851,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -938,8 +889,7 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -951,7 +901,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -966,7 +915,6 @@
     ],
     "requiredStates": [],
     "requiredProperties": [
-      "aria-brailleroledescription",
       "aria-controls",
       "aria-valuenow"
     ],
@@ -995,8 +943,7 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1052,8 +999,7 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1066,7 +1012,6 @@
       "aria-dropeffect",
       "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -1103,10 +1048,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1117,15 +1060,11 @@
       "aria-description",
       "aria-details",
       "aria-dropeffect",
-      "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
-      "aria-invalid",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
       "aria-live",
-      "aria-modal",
       "aria-owns",
       "aria-relevant",
       "aria-roledescription"
@@ -1153,10 +1092,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1168,7 +1105,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -1197,10 +1133,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1211,7 +1145,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-live",
       "aria-owns",
@@ -1222,12 +1155,15 @@
     "requiredProperties": [],
     "prohibitedStates": [],
     "prohibitedProperties": [
+      "aria-braillelabel",
       "aria-label",
       "aria-labelledby"
     ],
     "requiredContextRoles": [
       "figure",
       "grid",
+      "group",
+      "radiogroup",
       "table",
       "treegrid"
     ],
@@ -1246,25 +1182,22 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
       "aria-braillelabel",
+      "aria-brailleroledescription",
       "aria-colindex",
       "aria-colindextext",
       "aria-colspan",
-      "aria-brailleroledescription",
       "aria-controls",
       "aria-describedby",
       "aria-description",
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -1298,10 +1231,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1312,7 +1243,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-live",
       "aria-owns",
@@ -1323,6 +1253,7 @@
     "requiredProperties": [],
     "prohibitedStates": [],
     "prohibitedProperties": [
+      "aria-braillelabel",
       "aria-label",
       "aria-labelledby"
     ],
@@ -1342,10 +1273,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1356,7 +1285,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -1368,7 +1296,11 @@
     "requiredStates": [],
     "requiredProperties": [],
     "prohibitedStates": [],
-    "prohibitedProperties": [],
+    "prohibitedProperties": [
+      "aria-braillelabel",
+      "aria-label",
+      "aria-labelledby"
+    ],
     "requiredContextRoles": [],
     "requiredOwnedElements": [],
     "nameFromSource": "Author",
@@ -1385,10 +1317,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1399,7 +1329,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-live",
       "aria-owns",
@@ -1410,6 +1339,7 @@
     "requiredProperties": [],
     "prohibitedStates": [],
     "prohibitedProperties": [
+      "aria-braillelabel",
       "aria-label",
       "aria-labelledby"
     ],
@@ -1429,10 +1359,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1443,7 +1371,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-live",
       "aria-owns",
@@ -1454,6 +1381,7 @@
     "requiredProperties": [],
     "prohibitedStates": [],
     "prohibitedProperties": [
+      "aria-braillelabel",
       "aria-label",
       "aria-labelledby"
     ],
@@ -1473,10 +1401,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1488,7 +1414,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -1519,8 +1444,7 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-activedescendant",
@@ -1533,7 +1457,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -1562,10 +1485,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1577,7 +1498,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -1606,10 +1526,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1620,7 +1538,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-live",
       "aria-owns",
@@ -1631,6 +1548,7 @@
     "requiredProperties": [],
     "prohibitedStates": [],
     "prohibitedProperties": [
+      "aria-braillelabel",
       "aria-label",
       "aria-labelledby"
     ],
@@ -1650,10 +1568,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1665,7 +1581,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -1680,7 +1595,7 @@
     "prohibitedProperties": [],
     "requiredContextRoles": [],
     "requiredOwnedElements": [],
-    "nameFromSource": "Author",
+    "nameFromSource": null,
     "accessibleNameRequired": false,
     "childrenArePresentational": false,
     "implicitValueForRole": {}
@@ -1694,10 +1609,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1709,7 +1622,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -1740,10 +1652,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1755,7 +1665,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -1790,10 +1699,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1805,7 +1712,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -1836,10 +1742,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1851,7 +1755,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -1867,7 +1770,7 @@
     "requiredContextRoles": [],
     "requiredOwnedElements": [],
     "nameFromSource": "Author",
-    "accessibleNameRequired": true,
+    "accessibleNameRequired": false,
     "childrenArePresentational": false,
     "implicitValueForRole": {}
   },
@@ -1880,10 +1783,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1895,7 +1796,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -1924,10 +1824,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1939,7 +1837,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -1968,10 +1865,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -1982,7 +1877,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-live",
       "aria-owns",
@@ -1993,6 +1887,7 @@
     "requiredProperties": [],
     "prohibitedStates": [],
     "prohibitedProperties": [
+      "aria-braillelabel",
       "aria-label",
       "aria-labelledby"
     ],
@@ -2012,10 +1907,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -2027,7 +1920,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -2051,18 +1943,16 @@
     }
   },
   "Strong": {
-    "specLink": "",
-    "description": "",
+    "specLink": "https://w3c.github.io/aria/#strong",
+    "description": "Content that is important, serious, or urgent.",
     "superClassRoles": [
       "Section"
     ],
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -2073,7 +1963,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-live",
       "aria-owns",
@@ -2084,6 +1973,7 @@
     "requiredProperties": [],
     "prohibitedStates": [],
     "prohibitedProperties": [
+      "aria-braillelabel",
       "aria-label",
       "aria-labelledby"
     ],
@@ -2103,10 +1993,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -2117,7 +2005,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-live",
       "aria-owns",
@@ -2128,6 +2015,7 @@
     "requiredProperties": [],
     "prohibitedStates": [],
     "prohibitedProperties": [
+      "aria-braillelabel",
       "aria-label",
       "aria-labelledby"
     ],
@@ -2147,11 +2035,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-errormessage",
       "aria-grabbed",
-      "aria-haspopup",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -2162,7 +2047,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-live",
       "aria-owns",
@@ -2172,9 +2056,16 @@
     "requiredStates": [],
     "requiredProperties": [],
     "prohibitedStates": [],
-    "prohibitedProperties": [],
+    "prohibitedProperties": [
+      "aria-braillelabel",
+      "aria-label",
+      "aria-labelledby"
+    ],
     "requiredContextRoles": [],
-    "requiredOwnedElements": [],
+    "requiredOwnedElements": [
+      "insertion",
+      "deletion"
+    ],
     "nameFromSource": "Prohibited",
     "accessibleNameRequired": false,
     "childrenArePresentational": false,
@@ -2189,10 +2080,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -2203,7 +2092,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-live",
       "aria-owns",
@@ -2214,6 +2102,7 @@
     "requiredProperties": [],
     "prohibitedStates": [],
     "prohibitedProperties": [
+      "aria-braillelabel",
       "aria-label",
       "aria-labelledby"
     ],
@@ -2233,23 +2122,20 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
       "aria-braillelabel",
-      "aria-colcount",
       "aria-brailleroledescription",
+      "aria-colcount",
       "aria-controls",
       "aria-describedby",
       "aria-description",
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -2265,7 +2151,9 @@
     "prohibitedProperties": [],
     "requiredContextRoles": [],
     "requiredOwnedElements": [
-      "row"
+      "caption",
+      "row",
+      "rowgroup"
     ],
     "nameFromSource": "Author",
     "accessibleNameRequired": true,
@@ -2281,10 +2169,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -2296,7 +2182,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -2325,10 +2210,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -2339,7 +2222,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -2351,10 +2233,14 @@
     "requiredStates": [],
     "requiredProperties": [],
     "prohibitedStates": [],
-    "prohibitedProperties": [],
+    "prohibitedProperties": [
+      "aria-braillelabel",
+      "aria-label",
+      "aria-labelledby"
+    ],
     "requiredContextRoles": [],
     "requiredOwnedElements": [],
-    "nameFromSource": "Author",
+    "nameFromSource": "Prohibited",
     "accessibleNameRequired": false,
     "childrenArePresentational": false,
     "implicitValueForRole": {}
@@ -2368,10 +2254,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -2382,7 +2266,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -2394,10 +2277,14 @@
     "requiredStates": [],
     "requiredProperties": [],
     "prohibitedStates": [],
-    "prohibitedProperties": [],
+    "prohibitedProperties": [
+      "aria-braillelabel",
+      "aria-label",
+      "aria-labelledby"
+    ],
     "requiredContextRoles": [],
     "requiredOwnedElements": [],
-    "nameFromSource": "Author",
+    "nameFromSource": "Prohibited",
     "accessibleNameRequired": false,
     "childrenArePresentational": false,
     "implicitValueForRole": {}
@@ -2411,10 +2298,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -2426,7 +2311,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -2442,7 +2326,7 @@
     "requiredContextRoles": [],
     "requiredOwnedElements": [],
     "nameFromSource": "AuthorContent",
-    "accessibleNameRequired": true,
+    "accessibleNameRequired": false,
     "childrenArePresentational": false,
     "implicitValueForRole": {}
   },
@@ -2455,10 +2339,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -2469,9 +2351,7 @@
       "aria-description",
       "aria-details",
       "aria-dropeffect",
-      "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -2502,10 +2382,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -2517,11 +2395,11 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
       "aria-live",
+      "aria-modal",
       "aria-owns",
       "aria-relevant",
       "aria-roledescription"
@@ -2533,7 +2411,7 @@
     "requiredContextRoles": [],
     "requiredOwnedElements": [],
     "nameFromSource": "Author",
-    "accessibleNameRequired": false,
+    "accessibleNameRequired": true,
     "childrenArePresentational": false,
     "implicitValueForRole": {}
   },
@@ -2557,9 +2435,10 @@
     "supportedProperties": [
       "aria-atomic",
       "aria-braillelabel",
-      "aria-colindex",
-      "aria-colspan",
       "aria-brailleroledescription",
+      "aria-colindex",
+      "aria-colindextext",
+      "aria-colspan",
       "aria-controls",
       "aria-describedby",
       "aria-description",
@@ -2578,6 +2457,7 @@
       "aria-required",
       "aria-roledescription",
       "aria-rowindex",
+      "aria-rowindextext",
       "aria-rowspan"
     ],
     "requiredStates": [],
@@ -2597,6 +2477,7 @@
     "specLink": "https://www.w3.org/TR/wai-aria-1.2/#columnheader",
     "description": "A cell containing header information for a column.\n// NOTE: ColumnHeader also inherits from Cell, but we can't do that in C++ due to GridCell already inheriting from Cell\n//       This is fine because behavior is still correct and is() will still work as expected.",
     "superClassRoles": [
+      "Cell",
       "GridCell",
       "SectionHead"
     ],
@@ -2613,9 +2494,10 @@
     "supportedProperties": [
       "aria-atomic",
       "aria-braillelabel",
-      "aria-colindex",
-      "aria-colspan",
       "aria-brailleroledescription",
+      "aria-colindex",
+      "aria-colindextext",
+      "aria-colspan",
       "aria-controls",
       "aria-describedby",
       "aria-description",
@@ -2629,10 +2511,12 @@
       "aria-labelledby",
       "aria-live",
       "aria-owns",
+      "aria-readonly",
       "aria-relevant",
       "aria-required",
       "aria-roledescription",
       "aria-rowindex",
+      "aria-rowindextext",
       "aria-rowspan",
       "aria-sort"
     ],
@@ -2669,9 +2553,9 @@
     "supportedProperties": [
       "aria-atomic",
       "aria-braillelabel",
+      "aria-brailleroledescription",
       "aria-colindex",
       "aria-colspan",
-      "aria-brailleroledescription",
       "aria-controls",
       "aria-describedby",
       "aria-description",
@@ -2718,7 +2602,6 @@
       "aria-expanded",
       "aria-grabbed",
       "aria-hidden",
-      "aria-invalid",
       "aria-selected"
     ],
     "supportedProperties": [
@@ -2734,7 +2617,6 @@
       "aria-dropeffect",
       "aria-expanded",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -2781,8 +2663,7 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-activedescendant",
@@ -2794,9 +2675,7 @@
       "aria-description",
       "aria-details",
       "aria-dropeffect",
-      "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -2828,8 +2707,7 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-activedescendant",
@@ -2842,7 +2720,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -2893,7 +2770,6 @@
       "aria-errormessage",
       "aria-expanded",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -2903,8 +2779,8 @@
       "aria-owns",
       "aria-readonly",
       "aria-relevant",
-      "aria-roledescription",
-      "aria-required"
+      "aria-required",
+      "aria-roledescription"
     ],
     "requiredStates": [],
     "requiredProperties": [],
@@ -2912,6 +2788,7 @@
     "prohibitedProperties": [],
     "requiredContextRoles": [],
     "requiredOwnedElements": [
+      "group",
       "option"
     ],
     "nameFromSource": "Author",
@@ -2932,8 +2809,7 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-activedescendant",
@@ -2946,7 +2822,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -2962,9 +2837,11 @@
     "prohibitedProperties": [],
     "requiredContextRoles": [],
     "requiredOwnedElements": [
+      "group",
       "menuitem",
       "menuitemradio",
-      "menuitemcheckbox"
+      "menuitemcheckbox",
+      "separator"
     ],
     "nameFromSource": "Author",
     "accessibleNameRequired": false,
@@ -2999,7 +2876,6 @@
       "aria-dropeffect",
       "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3016,9 +2892,7 @@
     "prohibitedStates": [],
     "prohibitedProperties": [],
     "requiredContextRoles": [],
-    "requiredOwnedElements": [
-      "radio"
-    ],
+    "requiredOwnedElements": [],
     "nameFromSource": "Author",
     "accessibleNameRequired": true,
     "childrenArePresentational": false,
@@ -3050,7 +2924,6 @@
       "aria-dropeffect",
       "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3068,6 +2941,7 @@
     "prohibitedProperties": [],
     "requiredContextRoles": [],
     "requiredOwnedElements": [
+      "group",
       "treeitem"
     ],
     "nameFromSource": "Author",
@@ -3088,8 +2962,7 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-activedescendant",
@@ -3102,7 +2975,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3117,9 +2989,11 @@
     "prohibitedProperties": [],
     "requiredContextRoles": [],
     "requiredOwnedElements": [
+      "group",
       "menuitem",
+      "menuitemradio",
       "menuitemcheckbox",
-      "menuitemradio"
+      "separator"
     ],
     "nameFromSource": "Author",
     "accessibleNameRequired": false,
@@ -3132,7 +3006,8 @@
     "specLink": "https://www.w3.org/TR/wai-aria-1.2/#treegrid",
     "description": "A grid whose rows can be expanded and collapsed in the same manner as for a tree.",
     "superClassRoles": [
-      "Row"
+      "Grid",
+      "Tree"
     ],
     "supportedStates": [
       "aria-busy",
@@ -3146,15 +3021,14 @@
       "aria-activedescendant",
       "aria-atomic",
       "aria-braillelabel",
-      "aria-colcount",
       "aria-brailleroledescription",
+      "aria-colcount",
       "aria-controls",
       "aria-describedby",
       "aria-description",
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3173,7 +3047,11 @@
     "prohibitedStates": [],
     "prohibitedProperties": [],
     "requiredContextRoles": [],
-    "requiredOwnedElements": [],
+    "requiredOwnedElements": [
+      "caption",
+      "row",
+      "rowgroup"
+    ],
     "nameFromSource": "Author",
     "accessibleNameRequired": true,
     "childrenArePresentational": false,
@@ -3188,10 +3066,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -3203,7 +3079,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3232,10 +3107,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -3247,7 +3120,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3276,10 +3148,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -3291,7 +3161,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3320,10 +3189,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -3335,7 +3202,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3364,10 +3230,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -3379,7 +3243,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3408,10 +3271,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -3421,9 +3282,7 @@
       "aria-description",
       "aria-details",
       "aria-dropeffect",
-      "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-live",
       "aria-owns",
@@ -3433,7 +3292,11 @@
     "requiredStates": [],
     "requiredProperties": [],
     "prohibitedStates": [],
-    "prohibitedProperties": [],
+    "prohibitedProperties": [
+      "aria-braillelabel",
+      "aria-label",
+      "aria-labelledby"
+    ],
     "requiredContextRoles": [],
     "requiredOwnedElements": [],
     "nameFromSource": "Prohibited",
@@ -3450,10 +3313,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -3465,7 +3326,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3494,10 +3354,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -3509,7 +3367,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3538,10 +3395,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -3553,7 +3408,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3582,10 +3436,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -3597,7 +3449,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3626,10 +3477,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -3641,7 +3490,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3676,8 +3524,7 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -3688,9 +3535,7 @@
       "aria-description",
       "aria-details",
       "aria-dropeffect",
-      "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3712,9 +3557,9 @@
       "listbox"
     ],
     "requiredOwnedElements": [],
-    "nameFromSource": null,
-    "accessibleNameRequired": false,
-    "childrenArePresentational": false,
+    "nameFromSource": "AuthorContent",
+    "accessibleNameRequired": true,
+    "childrenArePresentational": true,
     "implicitValueForRole": {}
   },
   "TreeItem": {
@@ -3729,9 +3574,9 @@
       "aria-checked",
       "aria-current",
       "aria-disabled",
+      "aria-expanded",
       "aria-grabbed",
       "aria-hidden",
-      "aria-invalid",
       "aria-selected"
     ],
     "supportedProperties": [
@@ -3759,7 +3604,10 @@
     "requiredProperties": [],
     "prohibitedStates": [],
     "prohibitedProperties": [],
-    "requiredContextRoles": [],
+    "requiredContextRoles": [
+      "group",
+      "tree"
+    ],
     "requiredOwnedElements": [],
     "nameFromSource": "AuthorContent",
     "accessibleNameRequired": true,
@@ -3775,10 +3623,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -3790,7 +3636,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3824,23 +3669,20 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-activedescendant",
       "aria-atomic",
       "aria-braillelabel",
-      "aria-colcount",
       "aria-brailleroledescription",
+      "aria-colcount",
       "aria-controls",
       "aria-describedby",
       "aria-description",
       "aria-details",
       "aria-dropeffect",
-      "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3857,7 +3699,9 @@
     "prohibitedProperties": [],
     "requiredContextRoles": [],
     "requiredOwnedElements": [
-      "row"
+      "caption",
+      "row",
+      "rowgroup"
     ],
     "nameFromSource": "Author",
     "accessibleNameRequired": true,
@@ -3873,10 +3717,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -3888,7 +3730,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -3899,8 +3740,11 @@
       "aria-roledescription"
     ],
     "requiredStates": [],
-    "requiredProperties": [],
-    "prohibitedStates": [],
+    "requiredProperties": [
+      "aria-level"
+    ]
+    "prohibitedStates": [
+    ],
     "prohibitedProperties": [],
     "requiredContextRoles": [],
     "requiredOwnedElements": [],
@@ -3923,7 +3767,6 @@
       "aria-expanded",
       "aria-grabbed",
       "aria-hidden",
-      "aria-invalid",
       "aria-selected"
     ],
     "supportedProperties": [
@@ -3956,7 +3799,7 @@
     ],
     "requiredOwnedElements": [],
     "nameFromSource": "AuthorContent",
-    "accessibleNameRequired": false,
+    "accessibleNameRequired": true,
     "childrenArePresentational": true,
     "implicitValueForRole": {
       "aria-selected": "false"
@@ -3972,10 +3815,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -3987,7 +3828,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -4020,7 +3860,7 @@
       "aria-expanded",
       "aria-grabbed",
       "aria-hidden",
-      "aria-invalid"
+      "aria-pressed"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -4031,7 +3871,6 @@
       "aria-description",
       "aria-details",
       "aria-dropeffect",
-      "aria-errormessage",
       "aria-flowto",
       "aria-haspopup",
       "aria-keyshortcuts",
@@ -4039,7 +3878,6 @@
       "aria-labelledby",
       "aria-live",
       "aria-owns",
-      "aria-pressed",
       "aria-relevant",
       "aria-roledescription"
     ],
@@ -4066,8 +3904,7 @@
       "aria-disabled",
       "aria-expanded",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -4079,7 +3916,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-errormessage",
       "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
@@ -4112,8 +3948,7 @@
       "aria-disabled",
       "aria-expanded",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -4161,9 +3996,9 @@
       "aria-busy",
       "aria-current",
       "aria-disabled",
+      "aria-expanded",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -4174,7 +4009,6 @@
       "aria-description",
       "aria-details",
       "aria-dropeffect",
-      "aria-errormessage",
       "aria-flowto",
       "aria-haspopup",
       "aria-keyshortcuts",
@@ -4212,12 +4046,10 @@
     ],
     "supportedStates": [
       "aria-busy",
-      "aria-checked",
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -4240,7 +4072,9 @@
       "aria-roledescription",
       "aria-setsize"
     ],
-    "requiredStates": [],
+    "requiredStates": [
+      "aria-checked"
+    ],
     "requiredProperties": [],
     "prohibitedStates": [],
     "prohibitedProperties": [],
@@ -4279,8 +4113,8 @@
       "aria-description",
       "aria-details",
       "aria-dropeffect",
+      "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -4291,7 +4125,9 @@
       "aria-required",
       "aria-roledescription"
     ],
-    "requiredStates": [],
+    "requiredStates": [
+      "aria-checked"
+    ],
     "requiredProperties": [],
     "prohibitedStates": [],
     "prohibitedProperties": [],
@@ -4313,14 +4149,15 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-activedescendant",
       "aria-atomic",
-      "aria-braillelabel",
       "aria-autocomplete",
+      "aria-braillelabel",
+      "aria-brailleroledescription",
+      "aria-controls",
       "aria-describedby",
       "aria-description",
       "aria-details",
@@ -4341,10 +4178,7 @@
     "requiredStates": [
       "aria-expanded"
     ],
-    "requiredProperties": [
-      "aria-brailleroledescription",
-      "aria-controls"
-    ],
+    "requiredProperties": [],
     "prohibitedStates": [],
     "prohibitedProperties": [],
     "requiredContextRoles": [],
@@ -4367,8 +4201,7 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -4379,9 +4212,7 @@
       "aria-description",
       "aria-details",
       "aria-dropeffect",
-      "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -4422,8 +4253,8 @@
     "supportedProperties": [
       "aria-activedescendant",
       "aria-atomic",
-      "aria-braillelabel",
       "aria-autocomplete",
+      "aria-braillelabel",
       "aria-brailleroledescription",
       "aria-controls",
       "aria-describedby",
@@ -4482,7 +4313,6 @@
       "aria-dropeffect",
       "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -4522,8 +4352,8 @@
     "supportedProperties": [
       "aria-activedescendant",
       "aria-atomic",
-      "aria-braillelabel",
       "aria-autocomplete",
+      "aria-braillelabel",
       "aria-brailleroledescription",
       "aria-controls",
       "aria-describedby",
@@ -4567,8 +4397,7 @@
       "aria-current",
       "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-activedescendant",
@@ -4581,7 +4410,6 @@
       "aria-details",
       "aria-dropeffect",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -4616,10 +4444,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -4630,9 +4456,7 @@
       "aria-description",
       "aria-details",
       "aria-dropeffect",
-      "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -4661,10 +4485,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-activedescendant",
@@ -4676,9 +4498,7 @@
       "aria-description",
       "aria-details",
       "aria-dropeffect",
-      "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
@@ -4707,10 +4527,8 @@
     "supportedStates": [
       "aria-busy",
       "aria-current",
-      "aria-disabled",
       "aria-grabbed",
-      "aria-hidden",
-      "aria-invalid"
+      "aria-hidden"
     ],
     "supportedProperties": [
       "aria-atomic",
@@ -4721,9 +4539,7 @@
       "aria-description",
       "aria-details",
       "aria-dropeffect",
-      "aria-errormessage",
       "aria-flowto",
-      "aria-haspopup",
       "aria-keyshortcuts",
       "aria-label",
       "aria-labelledby",
