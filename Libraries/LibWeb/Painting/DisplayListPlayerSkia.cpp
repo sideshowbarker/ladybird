@@ -24,6 +24,8 @@
 #include <gpu/ganesh/SkSurfaceGanesh.h>
 #include <pathops/SkPathOps.h>
 
+#include <chrono>
+
 #include <LibGfx/Font/Font.h>
 #include <LibGfx/PainterSkia.h>
 #include <LibGfx/PathSkia.h>
@@ -96,8 +98,13 @@ static SkM44 to_skia_matrix4x4(Gfx::FloatMatrix4x4 const& matrix)
 
 void DisplayListPlayerSkia::flush()
 {
-    if (m_context)
+    if (m_context) {
         m_context->flush_and_submit(&surface().sk_surface());
+        // Perform deferred cleanup of GPU resources not used in the last 100ms
+        // to prevent unbounded memory growth
+        if (auto* ctx = m_context->sk_context())
+            ctx->performDeferredCleanup(std::chrono::milliseconds(100));
+    }
     surface().flush();
 }
 

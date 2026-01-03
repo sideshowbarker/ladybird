@@ -21,6 +21,7 @@
 #include <LibUnicode/TimeZone.h>
 #include <LibWeb/Bindings/MainThreadVM.h>
 #include <LibWeb/Fetch/Fetching/Fetching.h>
+#include <LibWeb/HTML/Navigable.h>
 #include <LibWeb/HTML/Window.h>
 #include <LibWeb/Internals/Internals.h>
 #include <LibWeb/Loader/ContentFilter.h>
@@ -37,6 +38,7 @@
 #include <WebContent/ConnectionFromClient.h>
 #include <WebContent/PageClient.h>
 #include <WebContent/WebDriverConnection.h>
+#include <cstdlib>
 
 #if defined(AK_OS_MACOS)
 #    include <LibCore/Platform/ProcessStatisticsMach.h>
@@ -59,6 +61,12 @@ static ErrorOr<void> reinitialize_image_decoder(IPC::File const& image_decoder_s
 ErrorOr<int> ladybird_main(Main::Arguments arguments)
 {
     AK::set_rich_debug_enabled(true);
+
+    // Register cleanup to run before static destructors.
+    // This prevents Skia's debug resource tracker from aborting due to leaked GPU resources.
+    atexit([] {
+        Web::HTML::release_skia_backend_context();
+    });
 
 #if defined(AK_OS_WINDOWS)
     // NOTE: We need this here otherwise SDL inits COM in the APARTMENTTHREADED model which we don't want as we need to

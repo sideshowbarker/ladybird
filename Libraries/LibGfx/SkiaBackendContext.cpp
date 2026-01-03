@@ -27,6 +27,9 @@
 
 namespace Gfx {
 
+// Limit GPU resource cache to prevent unbounded memory growth
+static constexpr size_t GPU_RESOURCE_CACHE_LIMIT = 256 * 1024 * 1024; // 256 MB
+
 #ifdef USE_VULKAN
 class SkiaVulkanBackendContext final : public SkiaBackendContext {
     AK_MAKE_NONCOPYABLE(SkiaVulkanBackendContext);
@@ -40,7 +43,19 @@ public:
     {
     }
 
-    ~SkiaVulkanBackendContext() override { }
+    ~SkiaVulkanBackendContext() override
+    {
+        release_cached_resources();
+    }
+
+    void release_cached_resources() override
+    {
+        if (m_context) {
+            m_context->flushAndSubmit(GrSyncCpu::kYes);
+            m_context->releaseResourcesAndAbandonContext();
+            m_context = nullptr;
+        }
+    }
 
     void flush_and_submit(SkSurface* surface) override
     {
@@ -85,6 +100,7 @@ RefPtr<SkiaBackendContext> SkiaBackendContext::create_vulkan_context(VulkanConte
 
     sk_sp<GrDirectContext> ctx = GrDirectContexts::MakeVulkan(backend_context);
     VERIFY(ctx);
+    ctx->setResourceCacheLimit(GPU_RESOURCE_CACHE_LIMIT);
     return adopt_ref(*new SkiaVulkanBackendContext(ctx, vulkan_context, move(extensions)));
 }
 #endif
@@ -101,7 +117,19 @@ public:
     {
     }
 
-    ~SkiaMetalBackendContext() override { }
+    ~SkiaMetalBackendContext() override
+    {
+        release_cached_resources();
+    }
+
+    void release_cached_resources() override
+    {
+        if (m_context) {
+            m_context->flushAndSubmit(GrSyncCpu::kYes);
+            m_context->releaseResourcesAndAbandonContext();
+            m_context = nullptr;
+        }
+    }
 
     void flush_and_submit(SkSurface* surface) override
     {
@@ -127,6 +155,7 @@ RefPtr<SkiaBackendContext> SkiaBackendContext::create_metal_context(NonnullRefPt
     backend_context.fDevice.retain(metal_context->device());
     backend_context.fQueue.retain(metal_context->queue());
     sk_sp<GrDirectContext> ctx = GrDirectContexts::MakeMetal(backend_context);
+    ctx->setResourceCacheLimit(GPU_RESOURCE_CACHE_LIMIT);
     return adopt_ref(*new SkiaMetalBackendContext(move(ctx), move(metal_context)));
 }
 #endif

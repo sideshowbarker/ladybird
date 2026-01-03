@@ -145,6 +145,14 @@ bool Navigable::is_ancestor_of(GC::Ref<Navigable> other) const
 
 static RefPtr<Gfx::SkiaBackendContext> g_cached_skia_backend_context;
 
+void release_skia_backend_context()
+{
+    if (g_cached_skia_backend_context) {
+        g_cached_skia_backend_context->release_cached_resources();
+        g_cached_skia_backend_context = nullptr;
+    }
+}
+
 static RefPtr<Gfx::SkiaBackendContext> get_skia_backend_context()
 {
     if (!g_cached_skia_backend_context) {

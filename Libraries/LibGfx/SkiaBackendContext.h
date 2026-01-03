@@ -45,6 +45,10 @@ public:
     virtual void flush_and_submit(SkSurface*) { }
     virtual GrDirectContext* sk_context() const = 0;
 
+    // Release all cached GPU resources. Call before static destructors run
+    // to prevent Skia's resource tracker from aborting.
+    virtual void release_cached_resources() = 0;
+
     virtual MetalContext& metal_context() = 0;
     virtual VulkanContext const& vulkan_context() = 0;
 
