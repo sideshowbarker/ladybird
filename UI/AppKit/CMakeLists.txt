@@ -4,6 +4,7 @@ add_library(ladybird_impl STATIC
     Application/EventLoopImplementationMacOS.mm
     Interface/Autocomplete.mm
     Interface/BookmarksBar.mm
+    Interface/LadybirdAccessibilityElement.mm
     Interface/Event.mm
     Interface/InfoBar.mm
     Interface/LadybirdWebView.mm
