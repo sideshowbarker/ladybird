@@ -15,6 +15,7 @@
 #include <LibWebView/Forward.h>
 
 #import <Cocoa/Cocoa.h>
+#import <Interface/LadybirdAccessibilityViewProtocol.h>
 
 @protocol LadybirdWebViewObserver <NSObject>
 

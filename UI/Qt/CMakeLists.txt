@@ -1,5 +1,6 @@
 qt_add_executable(ladybird main.cpp)
 target_sources(ladybird PRIVATE
+    AccessibilityInterface.cpp
     Application.cpp
     Autocomplete.cpp
     BookmarksBar.cpp
@@ -18,6 +19,17 @@ target_sources(ladybird PRIVATE
     WebContentView.cpp
     ladybird.qrc
 )
+if (APPLE)
+    target_sources(ladybird PRIVATE
+        WebContentViewAccessibilityMac.mm
+    )
+    target_link_libraries(ladybird PRIVATE "-framework AppKit" "-framework ApplicationServices")
+    set_source_files_properties(
+        WebContentViewAccessibilityMac.mm
+        PROPERTIES COMPILE_FLAGS "-fobjc-arc"
+    )
+endif()
+
 target_link_libraries(ladybird PRIVATE Qt::Core Qt::Gui Qt::Widgets)
 create_ladybird_bundle(ladybird)
 
