@@ -19,6 +19,7 @@ add_subdirectory(LibWasm)
 add_subdirectory(LibXML)
 
 if (ENABLE_GUI_TARGETS)
+    add_subdirectory(Accessibility)
     add_subdirectory(LibGfx)
     add_subdirectory(LibMedia)
     add_subdirectory(LibWeb)
