@@ -33,14 +33,6 @@ class Script(Script):
     def get_app_key_bindings(self):
         return web.Script.get_app_key_bindings(self)
 
-    def activate(self):
-        """Called when this script is activated."""
-        super().activate()
-        # Pre-warm Orca's D-Bus caches in the background
-        from gi.repository import GLib
-
-        GLib.idle_add(self.utilities.prewarm_cache)
-
     # NOTE: on_focused_changed falls through to default.Script so Orca
     # properly handles chrome elements (address bar, tabs). Without
     # this, typing in the address bar breaks because Orca doesn't

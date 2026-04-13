@@ -1,10 +1,11 @@
 """Unit tests for the Ladybird Orca script utilities.
 
-These tests exercise the pure-logic functions (tree walking, node-id
-cache building, content-child finding) by stubbing out the orca Python
+These tests exercise the pure-logic helpers (node-id indexing,
+private-bus match encoding, private-bus→Qt-bridge mapping, and the
+``active_document`` DFS fallback) by stubbing out the orca Python
 package before importing script_utilities. That keeps the tests
-runnable on minimal CI runners that don't have the full orca stack
-installed, and makes the tested behaviour independent of orca's
+runnable on minimal CI runners that don’t have the full orca stack
+installed, and makes the tested behaviour independent of orca’s
 internals.
 """
 
@@ -47,8 +48,24 @@ class _StubAXObject:
         return children[index] if 0 <= index < len(children) else None
 
     @classmethod
+    def get_parent(cls, obj):
+        return getattr(obj, "_ladybird_parent", None)
+
+    @classmethod
     def is_dead(cls, obj):
         return getattr(obj, "_ladybird_dead", False)
+
+
+class _StubAXUtilities:
+    """Stand-in for orca.ax_utilities.AXUtilities with a couple of role predicates."""
+
+    @classmethod
+    def is_document_web(cls, obj):
+        return getattr(obj, "_ladybird_role", None) == "document_web"
+
+    @classmethod
+    def is_showing(cls, obj):
+        return getattr(obj, "_ladybird_showing", False)
 
 
 def _install_orca_stubs() -> None:
@@ -59,11 +76,22 @@ def _install_orca_stubs() -> None:
     ax_object_mod.AXObject = _StubAXObject
 
     ax_utilities_mod = types.ModuleType("orca.ax_utilities")
-    ax_utilities_mod.AXUtilities = MagicMock()
+    ax_utilities_mod.AXUtilities = _StubAXUtilities
 
     scripts_mod = types.ModuleType("orca.scripts")
 
-    web_utilities = type("Utilities", (), {"__init__": lambda self, script: None})
+    # Class-level ``active_document`` is a plain attribute so individual tests can
+    # override it (via ``unittest.mock.patch.object`` or direct assignment) to drive
+    # the subclass's override through different ``super()`` outcomes.
+    web_utilities = type(
+        "Utilities",
+        (),
+        {
+            "__init__": lambda self, script: None,
+            "active_document": lambda self: None,
+            "clear_cached_objects": lambda self: None,
+        },
+    )
     web_mod = types.ModuleType("orca.scripts.web")
     web_mod.Utilities = web_utilities
 
@@ -107,7 +135,7 @@ _spec.loader.exec_module(script_utilities)
 # -----------------------------------------------------------------------------
 
 
-def _make_accessible(children=None, role=None, name=None, attrs=None):
+def _make_accessible(children=None, role=None, name=None, attrs=None, showing=False):
     """Produce a MagicMock that mimics an Atspi.Accessible object well enough for the walker logic."""
 
     acc = MagicMock(name=f"Accessible({role}:{name})")
@@ -115,15 +143,15 @@ def _make_accessible(children=None, role=None, name=None, attrs=None):
     acc._ladybird_name = name
     acc._ladybird_children = list(children or [])
     acc._ladybird_attrs = attrs or {}
+    acc._ladybird_showing = showing
+    acc._ladybird_parent = None
+    # MagicMock auto-creates attributes, so ``is_dead`` would always see a
+    # truthy mock unless we explicitly pin the flag to False.
+    acc._ladybird_dead = False
+    for child in acc._ladybird_children:
+        child._ladybird_parent = acc
     acc.get_attributes = MagicMock(return_value=acc._ladybird_attrs)
     return acc
-
-
-def _state_set_containing(*names):
-    names_set = set(names)
-    ss = MagicMock()
-    ss.contains = lambda s: s in names_set
-    return ss
 
 
 # -----------------------------------------------------------------------------
@@ -131,63 +159,8 @@ def _state_set_containing(*names):
 # -----------------------------------------------------------------------------
 
 
-class TreeSearchTests(unittest.TestCase):
-    def setUp(self):
-        # Build a small tree:
-        #   root [document]
-        #     heading "H1"
-        #     paragraph
-        #       link "L1"
-        #       text_leaf
-        #     link "L2"
-        self.link1 = _make_accessible(role="link", name="L1")
-        self.text_leaf = _make_accessible(role="text leaf", name="lorem")
-        self.paragraph = _make_accessible(role="paragraph", children=[self.link1, self.text_leaf])
-        self.heading = _make_accessible(role="heading", name="H1")
-        self.link2 = _make_accessible(role="link", name="L2")
-        self.root = _make_accessible(role="document", children=[self.heading, self.paragraph, self.link2])
-
-    def test_dfs_finds_all_links_regardless_of_depth(self):
-        results = script_utilities._tree_search_by_role(self.root, {"link"})
-        # DFS order: the link at depth 2 (inside paragraph) is found before the top-level link.
-        self.assertEqual(results, [self.link1, self.link2])
-
-    def test_pred_filters_matches(self):
-        results = script_utilities._tree_search_by_role(
-            self.root, {"link"}, pred=lambda obj: obj._ladybird_name == "L2"
-        )
-        self.assertEqual(results, [self.link2])
-
-    def test_empty_roleset_matches_nothing(self):
-        self.assertEqual(script_utilities._tree_search_by_role(self.root, set()), [])
-
-    def test_none_root_returns_empty(self):
-        self.assertEqual(script_utilities._tree_search_by_role(None, {"link"}), [])
-
-    def test_state_filter_requires_all_states(self):
-        # Give the second link a FOCUSED state; the first lacks it.
-        self.link1.get_state_set = MagicMock(return_value=_state_set_containing())
-        self.link2.get_state_set = MagicMock(return_value=_state_set_containing("focused"))
-        for node in (self.root, self.heading, self.paragraph, self.text_leaf):
-            node.get_state_set = MagicMock(return_value=_state_set_containing())
-
-        results = script_utilities._tree_search_by_role_and_states(self.root, {"link"}, {"focused"})
-        self.assertEqual(results, [self.link2])
-
-    def test_state_filter_skips_when_any_state_missing(self):
-        # link2 has "focused" but not "visible"; the filter requires both.
-        self.link1.get_state_set = MagicMock(return_value=_state_set_containing("visible"))
-        self.link2.get_state_set = MagicMock(return_value=_state_set_containing("focused"))
-        for node in (self.root, self.heading, self.paragraph, self.text_leaf):
-            node.get_state_set = MagicMock(return_value=_state_set_containing())
-
-        results = script_utilities._tree_search_by_role_and_states(self.root, {"link"}, {"focused", "visible"})
-        self.assertEqual(results, [])
-
-
 class NodeIdCacheTests(unittest.TestCase):
     def setUp(self):
-        # Reset module-level cache state between cases.
         script_utilities._node_id_cache = {}
         script_utilities._node_id_cache_root = None
 
@@ -222,40 +195,252 @@ class NodeIdCacheTests(unittest.TestCase):
         self.assertEqual(script_utilities._node_id_cache, {})
 
 
-class FindFirstContentChildTests(unittest.TestCase):
-    def test_returns_first_descendant_with_name(self):
-        deep = _make_accessible(role="text leaf", name="hit")
-        wrapper = _make_accessible(role="generic", children=[deep])
-        empty_sibling = _make_accessible(role="generic", children=[])
-        root = _make_accessible(role="document", children=[empty_sibling, wrapper])
+class MapPrivateBusToQtBridgeTests(unittest.TestCase):
+    """``_map_private_bus_to_qt_bridge`` resolves AT-SPI2 object paths from the
+    private bus back to Atspi.Accessible objects on the Qt bridge by reading the
+    ``node-id`` attribute on each path and looking it up in the cache."""
 
-        utilities = script_utilities.Utilities.__new__(script_utilities.Utilities)
-        result = utilities._find_first_content_child(root)
+    def setUp(self):
+        script_utilities._node_id_cache = {}
+        script_utilities._node_id_cache_root = None
+        self._orig_connect = script_utilities._connect_private_bus
+        self._orig_name = script_utilities._private_bus_name
 
-        self.assertIs(result, deep)
+    def tearDown(self):
+        script_utilities._connect_private_bus = self._orig_connect
+        script_utilities._private_bus_name = self._orig_name
 
-    def test_returns_none_when_no_descendant_has_content(self):
-        leaf = _make_accessible(role="generic", name=None)
-        root = _make_accessible(role="document", children=[leaf])
+    def test_empty_paths_returns_empty_without_calling_the_bus(self):
+        # Even if the bus is unavailable, an empty path list is a no-op.
+        script_utilities._connect_private_bus = lambda: None
+        result = script_utilities._map_private_bus_to_qt_bridge([], qt_root=None)
+        self.assertEqual(result, [])
 
-        utilities = script_utilities.Utilities.__new__(script_utilities.Utilities)
-        result = utilities._find_first_content_child(root)
+    def test_no_bus_connection_returns_empty(self):
+        script_utilities._connect_private_bus = lambda: None
+        script_utilities._private_bus_name = None
+        result = script_utilities._map_private_bus_to_qt_bridge(["/some/path"], qt_root=None)
+        self.assertEqual(result, [])
 
-        self.assertIsNone(result)
+    def test_resolves_paths_via_node_id_attribute(self):
+        # Build two Qt-bridge objects whose node-ids match what the private bus will report.
+        a = _make_accessible(role="link", attrs={"node-id": "42"})
+        b = _make_accessible(role="heading", attrs={"node-id": "7"})
+        qt_root = _make_accessible(role="document", attrs={"node-id": "1"}, children=[a, b])
 
-    def test_recursion_depth_is_bounded(self):
-        # Build a linear chain longer than the hard cap (15) — the walker must return None without
-        # recursing past the cap.
-        tail = _make_accessible(role="generic", name=None)
-        chain = tail
-        for _ in range(40):
-            chain = _make_accessible(role="generic", name=None, children=[chain])
+        # Stand-in D-Bus connection that returns a {node-id: ...} attribute dict per path.
+        path_to_node_id = {"/p/a": "42", "/p/b": "7", "/p/missing": "999"}
 
-        utilities = script_utilities.Utilities.__new__(script_utilities.Utilities)
-        # All names are empty, so the answer is None regardless; the real test is that it returns
-        # at all (no recursion-limit exception).
-        result = utilities._find_first_content_child(chain)
-        self.assertIsNone(result)
+        class FakeAttrsReply:
+            def __init__(self, node_id):
+                self._node_id = node_id
+
+            def get_child_value(self, idx):
+                assert idx == 0
+                return types.SimpleNamespace(unpack=lambda: {"node-id": self._node_id})
+
+        class FakeConn:
+            def call_sync(self, _name, path, *_a, **_kw):
+                return FakeAttrsReply(path_to_node_id[path])
+
+        fake_conn = FakeConn()
+        script_utilities._connect_private_bus = lambda: fake_conn
+        script_utilities._private_bus_name = ":1.42"
+
+        result = script_utilities._map_private_bus_to_qt_bridge(["/p/a", "/p/b", "/p/missing"], qt_root=qt_root)
+
+        # Missing node-ids are skipped silently.
+        self.assertEqual(result, [a, b])
+
+    def test_skips_dead_qt_objects(self):
+        live = _make_accessible(role="link", attrs={"node-id": "live-id"})
+        dead = _make_accessible(role="link", attrs={"node-id": "dead-id"})
+        dead._ladybird_dead = True
+        qt_root = _make_accessible(role="document", children=[live, dead])
+
+        class FakeAttrsReply:
+            def __init__(self, node_id):
+                self._node_id = node_id
+
+            def get_child_value(self, idx):
+                assert idx == 0
+                return types.SimpleNamespace(unpack=lambda: {"node-id": self._node_id})
+
+        path_to_node_id = {"/p/live": "live-id", "/p/dead": "dead-id"}
+
+        class FakeConn:
+            def call_sync(self, _name, path, *_a, **_kw):
+                return FakeAttrsReply(path_to_node_id[path])
+
+        script_utilities._connect_private_bus = lambda: FakeConn()
+        script_utilities._private_bus_name = ":1.42"
+
+        result = script_utilities._map_private_bus_to_qt_bridge(["/p/live", "/p/dead"], qt_root=qt_root)
+        self.assertEqual(result, [live])
+
+
+class ActiveDocumentFallbackTests(unittest.TestCase):
+    """``Utilities.active_document`` falls back to a window DFS when Orca’s
+    default EMBEDS-based path returns ``None`` (which happens on Qt < 6.11
+    because Qt’s bridge does not expose the EMBEDS relation)."""
+
+    def setUp(self):
+        import orca.scripts.web as web_stub
+
+        self._orig_super_active_document = web_stub.Utilities.active_document
+        # Each test sets this to control what ``super().active_document()`` returns.
+        self._super_return = None
+        web_stub.Utilities.active_document = lambda inner_self: self._super_return
+
+        import orca.focus_manager as fm
+
+        self._orig_get_manager = fm.get_manager
+        self._active_window = None
+
+        manager = MagicMock()
+        manager.get_active_window = lambda: self._active_window
+        fm.get_manager = lambda: manager
+
+    def tearDown(self):
+        import orca.scripts.web as web_stub
+
+        web_stub.Utilities.active_document = self._orig_super_active_document
+
+        import orca.focus_manager as fm
+
+        fm.get_manager = self._orig_get_manager
+
+    def _utilities(self):
+        # Bypass __init__ (which would try to connect to the private bus and install patches).
+        return script_utilities.Utilities.__new__(script_utilities.Utilities)
+
+    def test_super_result_short_circuits(self):
+        sentinel = _make_accessible(role="document_web")
+        self._super_return = sentinel
+        self.assertIs(self._utilities().active_document(), sentinel)
+
+    def test_dfs_prefers_document_whose_parent_is_showing(self):
+        # Build a window with two tab panels, each containing a document_web.
+        # Only tab B is showing, so its document should win.
+        doc_a = _make_accessible(role="document_web")
+        panel_a = _make_accessible(role="panel", children=[doc_a], showing=False)
+        doc_b = _make_accessible(role="document_web")
+        panel_b = _make_accessible(role="panel", children=[doc_b], showing=True)
+        self._active_window = _make_accessible(role="frame", children=[panel_a, panel_b])
+
+        self.assertIs(self._utilities().active_document(), doc_b)
+
+    def test_dfs_returns_last_when_no_parent_is_showing(self):
+        doc_a = _make_accessible(role="document_web")
+        panel_a = _make_accessible(role="panel", children=[doc_a], showing=False)
+        doc_b = _make_accessible(role="document_web")
+        panel_b = _make_accessible(role="panel", children=[doc_b], showing=False)
+        self._active_window = _make_accessible(role="frame", children=[panel_a, panel_b])
+
+        self.assertIs(self._utilities().active_document(), doc_b)
+
+    def test_dfs_returns_none_when_no_document_found(self):
+        self._active_window = _make_accessible(role="frame", children=[_make_accessible(role="panel")])
+
+        self.assertIsNone(self._utilities().active_document())
+
+    def test_returns_none_when_no_active_window(self):
+        self._active_window = None
+        self.assertIsNone(self._utilities().active_document())
+
+
+class CollectionRoleBitfieldTests(unittest.TestCase):
+    """``_private_bus_collection_get_matches`` encodes its role list as an
+    AT-SPI2 role bitfield. Validate the encoding shape by capturing the
+    Variant tuple passed to ``call_sync``."""
+
+    def setUp(self):
+        self._orig_connect = script_utilities._connect_private_bus
+        self._orig_name = script_utilities._private_bus_name
+        self._orig_doc_root = script_utilities._get_private_bus_doc_root
+
+    def tearDown(self):
+        script_utilities._connect_private_bus = self._orig_connect
+        script_utilities._private_bus_name = self._orig_name
+        script_utilities._get_private_bus_doc_root = self._orig_doc_root
+
+    def _install_capturing_conn(self):
+        captured = {}
+
+        class FakeMatches:
+            def n_children(self_inner):
+                return 0
+
+            def get_child_value(self_inner, idx):
+                raise IndexError
+
+        class FakeReply:
+            def get_child_value(self_inner, idx):
+                assert idx == 0
+                return FakeMatches()
+
+        class FakeConn:
+            def call_sync(self_inner, name, path, iface, method, args, *_a, **_kw):
+                captured["name"] = name
+                captured["path"] = path
+                captured["iface"] = iface
+                captured["method"] = method
+                captured["args"] = args
+                return FakeReply()
+
+        script_utilities._connect_private_bus = lambda: FakeConn()
+        script_utilities._private_bus_name = ":1.42"
+        script_utilities._get_private_bus_doc_root = lambda: "/org/a11y/atspi/accessible/1"
+        return captured
+
+    def test_empty_role_list_encodes_to_single_zeroed_element(self):
+        captured = self._install_capturing_conn()
+        result = script_utilities._private_bus_collection_get_matches([])
+        self.assertEqual(result, [])
+
+        outer = captured["args"].unpack()
+        rule = outer[0]
+        # Rule shape: (states, statematch, attrs, attrmatch, roles, rolematch, ifaces, ifacematch, invert)
+        _, _, _, _, roles, _, _, _, _ = rule
+        self.assertEqual(roles, [0])
+
+    def test_role_values_set_correct_bits(self):
+        captured = self._install_capturing_conn()
+        # Role 5 → bit 5 of word 0. Role 33 → bit 1 of word 1.
+        script_utilities._private_bus_collection_get_matches([5, 33])
+
+        outer = captured["args"].unpack()
+        rule = outer[0]
+        _, _, _, _, roles, _, _, _, _ = rule
+        self.assertEqual(len(roles), 2)
+        self.assertEqual(roles[0], 1 << 5)
+        self.assertEqual(roles[1], 1 << 1)
+
+    def test_bit_31_is_encoded_as_signed_int32(self):
+        # Atspi.Role.LIST == 31 — bit 31 of word 0 is 0x80000000, which
+        # overflows signed int32. The bitfield encoder must convert to
+        # two's-complement so GLib.Variant("ai", ...) accepts it.
+        captured = self._install_capturing_conn()
+        script_utilities._private_bus_collection_get_matches([31])
+
+        outer = captured["args"].unpack()
+        rule = outer[0]
+        _, _, _, _, roles, _, _, _, _ = rule
+        self.assertEqual(roles, [-0x80000000])
+
+    def test_with_states_encodes_both_bitfields(self):
+        captured = self._install_capturing_conn()
+        # Role 8, state 2 and state 40 (requires two words).
+        script_utilities._private_bus_collection_get_matches_with_states([8], [2, 40])
+
+        outer = captured["args"].unpack()
+        rule = outer[0]
+        states, _, _, _, roles, _, _, _, _ = rule
+        self.assertEqual(roles[0], 1 << 8)
+        # State 2 is bit 2 of word 0; state 40 is bit 8 of word 1.
+        self.assertEqual(len(states), 2)
+        self.assertEqual(states[0], 1 << 2)
+        self.assertEqual(states[1], 1 << 8)
 
 
 if __name__ == "__main__":
