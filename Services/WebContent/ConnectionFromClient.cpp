@@ -38,7 +38,9 @@
 #include <LibWeb/Dump.h>
 #include <LibWeb/Fetch/Fetching/Fetching.h>
 #include <LibWeb/HTML/BrowsingContext.h>
+#include <LibWeb/HTML/Focus.h>
 #include <LibWeb/HTML/HTMLInputElement.h>
+#include <LibWeb/HTML/HTMLTextAreaElement.h>
 #include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
 #include <LibWeb/HTML/SelectedFile.h>
 #include <LibWeb/HTML/Storage.h>
@@ -55,6 +57,8 @@
 #include <LibWeb/Painting/ViewportPaintable.h>
 #include <LibWeb/PermissionsPolicy/AutoplayAllowlist.h>
 #include <LibWeb/Platform/EventLoopPlugin.h>
+#include <LibWeb/Selection/Selection.h>
+#include <LibWebView/AccessibilityNodeData.h>
 #include <LibWebView/Attribute.h>
 #include <LibWebView/ViewImplementation.h>
 #include <WebContent/ConnectionFromClient.h>
@@ -620,6 +624,125 @@ void ConnectionFromClient::inspect_accessibility_tree(u64 page_id)
     }
 }
 
+void ConnectionFromClient::request_accessibility_tree(u64 page_id)
+{
+    if (auto page = this->page(page_id); page.has_value()) {
+        page->set_accessibility_tree_requested();
+        if (auto* doc = page->page().top_level_browsing_context().active_document()) {
+            doc->update_layout(Web::DOM::UpdateLayoutReason::InspectAccessibilityTree);
+            async_did_get_accessibility_tree(page_id, doc->build_accessibility_node_data());
+        }
+    }
+}
+
+void ConnectionFromClient::perform_accessibility_action(u64 page_id, i64 node_id, String action)
+{
+    if (auto page = this->page(page_id); page.has_value()) {
+        auto* node = Web::DOM::Node::from_unique_id(Web::UniqueNodeID(node_id));
+        if (!node)
+            return;
+
+        // Text nodes aren't elements — walk up to the parent element.
+        if (!node->is_element()) {
+            node = node->parent_element();
+            if (!node)
+                return;
+        }
+
+        auto& element = static_cast<Web::DOM::Element&>(*node);
+
+        if (action == "press"sv || action == "click"sv) {
+            if (auto* html_element = as_if<Web::HTML::HTMLElement>(element))
+                html_element->click();
+        } else if (action == "focus"sv) {
+            if (!element.is_focusable()) {
+                // Make non-focusable elements (headings, paragraphs, etc.) programmatically focusable so screen reader
+                // navigation shows the CSS :focus-visible focus ring.
+                element.set_attribute_value(Web::HTML::AttributeNames::tabindex, "-1"_string);
+            }
+            // Use FocusTrigger::Key so :focus-visible matches and the focus ring is drawn (same visual as keyboard tab
+            // navigation).
+            Web::HTML::run_focusing_steps(&element, nullptr, Web::HTML::FocusTrigger::Key);
+        }
+
+        page->schedule_accessibility_tree_update();
+    }
+}
+
+void ConnectionFromClient::perform_accessibility_text_action(u64 page_id, i64 node_id, String action,
+    i32 offset_start, i32 offset_end, String text)
+{
+    (void)text;
+    auto page = this->page(page_id);
+    if (!page.has_value())
+        return;
+
+    auto* node = Web::DOM::Node::from_unique_id(Web::UniqueNodeID(node_id));
+    if (!node)
+        return;
+
+    if (action == "set_caret_offset"sv || action == "set_selection"sv) {
+        // Both work via DOM Selection. offset_start/offset_end are Unicode character offsets into the node's text
+        // (or the node's first text child, if the node is an element).
+        auto selection = node->document().get_selection();
+        if (!selection)
+            return;
+        Web::DOM::Node* text_target = node;
+        if (!text_target->is_text()) {
+            for (auto* child = text_target->first_child(); child; child = child->next_sibling()) {
+                if (child->is_text()) {
+                    text_target = child;
+                    break;
+                }
+            }
+        }
+        // Convert character offsets to UTF-16 code unit offsets for DOM Selection.
+        auto convert_to_code_units = [text_target](i32 character_offset) -> u32 {
+            if (!text_target->is_text())
+                return static_cast<u32>(character_offset);
+            auto view = static_cast<Web::DOM::Text const&>(*text_target).data().utf16_view();
+            return static_cast<u32>(view.code_unit_offset_of(static_cast<size_t>(character_offset)));
+        };
+        auto start_code_unit = convert_to_code_units(offset_start);
+        auto end_code_unit = convert_to_code_units(action == "set_caret_offset"sv ? offset_start : offset_end);
+        (void)selection->set_base_and_extent(*text_target, start_code_unit, *text_target, end_code_unit);
+    } else if (action == "scroll_substring_to"sv) {
+        // Range-aware scrolling is not exposed on DOM::Element; scroll the node into view as a fallback.
+        if (auto* element = as_if<Web::DOM::Element>(*node))
+            (void)element->scroll_into_view();
+    } else if (action == "set_selected"sv) {
+        // offset_start carries the desired selection state (1 = select, 0 = deselect). Used for <option> and
+        // for ARIA role="option" / "tab" / "menuitem" via aria-selected.
+        if (auto* option = as_if<Web::HTML::HTMLOptionElement>(*node))
+            option->set_selected(offset_start != 0);
+        else if (auto* element = as_if<Web::DOM::Element>(*node))
+            element->set_attribute_value("aria-selected"_fly_string,
+                offset_start != 0 ? "true"_string : "false"_string);
+    } else if (action == "insert_text"sv || action == "delete_text"sv) {
+        // Text editing on form fields. offset_start/end are character offsets into the element's current value.
+        auto edit_value = [&](Utf16String const& current) -> Utf16String {
+            auto view = current.utf16_view();
+            auto start_code_unit = view.code_unit_offset_of(static_cast<size_t>(offset_start));
+            auto end_code_unit = view.code_unit_offset_of(
+                static_cast<size_t>(offset_end >= 0 ? offset_end : offset_start));
+            auto before = view.substring_view(0, start_code_unit);
+            auto after = view.substring_view(end_code_unit, view.length_in_code_units() - end_code_unit);
+            StringBuilder builder(StringBuilder::Mode::UTF16);
+            builder.append(before);
+            if (action == "insert_text"sv)
+                builder.append(Utf16String::from_utf8(text));
+            builder.append(after);
+            return builder.to_utf16_string();
+        };
+        if (auto* input = as_if<Web::HTML::HTMLInputElement>(*node))
+            (void)input->set_value(edit_value(input->value()));
+        else if (auto* textarea = as_if<Web::HTML::HTMLTextAreaElement>(*node))
+            textarea->set_value(edit_value(textarea->value()));
+    }
+
+    page->schedule_accessibility_tree_update();
+}
+
 void ConnectionFromClient::get_hovered_node_id(u64 page_id)
 {
     auto page = this->page(page_id);
@@ -1061,6 +1184,153 @@ void ConnectionFromClient::request_internal_page_info(u64 page_id, WebView::Page
         append_stacking_context_tree(page->page(), builder);
     }
 
+    if (has_flag(type, WebView::PageInfoType::AccessibilityTree)) {
+        if (!builder.is_empty())
+            builder.append("\n"sv);
+        auto* doc = page->page().top_level_browsing_context().active_document();
+        if (doc) {
+            doc->update_layout(Web::DOM::UpdateLayoutReason::InspectAccessibilityTree);
+            auto nodes = doc->build_accessibility_node_data();
+
+            HashMap<i64, WebView::AccessibilityNodeData const*> node_map;
+            i64 root_id = -1;
+            for (auto const& node : nodes) {
+                node_map.set(node.id, &node);
+                if (node.parent_id == -1)
+                    root_id = node.id;
+            }
+
+            Function<void(i64, int)> dump_node = [&](i64 id, int depth) {
+                auto const* node = node_map.get(id).value_or(nullptr);
+                if (!node)
+                    return;
+
+                for (int i = 0; i < depth; ++i)
+                    builder.append("  "sv);
+
+                builder.append(node->role.bytes_as_string_view());
+
+                if (!node->name.is_empty()) {
+                    builder.append(" name=\""sv);
+                    builder.append(node->name.bytes_as_string_view());
+                    builder.append("\""sv);
+                }
+
+                if (!node->description.is_empty()) {
+                    builder.append(" description=\""sv);
+                    builder.append(node->description.bytes_as_string_view());
+                    builder.append("\""sv);
+                }
+
+                if (!node->value.is_empty()) {
+                    builder.append(" value=\""sv);
+                    builder.append(node->value.bytes_as_string_view());
+                    builder.append("\""sv);
+                }
+
+                if (!node->url.is_empty()) {
+                    builder.append(" url=\""sv);
+                    builder.append(node->url.bytes_as_string_view());
+                    builder.append("\""sv);
+                }
+
+                if (!node->language.is_empty()) {
+                    builder.append(" lang=\""sv);
+                    builder.append(node->language.bytes_as_string_view());
+                    builder.append("\""sv);
+                }
+
+                if (!node->keybinding.is_empty()) {
+                    builder.append(" accesskey=\""sv);
+                    builder.append(node->keybinding.bytes_as_string_view());
+                    builder.append("\""sv);
+                }
+
+                if (node->heading_level > 0)
+                    builder.appendff(" level={}", node->heading_level);
+
+                if (!isnan(node->value_numeric)) {
+                    builder.appendff(" value={}", node->value_numeric);
+                    if (!isnan(node->value_minimum))
+                        builder.appendff(" min={}", node->value_minimum);
+                    if (!isnan(node->value_maximum))
+                        builder.appendff(" max={}", node->value_maximum);
+                }
+
+                if (node->column_span != 1)
+                    builder.appendff(" colspan={}", node->column_span);
+                if (node->row_span != 1)
+                    builder.appendff(" rowspan={}", node->row_span);
+                if (node->cell_row_index >= 0)
+                    builder.appendff(" cell_row={}", node->cell_row_index);
+                if (node->cell_column_index >= 0)
+                    builder.appendff(" cell_col={}", node->cell_column_index);
+                if (node->table_row_count >= 0)
+                    builder.appendff(" rows={}", node->table_row_count);
+                if (node->table_column_count >= 0)
+                    builder.appendff(" cols={}", node->table_column_count);
+
+                using CheckedState = WebView::AccessibilityNodeData::CheckedState;
+                switch (node->checked_state) {
+                case CheckedState::Checked:
+                    builder.append(" checked"sv);
+                    break;
+                case CheckedState::Unchecked:
+                    builder.append(" unchecked"sv);
+                    break;
+                case CheckedState::Mixed:
+                    builder.append(" mixed"sv);
+                    break;
+                case CheckedState::NotApplicable:
+                    break;
+                }
+
+                using ExpandedState = WebView::AccessibilityNodeData::ExpandedState;
+                switch (node->expanded_state) {
+                case ExpandedState::Expanded:
+                    builder.append(" expanded"sv);
+                    break;
+                case ExpandedState::Collapsed:
+                    builder.append(" collapsed"sv);
+                    break;
+                case ExpandedState::NotApplicable:
+                    break;
+                }
+
+                if (node->is_focused)
+                    builder.append(" focused"sv);
+                if (node->is_disabled)
+                    builder.append(" disabled"sv);
+                if (node->is_selected)
+                    builder.append(" selected"sv);
+                if (node->is_editable)
+                    builder.append(" editable"sv);
+                if (node->is_multi_line)
+                    builder.append(" multiline"sv);
+                if (node->is_read_only)
+                    builder.append(" readonly"sv);
+                if (node->is_required)
+                    builder.append(" required"sv);
+                if (node->is_invalid)
+                    builder.append(" invalid"sv);
+                if (node->is_multi_selectable)
+                    builder.append(" multiselectable"sv);
+                if (node->is_pressed)
+                    builder.append(" pressed"sv);
+                if (node->is_visited)
+                    builder.append(" visited"sv);
+
+                builder.append("\n"sv);
+
+                for (auto child_id : node->child_ids)
+                    dump_node(child_id, depth + 1);
+            };
+
+            if (root_id != -1)
+                dump_node(root_id, 0);
+        }
+    }
+
     if (has_flag(type, WebView::PageInfoType::GCGraph)) {
         if (!builder.is_empty())
             builder.append("\n"sv);
@@ -1391,8 +1661,8 @@ void ConnectionFromClient::cookies_changed(u64 page_id, Vector<HTTP::Cookie::Coo
 // https://html.spec.whatwg.org/multipage/speculative-loading.html#nav-traversal-ui:close-a-top-level-traversable
 void ConnectionFromClient::request_close(u64 page_id)
 {
-    // Browser user agents should offer users the ability to arbitrarily close any top-level traversable in their top-level traversable set.
-    // For example, by clicking a "close tab" button.
+    // Browser user agents should offer users the ability to arbitrarily close any top-level traversable in their top-
+    // level traversable set. For example, by clicking a "close tab" button.
     if (auto page = this->page(page_id); page.has_value())
         page->page().top_level_traversable()->close_top_level_traversable();
 }

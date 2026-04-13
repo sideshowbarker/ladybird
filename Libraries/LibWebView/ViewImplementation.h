@@ -112,6 +112,9 @@ public:
 
     void inspect_dom_tree();
     void inspect_accessibility_tree();
+    void request_accessibility_tree();
+    void perform_accessibility_action(i64 node_id, String action);
+    void perform_accessibility_text_action(i64 node_id, String action, i32 offset_start, i32 offset_end, String text);
     void get_hovered_node_id();
 
     void inspect_dom_node(Web::UniqueNodeID node_id, DOMNodeProperties::Type, Optional<Web::CSS::PseudoElement> pseudo_element);
@@ -182,8 +185,8 @@ public:
     ErrorOr<LexicalPath> dump_gc_graph();
 
     void set_user_style_sheet(String const& source);
-    // Load Native.css as the User style sheet, which attempts to make WebView content look as close to
-    // native GUI widgets as possible.
+    // Load Native.css as the User style sheet, which attempts to make WebView content look as close to native GUI
+    // widgets as possible.
     void use_native_user_style_sheet();
 
     void request_close();
@@ -222,6 +225,8 @@ public:
     Function<void(JsonObject)> on_received_dom_tree;
     Function<void(DOMNodeProperties)> on_received_dom_node_properties;
     Function<void(JsonObject)> on_received_accessibility_tree;
+    Function<void(Vector<AccessibilityNodeData>)> on_accessibility_tree_received;
+    Function<void(i64)> on_accessibility_focus_changed;
     Function<void(Web::UniqueNodeID)> on_received_hovered_node_id;
     Function<void(Mutation)> on_dom_mutation_received;
     Function<void(Optional<Web::UniqueNodeID> const& node_id)> on_finished_editing_dom_node;
