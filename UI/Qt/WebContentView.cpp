@@ -29,6 +29,13 @@
 #include <UI/Qt/StringUtils.h>
 #include <UI/Qt/WebContentView.h>
 
+#if defined(Q_OS_MACOS)
+#    include "WebContentViewAccessibility.h"
+#elif !defined(Q_OS_WIN)
+#    include "AccessibilityInterface.h"
+#    include <UI/Accessibility/Linux/AtkBridge.h>
+#endif
+
 #include <QApplication>
 #include <QCursor>
 #include <QGuiApplication>
@@ -81,6 +88,133 @@ WebContentView::WebContentView(QWidget* window, RefPtr<WebView::WebContentClient
     });
 
     initialize_client((parent_client == nullptr) ? CreateNewClient::Yes : CreateNewClient::No);
+
+    m_accessibility_manager = make<WebView::AccessibilityTreeManager>();
+
+#if defined(Q_OS_MACOS)
+    install_accessibility(this);
+#elif !defined(Q_OS_WIN)
+    static bool accessibility_factory_installed = false;
+    if (!accessibility_factory_installed) {
+        QAccessible::installFactory(accessibility_factory);
+        accessibility_factory_installed = true;
+    }
+
+    // Initialize the private ATK bridge (runs alongside Qt's bridge on a separate D-Bus bus).
+    static bool atk_bridge_initialized = false;
+    if (!atk_bridge_initialized) {
+        static AtkBridge atk_bridge;
+        atk_bridge_initialized = atk_bridge.initialize();
+        if (atk_bridge_initialized) {
+            // Pump the GLib default context every 50ms so the AT-SPI2 SpiCache can run its idle callbacks
+            // (add_pending_items etc.). 50ms matches the cache's own internal throttle and is fast enough for
+            // responsiveness without being a noticeable CPU cost when idle. Parented to QApplication so it is
+            // cleaned up on shutdown rather than leaking for the app lifetime.
+            auto* glib_timer = new QTimer(qApp);
+            glib_timer->setInterval(50);
+            QObject::connect(glib_timer, &QTimer::timeout, []() { AtkBridge::the().pump_default_context(); });
+            glib_timer->start();
+            // Activate the SpiCache 200ms after bridge init. The cache is created lazily when a client connects,
+            // and we've just spawned at-spi2-registryd (our client) as the bridge's last init step. 200ms gives
+            // registryd enough time to claim its bus name and register with the bridge; any shorter and the
+            // cache allocation races the client handshake.
+            QTimer::singleShot(200, []() { AtkBridge::the().activate_cache(); });
+        }
+    }
+    if (atk_bridge_initialized) {
+        static AccessibilityActionCallback action_callback = [this](i64 node_id, String action) {
+            perform_accessibility_action(node_id, AK::move(action));
+        };
+        static AccessibilityTextActionCallback text_action_callback
+            = [this](i64 node_id, String action, i32 offset_start, i32 offset_end, String text) {
+                  perform_accessibility_text_action(node_id, AK::move(action), offset_start, offset_end,
+                      AK::move(text));
+              };
+        AtkBridge::the().set_active_tree(accessibility_tree_manager(), &action_callback, &text_action_callback);
+    }
+#endif
+
+    m_accessibility_request_timer.setSingleShot(true);
+    m_accessibility_request_timer.setInterval(500);
+    QObject::connect(&m_accessibility_request_timer, &QTimer::timeout, this, [this] { request_accessibility_tree(); });
+
+    on_load_finish = [this](auto const&) {
+        m_accessibility_request_timer.stop();
+        request_accessibility_tree();
+    };
+
+    on_accessibility_tree_received = [this](auto nodes) {
+        m_accessibility_manager->update_tree(AK::move(nodes));
+        m_accessibility_request_timer.stop();
+
+#if defined(Q_OS_MACOS)
+        QTimer::singleShot(100, this, [this] {
+            setFocus(Qt::OtherFocusReason);
+            update_accessibility_tree(this);
+        });
+#elif !defined(Q_OS_WIN)
+        // Prune interfaces for nodes no longer in the tree.
+        QList<i64> stale_ids;
+        for (auto it = m_accessibility_elements.begin(); it != m_accessibility_elements.end(); ++it) {
+            if (!it.value()->isValid())
+                stale_ids.append(it.key());
+        }
+        for (auto id : stale_ids) {
+            auto* iface = m_accessibility_elements.take(id);
+            QAccessible::deleteAccessibleInterface(QAccessible::uniqueId(iface));
+        }
+
+        // Post focus event on the document root so Orca sees it. Only do this when no other widget (address bar, tabs,
+        // etc.) currently has focus — otherwise typing in the address bar breaks because Orca's web script unsuspends
+        // structural navigation when it sees document focus, adding keyboard grabs for H/K/I. When the user later
+        // navigates to the document area, focusInEvent posts the focus event instead.
+        // Update the private ATK bridge tree.
+        if (AtkBridge::the().is_initialized())
+            AtkBridge::the().update_tree();
+
+        QTimer::singleShot(1000, this, [this] {
+            auto* focus_widget = QApplication::focusWidget();
+            if (focus_widget && focus_widget != this && focus_widget->window() == this->window()) {
+                // Another widget in our window has focus (e.g. address bar). Don't steal focus or post document focus
+                // event.
+                return;
+            }
+
+            if (hasFocus()) {
+                // Already focused — focusInEvent won't fire, so post the accessibility event directly.
+                notify_accessibility_focus_on_document_root();
+            } else {
+                // setFocus triggers focusInEvent, which posts the accessibility event via
+                // notify_accessibility_focus_on_document_root.
+                setFocus(Qt::OtherFocusReason);
+            }
+        });
+#endif
+    };
+
+    on_accessibility_focus_changed = [this](i64 node_id) {
+        if (m_accessibility_manager->is_empty())
+            return;
+        m_accessibility_manager->set_focused_node(node_id);
+#if defined(Q_OS_MACOS)
+        Ladybird::post_accessibility_focus_changed(this, node_id);
+#elif !defined(Q_OS_WIN)
+        auto* iface = accessibility_interface_for_node(node_id);
+        if (iface) {
+            QAccessibleEvent focus_event(iface, QAccessible::Focus);
+            QAccessible::updateAccessibility(&focus_event);
+        }
+        // Also notify the private ATK bridge.
+        if (AtkBridge::the().is_initialized())
+            AtkBridge::the().notify_focus_changed(node_id);
+#endif
+    };
+
+#if defined(Q_OS_MACOS)
+    m_accessibility_manager->on_live_region_changed = [](auto text, auto live_value) {
+        Ladybird::post_accessibility_announcement(text, live_value);
+    };
+#endif
 
     on_ready_to_paint = [this]() {
         update();
@@ -494,6 +628,12 @@ void WebContentView::dropEvent(QDropEvent* event)
 void WebContentView::focusInEvent(QFocusEvent*)
 {
     client().async_set_has_focus(m_client_state.page_index, true);
+#if !defined(Q_OS_MACOS) && !defined(Q_OS_WIN)
+    // Notify Orca that the document now has focus. This handles the case where the user navigates from the address bar
+    // to the document area (click or Tab). The 1000ms timer in on_accessibility_tree_received skips this notification
+    // when another widget had focus, so we do it here instead.
+    notify_accessibility_focus_on_document_root();
+#endif
 }
 
 void WebContentView::focusOutEvent(QFocusEvent*)
@@ -593,6 +733,14 @@ void WebContentView::hideEvent(QHideEvent* event)
 {
     QWidget::hideEvent(event);
     set_system_visibility_state(Web::HTML::VisibilityState::Hidden);
+
+#if !defined(Q_OS_MACOS) && !defined(Q_OS_WIN)
+    // When this tab becomes inactive, deregister all its accessibility interfaces from Qt's global registry.
+    for (auto it = m_accessibility_elements.begin(); it != m_accessibility_elements.end(); ++it) {
+        QAccessible::deleteAccessibleInterface(QAccessible::uniqueId(it.value()));
+    }
+    m_accessibility_elements.clear();
+#endif
 }
 
 static Core::AnonymousBuffer make_system_theme_from_qt_palette(QWidget& widget, WebContentView::PaletteMode mode)
@@ -630,6 +778,27 @@ static Core::AnonymousBuffer make_system_theme_from_qt_palette(QWidget& widget, 
 void WebContentView::update_palette(PaletteMode mode)
 {
     client().async_update_system_theme(m_client_state.page_index, make_system_theme_from_qt_palette(*this, mode));
+}
+
+#if !defined(Q_OS_MACOS) && !defined(Q_OS_WIN)
+void WebContentView::notify_accessibility_focus_on_document_root()
+{
+    if (m_accessibility_manager && !m_accessibility_manager->is_empty()) {
+        auto const* root = m_accessibility_manager->root();
+        if (root) {
+            auto* root_iface = accessibility_interface_for_node(root->id);
+            if (root_iface) {
+                QAccessibleEvent focus_event(root_iface, QAccessible::Focus);
+                QAccessible::updateAccessibility(&focus_event);
+            }
+        }
+    }
+}
+#endif
+
+void WebContentView::schedule_accessibility_tree_request()
+{
+    m_accessibility_request_timer.start();
 }
 
 void WebContentView::update_screen_rects()
@@ -935,5 +1104,20 @@ void WebContentView::finish_handling_key_event(Web::KeyEvent const& key_event)
     if (!event.isAccepted())
         QApplication::sendEvent(parent(), &event);
 }
+
+#if !defined(Q_OS_MACOS) && !defined(Q_OS_WIN)
+QAccessibleInterface* WebContentView::accessibility_interface_for_node(i64 node_id)
+{
+    if (auto* existing = m_accessibility_elements.value(node_id, nullptr))
+        return existing;
+
+    if (!m_accessibility_manager || !m_accessibility_manager->node(node_id))
+        return nullptr;
+
+    auto* iface = new AccessibilityInterface(node_id, m_accessibility_manager.ptr(), this);
+    m_accessibility_elements.insert(node_id, iface);
+    return iface;
+}
+#endif
 
 }

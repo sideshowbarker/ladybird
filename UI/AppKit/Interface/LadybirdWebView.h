@@ -15,6 +15,7 @@
 #include <LibWebView/Forward.h>
 
 #import <Cocoa/Cocoa.h>
+#import <Interface/LadybirdAccessibilityViewProtocol.h>
 
 @protocol LadybirdWebViewObserver <NSObject>
 
@@ -41,7 +42,7 @@
 
 @end
 
-@interface LadybirdWebView : NSView <NSMenuDelegate, NSTextInputClient>
+@interface LadybirdWebView : NSView <NSMenuDelegate, NSTextInputClient, LadybirdAccessibilityView>
 
 - (instancetype)init:(id<LadybirdWebViewObserver>)observer;
 - (instancetype)initAsChild:(id<LadybirdWebViewObserver>)observer
@@ -70,5 +71,11 @@
 - (void)findInPagePreviousMatch;
 
 - (void)requestClose;
+
+// Accessibility support
+- (id)accessibilityElementForNodeID:(int64_t)nodeID;
+- (NSRect)accessibilityScreenRectForViewRect:(NSRect)viewRect;
+- (NSRect)accessibilityViewRectForScreenPoint:(NSPoint)screenPoint;
+- (void)performAccessibilityAction:(NSString*)action forNodeID:(int64_t)nodeID;
 
 @end
