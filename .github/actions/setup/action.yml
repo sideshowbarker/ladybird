@@ -77,6 +77,7 @@ runs:
       shell: bash
       run: |
         sudo apt-get install -y \
+            at-spi2-core \
             autoconf \
             autoconf-archive \
             automake \
@@ -84,13 +85,17 @@ runs:
             ccache \
             cmake \
             curl \
+            dbus \
             fonts-liberation2 \
             g++-${{ inputs.gcc_version }} \
             gcc-${{ inputs.gcc_version }} \
+            libatk-bridge2.0-dev \
+            libatk1.0-dev \
             libcurl4-openssl-dev \
             libdrm-dev \
             libegl1-mesa-dev \
             libgl1-mesa-dev \
+            libglib2.0-dev \
             libpulse-dev \
             libssl-dev \
             libstdc++-${{ inputs.gcc_version }}-dev \

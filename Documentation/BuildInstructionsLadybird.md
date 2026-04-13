@@ -17,7 +17,7 @@ CMake 3.30 or newer must be available in $PATH.
 
 <!-- Note: If you change something here, please also change it in the `devcontainer/devcontainer.json` file. -->
 ```bash
-sudo apt install autoconf autoconf-archive automake build-essential ccache cmake curl fonts-liberation2 git libdrm-dev libgl1-mesa-dev libtool nasm ninja-build pkg-config python3-venv qt6-base-dev qt6-tools-dev-tools qt6-wayland tar unzip zip
+sudo apt install at-spi2-core autoconf autoconf-archive automake build-essential ccache cmake curl dbus fonts-liberation2 git libatk-bridge2.0-dev libatk1.0-dev libdrm-dev libgl1-mesa-dev libglib2.0-dev libtool nasm ninja-build pkg-config python3-venv qt6-base-dev qt6-tools-dev-tools qt6-wayland tar unzip zip
 ```
 
 #### CMake 3.30 or newer:
@@ -75,7 +75,7 @@ sudo apt install libpulse-dev
 ### Arch Linux/Manjaro:
 
 ```
-sudo pacman -S --needed autoconf-archive base-devel ccache cmake curl git less libgl nasm ninja python qt6-base qt6-tools ttf-liberation tar unzip zip
+sudo pacman -S --needed at-spi2-core atk autoconf-archive base-devel ccache cmake curl dbus git glib2 less libgl nasm ninja python qt6-base qt6-tools ttf-liberation tar unzip zip
 ```
 
 Optionally, install the PulseAudio headers for audio playback support:
@@ -87,13 +87,13 @@ sudo pacman -S libpulse
 ### Fedora or derivatives:
 
 ```
-sudo dnf install autoconf-archive automake ccache cmake curl git libdrm-devel liberation-sans-fonts libglvnd-devel libtool nasm ninja-build patchelf perl-FindBin perl-IPC-Cmd perl-lib perl-Time-Piece qt6-qtbase-devel qt6-qttools-devel qt6-qtwayland-devel tar unzip zip zlib-ng-compat-static
+sudo dnf install at-spi2-atk at-spi2-core atk-devel autoconf-archive automake ccache cmake curl dbus-daemon git glib2-devel libdrm-devel liberation-sans-fonts libglvnd-devel libtool nasm ninja-build patchelf perl-FindBin perl-IPC-Cmd perl-lib perl-Time-Piece qt6-qtbase-devel qt6-qttools-devel qt6-qtwayland-devel tar unzip zip zlib-ng-compat-static
 ```
 
 ### openSUSE:
 
 ```
-sudo zypper install autoconf-archive automake ccache cmake curl gcc14 gcc14-c++ git liberation-fonts libglvnd-devel libtool nasm ninja qt6-base-devel qt6-tools-devel qt6-wayland-devel tar unzip zip
+sudo zypper install at-spi2-core-devel atk-devel autoconf-archive automake ccache cmake curl dbus-1 gcc14 gcc14-c++ git glib2-devel libatk-bridge-2_0-0 liberation-fonts libglvnd-devel libtool nasm ninja qt6-base-devel qt6-tools-devel qt6-wayland-devel tar unzip zip
 ```
 
 If one or more of the base repository packages are flagged as having an out-of-date version during the build process, you may need add the `devel:tools:building` repository. For example, on Leap 15.6, the `autoconf` package might be version 2.69, whereas the `gperf` package requires 2.70 to build.
@@ -139,7 +139,7 @@ This virtual environment can be created once and reused in future shell sessions
 
 ```
 sudo xbps-install -Su # (optional) ensure packages are up to date to avoid "Transaction aborted due to unresolved dependencies."
-sudo xbps-install -S git bash gcc python3 curl cmake libtool zip unzip linux-headers make pkg-config autoconf automake autoconf-archive nasm MesaLib-devel ninja qt6-base-devel qt6-tools-devel qt6-wayland-devel
+sudo xbps-install -S git bash gcc python3 curl cmake libtool zip unzip linux-headers make pkg-config autoconf automake autoconf-archive nasm MesaLib-devel ninja qt6-base-devel qt6-tools-devel qt6-wayland-devel at-spi2-core-devel atk-devel dbus glib-devel
 ```
 
 ### NixOS or with Nix:
