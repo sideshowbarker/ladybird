@@ -22,6 +22,7 @@
 #include <QFileOpenEvent>
 #include <QFormLayout>
 #include <QLineEdit>
+#include <QLoggingCategory>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QStandardPaths>
@@ -108,6 +109,12 @@ public:
     explicit LadybirdQApplication(Main::Arguments& arguments)
         : QApplication(arguments.argc, arguments.argv)
     {
+        // Silence Qt's own AT-SPI adaptor category. QSpiAccessibleBridge logs a one-time startup warning for each
+        // AT-SPI2 method it doesn’t implement (Window:Destroy subscription, GetApplicationBusAddress), and then on
+        // every Orca navigation step it warns about ScrollSubstringTo and ScrollTo not being implemented on its
+        // component interface. Those are upstream Qt gaps we can’t fix from here, and they fill the console. The
+        // filter is overridable via QT_LOGGING_RULES for anyone debugging Qt’s bridge.
+        QLoggingCategory::setFilterRules(QStringLiteral("qt.accessibility.atspi=false"));
     }
 
     virtual bool event(QEvent* event) override
