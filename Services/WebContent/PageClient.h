@@ -111,6 +111,9 @@ public:
     void send_current_needs_beforeunload_check();
     void clear_pending_dom_mutations();
 
+    void set_accessibility_tree_requested() { m_accessibility_tree_requested = true; }
+    void schedule_accessibility_tree_update();
+
 private:
     struct PendingDOMMutation {
         GC::Ref<Web::DOM::Node> target;
@@ -159,6 +162,8 @@ private:
     virtual void page_did_create_new_document(Web::DOM::Document&) override;
     virtual void page_did_change_active_document_in_top_level_browsing_context(Web::DOM::Document&) override;
     virtual void page_did_finish_loading(URL::URL const&) override;
+    virtual void page_did_change_active_element(Web::UniqueNodeID) override;
+
     virtual void page_did_request_alert(String const&) override;
     virtual void page_did_request_confirm(String const&) override;
     virtual void page_did_request_prompt(String const&, String const&) override;
@@ -249,6 +254,9 @@ private:
     RefPtr<Core::Timer> m_frame_timer;
     Optional<double> m_last_frame_dispatch_time;
     Queue<PendingDOMMutation> m_pending_dom_mutations;
+
+    RefPtr<Core::Timer> m_accessibility_update_timer;
+    bool m_accessibility_tree_requested { false };
 
     u64 m_devtools_client_count { 0 };
 };

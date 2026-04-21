@@ -21,6 +21,7 @@
 namespace TestWeb {
 
 enum class TestMode {
+    Accessibility,
     Layout,
     Text,
     Ref,
@@ -31,6 +32,8 @@ enum class TestMode {
 constexpr StringView test_mode_to_string(TestMode mode)
 {
     switch (mode) {
+    case TestMode::Accessibility:
+        return "Accessibility"sv;
     case TestMode::Layout:
         return "Layout"sv;
     case TestMode::Text:
