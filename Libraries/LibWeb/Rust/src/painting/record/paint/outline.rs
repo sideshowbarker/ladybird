@@ -17,18 +17,31 @@ use libgfx_rust::{CapStyle, Color, JoinStyle, ShouldAntiAlias};
 
 pub(crate) fn paint_outline_phase(recorder: &mut PaintRecorder<'_>, paintable: NodeSlotId) {
     let node = paintable;
-    let outline = crate::painting::style_queries::outline_data(
-        recorder.layout_arena,
-        node,
-        recorder.inputs.window_is_focused,
-        recorder.inputs.outline_auto_color.0,
-    );
+    let facts = recorder.paint_host.outline_facts(recorder.layout_node_shell(paintable));
+    let outline = outline_data_for_paint(recorder, node, facts.is_accessibility_focus_target);
     let outline_offset = crate::painting::style_queries::outline_offset(recorder.layout_arena, node);
     let border_box_rect = paintable_geometry::absolute_border_box_rect(recorder.layout_arena, paintable);
     let border_radii = recorder.border_radii(paintable);
     paint_outline(recorder, outline, outline_offset, border_box_rect, border_radii);
-    let facts = recorder.paint_host.outline_facts(recorder.layout_node_shell(paintable));
     paint_focused_area_outline(recorder, paintable, &facts);
+}
+
+pub(crate) fn outline_data_for_paint(
+    recorder: &PaintRecorder<'_>,
+    node: NodeSlotId,
+    is_accessibility_focus_target: bool,
+) -> Option<crate::painting::style_queries::OutlineData> {
+    if is_accessibility_focus_target {
+        return Some(crate::painting::style_queries::auto_outline_data(
+            recorder.inputs.outline_auto_color.0,
+        ));
+    }
+    crate::painting::style_queries::outline_data(
+        recorder.layout_arena,
+        node,
+        recorder.inputs.window_is_focused,
+        recorder.inputs.outline_auto_color.0,
+    )
 }
 
 pub(crate) fn outline_border_geometry(
