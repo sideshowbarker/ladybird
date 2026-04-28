@@ -21,4 +21,7 @@ exclude = [
     "**/__pycache__",
     "**/.*",
     "**/lit.cfg.py",
+    "Tests/LibWeb/AccessibilityBridge",
+    "Tests/LibWeb/AccessibilityBridgeMac",
+    "UI/Qt/OrcaScripts",
 ]
