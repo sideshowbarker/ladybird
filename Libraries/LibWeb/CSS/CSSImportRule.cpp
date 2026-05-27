@@ -139,6 +139,7 @@ void CSSImportRule::fetch()
 
     // AD-HOC: Track pending import rules to block rendering until they are done.
     m_document->add_pending_css_import_rule({}, *this);
+    m_load_event_delayer.emplace(*m_document);
     set_loading_state(CSSStyleSheet::LoadingState::Loading);
 
     // 3. Fetch a style resource from rule’s URL, with ruleOrDeclaration rule, destination "style", CORS mode "no-cors", and
@@ -154,6 +155,7 @@ void CSSImportRule::fetch()
             // AD-HOC: Stop delaying the load event.
             ScopeGuard guard = [strong_this, document] {
                 document->remove_pending_css_import_rule({}, strong_this);
+                strong_this->m_load_event_delayer.clear();
                 if (strong_this->loading_state() != CSSStyleSheet::LoadingState::Error) {
                     // If we have no critical subresources, or they're loaded already, we can report that immediately.
                     auto sheet_loading_state = strong_this->m_style_sheet->loading_state();
