@@ -49,6 +49,16 @@ interface Internals {
     // Excludes nodes whose used value of user-select is 'none' — mirroring what browsers actually copy.
     DOMString selectedTextForClipboard();
 
+    // Inserts text via the same path a platform-native input method would use to commit a composition. The text fires
+    // an InputEvent with inputType = "insertText" on the focused editable; no-op if nothing editable is focused. When
+    // replaceBeforeCaretInCodeUnits > 0, then that many code units immediately before the current caret are replaced
+    // with the new text. Used by IME preedit to swap composing text in-place as the user types.
+    undefined insertTextFromInputMethod(Utf16DOMString text, optional unsigned long replaceBeforeCaretInCodeUnits = 0);
+
+    // Returns the bounds of the current text caret in CSS pixels, or null if no editable element is focused.
+    // Used to verify the data the platform UI feeds into IME overlay positioning.
+    object? currentCaretRect();
+
     boolean dispatchUserActivatedEvent(EventTarget target, Event event);
     undefined spoofCurrentURL(USVString url);
 

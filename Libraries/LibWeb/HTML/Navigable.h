@@ -215,6 +215,7 @@ public:
     String cut_selected_text() const;
     void select_all();
     void paste(Utf16String const&);
+    void insert_text_from_input_method(Utf16String const& text, size_t replace_before_caret_in_code_units = 0);
 
     Web::EventHandler& event_handler() { return m_event_handler; }
     Web::EventHandler const& event_handler() const { return m_event_handler; }

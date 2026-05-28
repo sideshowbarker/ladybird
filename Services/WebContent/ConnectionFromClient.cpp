@@ -1640,6 +1640,25 @@ void ConnectionFromClient::paste(u64 page_id, Utf16String text)
         page->page().focused_navigable().paste(text);
 }
 
+void ConnectionFromClient::insert_text_from_input_method(u64 page_id, Utf16String text, u64 replace_before_caret_in_code_units)
+{
+    auto page = this->page(page_id);
+    if (!page.has_value())
+        return;
+    page->page().focused_navigable().insert_text_from_input_method(text, replace_before_caret_in_code_units);
+
+    // Push the updated caret position to the UI — so platform input methods can place their overlays (candidate window,
+    // accent menu, etc.). We deliberately push this asynchronously — rather than answering a synchronous request from
+    // inside an AppKit text-input callback: Blocking there re-enters the run loop — and can deadlock the input-method
+    // server <-> UI <-> WebContent message flow.
+    Optional<Web::DevicePixelRect> caret_rect;
+    if (auto document = page->page().focused_navigable().active_document()) {
+        if (auto rect = document->current_caret_rect(); rect.has_value())
+            caret_rect = page->page().enclosing_device_rect(*rect);
+    }
+    async_did_update_input_caret_rect(page_id, caret_rect);
+}
+
 void ConnectionFromClient::set_content_blockers(u64 page_id, Core::AnonymousBuffer patterns_buffer)
 {
     auto& blocker = Web::ContentBlocker::the();

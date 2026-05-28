@@ -182,6 +182,12 @@ public:
     void paste_text_from_clipboard();
     void retrieved_clipboard_entries(u64 request_id, ReadonlySpan<Web::Clipboard::SystemClipboardItem>);
 
+    // Used by platform-native input methods to inject committed text and to query the on-screen caret position for
+    // placing IME overlays.
+    void insert_text_from_input_method(Utf16String const& text, size_t replace_before_caret_in_code_units = 0);
+    Optional<Web::DevicePixelRect> get_input_caret_rect();
+    void set_input_caret_rect(Badge<WebContentClient>, Optional<Web::DevicePixelRect>);
+
     Web::HTML::MuteState page_mute_state() const { return m_mute_state; }
     void toggle_page_mute_state();
 
@@ -444,6 +450,9 @@ protected:
     size_t m_number_of_elements_playing_audio { 0 };
 
     Web::HTML::MuteState m_mute_state { Web::HTML::MuteState::Unmuted };
+
+    // Most recent caret position pushed by WebContent, Used for placing platform IME overlays without a sync IPC.
+    Optional<Web::DevicePixelRect> m_input_caret_rect;
 
     Web::ViewportIsFullscreen m_is_fullscreen { Web::ViewportIsFullscreen::No };
 

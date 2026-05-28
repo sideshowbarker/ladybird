@@ -1,0 +1,19 @@
+input.value after IME insert: "abcdef"
+input event on <input>: {"inputType":"insertText","data":"def"}
+textarea.value after IME insert: "xyzyyy"
+input event on <textarea>: {"inputType":"insertText","data":"yyy"}
+editable.textContent after IME insert: "qwerty"
+input event on contenteditable: {"inputType":"insertText","data":"rty"}
+unfocused insert threw: false
+readonly value unchanged: true
+focused-input caret rect non-null: true
+focused-input caret rect has positive height: true
+unfocused caret rect: null
+empty-input caret rect non-null: true
+empty-input caret rect has positive height: true
+after first preedit keystroke: "n"
+after extending preedit: "ni"
+after first commit: "你"
+after second commit: "你好"
+after abort sequence: "你好"
+after over-replace: "Z"

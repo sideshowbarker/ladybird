@@ -181,6 +181,7 @@ private:
     virtual void find_in_page_previous_match(u64 page_id) override;
 
     virtual void paste(u64 page_id, Utf16String text) override;
+    virtual void insert_text_from_input_method(u64 page_id, Utf16String text, u64 replace_before_caret_in_code_units) override;
 
     virtual void system_time_zone_changed() override;
 

@@ -3341,6 +3341,34 @@ void Navigable::paste(Utf16String const& text)
     m_event_handler.handle_paste(text);
 }
 
+void Navigable::insert_text_from_input_method(Utf16String const& text, size_t replace_before_caret_in_code_units)
+{
+    // Inserts a string from a platform-native input method into the currently-focused editable element — via the same
+    // input-events target that keyboard typing uses. Uses InputTypes::insertText (not insertFromPaste) — so observers
+    // see the correct InputEvent.inputType.
+    //
+    // If replace_before_caret_in_code_units > 0, then that many code units immediately before the current caret are
+    // replaced with the new text. The UI uses this to support inline preedit text – by replacing the previously-shown
+    // marked-text segment on each composition update.
+    auto document = active_document();
+    if (!document || !document->is_fully_active())
+        return;
+    auto* target = document->active_input_events_target();
+    if (!target)
+        return;
+
+    if (replace_before_caret_in_code_units > 0) {
+        // Extend the selection backward to cover the previous marked text. handle_insert then replaces the selection.
+        if (auto* form_control = dynamic_cast<FormAssociatedTextControlElement*>(target)) {
+            auto end = form_control->selection_end();
+            auto start = end > replace_before_caret_in_code_units ? end - static_cast<WebIDL::UnsignedLong>(replace_before_caret_in_code_units) : 0u;
+            (void)form_control->set_selection_range(start, end, {});
+        }
+    }
+
+    target->handle_insert(UIEvents::InputTypes::insertText, text);
+}
+
 // https://drafts.csswg.org/css-view-transitions-1/#snapshot-containing-block
 CSSPixelRect Navigable::snapshot_containing_block()
 {

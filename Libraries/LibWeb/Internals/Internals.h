@@ -72,6 +72,9 @@ public:
 
     String selected_text_for_clipboard();
 
+    void insert_text_from_input_method(Utf16String const& text, WebIDL::UnsignedLong replace_before_caret_in_code_units);
+    JS::Object* current_caret_rect();
+
     WebIDL::ExceptionOr<bool> dispatch_user_activated_event(DOM::EventTarget&, DOM::Event& event);
 
     void spoof_current_url(String const& url);

@@ -127,6 +127,7 @@ enum class InvalidateLayoutTreeReason {
     X(InspectDOMTree)                        \
     X(InspectFlexboxLayout)                  \
     X(InspectGridLayout)                     \
+    X(InputCaretRect)                        \
     X(InternalsHitTest)                      \
     X(MediaQueryListMatches)                 \
     X(NavigableSelectedText)                 \
@@ -963,6 +964,9 @@ public:
 
     InputEventsTarget* active_input_events_target(DOM::Node const* for_node = nullptr);
     GC::Ptr<DOM::Position> cursor_position() const;
+    // Returns the bounds of the current text caret in document-relative CSS pixels. Used by the UI to position platform
+    // overlays such as the IME candidate window. Empty when no editable element is focused.
+    Optional<CSSPixelRect> current_caret_rect();
 
     bool cursor_blink_state() const { return m_cursor_blink_state; }
 

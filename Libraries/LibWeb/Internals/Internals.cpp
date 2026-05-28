@@ -418,6 +418,25 @@ String Internals::selected_text_for_clipboard()
     return page().focused_navigable().selected_text();
 }
 
+void Internals::insert_text_from_input_method(Utf16String const& text, WebIDL::UnsignedLong replace_before_caret_in_code_units)
+{
+    page().focused_navigable().insert_text_from_input_method(text, replace_before_caret_in_code_units);
+}
+
+JS::Object* Internals::current_caret_rect()
+{
+    auto& active_document = window().associated_document();
+    auto rect = active_document.current_caret_rect();
+    if (!rect.has_value())
+        return nullptr;
+    auto result = JS::Object::create(realm(), nullptr);
+    result->define_direct_property("x"_utf16_fly_string, JS::Value(rect->x().to_double()), JS::default_attributes);
+    result->define_direct_property("y"_utf16_fly_string, JS::Value(rect->y().to_double()), JS::default_attributes);
+    result->define_direct_property("width"_utf16_fly_string, JS::Value(rect->width().to_double()), JS::default_attributes);
+    result->define_direct_property("height"_utf16_fly_string, JS::Value(rect->height().to_double()), JS::default_attributes);
+    return result;
+}
+
 WebIDL::ExceptionOr<bool> Internals::dispatch_user_activated_event(DOM::EventTarget& target, DOM::Event& event)
 {
     event.set_is_trusted(true);

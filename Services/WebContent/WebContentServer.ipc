@@ -103,6 +103,7 @@ endpoint WebContentServer
     cut_selected_text(u64 page_id) => (ByteString selection)
     select_all(u64 page_id) =|
     paste(u64 page_id, Utf16String text) =|
+    insert_text_from_input_method(u64 page_id, Utf16String text, u64 replace_before_caret_in_code_units) =|
 
     find_in_page(u64 page_id, String query, AK::CaseSensitivity case_sensitivity) =|
     find_in_page_next_match(u64 page_id) =|
