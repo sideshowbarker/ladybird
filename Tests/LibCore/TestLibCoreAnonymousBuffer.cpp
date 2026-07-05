@@ -5,11 +5,18 @@
  */
 
 #include <AK/ByteBuffer.h>
+#include <AK/Platform.h>
 #include <AK/Vector.h>
 #include <LibCore/AnonymousBuffer.h>
 #include <LibCore/System.h>
 #include <LibTest/TestCase.h>
 #include <string.h>
+
+#ifdef AK_OS_LINUX
+#    include <errno.h>
+#    include <fcntl.h>
+#    include <unistd.h>
+#endif
 
 TEST_CASE(create_with_size)
 {
@@ -87,3 +94,34 @@ TEST_CASE(reconstruct_from_anon_fd_shares_memory)
     StringView mirrored { mirror.data<char const>(), payload.length() };
     EXPECT_EQ(mirrored, payload);
 }
+
+#ifdef AK_OS_LINUX
+TEST_CASE(create_with_size_seals_immutable_size)
+{
+    auto buffer = MUST(Core::AnonymousBuffer::create_with_size(8192, /* seal_immutable_size */ true));
+    EXPECT(buffer.is_valid());
+
+    int seals = fcntl(buffer.fd(), F_GET_SEALS);
+    EXPECT(seals >= 0);
+    EXPECT((seals & F_SEAL_SHRINK) != 0);
+    EXPECT((seals & F_SEAL_GROW) != 0);
+    EXPECT((seals & F_SEAL_SEAL) != 0);
+
+    // Shrinking a sealed fd is refused with EPERM — the SIGBUS DoS this guards against.
+    errno = 0;
+    EXPECT(ftruncate(buffer.fd(), 4096) < 0);
+    EXPECT_EQ(errno, EPERM);
+
+    // The memory stays writable (deliberately no F_SEAL_WRITE).
+    auto* data = buffer.data<u8>();
+    data[0] = 0x5a;
+    EXPECT_EQ(data[0], static_cast<u8>(0x5a));
+}
+
+TEST_CASE(create_with_size_unsealed_by_default)
+{
+    auto buffer = MUST(Core::AnonymousBuffer::create_with_size(8192));
+    // Without the seal, the fd can still be resized.
+    EXPECT(ftruncate(buffer.fd(), 4096) == 0);
+}
+#endif
