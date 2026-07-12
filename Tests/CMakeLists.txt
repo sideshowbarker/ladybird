@@ -18,6 +18,7 @@ add_subdirectory(LibUnicode)
 add_subdirectory(LibURL)
 add_subdirectory(LibWasm)
 add_subdirectory(LibXML)
+add_subdirectory(RequestServer)
 add_subdirectory(Meta)
 
 if (ENABLE_GUI_TARGETS)
