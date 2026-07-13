@@ -21,6 +21,10 @@
 #include <RequestServer/ResourceSubstitutionMap.h>
 #include <RequestServer/Sandbox.h>
 
+#if defined(AK_OS_MACOS)
+#    include <curl/curl.h>
+#endif
+
 namespace RequestServer {
 
 OwnPtr<ResourceSubstitutionMap> g_resource_substitution_map;
@@ -99,6 +103,11 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
         else
             disk_cache = cache.release_value();
     }
+
+#if defined(AK_OS_MACOS)
+    // Run curl's one-time init before applying the sandbox, so proxy/entitlement lookup finishes while still permitted.
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+#endif
 
     if (!disable_sandbox)
         TRY(RequestServer::apply_sandbox(certificates));
