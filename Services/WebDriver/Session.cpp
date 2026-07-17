@@ -309,6 +309,12 @@ void Session::web_content_connection_closed(WebContentConnection const& connecti
             return;
         }
 
+        if (&connection == m_connection_awaiting_possible_replacement) {
+            window.value.is_awaiting_replacement = true;
+            window.value.web_content_connection = nullptr;
+            return;
+        }
+
         closed_window_handle = window.key;
         break;
     }

@@ -88,7 +88,14 @@ public:
         Optional<Web::WebDriver::Response> response;
         RefPtr connection { &web_content_connection() };
 
-        ScopeGuard guard { [&]() { connection->on_driver_execution_complete = nullptr; } };
+        auto previous_connection_awaiting_replacement = m_connection_awaiting_possible_replacement;
+        if (web_content_replacement == WebContentReplacement::Allow)
+            m_connection_awaiting_possible_replacement = connection.ptr();
+
+        ScopeGuard guard { [&]() {
+            connection->on_driver_execution_complete = nullptr;
+            m_connection_awaiting_possible_replacement = previous_connection_awaiting_replacement;
+        } };
         connection->on_driver_execution_complete = [&](auto result) { response = move(result); };
 
         TRY(action(*connection));
@@ -136,6 +143,8 @@ private:
 
     HashMap<String, Window> m_windows;
     String m_current_window_handle;
+
+    WebContentConnection const* m_connection_awaiting_possible_replacement { nullptr };
 
     HashMap<u64, NonnullRefPtr<WebContentConnection>> m_pending_connections;
     u64 m_next_pending_connection_id { 0 };
