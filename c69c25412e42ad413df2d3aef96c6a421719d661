@@ -1,0 +1,4 @@
+The block follows WebKit’s ContextMenuController, which lists every
+guess (or No Guesses Found), then Ignore Spelling and Learn Spelling.
+The cap of five comes from Chrome’s SpellingMenuObserver, whose
+kMaxSpellingSuggestionsLimit is 5.
