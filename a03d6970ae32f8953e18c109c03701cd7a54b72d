@@ -1,0 +1,7 @@
+Blink checks the existing text of the focused editable as well, in its
+ColdModeSpellCheckRequester, and Gecko checks the whole text of an
+editor in mozInlineSpellChecker::EditorSpellCheckInited(), once
+spellchecking starts for it. WebKit instead checks a whole text control
+only when its spellcheck state changes, in HTMLTextFormControlElement::
+effectiveSpellcheckAttributeChanged() — and otherwise checks each word
+only as the caret leaves that word.
