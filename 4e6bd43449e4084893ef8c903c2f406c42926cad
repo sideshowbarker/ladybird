@@ -1,0 +1,5 @@
+Blink puts the same limit on its own checks, for the same reason. In
+ColdModeSpellCheckRequester::QualifyingEditable(), it skips a field when
+the page lacks transient activation, or when the user didn’t focus it.
+In IdleSpellCheckController::RespondToChangedContents(), it skips any
+edit made without transient activation.
