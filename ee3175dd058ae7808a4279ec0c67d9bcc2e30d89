@@ -1,3 +1,4 @@
-That’s the asynchronous API Chrome’s spellcheck_platform_mac.mm uses.
-WebKit’s TextChecker calls the synchronous checkString: instead, which
-blocks the UI process while a long text gets checked.
+Ladybird’s macOS spellchecker calls NSSpellChecker’s asynchronous
+requestCheckingOfString: method, as Chrome’s spellcheck_platform_mac.mm
+does. But WebKit’s TextChecker calls the synchronous checkString:
+instead, which blocks the UI process while a long text gets checked.
