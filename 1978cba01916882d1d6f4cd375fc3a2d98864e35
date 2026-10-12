@@ -1,0 +1,5 @@
+Blink’s IdleSpellCheckController::RespondToChangedEnablement() skips
+that check for the same reason. WebKit’s HTMLTextFormControlElement::
+effectiveSpellcheckAttributeChanged() clears a text control’s markers
+when checking turns off, and it checks the whole control again once
+checking turns back on for it.
