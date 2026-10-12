@@ -1,0 +1,3 @@
+That’s the asynchronous API Chrome’s spellcheck_platform_mac.mm uses.
+WebKit’s TextChecker calls the synchronous checkString: instead, which
+blocks the UI process while a long text gets checked.
