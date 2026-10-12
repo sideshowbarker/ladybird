@@ -1,0 +1,6 @@
+That’s how Blink’s HotModeSpellCheckRequester::CheckSpellingAt() treats
+the word that CurrentWordIfTypingInPartialWord() finds, checking a span
+of kHotModeChunkSize (1024) around the caret. WebKit’s Editor::
+editorUIUpdateTimerFired() does likewise: It clears the markers around a
+new selection, then checks the words that were around the old one once
+the caret has moved off them.
