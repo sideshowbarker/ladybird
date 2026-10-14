@@ -1,0 +1,6 @@
+The context menu Ladybird opens on a misspelled word starts with a
+spelling block: up to five of the spellchecker’s guesses (or a disabled
+No Guesses Found), then Ignore Spelling and Learn Spelling. That order
+follows WebKit’s ContextMenuController, which lists every guess (or No
+Guesses Found), then Ignore Spelling and Learn Spelling. The cap of five
+is kMaxSpellingSuggestionsLimit in Chrome’s SpellingMenuObserver.
