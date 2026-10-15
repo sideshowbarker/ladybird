@@ -1,0 +1,14 @@
+Ladybird sends, for each User-Agent preset, the TLS ClientHello and
+HTTP/2 preface of the browser the preset names, through the profiles
+curl-impersonate maintains. Each browser's own shape comes from its TLS
+stack. Chromium's comes from BoringSSL as net/socket/
+ssl_client_socket_impl.cc configures it: SSL_CTX_set_grease_enabled(),
+SSL_set_permute_extensions() and SSL_set_enable_ech_grease(). Gecko's
+comes from NSS: security/manager/ssl/nsNSSComponent.cpp sets the cipher
+preferences with SSL_CipherPrefSetDefault() and turns on
+SSL_ENABLE_DELEGATED_CREDENTIALS, and nsNSSIOLayer.cpp sets the version
+range with SSL_VersionRangeSet(). WebKit's on Apple platforms comes
+from the system's networking stack, which NetworkSessionCocoa.mm leaves
+at its defaults. None of them impersonates another browser; Ladybird
+borrows their shapes because its own handshake would be libcurl's,
+which bot managers know by its fingerprint.
