@@ -1,0 +1,14 @@
+Ladybird's per-site User-Agent comes from its site-compatibility rules,
+which a force_Ladybird transformation can point back at the browser's
+own string. WebKit's GTK and WPE ports keep the same kind of table in
+UserAgentQuirks::quirksForURL() (platform/glib/UserAgentQuirks.cpp),
+which hands particular domains a Chrome- or macOS-shaped User-Agent
+through urlRequiresChromeBrowser() and urlRequiresMacintoshPlatform().
+Gecko's webcompat system add-on applies per-site User-Agent
+interventions through UAHelpers in browser/extensions/webcompat/lib/
+intervention_helpers.js, and nsHttpHandler.cpp honors the
+general.useragent.override pref for the whole browser. Chromium keeps
+no per-site table of its own; an embedder sets a per-WebContents
+override through WebContents::SetUserAgentOverride(). None of the
+three ships a rule that undoes a user's spoof for one site, since none
+ships a spoof to undo.
