@@ -1,0 +1,15 @@
+Ladybird learns which sites are behind DataDome from the x-datadome
+header on their responses, and presents the WebKit engine’s browser on
+the platform to them: Safari’s User-Agent on macOS, WebKitGTK’s
+elsewhere (Source/WebCore/platform/glib/UserAgentGLib.cpp
+buildUserAgentString(), whose Version/60.5 token is deliberate), with
+the WebKit navigator compatibility mode, remembered per site in the
+profile. No engine presents another engine’s browser to a bot-detection
+service; the nearest relatives are the static per-site User-Agent
+overrides of Firefox’s webcompat add-on
+(browser/extensions/webcompat/lib/interventions.js) and WebKitGTK’s
+UserAgentQuirks::quirksForURL(), both hand-curated lists that add a
+browser token for a site that blocks the browser’s own, and Chromium’s
+WebContents::SetUserAgentOverride(), which its embedder drives. None of
+the three changes the navigator’s engine along with the name, since
+each already is the engine it names.
