@@ -1,0 +1,15 @@
+Ladybird learns which sites challenge a spoofed User-Agent and sends
+its own to them from then on, by retrying a navigation that a Cloudflare
+challenge page answered, and persisting the site as a force_Ladybird
+site-compatibility rule in the profile. No other engine adapts a
+User-Agent to a challenge: none of them spoofs one, so none is ever
+challenged for the name it gives. The nearest relative is Firefox’s
+static per-site override list in its bundled webcompat add-on
+(browser/extensions/webcompat/data/interventions/*.json, applied by the
+onBeforeSendHeaders listener in lib/interventions.js and the content
+scripts under injections/js/), which adds a Chrome token to look like
+Chrome on a site that blocks Firefox — the inverse of what Ladybird
+does here — and is hand-curated and shipped through Remote Settings
+rather than learned. WebKit’s UserAgentQuirks::quirksForURL() (in the
+GLib port) is the same kind of static list, and Chromium hands its
+embedder WebContents::SetUserAgentOverride() and ships no list.
