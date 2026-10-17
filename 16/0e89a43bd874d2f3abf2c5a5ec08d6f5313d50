@@ -1,0 +1,15 @@
+Ladybird picks the document and image Accept values by navigator
+compatibility mode. Chrome mode sends what Chromium sends: for a
+navigation, kFrameAcceptHeaderValue (content/common/
+content_constants_internal.h) plus the signed-exchange suffix from
+content/browser/web_package/signed_exchange_consts.h; for an image,
+ImageAcceptHeader() in third_party/blink/common/loader/network_utils.cc.
+Gecko mode sends what Firefox sends: DocumentAcceptHeader() and
+ImageAcceptHeader() in netwerk/protocol/http/nsHttpHandler.cpp, the
+former with the image types its network.http.accept.include_images
+pref adds. WebKit mode sends the Fetch spec’s document value, which is
+what acceptHeaderValueFromType() in Source/WebCore/loader/cache/
+CachedResourceRequest.cpp returns for a main resource, and keeps the
+image value Ladybird already sent, since WebKit’s own image value names
+formats such as HEIC and JXL that Ladybird doesn’t decode, and claiming
+them would have a CDN serve what we can’t show.
