@@ -28,6 +28,9 @@ interface Internals {
     undefined setFontDisplayTime(FontFace fontFace, unsigned long milliseconds);
     DOMString setTimeZone(DOMString timeZone);
 
+    // The id of the loaded extension with the given manifest name, or the empty string.
+    DOMString extensionId(DOMString name);
+
     undefined gc();
     [CreatesPromise] Promise<undefined> gcAsync();
     // Clears a named environment binding and forces its current cell to be treated as garbage.

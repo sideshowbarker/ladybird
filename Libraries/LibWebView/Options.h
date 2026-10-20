@@ -110,6 +110,7 @@ struct BrowserOptions {
     DisableSandbox disable_sandbox { DisableSandbox::No };
     ForceVideoDecoderServer force_video_decoder_server { ForceVideoDecoderServer::No };
     Vector<ByteString> content_blocker_list_paths {};
+    Vector<ByteString> extension_directories {};
 };
 
 enum class HTTPDiskCacheMode {

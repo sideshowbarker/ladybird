@@ -53,6 +53,7 @@
 #include <LibWebView/CompositorPresentationClient.h>
 #include <LibWebView/CookieJar.h>
 #include <LibWebView/CrashReportStore.h>
+#include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/FaviconStore.h>
 #include <LibWebView/FontService.h>
 #include <LibWebView/FontServiceHost.h>
@@ -354,6 +355,7 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     bool disable_sandbox = false;
     bool force_video_decoder_server = false;
     Vector<ByteString> content_blocker_list_paths;
+    Vector<ByteString> extension_directories;
     Optional<StringView> resource_substitution_map_path;
     bool enable_autoplay = false;
     bool expose_experimental_interfaces = false;
@@ -472,6 +474,19 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
                 return false;
 
             content_blocker_list_paths.append(move(value));
+            return true;
+        },
+    });
+    args_parser.add_option(Core::ArgsParser::Option {
+        .argument_mode = Core::ArgsParser::OptionArgumentMode::Required,
+        .help_string = "Load the unpacked extension in the given directory (may be repeated)",
+        .long_name = "load-extension",
+        .value_name = "directory",
+        .accept_value = [&](ByteString value) {
+            if (value.is_empty())
+                return false;
+
+            extension_directories.append(move(value));
             return true;
         },
     });
@@ -614,6 +629,14 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     auto platform_languages = enable_test_mode ? Vector<String> {} : platform_preferred_languages();
     m_settings = make<Settings>(Settings::create(LexicalPath::join(profile().paths().config, "Settings.json"sv).string(), move(platform_languages)));
     m_bookmark_store = make<BookmarkStore>(BookmarkStore::create(LexicalPath::join(profile().paths().config, "Bookmarks.json"sv).string()));
+    m_extension_registry = make<ExtensionRegistry>(*m_settings);
+    m_extension_registry->on_changed = [this] {
+        auto descriptors = m_extension_registry->enabled_descriptors();
+        WebContentClient::for_each_client([&](WebContentClient& client) {
+            client.async_set_extensions(descriptors);
+            return IterationDecision::Continue;
+        });
+    };
 
     if (!dns_server_port.has_value())
         dns_server_port = use_dns_over_tls ? 853 : 53;
@@ -669,6 +692,7 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
         .enable_content_blocker = disable_content_blocker ? EnableContentBlocker::No : EnableContentBlocker::Yes,
         .disable_sandbox = disable_sandbox ? DisableSandbox::Yes : DisableSandbox::No,
         .force_video_decoder_server = force_video_decoder_server ? ForceVideoDecoderServer::Yes : ForceVideoDecoderServer::No,
+        .extension_directories = move(extension_directories),
     };
     rebuild_content_blocker_list_paths();
 
@@ -717,6 +741,14 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     };
 
     create_platform_options(m_browser_options, m_request_server_options, m_web_content_options);
+
+    // Tests must not depend on the extensions the user has installed.
+    if (m_web_content_options.is_test_mode == IsTestMode::No)
+        m_extension_registry->restore_from_settings();
+    for (auto const& directory : m_browser_options.extension_directories) {
+        if (auto extension = m_extension_registry->load_unpacked(directory); extension.is_error())
+            warnln("Could not load the extension in {}: {}", directory, extension.error());
+    }
 
     if (!m_settings->first_run_complete() && !m_browser_options.headless_mode.has_value()
         && !m_browser_options.webdriver_browser_endpoint.has_value() && m_web_content_options.is_test_mode == IsTestMode::No) {
@@ -1161,6 +1193,9 @@ ErrorOr<NonnullRefPtr<WebContentClient>> Application::create_web_content_client(
 
     if (m_content_blocker_list_buffer.has_value())
         client->async_set_content_blockers(*m_content_blocker_list_buffer);
+
+    if (auto descriptors = m_extension_registry->enabled_descriptors(); !descriptors.is_empty())
+        client->async_set_extensions(move(descriptors));
 
     m_web_content_clients.set(client);
     return client;

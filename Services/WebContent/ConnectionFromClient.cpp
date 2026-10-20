@@ -54,6 +54,7 @@
 #include <LibWeb/DOM/Text.h>
 #include <LibWeb/DOMURL/DOMURL.h>
 #include <LibWeb/Dump.h>
+#include <LibWeb/Extensions/ExtensionSet.h>
 #include <LibWeb/Fetch/Fetching/Fetching.h>
 #include <LibWeb/FileAPI/BlobURLStore.h>
 #include <LibWeb/Gamepad/GamepadRegistry.h>
@@ -3118,6 +3119,11 @@ void ConnectionFromClient::set_content_blocking_policy(Web::PageId page_id, bool
 {
     if (auto page = this->page(page_id); page.has_value())
         page->page().set_content_blocking_policy(enabled, disabled_sites);
+}
+
+void ConnectionFromClient::set_extensions(Vector<Web::Extensions::ExtensionDescriptor> extensions)
+{
+    Web::Extensions::ExtensionSet::the().set_extensions(move(extensions));
 }
 
 void ConnectionFromClient::set_content_blockers(Core::AnonymousBuffer patterns_buffer)

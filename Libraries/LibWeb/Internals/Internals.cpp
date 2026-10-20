@@ -59,6 +59,7 @@
 #include <LibWeb/DOMURL/DOMURL.h>
 #include <LibWeb/Dump.h>
 #include <LibWeb/Editing/SpellingMarkers.h>
+#include <LibWeb/Extensions/ExtensionSet.h>
 #include <LibWeb/Fetch/Fetching/Fetching.h>
 #include <LibWeb/Fetch/Infrastructure/NetworkPartitionKey.h>
 #include <LibWeb/Geolocation/Geolocation.h>
@@ -1602,6 +1603,13 @@ void Internals::set_device_pixel_ratio(double ratio)
 void Internals::resize_window(i32 width, i32 height)
 {
     page().client().page_did_request_resize_window({ width, height }, 0);
+}
+
+Utf16String Internals::extension_id(Utf16String const& name)
+{
+    if (auto const* extension = Extensions::ExtensionSet::the().find_by_name(name.to_utf8_but_should_be_ported_to_utf16()))
+        return Utf16String::from_utf8(extension->id);
+    return {};
 }
 
 bool Internals::headless()
