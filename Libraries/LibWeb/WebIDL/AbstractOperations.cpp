@@ -17,6 +17,7 @@
 #include <LibJS/Runtime/FunctionObject.h>
 #include <LibJS/Runtime/TypedArray.h>
 #include <LibJS/Runtime/ValueInlines.h>
+#include <LibWeb/Bindings/WrapperWorld.h>
 #include <LibWeb/DOM/Document.h>
 #include <LibWeb/Export.h>
 #include <LibWeb/HTML/CrossOrigin/AbstractOperations.h>
@@ -197,6 +198,9 @@ JS::Completion call_user_object_operation(CallbackType& callback, Utf16FlyString
 
     // 4. Let realm be O’s associated realm.
     auto& realm = object->shape().realm();
+    // AD-HOC: WebIDL has no isolated-world lifecycle; a detached world can't run callbacks in its shared document.
+    if (Bindings::host_defined_wrapper_world(realm).is_detached())
+        return JS::normal_completion(JS::js_undefined());
 
     // 5. Let relevant settings be realm’s settings object.
     auto& relevant_settings = HTML::principal_realm_settings_object(realm);
@@ -312,6 +316,9 @@ static auto invoke_callback_impl(CallbackType& callback, Optional<JS::Value> thi
 
     // 5. Let realm be F’s associated realm.
     auto& realm = function_object->shape().realm();
+    // AD-HOC: WebIDL has no isolated-world lifecycle; a detached world can't run callbacks in its shared document.
+    if (Bindings::host_defined_wrapper_world(realm).is_detached())
+        return return_steps(realm, JS::normal_completion(JS::js_undefined()));
 
     // 6. Let relevant settings be realm’s settings object.
     auto& relevant_settings = HTML::principal_realm_settings_object(realm);

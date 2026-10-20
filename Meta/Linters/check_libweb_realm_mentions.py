@@ -42,6 +42,7 @@ ALLOWED_REALM_MENTIONS = {
     "CookieStore": (2, 19, "cookie-store async callbacks and promise/value materialization still thread realms"),
     "Crypto": (8, 383, "WebCrypto algorithms still use realms for buffer/key/promise materialization"),
     "DOM": (10, 33, "DOM abort plumbing and node helpers still have callback/materialization realm use"),
+    "Extensions": (8, 14, "extension worlds create and own the realms content scripts run in, and the browser namespace materializes its JS objects there"),
     "Fetch": (
         22,
         62,

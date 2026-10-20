@@ -359,7 +359,11 @@ set(SOURCES
     EncryptedMediaExtensions/MediaKeySystemAccess.cpp
     EntriesAPI/FileSystemEntry.cpp
     EventTiming/PerformanceEventTiming.cpp
+    Extensions/API/Event.cpp
+    Extensions/API/Runtime.cpp
     Extensions/ExtensionSet.cpp
+    Extensions/ExtensionWorld.cpp
+    Extensions/Namespace.cpp
     Fetch/Body.cpp
     Fetch/BodyInit.cpp
     Fetch/Engine/FetchExecutor.cpp

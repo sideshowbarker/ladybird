@@ -156,7 +156,7 @@ private:
         Yes,
         No,
     };
-    WebIDL::ExceptionOr<i32> run_timer_initialization_steps(TimerHandler handler, i32 timeout, GC::RootVector<JS::Value> arguments, Repeat repeat, Optional<i32> previous_id = {});
+    WebIDL::ExceptionOr<i32> run_timer_initialization_steps(TimerHandler handler, i32 timeout, GC::RootVector<JS::Value> arguments, Repeat repeat, Optional<i32> previous_id = {}, GC::Ptr<Bindings::WrapperWorld> owner_world = {});
     void run_steps_after_a_timeout_impl(i32 timeout, TimerThrottlingClass, Function<void()> completion_step, Optional<i32> timer_key, Repeat repeat = Repeat::No);
     bool document_is_hidden() const;
     bool timers_are_throttled() const;

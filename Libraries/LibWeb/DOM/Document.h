@@ -1693,6 +1693,11 @@ public:
 
     bool content_blocking_enabled() const;
     Utf16String const& content_blocker_style_sheet();
+
+    // The extension worlds of this document, one per extension that has run a content script in it.
+    Extensions::ExtensionWorld& ensure_extension_world(Extensions::ExtensionDescriptor const&);
+    HashMap<String, GC::Ref<Extensions::ExtensionWorld>> const& extension_worlds() const { return m_extension_worlds; }
+    void detach_extension_worlds();
     void invalidate_content_blocker_style_sheet();
     bool content_blocker_style_sheet_may_need_refresh_for_class_or_id(Utf16FlyString const* id, ReadonlySpan<Utf16FlyString> class_names);
 
@@ -2292,6 +2297,7 @@ private:
     Optional<u64> m_animation_keyframes_published_generation;
 
     Optional<Utf16String> m_content_blocker_style_sheet;
+    HashMap<String, GC::Ref<Extensions::ExtensionWorld>> m_extension_worlds;
     // Class/id tokens already covered by the cached content blocker stylesheet.
     HashTable<Utf16FlyString> m_content_blocker_style_sheet_checked_classes;
     HashTable<Utf16FlyString> m_content_blocker_style_sheet_checked_ids;
