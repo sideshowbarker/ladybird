@@ -32,6 +32,7 @@ set(SOURCES
     DownloadStore.cpp
     Extensions/Extension.cpp
     Extensions/ExtensionManifest.cpp
+    Extensions/ExtensionRegistry.cpp
     ExternalURLHandler.cpp
     FaviconStore.cpp
     FileDownloader.cpp
