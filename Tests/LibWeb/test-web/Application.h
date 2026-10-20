@@ -51,6 +51,7 @@ public:
     ByteString test_root_path;
     ByteString results_directory { "test-dumps/results"sv };
     Optional<ByteString> downloads_directory;
+    ByteString extensions_directory;
     size_t test_concurrency { 1 };
     Vector<ByteString> test_globs;
 
