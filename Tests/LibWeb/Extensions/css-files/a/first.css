@@ -1,0 +1,5 @@
+#author { color: rgb(0, 128, 0); }
+#important { color: red !important; }
+#order { color: red; }
+#first-url { background-image: url(first.svg); }
+#equal { color: red; }

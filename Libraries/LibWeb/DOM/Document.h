@@ -69,6 +69,7 @@
 #include <LibWeb/WebIDL/ExceptionOr.h>
 #include <LibWeb/XPath/EvaluateResult.h>
 #include <LibWebCommon/CSS/PreferredColorScheme.h>
+#include <LibWebCommon/Extensions/ExtensionDescriptor.h>
 #include <LibWebCommon/Fullscreen/FullscreenRequestType.h>
 #include <LibWebCommon/HTML/CrossOrigin/OpenerPolicy.h>
 #include <LibWebCommon/HTML/CrossProcessId.h>
@@ -1694,6 +1695,14 @@ public:
     bool content_blocking_enabled() const;
     Utf16String const& content_blocker_style_sheet();
 
+    // Content-script injection: which run_at points this document has reached, its idle timer, and the style
+    // sheets content scripts added, which join the document's user style sheet.
+    bool content_scripts_ran_at(Extensions::RunAt run_at) const { return m_content_scripts_ran_at & (1 << to_underlying(run_at)); }
+    void set_content_scripts_ran_at(Extensions::RunAt run_at) { m_content_scripts_ran_at |= (1 << to_underlying(run_at)); }
+    void run_content_scripts_for_newly_active_document();
+    void schedule_content_script_idle_point();
+    void add_extension_style_sheet(Utf16String const&, URL::URL const&);
+
     // The extension worlds of this document, one per extension that has run a content script in it.
     Extensions::ExtensionWorld& ensure_extension_world(Extensions::ExtensionDescriptor const&);
     HashMap<String, GC::Ref<Extensions::ExtensionWorld>> const& extension_worlds() const { return m_extension_worlds; }
@@ -1725,6 +1734,7 @@ public:
 
 protected:
     virtual void visit_edges(Cell::Visitor&) override;
+    virtual void children_changed(ChildrenChangedMetadata const&) override;
 
     Document(Page&, GC::Ref<EventTarget> relevant_global_event_target, URL::URL const&, TemporaryDocumentForFragmentParsing = TemporaryDocumentForFragmentParsing::No);
     void initialize_document();
@@ -2298,6 +2308,9 @@ private:
 
     Optional<Utf16String> m_content_blocker_style_sheet;
     HashMap<String, GC::Ref<Extensions::ExtensionWorld>> m_extension_worlds;
+    u8 m_content_scripts_ran_at { 0 };
+    RefPtr<Core::Timer> m_content_script_idle_timer;
+    Vector<NonnullRefPtr<CSS::StyleSheetState>> m_extension_style_sheets;
     // Class/id tokens already covered by the cached content blocker stylesheet.
     HashTable<Utf16FlyString> m_content_blocker_style_sheet_checked_classes;
     HashTable<Utf16FlyString> m_content_blocker_style_sheet_checked_ids;

@@ -1126,6 +1126,9 @@ void LocalNavigable::initialize_navigable(NonnullRefPtr<DocumentState> document_
 
     // 6. Set the initial visibility state of documentState's document to navigable's traversable navigable's system visibility state.
     document->set_initial_visibility_state(system_visibility_state);
+
+    // The document is fully active only now that its navigable exists; any content scripts it has reached run here.
+    document->run_content_scripts_for_newly_active_document();
 }
 
 // AD-HOC: The debug settings and the compositor tree are per page, so a child navigable starts from its parent's. A

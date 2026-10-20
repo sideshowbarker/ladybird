@@ -1,0 +1,4 @@
+blank: forged=undefined, actual=1
+blank: allowed through the creator
+srcdoc: forged=undefined, actual=1
+srcdoc: allowed through the creator
