@@ -34,6 +34,16 @@ static void register_source(ClassicScript& script, ScriptRegistry::IsInlineSourc
 // https://html.spec.whatwg.org/multipage/webappapis.html#creating-a-classic-script
 GC::Ref<ClassicScript> ClassicScript::create(ByteString filename, Utf16String source, EnvironmentSettingsObject& settings, URL::URL base_url, size_t source_line_number, MutedErrors muted_errors, ScriptRegistry::IsInlineSource is_inline_source)
 {
+    return create_with_parse_realm(move(filename), move(source), settings, settings.realm(), move(base_url), source_line_number, muted_errors, is_inline_source);
+}
+
+GC::Ref<ClassicScript> ClassicScript::create_in_realm(ByteString filename, Utf16String source, EnvironmentSettingsObject& settings, JS::Realm& parse_realm, URL::URL base_url, MutedErrors muted_errors)
+{
+    return create_with_parse_realm(move(filename), move(source), settings, parse_realm, move(base_url), 1, muted_errors, ScriptRegistry::IsInlineSource::No);
+}
+
+GC::Ref<ClassicScript> ClassicScript::create_with_parse_realm(ByteString filename, Utf16String source, EnvironmentSettingsObject& settings, JS::Realm& parse_realm, URL::URL base_url, size_t source_line_number, MutedErrors muted_errors, ScriptRegistry::IsInlineSource is_inline_source)
+{
     // 1. If mutedErrors is true, then set baseURL to about:blank.
     if (muted_errors == MutedErrors::Yes)
         base_url = URL::about_blank();
@@ -61,10 +71,11 @@ GC::Ref<ClassicScript> ClassicScript::create(ByteString filename, Utf16String so
 
     // 10. Let result be ParseScript(source, settings's realm, script).
     // Note: Passing script as the last parameter here ensures result.[[HostDefined]] will be script.
+    // NB: The parse realm is the settings realm, except for a script of a non-main world, which runs in that world's realm.
     auto parse_timer = Core::ElapsedTimer::start_new();
     auto source_code = JS::SourceCode::create(script->display_filename(), source);
     auto parsed = JS::ParsedProgram::parse(move(source), JS::ProgramType::Script, source_line_number);
-    auto result = JS::create_script(move(parsed), move(source_code), settings.realm(), script->filename(), script.ptr());
+    auto result = JS::create_script(move(parsed), move(source_code), parse_realm, script->filename(), script.ptr());
     dbgln_if(HTML_SCRIPT_DEBUG, "ClassicScript: Parsed {} in {}ms", script->filename(), parse_timer.elapsed_milliseconds());
 
     // 11. If result is a list of errors:
@@ -73,7 +84,7 @@ GC::Ref<ClassicScript> ClassicScript::create(ByteString filename, Utf16String so
         dbgln_if(HTML_SCRIPT_DEBUG, "ClassicScript: Failed to parse: {}", parse_error.to_utf16_string());
 
         // 1. Set script's parse error and its error to rethrow to result[0].
-        script->set_parse_error(JS::SyntaxError::create(settings.realm(), parse_error.to_utf16_string()), parse_error.position);
+        script->set_parse_error(JS::SyntaxError::create(parse_realm, parse_error.to_utf16_string()), parse_error.position);
         script->set_error_to_rethrow(script->parse_error());
 
         // 2. Return script.
