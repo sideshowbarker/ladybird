@@ -39,8 +39,8 @@ Trustworthiness is_origin_potentially_trustworthy(URL::Origin const& origin)
         return Trustworthiness::PotentiallyTrustworthy;
 
     // 6. If origin’s scheme is "file", return "Potentially Trustworthy".
-    // AD-HOC: Our resource:// is basically an alias to file://
-    if (origin.scheme() == "file"sv || origin.scheme() == "resource"sv)
+    // AD-HOC: Our resource:// is basically an alias to file://, and an extension's pages load from its own directory.
+    if (origin.scheme() == "file"sv || origin.scheme() == "resource"sv || origin.scheme() == "ladybird-extension"sv)
         return Trustworthiness::PotentiallyTrustworthy;
 
     // 7. If origin’s scheme component is one which the user agent considers to be authenticated, return "Potentially Trustworthy".

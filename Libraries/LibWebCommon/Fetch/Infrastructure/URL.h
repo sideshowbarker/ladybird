@@ -31,8 +31,8 @@ inline constexpr Array HTTP_SCHEMES = {
 inline constexpr Array FETCH_SCHEMES = {
     "about"sv, "blob"sv, "data"sv, "file"sv, "http"sv, "https"sv,
 
-    // AD-HOC: Internal fetch schemes:
-    "resource"sv
+    // AD-HOC: Internal fetch schemes: bundled browser assets, and the pages and resources of a loaded extension.
+    "resource"sv, "ladybird-extension"sv
 };
 
 [[nodiscard]] WEBCOMMON_API bool is_local_url(URL::URL const&);

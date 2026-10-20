@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script>
+    // A web-accessible page of an extension loads in an iframe at the extension's own origin.
+    asyncTest(async done => {
+        const id = internals.extensionId("Resources Fixture");
+        println(`id looks like a UUID: ${/^[0-9a-f-]{36}$/.test(id)}`);
+
+        window.addEventListener("message", event => {
+            println(`title: ${event.data.title}`);
+            println(`origin is the extension's: ${event.data.origin === `ladybird-extension://${id}`}`);
+            done();
+        });
+
+        const iframe = document.createElement("iframe");
+        iframe.src = `ladybird-extension://${id}/page.html`;
+        document.body.append(iframe);
+    });
+</script>

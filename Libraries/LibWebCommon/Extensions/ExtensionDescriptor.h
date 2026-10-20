@@ -10,6 +10,7 @@
 #include <AK/Types.h>
 #include <AK/Vector.h>
 #include <LibIPC/Forward.h>
+#include <LibURL/Forward.h>
 #include <LibWebCommon/Export.h>
 #include <LibWebCommon/Extensions/MatchPattern.h>
 
@@ -67,6 +68,9 @@ struct WEBCOMMON_API ExtensionDescriptor {
     Vector<ContentScriptDescriptor> content_scripts;
     bool has_background { false };
     String background_document_html;
+
+    // Whether a page at the initiator URL may load the resource at the URL path (which begins with "/").
+    [[nodiscard]] bool is_web_accessible(StringView url_path, URL::URL const& initiator) const;
 
     bool operator==(ExtensionDescriptor const&) const = default;
 };
