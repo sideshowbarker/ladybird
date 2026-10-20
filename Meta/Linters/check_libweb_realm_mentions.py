@@ -60,6 +60,7 @@ ALLOWED_REALM_MENTIONS = {
         "The AbortSignal and AbortController facades and node helpers use callback/materialization realms; "
         "the C++ glue of the Rust CustomEvent creates it in a given realm",
     ),
+    "Extensions": (8, 14, "extension worlds create and own the realms content scripts run in, and the browser namespace materializes its JS objects there"),
     "Fetch": (
         22,
         51,

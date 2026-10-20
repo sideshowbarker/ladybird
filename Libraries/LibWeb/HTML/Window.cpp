@@ -239,7 +239,12 @@ WebIDL::UnsignedLong request_idle_callback(HTML::Window& window, WebIDL::Callbac
     //     window's idle callback lists trace the handler, so the callback lives exactly as long as the window's document.
     auto handler = GC::create_function(GC::Heap::the(), GC::captures(GC::Ref { callback }), [](GC::Ref<WebIDL::CallbackType>& callback, GC::Ref<RequestIdleCallback::IdleDeadline> deadline) -> JS::Completion {
         auto& callback_realm = callback->callback->shape().realm();
-        return WebIDL::invoke_callback(*callback, {}, { { wrap(host_defined_wrapper_world(callback_realm), callback_realm, deadline) } });
+        auto& wrapper_world = host_defined_wrapper_world(callback_realm);
+        // AD-HOC: A detached world makes no wrappers, so its deadline can't be wrapped and its callback is dropped, as
+        //         invoke_callback() drops every call into a detached world.
+        if (wrapper_world.is_detached())
+            return JS::normal_completion(JS::js_undefined());
+        return WebIDL::invoke_callback(*callback, {}, { { wrap(wrapper_world, callback_realm, deadline) } });
     });
     return window.request_idle_callback(handler, options);
 }
