@@ -300,6 +300,9 @@ void initialize_main_thread_vm(HTML::AgentType type)
 
         // 2. Queue a global task on the JavaScript engine task source given global to perform the following steps:
         HTML::queue_global_task(HTML::Task::Source::JavaScriptEngine, global, GC::create_function(GC::Heap::the(), [&finalization_registry] {
+            // AD-HOC: HTML has no isolated-world lifecycle; detached-world cleanup jobs can't run in the shared document.
+            if (host_defined_wrapper_world(finalization_registry.realm()).is_detached())
+                return;
             // 1. Let entry be finalizationRegistry.[[CleanupCallback]].[[Callback]].[[Realm]]'s environment settings object.
             // AD-HOC: The spec assumes [[Callback]] has a [[Realm]] internal slot, but Proxy and BoundFunction
             //         exotic objects do not. Use GetFunctionRealm to unwrap these exotic objects, falling back to
@@ -309,6 +312,8 @@ void initialize_main_thread_vm(HTML::AgentType type)
             auto& callback = finalization_registry.cleanup_callback().callback();
             auto callback_realm = JS::get_function_realm(callback.vm(), callback);
             auto& realm = callback_realm.is_throw_completion() ? finalization_registry.realm() : *callback_realm.value();
+            if (host_defined_wrapper_world(realm).is_detached())
+                return;
             auto& entry = HTML::principal_realm_settings_object(realm);
 
             // 2. Prepare to run script with entry.
@@ -345,7 +350,10 @@ void initialize_main_thread_vm(HTML::AgentType type)
         // Do note that "implied document" from the spec is handwavy and the spec authors are trying to get rid of it: https://github.com/whatwg/html/issues/4980
         auto* script = active_script();
 
-        HTML::queue_a_microtask(script ? script->settings_object().responsible_document().ptr() : nullptr, GC::create_function(GC::Heap::the(), [&vm, job_settings, job = move(job), script_or_module = move(script_or_module)] {
+        HTML::queue_a_microtask(script ? script->settings_object().responsible_document().ptr() : nullptr, GC::create_function(GC::Heap::the(), [&vm, realm, job_settings, job = move(job), script_or_module = move(script_or_module)] {
+            // AD-HOC: HTML has no isolated-world lifecycle; jobs in a detached world can't run in its shared document.
+            if (realm && host_defined_wrapper_world(*realm).is_detached())
+                return;
             // The dummy execution context has to be kept up here to keep it alive for the duration of the function.
             OwnPtr<JS::ExecutionContext> dummy_execution_context;
 

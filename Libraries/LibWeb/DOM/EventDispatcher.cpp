@@ -9,6 +9,7 @@
 #include <AK/NeverDestroyed.h>
 #include <AK/Optional.h>
 #include <AK/TypeCasts.h>
+#include <LibWeb/Bindings/WrapperWorld.h>
 #include <LibWeb/DOM/AbortSignal.h>
 #include <LibWeb/DOM/BindingsGlue.h>
 #include <LibWeb/DOM/Document.h>
@@ -76,6 +77,11 @@ bool EventDispatcher::inner_invoke(Event& event, EventTarget::ClonedEventListene
         if (event.type() != listener->type)
             continue;
 
+        auto& callback = listener->callback->callback();
+        // AD-HOC: DOM dispatch has no isolated-world lifecycle; detached-world listeners can't observe events.
+        if (Bindings::host_defined_wrapper_world(callback.callback->shape().realm()).is_detached())
+            continue;
+
         // 2. Set found to true.
         found = true;
 
@@ -90,8 +96,6 @@ bool EventDispatcher::inner_invoke(Event& event, EventTarget::ClonedEventListene
         // 5. If listener’s once is true, then remove an event listener given event’s currentTarget attribute value and listener.
         if (listener->once)
             event.current_target()->remove_an_event_listener(*listener);
-
-        auto& callback = listener->callback->callback();
 
         // 6. Let targetGlobal be event's currentTarget's node document's relevant global object if event's currentTarget
         //    is a node; otherwise event's currentTarget's relevant global object.

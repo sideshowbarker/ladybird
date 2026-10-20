@@ -47,6 +47,7 @@ ALLOWED_REALM_MENTIONS = {
         "dictionaries, which SubtleCrypto.supports() does in the caller realm",
     ),
     "DOM": (10, 33, "DOM abort plumbing and node helpers still have callback/materialization realm use"),
+    "Extensions": (8, 14, "extension worlds create and own the realms content scripts run in, and the browser namespace materializes its JS objects there"),
     "Fetch": (
         20,
         60,

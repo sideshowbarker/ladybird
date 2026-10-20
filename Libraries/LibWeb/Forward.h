@@ -480,6 +480,14 @@ struct ParsingParams;
 
 }
 
+namespace Web::Extensions {
+
+class EventListenerList;
+class ExtensionWorld;
+struct ExtensionDescriptor;
+
+}
+
 namespace Web::DOM {
 
 class AbortController;
