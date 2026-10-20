@@ -1,0 +1,11 @@
+{
+    "manifest_version": 3,
+    "name": "CSS Files Fixture",
+    "version": "1.0",
+    "content_scripts": [{
+        "matches": ["file:///*/Extensions/css-file-origins.html"],
+        "css": ["namespace.css", "a/first.css", "b/second.css", "last.css"],
+        "js": ["ready.js"],
+        "run_at": "document_end"
+    }]
+}

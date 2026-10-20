@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<body>
+<script>
+    // all_frames reaches child frames; an about:blank child needs match_about_blank, which judges it by the parent's URL.
+    asyncTest(async done => {
+        await new Promise(resolve => window.addEventListener("load", resolve));
+        const iframe = document.createElement("iframe");
+        document.body.append(iframe);
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const top = document.documentElement.dataset;
+        println(`top frame: all=${top.all} top=${top.top} noblank=${top.noblank}`);
+        const child = iframe.contentDocument.documentElement.dataset;
+        println(`about:blank child: all=${child.all} top=${child.top} noblank=${child.noblank}`);
+        done();
+    });
+</script>
+</body>

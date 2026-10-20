@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<body data-marker="from-page">
+<script>
+    // A content script shares the DOM with the page but not its JavaScript objects, in either direction.
+    window.pageSecret = 1;
+    document.body.pageExpando = 2;
+    asyncTest(async done => {
+        await new Promise(resolve => window.addEventListener("load", resolve));
+        await new Promise(resolve => setTimeout(resolve, 0));
+        const root = document.documentElement;
+        if (root.dataset.error)
+            println(`content script error: ${root.dataset.error}`);
+        println(`content script saw window.pageSecret as: ${root.dataset.pageSecret}`);
+        println(`content script saw body expando as: ${root.dataset.pageExpando}`);
+        println(`content script's namespace: ${root.dataset.browser}`);
+        println(`content script saw the page's DOM: ${root.dataset.sameDom}`);
+        println(`page sees window.extensionSecret as: ${typeof window.extensionSecret}`);
+        println(`page sees body expando as: ${typeof document.body.extensionExpando}`);
+        println(`page sees browser as: ${typeof browser}`);
+        done();
+    });
+</script>
+</body>

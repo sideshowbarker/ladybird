@@ -1,0 +1,12 @@
+{
+    "manifest_version": 2,
+    "name": "Frames Fixture",
+    "version": "1.0",
+    "description": "Scripts with different frame rules, for the all_frames, match_about_blank, and exclude_matches tests.",
+    "content_scripts": [
+        { "matches": ["file:///*/Extensions/all-frames-about-blank.html"], "js": ["all.js"], "run_at": "document_end", "all_frames": true, "match_about_blank": true },
+        { "matches": ["file:///*/Extensions/all-frames-about-blank.html"], "js": ["top.js"], "run_at": "document_end" },
+        { "matches": ["file:///*/Extensions/all-frames-about-blank.html"], "js": ["noblank.js"], "run_at": "document_end", "all_frames": true },
+        { "matches": ["file:///*/Extensions/exclude-matches.html*"], "exclude_matches": ["file:///*?excluded*"], "js": ["included.js"], "run_at": "document_end", "all_frames": true }
+    ]
+}

@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<body>
+<p id="target">styled by the extension</p>
+<script>
+    // A content script's CSS applies to the document as an author style sheet.
+    asyncTest(async done => {
+        document.addEventListener("content-scripts-end", () => {
+            println(`color: ${getComputedStyle(document.getElementById("target")).color}`);
+            done();
+        });
+    });
+</script>
+</body>

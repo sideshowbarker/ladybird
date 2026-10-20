@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<body>
+<script>
+    // A content script whose pattern matches an SVG image's URL runs in the page, never in the document that decodes
+    // the image: that document belongs to no tab, so there is nothing for a script in it to talk to.
+    asyncTest(async done => {
+        const image = document.createElement("img");
+        // The image lives outside the test directory, since test-web would run an .svg file there as a test.
+        image.src = "../../../Extensions/run-at/image.svg";
+        await new Promise(resolve => {
+            image.onload = resolve;
+            image.onerror = resolve;
+            document.body.append(image);
+        });
+        println(`image: ${image.naturalWidth}x${image.naturalHeight}`);
+        println(`start: ${document.documentElement.dataset.start}`);
+        done();
+    });
+</script>
+</body>

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<body>
+<script>
+    // Content scripts run at document_start, document_end, and document_idle, in that order, once each.
+    asyncTest(async done => {
+        const root = document.documentElement;
+        document.addEventListener("content-scripts-idle", () => {
+            println(`start: ${root.dataset.start}`);
+            println(`start ran ${root.dataset.startCount} time(s)`);
+            println(`end: ${root.dataset.end}`);
+            println(`idle: ${root.dataset.idle}`);
+            done();
+        });
+    });
+</script>
+</body>
