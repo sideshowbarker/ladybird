@@ -41,3 +41,4 @@ If you have any questions that are not answered here or in the [FAQ](FAQ.md), yo
 * [Investigating Websites with WebDriver](WebDriver.md)
 * [CSS Generated Files](CSSGeneratedFiles.md)
 * [Media Pipeline Design](MediaPipelineDesign.md)
+* [Extensions Support](ExtensionsSupport.md)
