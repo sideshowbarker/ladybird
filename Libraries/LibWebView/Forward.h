@@ -54,6 +54,7 @@ class RequestServerInstance;
 class RequestServerManager;
 class RequestServerSiteBindings;
 class SessionStore;
+class ExtensionMessageBroker;
 class ExtensionRegistry;
 class Settings;
 class SettingsUI;

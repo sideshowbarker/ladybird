@@ -3126,6 +3126,18 @@ void ConnectionFromClient::set_extensions(Vector<Web::Extensions::ExtensionDescr
     Web::Extensions::ExtensionSet::the().set_extensions(move(extensions));
 }
 
+void ConnectionFromClient::dispatch_extension_runtime_message(Web::PageId page_id, String extension_id, u64 dispatch_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id)
+{
+    if (auto page = this->page(page_id); page.has_value())
+        page->page().dispatch_extension_runtime_message(extension_id, dispatch_id, sender, message_json, context_id);
+}
+
+void ConnectionFromClient::extension_runtime_message_reply(Web::PageId page_id, u64 request_id, Optional<String> reply_json)
+{
+    if (auto page = this->page(page_id); page.has_value())
+        page->page().complete_extension_runtime_message(request_id, reply_json);
+}
+
 void ConnectionFromClient::set_content_blockers(Core::AnonymousBuffer patterns_buffer)
 {
     auto& blocker = Web::ContentBlocker::the();

@@ -24,6 +24,7 @@
 #include <LibWebCommon/PermissionsPolicy/PermissionsPolicy.h>
 #include <LibWebCommon/StorageAPI/StorageEndpoint.h>
 #include <LibWebView/Export.h>
+#include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Forward.h>
 #include <WebContent/WebContentClientEndpoint.h>
 #include <WebContent/WebContentServerEndpoint.h>
@@ -64,7 +65,8 @@ class WEBVIEW_API WebContentPage final
     : public RefCounted<WebContentPage>
     , public WebContentClientPageStub
     , public WebContentTestClientPageStub
-    , public WebContentServerPageProxy {
+    , public WebContentServerPageProxy
+    , public ExtensionMessageBroker::Endpoint {
     AK_MAKE_NONCOPYABLE(WebContentPage);
     AK_MAKE_NONMOVABLE(WebContentPage);
     AK_ALLOC_WITH_KMALLOC;
@@ -156,6 +158,8 @@ public:
     void reset_session_history_for_testing();
 
 private:
+    virtual Optional<u64> extension_revision(String const& extension_id) const override;
+    virtual Optional<Web::Extensions::MessageSender> extension_message_sender(String const& extension_id, Web::HTML::CrossProcessId document_id) const override;
     void for_each_extension_document(Function<IterationDecision(CanonicalNavigable const&, CanonicalDocument const&, URL::URL const&)> const&) const;
     void relay_finished_input_event(WebContentPage const& reporting_page, u64 event_id, Web::EventResult);
     Optional<CanonicalNavigable&> population_worker_navigable(Web::HTML::CrossProcessId navigable_id) const;
@@ -253,6 +257,12 @@ private:
     virtual void did_change_picture_in_picture_player_controls_visibility(bool shown) override;
     virtual void did_request_file(ByteString path, i32 request_id) override;
     virtual void did_request_extension_resource(String extension_id, String path, i32 request_id) override;
+    virtual void did_create_extension_context(String extension_id, u64 context_id, Web::HTML::CrossProcessId document_id, u64 revision) override;
+    virtual void did_destroy_extension_context(String extension_id, u64 context_id) override;
+    virtual void did_send_extension_runtime_message(String extension_id, u64 request_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id) override;
+    virtual void did_reply_to_extension_runtime_message(u64 dispatch_id, Optional<String> reply_json) override;
+    virtual void dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Web::Extensions::MessageSender const&, String const& message_json, u64 context_id) override;
+    virtual void complete_extension_runtime_message(u64 request_id, Optional<String> const& reply_json) override;
     virtual void did_request_color_picker(Color current_color) override;
     virtual void did_request_geolocation_position(u64 request_id) override;
     virtual void did_cancel_geolocation_position_request(u64 request_id) override;
