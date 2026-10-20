@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<body>
+<script>
+    // A document destroyed between DOMContentLoaded and its idle point gets no idle script, and nothing else breaks.
+    if (location.search === "?child") {
+        document.addEventListener("DOMContentLoaded", () => parent.postMessage("child-dom-content-loaded", "*"));
+    } else {
+        asyncTest(async done => {
+            await new Promise(resolve => window.addEventListener("load", resolve));
+            const iframe = document.createElement("iframe");
+            iframe.src = location.href + "?child";
+            await new Promise(resolve => {
+                window.addEventListener("message", event => {
+                    if (event.data === "child-dom-content-loaded")
+                        resolve();
+                });
+                document.body.append(iframe);
+            });
+            iframe.remove();
+            await new Promise(resolve => setTimeout(resolve, 400));
+            println("still here after the child's idle point would have passed");
+            done();
+        });
+    }
+</script>
+</body>

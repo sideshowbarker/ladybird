@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<body>
+<script>
+    asyncTest(async done => {
+        await new Promise(resolve => window.addEventListener("load", resolve));
+        const base = document.createElement("base");
+        base.href = "https://allowed.test/";
+        document.head.append(base);
+        const id = internals.extensionId("Trusted Ancestry Fixture");
+        for (const kind of ["blank", "srcdoc"]) {
+            const frame = document.createElement("iframe");
+            if (kind === "srcdoc")
+                frame.srcdoc = "<!DOCTYPE html><body>child</body>";
+            await new Promise(resolve => {
+                frame.onload = resolve;
+                document.body.append(frame);
+            });
+            const data = frame.contentDocument.documentElement.dataset;
+            println(`${kind}: forged=${data.forged}, actual=${data.actual}`);
+            try {
+                const response = await frame.contentWindow.fetch(`ladybird-extension://${id}/public.txt`);
+                println(`${kind}: ${(await response.text()).trim()}`);
+            } catch (error) {
+                println(`${kind}: ${error.name}`);
+            }
+            frame.remove();
+        }
+        done();
+    });
+</script>
+</body>

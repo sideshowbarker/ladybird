@@ -1192,6 +1192,11 @@ void LocalNavigable::initialize_navigable(NonnullRefPtr<DocumentState> document_
     // as it hears of each document that later becomes active in the navigable.
     if (!is_top_level_traversable() && !is_stand_in)
         page().client().page_did_change_active_document_in_child_navigable(document);
+
+    // The document is fully active only now that its navigable exists; any content scripts it has reached run here. A
+    // stand-in's document holds the place of one another process runs scripts in, so it gets none.
+    if (!is_stand_in)
+        document->run_content_scripts_for_newly_active_document();
 }
 
 // AD-HOC: The debug settings and the compositor tree are per page, so a child navigable starts from its parent's. A

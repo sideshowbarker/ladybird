@@ -1,0 +1,12 @@
+{
+    "manifest_version": 3,
+    "name": "Trusted Ancestry Fixture",
+    "version": "1",
+    "content_scripts": [
+        { "matches": ["https://allowed.test/*"], "js": ["forged.js"], "run_at": "document_end", "all_frames": true, "match_about_blank": true },
+        { "matches": ["file:///*/Extensions/about-blank-trusted-ancestry.html"], "js": ["actual.js"], "run_at": "document_end", "all_frames": true, "match_about_blank": true }
+    ],
+    "web_accessible_resources": [
+        { "resources": ["public.txt"], "matches": ["file:///*/Extensions/about-blank-trusted-ancestry.html"] }
+    ]
+}

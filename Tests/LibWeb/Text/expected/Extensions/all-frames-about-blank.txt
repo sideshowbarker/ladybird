@@ -1,0 +1,2 @@
+top frame: all=1 top=1 noblank=1
+about:blank child: all=1 top=undefined noblank=undefined
