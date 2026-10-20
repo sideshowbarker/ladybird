@@ -27,6 +27,7 @@ set(TEST_SOURCES
     TestDownloadReader.cpp
     TestDump.cpp
     TestEventLoop.cpp
+    TestExtensionMatchPattern.cpp
     TestFaviconDecoding.cpp
     TestFetchAlgorithms.cpp
     TestFetchBodyDeliveryGate.cpp
