@@ -70,6 +70,7 @@
 #include <LibWebCommon/CSS/PreferredContrast.h>
 #include <LibWebCommon/CSS/PreferredMotion.h>
 #include <LibWebCommon/ContentSecurityPolicy/RemoteViolationDirective.h>
+#include <LibWebCommon/Extensions/MessageSender.h>
 #include <LibWebCommon/FileAPI/SerializedBlobURLEntry.h>
 #include <LibWebCommon/Fullscreen/FullscreenRequestType.h>
 #include <LibWebCommon/Gamepad/GamepadSnapshot.h>
@@ -504,6 +505,11 @@ public:
 
     Optional<Utf16String> const& user_style() const { return m_user_style_sheet_source; }
     void set_user_style(Utf16String source);
+
+    // WebExtension messaging from Hub: a message for this page's contexts of the extension, and the reply to a message
+    // a context of this page sent.
+    void dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Extensions::MessageSender const&, String const& message_json, u64 context_id);
+    void complete_extension_runtime_message(u64 request_id, Optional<String> const& reply_json);
     void invalidate_user_style();
     void invalidate_style_for_preference_change();
 
@@ -991,6 +997,13 @@ public:
     virtual void page_did_change_had_user_edits([[maybe_unused]] bool had_user_edits) { }
     virtual void page_did_consume_user_activation([[maybe_unused]] HTML::UserActivationConsumption consumption) { }
     virtual void page_did_notify_about_user_activation([[maybe_unused]] HTML::CrossProcessId document_id) { }
+
+    // WebExtension messaging: a context of an extension came or went on this page; a context sent a runtime message
+    // that Hub should route; this page answered a message Hub dispatched to it.
+    virtual void page_did_create_extension_context([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id, [[maybe_unused]] Web::HTML::CrossProcessId document_id, [[maybe_unused]] u64 revision) { }
+    virtual void page_did_destroy_extension_context([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id) { }
+    virtual void page_did_send_extension_runtime_message([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 request_id, [[maybe_unused]] Extensions::MessageSender const& sender, [[maybe_unused]] String const& message_json, [[maybe_unused]] u64 context_id) { }
+    virtual void page_did_reply_to_extension_runtime_message([[maybe_unused]] u64 dispatch_id, [[maybe_unused]] Optional<String> const& reply_json) { }
 
     virtual void request_file(FileRequest) = 0;
     // Asks Hub for a file of the extension's directory, named by the path of a ladybird-extension:// URL.

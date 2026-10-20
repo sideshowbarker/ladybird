@@ -453,7 +453,9 @@ namespace Web::Extensions {
 
 class EventListenerList;
 class ExtensionWorld;
+class MessagingContext;
 struct ExtensionDescriptor;
+struct MessageSender;
 
 }
 
