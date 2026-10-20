@@ -730,6 +730,28 @@ TEST_CASE(origin_hash_uses_same_origin_semantics)
 
 // resource:// URLs are internal browser resources. They share a single tuple origin regardless
 // of host, so that same-origin checks pass between any resource:// documents or worker scripts.
+TEST_CASE(extension_url_origin)
+{
+    auto url = URL::Parser::basic_parse("ladybird-extension://0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11/x/y.html?q=1#f"sv).value();
+    EXPECT_EQ(url.scheme(), "ladybird-extension"sv);
+    EXPECT_EQ(url.serialized_host(), "0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11"sv);
+    EXPECT_EQ(url.serialize_path(), "/x/y.html"sv);
+
+    // An extension's pages share one tuple origin, keyed by the extension's id.
+    EXPECT(!url.origin().is_opaque());
+    EXPECT_EQ(url.origin().serialize(), "ladybird-extension://0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11"sv);
+
+    auto same_extension = URL::Parser::basic_parse("ladybird-extension://0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11/other"sv).value();
+    EXPECT(url.origin().is_same_origin(same_extension.origin()));
+
+    auto other_extension = URL::Parser::basic_parse("ladybird-extension://11111111-2222-3333-4444-555555555555/x/y.html"sv).value();
+    EXPECT(!url.origin().is_same_origin(other_extension.origin()));
+
+    // Dot segments are resolved by the parser, so a path can't name a file above the extension's root.
+    auto traversal = URL::Parser::basic_parse("ladybird-extension://0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11/a/../../b"sv).value();
+    EXPECT_EQ(traversal.serialize_path(), "/b"sv);
+}
+
 TEST_CASE(resource_url_origin)
 {
     auto url_a = URL::Parser::basic_parse("resource://ladybird/pdfjs/web/viewer.html"sv).value();
