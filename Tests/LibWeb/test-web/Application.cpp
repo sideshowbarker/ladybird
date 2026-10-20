@@ -8,11 +8,14 @@
 #include "Fixture.h"
 
 #include <AK/LexicalPath.h>
+#include <AK/QuickSort.h>
 #include <LibCore/ArgsParser.h>
+#include <LibCore/DirIterator.h>
 #include <LibCore/Environment.h>
 #include <LibCore/File.h>
 #include <LibCore/StandardPaths.h>
 #include <LibCore/System.h>
+#include <LibFileSystem/FileSystem.h>
 #include <LibWebCommon/Loader/DownloadFilename.h>
 #include <LibWebView/TestSpellChecker.h>
 #include <errno.h>
@@ -47,6 +50,7 @@ void Application::create_platform_arguments(Core::ArgsParser& args_parser)
 {
     args_parser.add_option(test_root_path, "Path containing the tests to run", "test-path", 0, "path");
     args_parser.add_option(results_directory, "Directory to store test results", "results-dir", 'R', "path");
+    args_parser.add_option(extensions_directory, "Load every extension in the subdirectories of the given directory (default: Extensions under the test path)", "extensions-dir", 0, "path");
     args_parser.add_option(test_concurrency, "Maximum number of tests to run at once", "test-concurrency", 'j', "jobs");
     args_parser.add_option(test_globs, "Only run tests matching the given glob", "filter", 'f', "glob");
     args_parser.add_option(python_executable_path, "Path to python3", "python-executable", 'P', "path");
@@ -81,6 +85,21 @@ void Application::create_platform_arguments(Core::ArgsParser& args_parser)
 
 void Application::create_platform_options(WebView::BrowserOptions& browser_options, WebView::RequestServerOptions& request_server_options, WebView::WebContentOptions& web_content_options)
 {
+    // The fixture extensions live beside the tests, so every runner gets them without passing the flag.
+    auto extensions_root = extensions_directory.is_empty() ? LexicalPath::join(test_root_path, "Extensions"sv).string() : extensions_directory;
+    if (FileSystem::is_directory(extensions_root)) {
+        // Every subdirectory with a manifest, in name order, so tests can count on the load order.
+        Vector<ByteString> extension_directories;
+        Core::DirIterator iterator(extensions_root, Core::DirIterator::Flags::SkipDots);
+        while (iterator.has_next()) {
+            auto path = iterator.next_full_path();
+            if (FileSystem::exists(LexicalPath::join(path, "manifest.json"sv).string()))
+                extension_directories.append(move(path));
+        }
+        quick_sort(extension_directories);
+        browser_options.extension_directories.extend(move(extension_directories));
+    }
+
     if (verify_style) {
         static constexpr Array verification_variables {
             "LIBWEB_VERIFY_STYLE_PLAN_PROVENANCE"sv,
