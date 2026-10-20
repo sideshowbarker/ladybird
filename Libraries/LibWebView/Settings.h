@@ -87,6 +87,13 @@ enum class GlobalPrivacyControl {
     Yes,
 };
 
+// An unpacked extension the user has loaded: its stable id, the directory it loads from, and whether it is enabled.
+struct InstalledExtension {
+    String id;
+    ByteString path;
+    bool enabled { true };
+};
+
 struct ContentBlockerList {
     String identifier;
     String name;
@@ -143,6 +150,7 @@ public:
     virtual void dns_settings_changed() { }
     virtual void config_variable_changed(ConfigVariableID) { }
     virtual void geolocation_settings_changed() { }
+    virtual void extensions_changed() { }
     virtual void background_networking_settings_changed() { }
     virtual void content_blocker_settings_changed() { }
     virtual void content_blocker_count_visibility_changed() { }
@@ -213,6 +221,12 @@ public:
 
     bool geolocation_enabled() const { return m_geolocation_enabled; }
     void set_geolocation_enabled(bool);
+
+    Vector<InstalledExtension> const& installed_extensions() const { return m_installed_extensions; }
+    // Returns the extension's id: the one it already has when the path is installed, else the given or a new one.
+    String add_installed_extension(ByteString path, Optional<String> id = {});
+    void set_installed_extension_enabled(StringView id, bool enabled);
+    void remove_installed_extension(StringView id);
 
     static BrowsingDataSettings parse_browsing_data_settings(JsonValue const&);
     BrowsingDataSettings const& browsing_data_settings() const { return m_browsing_data_settings; }
@@ -291,6 +305,7 @@ private:
 
     AutoplaySiteSetting m_autoplay;
     bool m_geolocation_enabled { false };
+    Vector<InstalledExtension> m_installed_extensions;
 
     BrowsingDataSettings m_browsing_data_settings;
     GlobalPrivacyControl m_global_privacy_control { GlobalPrivacyControl::No };

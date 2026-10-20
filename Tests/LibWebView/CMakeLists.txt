@@ -9,6 +9,7 @@ set(TEST_SOURCES
     TestDownloadSegmentation.cpp
     TestDownloadStore.cpp
     TestExtensionManifest.cpp
+    TestExtensionRegistry.cpp
     TestExternalURLHandler.cpp
     TestFaviconStore.cpp
     TestHistoryStore.cpp
@@ -58,7 +59,7 @@ foreach(source IN LISTS TEST_SOURCES)
     if (source STREQUAL "TestProfile.cpp" OR source STREQUAL "TestDownloadSegmentation.cpp")
         list(APPEND test_libraries LibHTTP)
     endif()
-    if (source STREQUAL "TestExtensionManifest.cpp")
+    if (source STREQUAL "TestExtensionManifest.cpp" OR source STREQUAL "TestExtensionRegistry.cpp")
         list(APPEND test_libraries LibCore LibFileSystem LibWebCommon)
     endif()
     if (source STREQUAL "TestFontService.cpp")
