@@ -29,6 +29,7 @@ set(TEST_SOURCES
     TestEventLoop.cpp
     TestExtensionDescriptor.cpp
     TestExtensionMatchPattern.cpp
+    TestExtensionWorld.cpp
     TestFaviconDecoding.cpp
     TestFetchAlgorithms.cpp
     TestFetchBodyDeliveryGate.cpp
