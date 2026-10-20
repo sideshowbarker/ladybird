@@ -85,6 +85,10 @@ static constexpr auto SITE_SETTING_POLICY_KEY = "policy"sv;
 static constexpr auto SITE_SETTING_SITE_FILTERS_KEY = "siteFilters"sv;
 
 static constexpr auto AUTOPLAY_KEY = "autoplay"sv;
+static constexpr auto EXTENSIONS_KEY = "extensions"sv;
+static constexpr auto EXTENSION_ID_KEY = "id"sv;
+static constexpr auto EXTENSION_PATH_KEY = "path"sv;
+static constexpr auto EXTENSION_ENABLED_KEY = "enabled"sv;
 
 static constexpr auto GLOBAL_PRIVACY_CONTROL_KEY = "globalPrivacyControl"sv;
 static constexpr auto CRASH_REPORT_SENDING_KEY = "crashReportSending"sv;
@@ -779,6 +783,17 @@ Settings Settings::create(ByteString settings_path, Vector<String> platform_lang
     }
 
     settings.load_from_json(settings_json.value());
+    if (auto extensions = settings_json.value().get_array(EXTENSIONS_KEY); extensions.has_value()) {
+        for (auto const& value : extensions->values()) {
+            if (!value.is_object())
+                continue;
+            auto id = value.as_object().get_string(EXTENSION_ID_KEY);
+            auto path = value.as_object().get_string(EXTENSION_PATH_KEY);
+            if (!id.has_value() || id->is_empty() || !path.has_value() || path->is_empty())
+                continue;
+            settings.m_installed_extensions.append({ *id, path->to_byte_string(), value.as_object().get_bool(EXTENSION_ENABLED_KEY).value_or(true) });
+        }
+    }
 
     return settings;
 }
@@ -954,6 +969,16 @@ JsonValue Settings::serialize_json() const
         setting.set(SITE_SETTING_POLICY_KEY, permission_policy(name) == PermissionPolicy::Block ? "block"_string : "ask"_string);
         settings.set(Web::Permissions::to_string(name), move(setting));
     }
+
+    JsonArray extensions;
+    for (auto const& extension : m_installed_extensions) {
+        JsonObject object;
+        object.set(EXTENSION_ID_KEY, extension.id);
+        object.set(EXTENSION_PATH_KEY, MUST(String::from_byte_string(extension.path)));
+        object.set(EXTENSION_ENABLED_KEY, extension.enabled);
+        extensions.must_append(move(object));
+    }
+    settings.set(EXTENSIONS_KEY, move(extensions));
 
     settings.set(GLOBAL_PRIVACY_CONTROL_KEY, m_global_privacy_control == GlobalPrivacyControl::Yes);
     settings.set(CRASH_REPORT_SENDING_KEY, crash_report_sending_to_string(m_crash_report_sending));
@@ -1535,6 +1560,55 @@ void Settings::set_permission_policy(Web::Permissions::PermissionName name, Perm
 HTTP::DiskCacheSettings Settings::disk_cache_settings() const
 {
     return { .maximum_size = config_variable_as_integer<u64>(ConfigVariableID::MaximumDiskCacheSize) * MiB };
+}
+
+String Settings::add_installed_extension(ByteString path, Optional<String> id)
+{
+    for (auto& extension : m_installed_extensions) {
+        if (extension.path != path && (!id.has_value() || extension.id != *id))
+            continue;
+        if (extension.path != path) {
+            extension.path = move(path);
+            persist_settings();
+            for (auto& observer : m_observers)
+                observer.extensions_changed();
+        }
+        return extension.id;
+    }
+
+    if (!id.has_value())
+        id = AK::generate_random_uuid();
+    m_installed_extensions.append({ *id, move(path), true });
+    persist_settings();
+
+    for (auto& observer : m_observers)
+        observer.extensions_changed();
+    return *id;
+}
+
+void Settings::set_installed_extension_enabled(StringView id, bool enabled)
+{
+    for (auto& extension : m_installed_extensions) {
+        if (extension.id != id || extension.enabled == enabled)
+            continue;
+        extension.enabled = enabled;
+        persist_settings();
+
+        for (auto& observer : m_observers)
+            observer.extensions_changed();
+        return;
+    }
+}
+
+void Settings::remove_installed_extension(StringView id)
+{
+    auto removed = m_installed_extensions.remove_all_matching([&](auto const& extension) { return extension.id == id; });
+    if (!removed)
+        return;
+    persist_settings();
+
+    for (auto& observer : m_observers)
+        observer.extensions_changed();
 }
 
 void Settings::set_global_privacy_control(GlobalPrivacyControl global_privacy_control)

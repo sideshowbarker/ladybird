@@ -147,6 +147,13 @@ enum class CrashReportSending {
 WEBVIEW_API CrashReportSending crash_report_sending_from_string(StringView);
 WEBVIEW_API StringView crash_report_sending_to_string(CrashReportSending);
 
+// An unpacked extension the user has loaded: its stable id, the directory it loads from, and whether it is enabled.
+struct InstalledExtension {
+    String id;
+    ByteString path;
+    bool enabled { true };
+};
+
 struct ContentBlockerList {
     String identifier;
     String name;
@@ -214,6 +221,7 @@ public:
     virtual void crash_report_sending_changed() { }
     virtual void dns_settings_changed() { }
     virtual void config_variable_changed(ConfigVariableID) { }
+    virtual void extensions_changed() { }
     virtual void background_networking_settings_changed() { }
     virtual void content_blocker_settings_changed() { }
 
@@ -353,6 +361,11 @@ public:
     void set_permission_policy(Web::Permissions::PermissionName, PermissionPolicy);
 
     HTTP::DiskCacheSettings disk_cache_settings() const;
+    Vector<InstalledExtension> const& installed_extensions() const { return m_installed_extensions; }
+    // Returns the extension's id: the one it already has when the path is installed, else the given or a new one.
+    String add_installed_extension(ByteString path, Optional<String> id = {});
+    void set_installed_extension_enabled(StringView id, bool enabled);
+    void remove_installed_extension(StringView id);
 
     GlobalPrivacyControl global_privacy_control() const { return m_global_privacy_control; }
     void set_global_privacy_control(GlobalPrivacyControl);
@@ -417,6 +430,7 @@ private:
     void persist_settings();
 
     ByteString m_settings_path;
+    Vector<InstalledExtension> m_installed_extensions;
     bool m_dns_override_by_command_line { false };
 
     Vector<SettingsObserver&> m_observers;
