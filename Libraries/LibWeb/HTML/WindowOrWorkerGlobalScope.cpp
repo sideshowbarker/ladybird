@@ -799,8 +799,14 @@ void WindowOrWorkerGlobalScopeMixin::clear_map_of_active_timers()
 }
 
 // https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timer-initialisation-steps
-WebIDL::ExceptionOr<i32> WindowOrWorkerGlobalScopeMixin::run_timer_initialization_steps(TimerHandler handler, i32 timeout, GC::RootVector<JS::Value> arguments, Repeat repeat, Optional<i32> previous_id)
+WebIDL::ExceptionOr<i32> WindowOrWorkerGlobalScopeMixin::run_timer_initialization_steps(TimerHandler handler, i32 timeout, GC::RootVector<JS::Value> arguments, Repeat repeat, Optional<i32> previous_id, GC::Ptr<Bindings::WrapperWorld> owner_world)
 {
+    if (!owner_world) {
+        auto* caller_realm = this_impl().vm().current_realm();
+        if (auto callback = handler.get_pointer<GC::Ref<WebIDL::CallbackType>>())
+            caller_realm = &(*callback)->callback->shape().realm();
+        owner_world = &Bindings::host_defined_wrapper_world(caller_realm ? *caller_realm : relevant_realm(*this));
+    }
     // 1. If handler is not a Function and previousId was not given:
     if (!handler.has<GC::Ref<WebIDL::CallbackType>>() && !previous_id.has_value()) {
         // 1. Let globalName be "Window" if global is a Window object; "WorkerGlobalScope" otherwise.
@@ -867,7 +873,12 @@ WebIDL::ExceptionOr<i32> WindowOrWorkerGlobalScopeMixin::run_timer_initializatio
     // FIXME: 8. Let uniqueHandle be null.
 
     // 9. Let task be a task that runs the following substeps:
-    auto task = GC::create_function(GC::Heap::the(), Function<void()>([this, handler = move(function_or_string), timeout, arguments = move(arguments), repeat, id, initiating_script]() {
+    auto task = GC::create_function(GC::Heap::the(), Function<void()>([this, handler = move(function_or_string), timeout, arguments = move(arguments), repeat, id, initiating_script, owner_world]() {
+        // AD-HOC: HTML has no isolated-world lifecycle; a detached world's timers can't run or rearm in its document.
+        if (owner_world->is_detached()) {
+            clear_timeout(id);
+            return;
+        }
         // FIXME: 1. Assert: uniqueHandle is a unique internal value, not null.
 
         // 2. If id does not exist in global's map of setTimeout and setInterval IDs, then abort these steps.
@@ -941,7 +952,7 @@ WebIDL::ExceptionOr<i32> WindowOrWorkerGlobalScopeMixin::run_timer_initializatio
         switch (repeat) {
         // 9. If repeat is true, then perform the timer initialization steps again, given global, handler, timeout, arguments, true, and id.
         case Repeat::Yes:
-            MUST(run_timer_initialization_steps(handler, timeout, move(arguments), repeat, id));
+            MUST(run_timer_initialization_steps(handler, timeout, move(arguments), repeat, id, owner_world));
             break;
 
         // 10. Otherwise, remove global's map of active timers[id].

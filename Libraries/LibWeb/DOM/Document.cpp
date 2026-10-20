@@ -138,6 +138,7 @@
 #include <LibWeb/Editing/SpellCheckController.h>
 #include <LibWeb/Editing/SpellingMarkers.h>
 #include <LibWeb/Editing/WritingSuggestionController.h>
+#include <LibWeb/Extensions/ExtensionWorld.h>
 #include <LibWeb/Fetch/Engine/NetworkTransportHandle.h>
 #include <LibWeb/Fetch/Fetching/Checks.h>
 #include <LibWeb/Fetch/Infrastructure/FetchController.h>
@@ -958,6 +959,8 @@ WebIDL::ExceptionOr<void> Document::populate_with_html_head_and_body()
 void Document::visit_edges(Cell::Visitor& visitor)
 {
     Base::visit_edges(visitor);
+    for (auto const& world : m_extension_worlds)
+        visitor.visit(world.value);
     m_style_scope.visit_edges(visitor);
     m_paint_timing_state.visit_edges(visitor);
     m_commit_messages->visit_edges(visitor);
@@ -6617,6 +6620,9 @@ void Document::destroy()
 
     // 6. Run any unloading document cleanup steps for document that are defined by this specification and other applicable specifications.
     run_unloading_cleanup_steps();
+
+    // AD-HOC: An extension world's wrapper cache must be detached before its document goes away.
+    detach_extension_worlds();
 
     // AD-HOC: Destruction does not go through did_stop_being_active_document_in_navigable().
     //         Tear the layout tree down now instead of holding it until finalization.
@@ -12609,6 +12615,29 @@ JS::Value document_named_item_value(WrapperWorld& wrapper_world, JS::Realm& real
     // 4. Otherwise return an HTMLCollection rooted at the Document node, whose filter matches only named elements with the name name.
     auto collection = DOM::HTMLCollection::create(*const_cast<DOM::Document*>(&document), DOM::HTMLCollection::Scope::Descendants, [name](auto& element) { return DOM::Document::is_named_element_with_name(element, name); }, DOM::HTMLCollection::AttributeInvalidationType::IdOrName);
     return wrap(wrapper_world, realm, collection);
+}
+
+}
+
+namespace Web::DOM {
+
+Extensions::ExtensionWorld& Document::ensure_extension_world(Extensions::ExtensionDescriptor const& descriptor)
+{
+    if (auto world = m_extension_worlds.get(descriptor.id); world.has_value()) {
+        if (!(*world)->is_detached() && (*world)->descriptor() == descriptor)
+            return **world;
+        (*world)->detach();
+    }
+    auto world = Extensions::ExtensionWorld::create(*this, descriptor);
+    m_extension_worlds.set(descriptor.id, world);
+    return *world;
+}
+
+void Document::detach_extension_worlds()
+{
+    for (auto const& world : m_extension_worlds)
+        world.value->detach();
+    m_extension_worlds.clear();
 }
 
 }

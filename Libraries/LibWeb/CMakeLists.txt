@@ -349,7 +349,11 @@ set(SOURCES
     EventTiming/EventCounts.cpp
     EventTiming/EventTiming.cpp
     EventTiming/PerformanceEventTiming.cpp
+    Extensions/API/Event.cpp
+    Extensions/API/Runtime.cpp
     Extensions/ExtensionSet.cpp
+    Extensions/ExtensionWorld.cpp
+    Extensions/Namespace.cpp
     Fetch/Body.cpp
     Fetch/BodyInit.cpp
     Fetch/Engine/FetchBodyDeliveryGate.cpp
