@@ -166,7 +166,11 @@ WebContentPage::WebContentPage(WebContentClient& client, Web::PageId id, Canonic
 {
 }
 
-WebContentPage::~WebContentPage() = default;
+WebContentPage::~WebContentPage()
+{
+    if (Application::is_initialized())
+        Application::extension_message_broker().endpoint_gone(*this);
+}
 
 WebContentServerProxy* WebContentPage::routed_proxy() const
 {
@@ -1647,6 +1651,100 @@ void WebContentPage::for_each_extension_document(Function<IterationDecision(Cano
         });
         return decision;
     });
+}
+
+static Optional<URL::URL> extension_matching_url(CanonicalNavigable const& navigable, CanonicalDocument const& document, URL::URL url)
+{
+    auto const* ancestor = &navigable;
+    auto const* ancestor_document = &document;
+    HashTable<CanonicalDocument const*> visited;
+    while (Web::HTML::url_matches_about_blank(url) || Web::HTML::url_matches_about_srcdoc(url)) {
+        if (visited.set(ancestor_document) != AK::HashSetResult::InsertedNewEntry)
+            return {};
+        if (ancestor->parent()) {
+            ancestor = ancestor->parent();
+            ancestor_document = &ancestor->active_document();
+        } else {
+            auto opener = ancestor_document->browsing_context().opener_browsing_context();
+            if (!opener || opener->has_been_discarded())
+                return {};
+            ancestor_document = opener->active_document().ptr();
+            auto host = ancestor_document->host();
+            if (!host)
+                return {};
+            ancestor = nullptr;
+            host->traversable().for_each_in_inclusive_subtree([&](CanonicalNavigable const& candidate) {
+                if (&candidate.active_document() != ancestor_document)
+                    return IterationDecision::Continue;
+                ancestor = &candidate;
+                return IterationDecision::Break;
+            });
+            if (!ancestor)
+                return {};
+        }
+        if (!document.origin().is_same_origin(ancestor_document->origin()))
+            return {};
+        url = ancestor->active_document_url();
+    }
+    return url;
+}
+
+Optional<u64> WebContentPage::extension_revision(String const& extension_id) const
+{
+    auto& registry = Application::extension_registry();
+    auto extension = registry.find(extension_id);
+    if (!extension || !registry.is_enabled(extension_id))
+        return {};
+    return extension->descriptor().revision;
+}
+
+Optional<Web::Extensions::MessageSender> WebContentPage::extension_message_sender(String const& extension_id, Web::HTML::CrossProcessId document_id) const
+{
+    Optional<Web::Extensions::MessageSender> sender;
+    for_each_extension_document([&](CanonicalNavigable const& navigable, CanonicalDocument const& document, URL::URL const& url) {
+        if (document.id() != document_id)
+            return IterationDecision::Continue;
+        auto matching_url = extension_matching_url(navigable, document, url);
+        if (!matching_url.has_value() || !Application::extension_registry().may_create_context(extension_id, *matching_url, !navigable.parent(), url != *matching_url))
+            return IterationDecision::Continue;
+        sender = Web::Extensions::MessageSender {
+            .extension_id = extension_id,
+            .url = url.serialize(),
+            .from_background = false,
+        };
+        return IterationDecision::Break;
+    });
+    return sender;
+}
+
+void WebContentPage::did_create_extension_context(String extension_id, u64 context_id, Web::HTML::CrossProcessId document_id, u64 revision)
+{
+    Application::extension_message_broker().context_created(*this, extension_id, context_id, document_id, revision);
+}
+
+void WebContentPage::did_destroy_extension_context(String extension_id, u64 context_id)
+{
+    Application::extension_message_broker().context_destroyed(*this, extension_id, context_id);
+}
+
+void WebContentPage::did_send_extension_runtime_message(String extension_id, u64 request_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id)
+{
+    Application::extension_message_broker().send(*this, extension_id, request_id, sender, message_json, context_id);
+}
+
+void WebContentPage::did_reply_to_extension_runtime_message(u64 dispatch_id, Optional<String> reply_json)
+{
+    Application::extension_message_broker().reply(*this, dispatch_id, reply_json);
+}
+
+void WebContentPage::dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Web::Extensions::MessageSender const& sender, String const& message_json, u64 context_id)
+{
+    async_dispatch_extension_runtime_message(extension_id, dispatch_id, sender, message_json, context_id);
+}
+
+void WebContentPage::complete_extension_runtime_message(u64 request_id, Optional<String> const& reply_json)
+{
+    async_extension_runtime_message_reply(request_id, reply_json);
 }
 
 void WebContentPage::did_request_color_picker(Color current_color)

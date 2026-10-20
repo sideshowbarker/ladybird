@@ -1954,6 +1954,26 @@ void PageClient::request_extension_resource(String const& extension_id, String c
     client().request_extension_resource(m_id, extension_id, path, move(file_request));
 }
 
+void PageClient::page_did_create_extension_context(String const& extension_id, u64 context_id, Web::HTML::CrossProcessId document_id, u64 revision)
+{
+    client().async_did_create_extension_context(m_id, extension_id, context_id, document_id, revision);
+}
+
+void PageClient::page_did_destroy_extension_context(String const& extension_id, u64 context_id)
+{
+    client().async_did_destroy_extension_context(m_id, extension_id, context_id);
+}
+
+void PageClient::page_did_send_extension_runtime_message(String const& extension_id, u64 request_id, Web::Extensions::MessageSender const& sender, String const& message_json, u64 context_id)
+{
+    client().async_did_send_extension_runtime_message(m_id, extension_id, request_id, sender, message_json, context_id);
+}
+
+void PageClient::page_did_reply_to_extension_runtime_message(u64 dispatch_id, Optional<String> const& reply_json)
+{
+    client().async_did_reply_to_extension_runtime_message(m_id, dispatch_id, reply_json);
+}
+
 URL::BlobURLEntry::Token PageClient::page_did_add_blob_url_entry(Web::HTML::EnvironmentSettingsObject const& environment, Utf16String const& url, Web::FileAPI::SerializedBlobURLEntry const& entry)
 {
     auto response = client().send_sync_but_allow_failure<Messages::WebContentClient::DidAddBlobUrlEntry>(m_id, environment.id, url, entry);

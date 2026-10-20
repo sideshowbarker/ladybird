@@ -53,6 +53,7 @@
 #include <LibWebView/CompositorPresentationClient.h>
 #include <LibWebView/CookieJar.h>
 #include <LibWebView/CrashReportStore.h>
+#include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/FaviconStore.h>
 #include <LibWebView/FontService.h>
@@ -678,7 +679,9 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_settings = make<Settings>(Settings::create(LexicalPath::join(profile().paths().config, "Settings.json"sv).string(), move(platform_languages)));
     m_bookmark_store = make<BookmarkStore>(BookmarkStore::create(LexicalPath::join(profile().paths().config, "Bookmarks.json"sv).string()));
     m_extension_registry = make<ExtensionRegistry>(*m_settings);
+    m_extension_message_broker = make<ExtensionMessageBroker>();
     m_extension_registry->on_changed = [this] {
+        m_extension_message_broker->reconcile_contexts();
         auto descriptors = m_extension_registry->enabled_descriptors();
         WebContentClient::for_each_client([&](WebContentClient& client) {
             client.async_set_extensions(descriptors);
