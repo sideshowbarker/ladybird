@@ -1,0 +1,8 @@
+climb above the root: TypeError
+climb out of the public directory: TypeError
+encoded climb out of the public directory: TypeError
+encoded slash: TypeError
+uppercase encoded slash: TypeError
+encoded backslash: TypeError
+encoded NUL: TypeError
+climb back into the public directory: loaded /public/pic.svg

@@ -26,6 +26,7 @@
 #include <LibWebView/CanonicalTraversable.h>
 #include <LibWebView/CanonicalWindow.h>
 #include <LibWebView/CookieJar.h>
+#include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/HistoryStore.h>
 #include <LibWebView/NavigationLoader.h>
 #include <LibWebView/PictureInPictureManager.h>
@@ -1474,6 +1475,46 @@ void WebContentPage::did_request_file(ByteString path, i32 request_id)
         async_handle_file_return(file.error().code(), {}, request_id);
     else
         async_handle_file_return(0, file.release_value(), request_id);
+}
+
+void WebContentPage::did_request_extension_resource(String extension_id, String path, i32 request_id)
+{
+    // The renderer names a path of a ladybird-extension:// URL. The extension checks the opened file's location,
+    // and only a regular file inside its directory is returned to the renderer.
+    auto extension = Application::extension_registry().find(extension_id);
+    if (!extension) {
+        async_handle_file_return(ENOENT, {}, request_id);
+        return;
+    }
+    bool allowed = false;
+    for_each_extension_document([&](CanonicalNavigable const&, CanonicalDocument const&, URL::URL const& url) {
+        allowed = Application::extension_registry().may_access_resource(extension_id, path, url);
+        return allowed ? IterationDecision::Break : IterationDecision::Continue;
+    });
+    if (!allowed) {
+        async_handle_file_return(EACCES, {}, request_id);
+        return;
+    }
+    auto file = extension->open_resource(path);
+    if (file.is_error())
+        async_handle_file_return(file.error().is_errno() ? file.error().code() : EACCES, {}, request_id);
+    else
+        async_handle_file_return(0, IPC::File::adopt_file(file.release_value()), request_id);
+}
+
+void WebContentPage::for_each_extension_document(Function<IterationDecision(CanonicalNavigable const&, CanonicalDocument const&, URL::URL const&)> const& callback) const
+{
+    traversable().for_each_in_inclusive_subtree([&](CanonicalNavigable const& navigable) {
+        auto decision = IterationDecision::Continue;
+        if (traversable().hosts(navigable, *this))
+            decision = callback(navigable, navigable.active_document(), navigable.active_document_url());
+        navigable.for_each_populated_document_state([&](CanonicalDocumentState const& state) {
+            auto const& document = *state.populated_document->document;
+            if (decision == IterationDecision::Continue && document.host() == this)
+                decision = callback(navigable, document, document.creation_url());
+        });
+        return decision;
+    });
 }
 
 void WebContentPage::did_request_color_picker(Color current_color)

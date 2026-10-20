@@ -65,6 +65,7 @@ public:
     virtual void die() override;
 
     void request_file(Web::PageId page_id, Web::FileRequest);
+    void request_extension_resource(Web::PageId, String const& extension_id, String const& path, Web::FileRequest);
 
     PageHost& page_host() { return *m_page_host; }
     PageHost const& page_host() const { return *m_page_host; }

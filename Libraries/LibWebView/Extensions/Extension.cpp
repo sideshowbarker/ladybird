@@ -153,23 +153,7 @@ void Extension::renew_instance()
 
 bool Extension::is_web_accessible(StringView url_path, URL::URL const& initiator) const
 {
-    auto relative_path = url_path.trim("/"sv, TrimMode::Left);
-    for (auto const& resource : m_descriptor.web_accessible_resources) {
-        bool path_allowed = false;
-        for (auto const& glob : resource.resource_globs) {
-            if (Web::Extensions::glob_matches(glob, relative_path)) {
-                path_allowed = true;
-                break;
-            }
-        }
-        if (!path_allowed)
-            continue;
-        for (auto const& pattern : resource.matches) {
-            if (pattern.matches(initiator))
-                return true;
-        }
-    }
-    return false;
+    return m_descriptor.is_web_accessible(url_path, initiator);
 }
 
 ErrorOr<ByteString> Extension::resolve_resource_path(StringView url_path) const

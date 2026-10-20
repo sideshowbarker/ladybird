@@ -365,6 +365,11 @@ TEST_CASE(web_accessible_resource_matching)
     EXPECT(!extension->is_web_accessible("/images/a.jpg"sv, url("https://e.com/"sv)));
     EXPECT(extension->is_web_accessible("/public/anything.txt"sv, url("https://other.com/"sv)));
     EXPECT(!extension->is_web_accessible("/manifest.json"sv, url("https://e.com/"sv)));
+    EXPECT(!extension->is_web_accessible("/public/..%2fmanifest.json"sv, url("https://e.com/"sv)));
+    EXPECT(!extension->is_web_accessible("/public/..%5Cmanifest.json"sv, url("https://e.com/"sv)));
+    EXPECT(!extension->is_web_accessible("/public/../manifest.json"sv, url("https://e.com/"sv)));
+    EXPECT(!extension->is_web_accessible("/public/a.txt%00.js"sv, url("https://e.com/"sv)));
+    EXPECT(extension->is_web_accessible("/images/%61.png"sv, url("https://e.com/"sv)));
 
     TemporaryExtension empty_directory;
     empty_directory.write("manifest.json"sv, R"({ "manifest_version": 3, "name": "None", "version": "1" })"sv);
