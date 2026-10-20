@@ -10,6 +10,7 @@ set(TEST_SOURCES
     TestDownloadReader.cpp
     TestDump.cpp
     TestEventLoop.cpp
+    TestExtensionMatchPattern.cpp
     TestFaviconDecoding.cpp
     TestFetchEngineMessages.cpp
     TestFetchExecutor.cpp
@@ -54,6 +55,9 @@ endif()
 
 foreach(source IN LISTS TEST_SOURCES)
     set(test_libraries LibCompositing LibWeb)
+    if (source STREQUAL "TestExtensionMatchPattern.cpp")
+        list(APPEND test_libraries LibIPC LibURL LibWebCommon)
+    endif()
     if (source STREQUAL "TestSimpleRealm.cpp")
         list(APPEND test_libraries LibGC LibJS)
     endif()
