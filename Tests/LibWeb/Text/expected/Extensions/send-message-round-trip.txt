@@ -1,0 +1,4 @@
+ping: {"answer":"pong","from":true}
+async: "async-pong"
+promise: "promise-pong"
+who: {"id":true,"background":"/_generated_background_page.html"}

@@ -59,6 +59,8 @@ class RequestServerInstance;
 class RequestServerManager;
 class RequestServerSiteBindings;
 class PermissionManager;
+class Extension;
+class ExtensionBackgroundHost;
 class ExtensionMessageBroker;
 class ExtensionRegistry;
 class Settings;
