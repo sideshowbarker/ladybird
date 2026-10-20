@@ -365,6 +365,7 @@ set(SOURCES
     Extensions/ContentScriptInjector.cpp
     Extensions/ExtensionSet.cpp
     Extensions/ExtensionWorld.cpp
+    Extensions/MessageRouter.cpp
     Extensions/Namespace.cpp
     Fetch/Body.cpp
     Fetch/BodyInit.cpp
