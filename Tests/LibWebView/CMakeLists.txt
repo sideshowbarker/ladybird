@@ -169,6 +169,7 @@ set(TEST_SOURCES
     TestCrashReportDiagnostics.cpp
     TestDownloadSegmentation.cpp
     TestDownloadStore.cpp
+    TestExtensionManifest.cpp
     TestExternalURLHandler.cpp
     TestFaviconStore.cpp
     TestHelperProcessEnvironment.cpp
@@ -258,7 +259,7 @@ if (NOT WIN32)
 endif()
 
 target_sources(TestLibWebView PRIVATE ${TEST_SOURCES})
-target_link_libraries(TestLibWebView PRIVATE LibAudio LibCompositing LibDatabase LibGfx LibHTTP LibIPC LibRequests LibThreading LibURL LibWeb LibWebCommon LibWebView)
+target_link_libraries(TestLibWebView PRIVATE LibAudio LibCompositing LibCore LibDatabase LibFileSystem LibGfx LibHTTP LibIPC LibRequests LibThreading LibURL LibWeb LibWebCommon LibWebView)
 
 if (APPLE)
     add_dependencies(TestLibWebView ProcessReaper)
