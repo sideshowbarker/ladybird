@@ -7,6 +7,7 @@ set(SOURCES
     CSS/SystemColor.cpp
     Extensions/ExtensionDescriptor.cpp
     Extensions/MatchPattern.cpp
+    Extensions/ResourcePath.cpp
     Fetch/Infrastructure/DataURL.cpp
     Fetch/Infrastructure/HTTP/Statuses.cpp
     Fetch/Infrastructure/URL.cpp

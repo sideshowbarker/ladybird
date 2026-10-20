@@ -32,6 +32,8 @@ set(SOURCES
     DownloadPresentation.cpp
     DownloadSegmentation.cpp
     DownloadStore.cpp
+    Extensions/Extension.cpp
+    Extensions/ExtensionManifest.cpp
     ExternalURLHandler.cpp
     FaviconStore.cpp
     FileDownloader.cpp
