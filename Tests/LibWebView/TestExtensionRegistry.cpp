@@ -5,15 +5,24 @@
  */
 
 #include <AK/LexicalPath.h>
+#include <AK/ScopeGuard.h>
 #include <LibCore/Directory.h>
+#include <LibCore/Environment.h>
+#include <LibCore/EventLoop.h>
 #include <LibCore/File.h>
 #include <LibCore/StandardPaths.h>
 #include <LibCore/System.h>
+#include <LibCore/ThreadEventQueue.h>
 #include <LibFileSystem/FileSystem.h>
 #include <LibTest/TestCase.h>
 #include <LibURL/Parser.h>
+#include <LibWebView/Application.h>
+#include <LibWebView/CanonicalTraversable.h>
+#include <LibWebView/Extensions/ExtensionBackgroundHost.h>
+#include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Settings.h>
+#include <LibWebView/ViewImplementation.h>
 
 using WebView::ExtensionRegistry;
 
@@ -218,6 +227,99 @@ TEST_CASE(reloading_and_reenabling_changes_the_extension_instance)
     registry.set_enabled(first.id, false);
     registry.set_enabled(first.id, true);
     EXPECT(second != registry.find(first.id)->descriptor());
+}
+
+class ExtensionTestApplication final : public WebView::Application {
+    WEB_VIEW_APPLICATION(ExtensionTestApplication)
+
+public:
+    explicit ExtensionTestApplication(Optional<ByteString> binary_path)
+        : WebView::Application(move(binary_path))
+    {
+    }
+
+    virtual void create_platform_options(WebView::BrowserOptions& browser, WebView::RequestServerOptions&, WebView::WebContentOptions& content) override
+    {
+        browser.headless_mode.clear();
+        browser.disable_sql_database = WebView::DisableSQLDatabase::Yes;
+        content.is_test_mode = WebView::IsTestMode::Yes;
+    }
+    virtual Core::EventLoop& create_platform_event_loop() override { return Core::EventLoop::current(); }
+    virtual bool should_coordinate_browser_process() const override { return false; }
+};
+
+class StartupMessageEndpoint final : public WebView::ExtensionMessageBroker::Endpoint {
+public:
+    u64 revision { 0 };
+    size_t completions { 0 };
+    virtual Optional<u64> extension_revision(String const&) const override { return revision; }
+    virtual Optional<Web::Extensions::MessageSender> extension_message_sender(String const& id, Web::HTML::CrossProcessId) const override
+    {
+        return Web::Extensions::MessageSender { .extension_id = id, .url = "https://example.com/"_string, .from_background = false };
+    }
+    virtual void dispatch_extension_runtime_message(String const&, u64, Web::Extensions::MessageSender const&, String const&, u64) override { VERIFY_NOT_REACHED(); }
+    virtual void complete_extension_runtime_message(u64, Optional<String> const& json) override
+    {
+        EXPECT(!json.has_value());
+        ++completions;
+    }
+};
+
+TEST_CASE(reloading_replaces_the_background_view)
+{
+    Core::EventLoop event_loop;
+    TemporaryDirectory directory;
+    ScopeGuard cleanup_queue([] { Core::ThreadEventQueue::destroy_current(); });
+    MUST(Core::Environment::set("XDG_CONFIG_HOME"sv, directory.path, Core::Environment::Overwrite::Yes));
+    MUST(Core::Environment::set("XDG_DATA_HOME"sv, directory.path, Core::Environment::Overwrite::Yes));
+    StringView executable = "ladybird"sv;
+    Main::Arguments arguments { .argc = 0, .argv = nullptr, .strings = Span<StringView> { &executable, 1 } };
+#if defined(LADYBIRD_BINARY_PATH)
+    auto app = TRY_OR_FAIL(ExtensionTestApplication::create(arguments, LADYBIRD_BINARY_PATH));
+#else
+    auto app = TRY_OR_FAIL(ExtensionTestApplication::create(arguments, OptionalNone {}));
+#endif
+    auto& registry = WebView::Application::extension_registry();
+    WebView::ExtensionBackgroundHost host;
+    auto path = directory.extension("background"sv, R"({
+        "manifest_version": 2, "name": "Background", "version": "1",
+        "background": { "scripts": [] }
+    })"sv);
+    auto extension = TRY_OR_FAIL(registry.load_unpacked(path));
+    auto& broker = WebView::Application::extension_message_broker();
+    StartupMessageEndpoint sender;
+    sender.revision = extension->descriptor().revision;
+    broker.context_created(sender, extension->id(), 1, { 1, 1 }, sender.revision);
+    ScopeGuard remove_sender([&] { broker.endpoint_gone(sender); });
+    broker.send(sender, extension->id(), 1, {}, "1"_string, 1);
+    EXPECT_EQ(sender.completions, 0u);
+    auto background_id = [&]() -> Optional<Web::HTML::CrossProcessId> {
+        Optional<Web::HTML::CrossProcessId> result;
+        WebView::ViewImplementation::for_each_view([&](auto& view) {
+            if (!host.hosts_page(extension->id(), view.page()))
+                return IterationDecision::Continue;
+            result = view.traversable().id();
+            return IterationDecision::Break;
+        });
+        return result;
+    };
+    host.sync(registry);
+    auto first = background_id();
+    EXPECT(first.has_value());
+    auto replacement = TRY_OR_FAIL(registry.load_unpacked(path));
+    EXPECT_EQ(sender.completions, 1u);
+    sender.revision = replacement->descriptor().revision;
+    broker.context_created(sender, extension->id(), 2, { 1, 1 }, sender.revision);
+    broker.send(sender, extension->id(), 2, {}, "2"_string, 2);
+    EXPECT_EQ(sender.completions, 1u);
+    host.sync(registry);
+    auto second = background_id();
+    EXPECT(second.has_value());
+    EXPECT(first != second);
+    registry.set_enabled(extension->id(), false);
+    EXPECT_EQ(sender.completions, 2u);
+    host.sync(registry);
+    EXPECT(!background_id().has_value());
 }
 
 TEST_CASE(relative_installation_survives_a_working_directory_change)

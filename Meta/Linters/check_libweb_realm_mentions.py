@@ -48,8 +48,8 @@ ALLOWED_REALM_MENTIONS = {
     ),
     "DOM": (10, 33, "DOM abort plumbing and node helpers still have callback/materialization realm use"),
     "Extensions": (
-        11,
-        19,
+        13,
+        21,
         "extension worlds create and own the realms content scripts run in, the browser namespace materializes its JS objects there, and runtime messages are parsed and replied in a context's realm",
     ),
     "Fetch": (

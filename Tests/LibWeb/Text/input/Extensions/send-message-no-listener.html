@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-messaging.js"></script>
+<body>
+<script>
+    // A message nobody answers resolves with undefined rather than hanging.
+    asyncTest(async done => {
+        await contentScriptReady();
+        println(`unanswered: ${await askBackground("nobodyListens")}`);
+        done();
+    });
+</script>
+</body>

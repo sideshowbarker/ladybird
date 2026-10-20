@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-messaging.js"></script>
+<body>
+<script>
+    // A manifest version 2 extension's background scripts page works the same way.
+    asyncTest(async done => {
+        await contentScriptReady();
+        println(`ping: ${await askBackground("ping")}`);
+        println(`who: ${await askBackground("who")}`);
+        done();
+    });
+</script>
+</body>

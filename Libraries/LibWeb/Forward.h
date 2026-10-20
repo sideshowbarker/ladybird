@@ -483,6 +483,7 @@ struct ParsingParams;
 namespace Web::Extensions {
 
 class EventListenerList;
+class ExtensionDocumentContext;
 class ExtensionWorld;
 class MessagingContext;
 struct ExtensionDescriptor;

@@ -11,6 +11,7 @@
 #include <LibJS/Runtime/Realm.h>
 #include <LibJS/Script.h>
 #include <LibTest/TestCase.h>
+#include <LibURL/Parser.h>
 #include <LibURL/URL.h>
 #include <LibWeb/Bindings/HostDefined.h>
 #include <LibWeb/Bindings/Intrinsics.h>
@@ -21,6 +22,7 @@
 #include <LibWeb/Bindings/WrapperWorld.h>
 #include <LibWeb/DOM/Element.h>
 #include <LibWeb/Extensions/API/Event.h>
+#include <LibWeb/Extensions/ExtensionDocumentContext.h>
 #include <LibWeb/Extensions/ExtensionSet.h>
 #include <LibWeb/Extensions/ExtensionWorld.h>
 #include <LibWeb/HTML/BrowsingContext.h>
@@ -489,6 +491,40 @@ static NEVER_INLINE void scrub_extension_test_stack()
         filler[i] = 0;
 }
 
+NEVER_INLINE static GC::Weak<Web::DOM::Document> destroy_document_with_optional_extension_namespace(bool install_extension, bool save_response = false, bool pending_send = false)
+{
+    TestPage test_page;
+    auto document = test_page.document;
+    if (install_extension) {
+        Web::Extensions::ExtensionSet::the().set_extensions({ test_descriptor() });
+        document->set_url(URL::Parser::basic_parse("ladybird-extension://0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11/page.html"sv).value());
+        auto context = Web::Extensions::ExtensionDocumentContext::create_if_extension_document(*document);
+        VERIFY(context);
+        if (save_response) {
+            test_page.run_in_principal_realm(u"browser.runtime.onMessage.addListener((m, s, respond) => { window.savedResponse = respond; });"sv);
+            test_page.page->dispatch_extension_runtime_message(test_descriptor().id, 90, test_sender(), "null"_string, context->context_id());
+        }
+        if (pending_send)
+            test_page.run_in_principal_realm(u"browser.runtime.sendMessage(42);"sv);
+        context->detach();
+        Web::Extensions::ExtensionSet::the().set_extensions({});
+    }
+    document->destroy();
+    return GC::Weak<Web::DOM::Document> { document };
+}
+
+TEST_CASE(detached_extension_document_is_collectible)
+{
+    auto ordinary_document = destroy_document_with_optional_extension_namespace(false);
+    auto extension_document = destroy_document_with_optional_extension_namespace(true);
+    auto document_with_response = destroy_document_with_optional_extension_namespace(true, true);
+    scrub_extension_test_stack();
+    Web::Bindings::main_thread_vm().heap().collect_garbage();
+    EXPECT(!ordinary_document);
+    EXPECT(!extension_document);
+    EXPECT(!document_with_response);
+}
+
 NEVER_INLINE static GC::Weak<Web::Extensions::EventListenerList> unreachable_api_event_cycle(JS::Realm& realm)
 {
     auto listeners = realm.heap().allocate<Web::Extensions::EventListenerList>();
@@ -507,6 +543,14 @@ TEST_CASE(unreachable_api_event_cycle_is_collectible)
     scrub_extension_test_stack();
     Web::Bindings::main_thread_vm().heap().collect_garbage();
     EXPECT(!listeners);
+}
+
+TEST_CASE(detached_sender_releases_pending_promise_roots)
+{
+    auto document = destroy_document_with_optional_extension_namespace(true, false, true);
+    scrub_extension_test_stack();
+    Web::Bindings::main_thread_vm().heap().collect_garbage();
+    EXPECT(!document);
 }
 
 TEST_CASE(detached_receiver_declines_an_asynchronous_message)

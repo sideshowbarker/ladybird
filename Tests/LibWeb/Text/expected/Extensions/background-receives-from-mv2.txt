@@ -1,0 +1,2 @@
+ping: {"answer":"pong","from":false}
+who: {"id":true,"background":"/_generated_background_page.html"}
