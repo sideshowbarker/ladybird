@@ -1703,6 +1703,9 @@ public:
     void schedule_content_script_idle_point();
     void add_extension_style_sheet(Utf16String const&, URL::URL const&);
 
+    // Set when this is one of a loaded extension's own documents: the context its scripts message through.
+    GC::Ptr<Extensions::ExtensionDocumentContext> extension_document_context() const { return m_extension_document_context; }
+
     // The extension worlds of this document, one per extension that has run a content script in it.
     Extensions::ExtensionWorld& ensure_extension_world(Extensions::ExtensionDescriptor const&);
     HashMap<String, GC::Ref<Extensions::ExtensionWorld>> const& extension_worlds() const { return m_extension_worlds; }
@@ -2308,6 +2311,7 @@ private:
 
     Optional<Utf16String> m_content_blocker_style_sheet;
     HashMap<String, GC::Ref<Extensions::ExtensionWorld>> m_extension_worlds;
+    GC::Ptr<Extensions::ExtensionDocumentContext> m_extension_document_context;
     u8 m_content_scripts_ran_at { 0 };
     RefPtr<Core::Timer> m_content_script_idle_timer;
     Vector<NonnullRefPtr<CSS::StyleSheetState>> m_extension_style_sheets;

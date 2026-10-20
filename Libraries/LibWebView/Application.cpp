@@ -53,6 +53,7 @@
 #include <LibWebView/CompositorPresentationClient.h>
 #include <LibWebView/CookieJar.h>
 #include <LibWebView/CrashReportStore.h>
+#include <LibWebView/Extensions/ExtensionBackgroundHost.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/FaviconStore.h>
@@ -253,6 +254,8 @@ Application::~Application()
         m_cpu_profiler_control_socket.clear();
     }
 
+    // The background pages are views, and a view's destructor reaches back into the Application, so they go first.
+    m_extension_background_host = nullptr;
     m_spare_web_content_process = nullptr;
 
     // Connection die() handlers use the process manager, so destroy the processes while it is still reachable.
@@ -632,13 +635,21 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_bookmark_store = make<BookmarkStore>(BookmarkStore::create(LexicalPath::join(profile().paths().config, "Bookmarks.json"sv).string()));
     m_extension_registry = make<ExtensionRegistry>(*m_settings);
     m_extension_message_broker = make<ExtensionMessageBroker>();
+    m_extension_background_host = make<ExtensionBackgroundHost>();
+    m_extension_background_host->prepare(*m_extension_registry);
     m_extension_registry->on_changed = [this] {
+        m_extension_background_host->prepare(*m_extension_registry);
         m_extension_message_broker->reconcile_contexts();
         auto descriptors = m_extension_registry->enabled_descriptors();
         WebContentClient::for_each_client([&](WebContentClient& client) {
             client.async_set_extensions(descriptors);
             return IterationDecision::Continue;
         });
+        if (m_extension_background_pages_may_start) {
+            Core::deferred_invoke([this] {
+                m_extension_background_host->sync(*m_extension_registry);
+            });
+        }
     };
 
     if (!dns_server_port.has_value())
@@ -793,6 +804,13 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     if (m_stats_log)
         m_stats_log->start_sampling();
     TRY(launch_services());
+
+    // A background page is a hidden view, and a view can only be made once the event loop runs and the browser's
+    // own first view has set the session up; so the pages start on the loop's first turn.
+    Core::deferred_invoke([this] {
+        m_extension_background_pages_may_start = true;
+        m_extension_background_host->sync(*m_extension_registry);
+    });
 
     if (m_web_content_options.is_test_mode == IsTestMode::No && m_browser_options.enable_content_blocker == EnableContentBlocker::Yes) {
         m_content_blocker_list_update_timer = Core::Timer::create_repeating(AK::Duration::from_seconds(24 * 60 * 60), [this] {

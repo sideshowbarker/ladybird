@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-messaging.js"></script>
+<body>
+<script>
+    // A content script's runtime.sendMessage reaches the background page, in every reply form.
+    asyncTest(async done => {
+        await contentScriptReady();
+        println(`ping: ${await askBackground("ping")}`);
+        println(`async: ${await askBackground("async")}`);
+        println(`promise: ${await askBackground("promise")}`);
+        println(`who: ${await askBackground("who")}`);
+        done();
+    });
+</script>
+</body>

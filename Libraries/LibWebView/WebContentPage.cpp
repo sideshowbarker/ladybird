@@ -26,6 +26,7 @@
 #include <LibWebView/CanonicalTraversable.h>
 #include <LibWebView/CanonicalWindow.h>
 #include <LibWebView/CookieJar.h>
+#include <LibWebView/Extensions/ExtensionBackgroundHost.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/HistoryStore.h>
 #include <LibWebView/NavigationLoader.h>
@@ -1578,7 +1579,7 @@ Optional<Web::Extensions::MessageSender> WebContentPage::extension_message_sende
         sender = Web::Extensions::MessageSender {
             .extension_id = extension_id,
             .url = url.serialize(),
-            .from_background = false,
+            .from_background = Application::extension_background_host().hosts_page(extension_id, *this),
         };
         return IterationDecision::Break;
     });

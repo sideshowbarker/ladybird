@@ -363,6 +363,7 @@ set(SOURCES
     Extensions/API/Event.cpp
     Extensions/API/Runtime.cpp
     Extensions/ContentScriptInjector.cpp
+    Extensions/ExtensionDocumentContext.cpp
     Extensions/ExtensionSet.cpp
     Extensions/ExtensionWorld.cpp
     Extensions/MessageRouter.cpp

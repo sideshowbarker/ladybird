@@ -72,6 +72,11 @@ foreach(source IN LISTS TEST_SOURCES)
     ladybird_test("${source}" LibWebView LIBS ${test_libraries})
 endforeach()
 
+target_link_libraries(TestExtensionRegistry PRIVATE LibFileSystem LibGfx LibIPC LibWeb)
+if (APPLE)
+    target_compile_definitions(TestExtensionRegistry PRIVATE LADYBIRD_BINARY_PATH="$<TARGET_FILE_DIR:ladybird>")
+endif()
+
 if (TARGET TestProcessReaper)
     add_dependencies(TestProcessReaper ProcessReaper)
 endif()
