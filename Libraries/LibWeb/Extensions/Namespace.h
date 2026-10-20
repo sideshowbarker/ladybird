@@ -23,6 +23,6 @@ enum class NamespaceContext : u8 {
 };
 
 // Defines "browser" and "chrome", one object, on the realm's global, and returns it.
-WEB_API GC::Ref<JS::Object> install_namespace(JS::Realm&, ExtensionDescriptor const&, NamespaceContext, EventListenerList& on_message_listeners);
+WEB_API GC::Ref<JS::Object> install_namespace(JS::Realm&, MessagingContext&, NamespaceContext);
 
 }

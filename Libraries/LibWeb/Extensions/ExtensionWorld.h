@@ -15,6 +15,7 @@
 #include <LibJS/Runtime/Completion.h>
 #include <LibURL/URL.h>
 #include <LibWeb/Export.h>
+#include <LibWeb/Extensions/MessagingContext.h>
 #include <LibWeb/Forward.h>
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
 
@@ -23,26 +24,28 @@ namespace Web::Extensions {
 // One extension's world in one document: a realm whose global is another wrapper of the document's Window, with its
 // own wrapper cache, so a content script sees the live DOM through its own wrappers and nothing the page put on its
 // objects. The realm carries the "browser" namespace, and the scripts run with the document's settings object.
-class WEB_API ExtensionWorld final : public GC::Cell {
-    GC_CELL(ExtensionWorld, GC::Cell);
+class WEB_API ExtensionWorld final : public MessagingContext {
+    GC_CELL(ExtensionWorld, MessagingContext);
     GC_DECLARE_ALLOCATOR(ExtensionWorld);
 
 public:
     static GC::Ref<ExtensionWorld> create(DOM::Document&, ExtensionDescriptor const&);
     virtual ~ExtensionWorld() override;
 
-    JS::Realm& realm() { return *m_realm; }
-    DOM::Document& document() { return *m_document; }
-    String const& extension_id() const { return m_descriptor.id; }
-    ExtensionDescriptor const& descriptor() const { return m_descriptor; }
-    EventListenerList& message_listeners() { return *m_message_listeners; }
+    virtual JS::Realm& realm() override { return *m_realm; }
+    virtual ExtensionDescriptor const& descriptor() const override { return m_descriptor; }
+    virtual EventListenerList& message_listeners() override { return *m_message_listeners; }
+    virtual Page& page() override;
+    virtual MessageSender sender() const override;
+    virtual bool is_detached() const override { return m_detached; }
+
+    virtual DOM::Document& document() override { return *m_document; }
 
     // Runs the source as a classic script of this world. A detached world refuses with an abrupt completion.
     JS::Completion run_script(ByteString filename, Utf16View source, URL::URL base_url);
 
     // Drops the realm and its wrapper cache. Every world is detached before its document is destroyed.
-    void detach();
-    bool is_detached() const { return m_detached; }
+    virtual void detach() override;
 
 private:
     ExtensionWorld(DOM::Document&, ExtensionDescriptor);

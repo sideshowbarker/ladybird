@@ -14,6 +14,7 @@
 #include <LibWeb/DOM/Document.h>
 #include <LibWeb/Extensions/API/Event.h>
 #include <LibWeb/Extensions/ExtensionWorld.h>
+#include <LibWeb/Extensions/MessageRouter.h>
 #include <LibWeb/Extensions/Namespace.h>
 #include <LibWeb/HTML/BrowsingContext.h>
 #include <LibWeb/HTML/Scripting/ClassicScript.h>
@@ -55,7 +56,8 @@ GC::Ref<ExtensionWorld> ExtensionWorld::create(DOM::Document& document, Extensio
     MUST(Bindings::initialize_window_web_interfaces(*window, realm));
 
     world->m_message_listeners = vm.heap().allocate<EventListenerList>();
-    install_namespace(realm, descriptor, NamespaceContext::ContentScript, *world->m_message_listeners);
+    install_namespace(realm, *world, NamespaceContext::ContentScript);
+    MessageRouter::the().register_context(*world);
     return world;
 }
 
@@ -66,6 +68,16 @@ ExtensionWorld::ExtensionWorld(DOM::Document& document, ExtensionDescriptor desc
 }
 
 ExtensionWorld::~ExtensionWorld() = default;
+
+Page& ExtensionWorld::page()
+{
+    return m_document->page();
+}
+
+MessageSender ExtensionWorld::sender() const
+{
+    return MessageSender { .extension_id = m_descriptor.id, .url = m_document->url().serialize(), .from_background = false };
+}
 
 void ExtensionWorld::visit_edges(Visitor& visitor)
 {
@@ -93,6 +105,7 @@ void ExtensionWorld::detach()
     if (m_detached)
         return;
     m_detached = true;
+    MessageRouter::the().unregister_context(*this);
     m_wrapper_world->detach();
     m_message_listeners->revoke();
     m_execution_context = nullptr;
