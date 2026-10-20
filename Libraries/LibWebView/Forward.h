@@ -59,6 +59,7 @@ class RequestServerManager;
 class RequestServerSiteBindings;
 class PermissionManager;
 class SessionStore;
+class ExtensionRegistry;
 class Settings;
 class SettingsUI;
 class SpellChecker;
