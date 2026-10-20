@@ -75,6 +75,10 @@ static constexpr auto SITE_SETTING_SITE_FILTERS_KEY = "siteFilters"sv;
 
 static constexpr auto AUTOPLAY_KEY = "autoplay"sv;
 static constexpr auto LOCATION_POLICY_KEY = "locationPolicy"sv;
+static constexpr auto EXTENSIONS_KEY = "extensions"sv;
+static constexpr auto EXTENSION_ID_KEY = "id"sv;
+static constexpr auto EXTENSION_PATH_KEY = "path"sv;
+static constexpr auto EXTENSION_ENABLED_KEY = "enabled"sv;
 
 static constexpr auto BROWSING_DATA_KEY = "browsingData"sv;
 static constexpr auto DISK_CACHE_KEY = "diskCache"sv;
@@ -428,6 +432,18 @@ Settings Settings::create(ByteString settings_path, Vector<String> platform_lang
     if (auto location_policy = settings_json.value().get_string(LOCATION_POLICY_KEY); location_policy.has_value() && *location_policy == "block"sv)
         settings.m_location_policy = LocationPolicy::Block;
 
+    if (auto extensions = settings_json.value().get_array(EXTENSIONS_KEY); extensions.has_value()) {
+        for (auto const& value : extensions->values()) {
+            if (!value.is_object())
+                continue;
+            auto id = value.as_object().get_string(EXTENSION_ID_KEY);
+            auto path = value.as_object().get_string(EXTENSION_PATH_KEY);
+            if (!id.has_value() || id->is_empty() || !path.has_value() || path->is_empty())
+                continue;
+            settings.m_installed_extensions.append({ *id, path->to_byte_string(), value.as_object().get_bool(EXTENSION_ENABLED_KEY).value_or(true) });
+        }
+    }
+
     if (auto browsing_data_settings = settings_json.value().get(BROWSING_DATA_KEY); browsing_data_settings.has_value())
         settings.m_browsing_data_settings = parse_browsing_data_settings(*browsing_data_settings);
 
@@ -646,6 +662,16 @@ JsonValue Settings::serialize_json() const
     save_site_setting(m_autoplay, AUTOPLAY_KEY);
 
     settings.set(LOCATION_POLICY_KEY, m_location_policy == LocationPolicy::Block ? "block"_string : "ask"_string);
+
+    JsonArray extensions;
+    for (auto const& extension : m_installed_extensions) {
+        JsonObject object;
+        object.set(EXTENSION_ID_KEY, extension.id);
+        object.set(EXTENSION_PATH_KEY, MUST(String::from_byte_string(extension.path)));
+        object.set(EXTENSION_ENABLED_KEY, extension.enabled);
+        extensions.must_append(move(object));
+    }
+    settings.set(EXTENSIONS_KEY, move(extensions));
 
     JsonObject disk_cache_settings;
     disk_cache_settings.set(DISK_CACHE_MAXIMUM_SIZE_KEY, m_browsing_data_settings.disk_cache_settings.maximum_size);
@@ -1120,6 +1146,55 @@ void Settings::set_location_policy(LocationPolicy policy)
 
     for (auto& observer : m_observers)
         observer.geolocation_settings_changed();
+}
+
+String Settings::add_installed_extension(ByteString path, Optional<String> id)
+{
+    for (auto& extension : m_installed_extensions) {
+        if (extension.path != path && (!id.has_value() || extension.id != *id))
+            continue;
+        if (extension.path != path) {
+            extension.path = move(path);
+            persist_settings();
+            for (auto& observer : m_observers)
+                observer.extensions_changed();
+        }
+        return extension.id;
+    }
+
+    if (!id.has_value())
+        id = AK::generate_random_uuid();
+    m_installed_extensions.append({ *id, move(path), true });
+    persist_settings();
+
+    for (auto& observer : m_observers)
+        observer.extensions_changed();
+    return *id;
+}
+
+void Settings::set_installed_extension_enabled(StringView id, bool enabled)
+{
+    for (auto& extension : m_installed_extensions) {
+        if (extension.id != id || extension.enabled == enabled)
+            continue;
+        extension.enabled = enabled;
+        persist_settings();
+
+        for (auto& observer : m_observers)
+            observer.extensions_changed();
+        return;
+    }
+}
+
+void Settings::remove_installed_extension(StringView id)
+{
+    auto removed = m_installed_extensions.remove_all_matching([&](auto const& extension) { return extension.id == id; });
+    if (!removed)
+        return;
+    persist_settings();
+
+    for (auto& observer : m_observers)
+        observer.extensions_changed();
 }
 
 BrowsingDataSettings Settings::parse_browsing_data_settings(JsonValue const& settings)

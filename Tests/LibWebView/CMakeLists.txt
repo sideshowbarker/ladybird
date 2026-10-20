@@ -170,6 +170,7 @@ set(TEST_SOURCES
     TestDownloadSegmentation.cpp
     TestDownloadStore.cpp
     TestExtensionManifest.cpp
+    TestExtensionRegistry.cpp
     TestExternalURLHandler.cpp
     TestFaviconStore.cpp
     TestHelperProcessEnvironment.cpp
