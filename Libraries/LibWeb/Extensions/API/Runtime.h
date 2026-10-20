@@ -16,6 +16,6 @@ namespace Web::Extensions {
 
 // The browser.runtime object: id, getURL(), getManifest(), lastError, onMessage, and sendMessage().
 // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/runtime
-WEB_API GC::Ref<JS::Object> create_runtime(JS::Realm&, ExtensionDescriptor const&, NamespaceContext, EventListenerList& on_message_listeners);
+WEB_API GC::Ref<JS::Object> create_runtime(JS::Realm&, MessagingContext&, NamespaceContext);
 
 }

@@ -21,6 +21,7 @@
 #include <LibWeb/Editing/SpellCheckController.h>
 #include <LibWeb/Editing/SpellingMarkers.h>
 #include <LibWeb/Editing/WritingSuggestionController.h>
+#include <LibWeb/Extensions/MessageRouter.h>
 #include <LibWeb/HTML/BrowsingContext.h>
 #include <LibWeb/HTML/EventLoop/EventLoop.h>
 #include <LibWeb/HTML/EventNames.h>
@@ -1906,6 +1907,16 @@ GC::Ptr<HTML::HTMLMediaElement> Page::media_context_menu_element()
         return nullptr;
 
     return static_cast<HTML::HTMLMediaElement*>(dom_node);
+}
+
+void Page::dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Extensions::MessageSender const& sender, String const& message_json, u64 context_id)
+{
+    Extensions::MessageRouter::the().dispatch(*this, extension_id, dispatch_id, sender, message_json, context_id);
+}
+
+void Page::complete_extension_runtime_message(u64 request_id, Optional<String> const& reply_json)
+{
+    Extensions::MessageRouter::the().complete(*this, request_id, reply_json);
 }
 
 void Page::set_user_style(Utf16String source)

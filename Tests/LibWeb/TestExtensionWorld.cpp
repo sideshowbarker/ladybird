@@ -6,6 +6,7 @@
 
 #include <LibGC/CellAllocator.h>
 #include <LibGC/Weak.h>
+#include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/Runtime/Realm.h>
 #include <LibJS/Script.h>
@@ -20,8 +21,10 @@
 #include <LibWeb/Bindings/WrapperWorld.h>
 #include <LibWeb/DOM/Element.h>
 #include <LibWeb/Extensions/API/Event.h>
+#include <LibWeb/Extensions/ExtensionSet.h>
 #include <LibWeb/Extensions/ExtensionWorld.h>
 #include <LibWeb/HTML/BrowsingContext.h>
+#include <LibWeb/HTML/EventLoop/EventLoop.h>
 #include <LibWeb/HTML/HTMLDocument.h>
 #include <LibWeb/HTML/HTMLElement.h>
 #include <LibWeb/HTML/LocalTraversableNavigable.h>
@@ -30,6 +33,9 @@
 #include <LibWeb/HTML/WindowProxy.h>
 #include <LibWeb/Page/Page.h>
 #include <LibWeb/Platform/FontPlugin.h>
+#include <LibWeb/WebIDL/AbstractOperations.h>
+#include <LibWeb/WebIDL/CallbackType.h>
+#include <LibWebCommon/Extensions/MessageSender.h>
 
 namespace {
 
@@ -58,6 +64,32 @@ public:
     virtual void request_file(Web::FileRequest) override { }
     virtual bool is_headless() const override { return true; }
 
+    struct SentMessage {
+        String extension_id;
+        u64 request_id;
+        Web::Extensions::MessageSender sender;
+        String json;
+    };
+    struct Reply {
+        u64 dispatch_id;
+        Optional<String> json;
+    };
+    virtual void page_did_send_extension_runtime_message(String const& extension_id, u64 request_id, Web::Extensions::MessageSender const& sender, String const& json, u64) override
+    {
+        sent_messages.append({ extension_id, request_id, sender, json });
+    }
+    virtual void page_did_reply_to_extension_runtime_message(u64 dispatch_id, Optional<String> const& json) override
+    {
+        replies.append({ dispatch_id, json });
+    }
+    virtual void page_did_create_extension_context(String const& extension_id, u64, Web::HTML::CrossProcessId, u64) override { created_contexts.append(extension_id); }
+    virtual void page_did_destroy_extension_context(String const& extension_id, u64) override { destroyed_contexts.append(extension_id); }
+
+    Vector<SentMessage> sent_messages;
+    Vector<Reply> replies;
+    Vector<String> created_contexts;
+    Vector<String> destroyed_contexts;
+
     virtual void visit_edges(Visitor& visitor) override
     {
         Base::visit_edges(visitor);
@@ -85,8 +117,8 @@ struct TestPage {
         VERIFY(principal_realm.ptr());
         auto& vm = Web::Bindings::main_thread_vm();
 
-        auto client = vm.heap().allocate<TestPageClient>();
-        page = Web::Page::create(client);
+        client = vm.heap().allocate<TestPageClient>();
+        page = Web::Page::create(*client);
         client->m_page = page.ptr();
 
         auto traversable = Web::HTML::LocalTraversableNavigable::create_a_new_top_level_traversable(*page, nullptr, {});
@@ -106,7 +138,21 @@ struct TestPage {
         return result.release_value();
     }
 
+    // Each fixture leaves its principal realm's execution context pushed, and a microtask checkpoint needs an
+    // empty stack, so the contexts step aside for the checkpoint and come back in order.
+    void run_microtasks()
+    {
+        auto& vm = Web::Bindings::main_thread_vm();
+        Vector<JS::ExecutionContext*> pushed_contexts;
+        while (!vm.execution_context_stack().is_empty())
+            pushed_contexts.append(vm.pop_execution_context());
+        Web::HTML::main_thread_event_loop().perform_a_microtask_checkpoint();
+        for (size_t i = pushed_contexts.size(); i > 0; --i)
+            vm.push_execution_context(*pushed_contexts[i - 1]);
+    }
+
     GC::Root<JS::Realm> principal_realm;
+    GC::Ptr<TestPageClient> client;
     GC::Ptr<Web::Page> page;
     GC::Ptr<Web::DOM::Document> document;
     GC::Ptr<Web::HTML::BrowsingContext> browsing_context;
@@ -279,6 +325,114 @@ TEST_CASE(document_owns_one_world_per_extension_until_detached)
     EXPECT(completion.is_abrupt());
 }
 
+static Web::Extensions::MessageSender test_sender()
+{
+    return Web::Extensions::MessageSender {
+        .extension_id = "0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11"_string,
+        .url = "ladybird-extension://0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11/_generated_background_page.html"_string,
+        .from_background = true,
+    };
+}
+
+TEST_CASE(send_message_notifies_the_page_client_and_resolves_on_reply)
+{
+    TestPage test_page;
+    auto world = Web::Extensions::ExtensionWorld::create(*test_page.document, test_descriptor());
+    EXPECT_EQ(test_page.client->created_contexts, (Vector { "0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11"_string }));
+
+    (void)world->run_script("send.js", u"globalThis.__reply = 'pending'; browser.runtime.sendMessage({ type: 'ping', n: 1 }).then(r => { globalThis.__reply = r; });"sv, URL::URL {});
+    EXPECT_EQ(test_page.client->sent_messages.size(), 1u);
+    auto const& sent = test_page.client->sent_messages[0];
+    EXPECT_EQ(sent.extension_id, "0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11"sv);
+    EXPECT_EQ(sent.json, "{\"type\":\"ping\",\"n\":1}"sv);
+    EXPECT(!sent.sender.from_background);
+    EXPECT(sent.sender.url.has_value());
+
+    test_page.page->complete_extension_runtime_message(sent.request_id, "{\"answer\":\"pong\"}"_string);
+    test_page.run_microtasks();
+    auto reply = world->run_script("read.js", u"globalThis.__reply.answer"sv, URL::URL {});
+    EXPECT_EQ(reply.value().as_string().utf16_string(), u"pong"sv);
+
+    // No reply from anyone resolves the promise with undefined.
+    (void)world->run_script("send2.js", u"globalThis.__reply = 'pending'; browser.runtime.sendMessage('x').then(r => { globalThis.__reply = String(r); });"sv, URL::URL {});
+    test_page.page->complete_extension_runtime_message(test_page.client->sent_messages[1].request_id, {});
+    test_page.run_microtasks();
+    auto undefined_reply = world->run_script("read2.js", u"globalThis.__reply"sv, URL::URL {});
+    EXPECT_EQ(undefined_reply.value().as_string().utf16_string(), u"undefined"sv);
+
+    // A message that can't be serialized is rejected before anything is sent.
+    (void)world->run_script("send3.js", u"globalThis.__error = ''; browser.runtime.sendMessage(1n).catch(e => { globalThis.__error = e.name; });"sv, URL::URL {});
+    test_page.run_microtasks();
+    EXPECT_EQ(test_page.client->sent_messages.size(), 2u);
+    auto error = world->run_script("read3.js", u"globalThis.__error"sv, URL::URL {});
+    EXPECT_EQ(error.value().as_string().utf16_string(), u"TypeError"sv);
+
+    world->detach();
+    EXPECT_EQ(test_page.client->destroyed_contexts, (Vector { "0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11"_string }));
+}
+
+TEST_CASE(dispatch_runs_listeners_and_collects_the_reply)
+{
+    TestPage test_page;
+    auto world = Web::Extensions::ExtensionWorld::create(*test_page.document, test_descriptor());
+    auto& page = *test_page.page;
+    auto& replies = test_page.client->replies;
+    auto extension_id = "0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11"_string;
+
+    // No listener: an immediate empty reply.
+    page.dispatch_extension_runtime_message(extension_id, 1, test_sender(), "{\"type\":\"a\"}"_string, world->context_id());
+    EXPECT_EQ(replies.size(), 1u);
+    EXPECT_EQ(replies[0].dispatch_id, 1u);
+    EXPECT(!replies[0].json.has_value());
+
+    // A listener answers with sendResponse, and sees the message and the sender.
+    (void)world->run_script("l1.js", u"globalThis.l1 = (message, sender, sendResponse) => { sendResponse(`sync:${message.type}:${sender.id}:${sender.url}`); }; browser.runtime.onMessage.addListener(globalThis.l1);"sv, URL::URL {});
+    page.dispatch_extension_runtime_message(extension_id, 2, test_sender(), "{\"type\":\"b\"}"_string, world->context_id());
+    EXPECT_EQ(replies.size(), 2u);
+    EXPECT_EQ(replies[1].json, "\"sync:b:0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11:ladybird-extension://0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11/_generated_background_page.html\""sv);
+
+    // A value a listener merely returns is not a reply; the channel closes with an empty one.
+    (void)world->run_script("l1b.js", u"browser.runtime.onMessage.removeListener(globalThis.l1); globalThis.l1b = (m) => 'ignored:' + m.type; browser.runtime.onMessage.addListener(globalThis.l1b);"sv, URL::URL {});
+    page.dispatch_extension_runtime_message(extension_id, 20, test_sender(), "{\"type\":\"b2\"}"_string, world->context_id());
+    EXPECT_EQ(replies.size(), 3u);
+    EXPECT(!replies[2].json.has_value());
+    replies.remove(2);
+
+    // A listener that calls sendResponse synchronously with an object.
+    (void)world->run_script("l2.js", u"browser.runtime.onMessage.removeListener(globalThis.l1b); globalThis.l2 = (m, s, sendResponse) => { sendResponse({ ok: m.type }); }; browser.runtime.onMessage.addListener(globalThis.l2);"sv, URL::URL {});
+    page.dispatch_extension_runtime_message(extension_id, 3, test_sender(), "{\"type\":\"c\"}"_string, world->context_id());
+    EXPECT_EQ(replies.size(), 3u);
+    EXPECT_EQ(replies[2].json, "{\"ok\":\"c\"}"sv);
+
+    // A listener that returns true and calls sendResponse later.
+    (void)world->run_script("l3.js", u"browser.runtime.onMessage.removeListener(globalThis.l2); globalThis.l3 = (m, s, sendResponse) => { if (m.type !== 'd') return; Promise.resolve().then(() => sendResponse('later')); return true; }; browser.runtime.onMessage.addListener(globalThis.l3);"sv, URL::URL {});
+    page.dispatch_extension_runtime_message(extension_id, 4, test_sender(), "{\"type\":\"d\"}"_string, world->context_id());
+    EXPECT_EQ(replies.size(), 3u);
+    test_page.run_microtasks();
+    EXPECT_EQ(replies.size(), 4u);
+    EXPECT_EQ(replies[3].json, "\"later\""sv);
+
+    // A listener that returns a promise replies with what it resolves to.
+    (void)world->run_script("l4.js", u"browser.runtime.onMessage.removeListener(globalThis.l3); globalThis.l4 = (m) => { if (m.type !== 'e') return; return Promise.resolve({ promised: true }); }; browser.runtime.onMessage.addListener(globalThis.l4);"sv, URL::URL {});
+    page.dispatch_extension_runtime_message(extension_id, 5, test_sender(), "{\"type\":\"e\"}"_string, world->context_id());
+    EXPECT_EQ(replies.size(), 4u);
+    test_page.run_microtasks();
+    EXPECT_EQ(replies.size(), 5u);
+    EXPECT_EQ(replies[4].json, "{\"promised\":true}"sv);
+
+    // Listeners that return nothing for a message leave an empty reply once they have all run.
+    page.dispatch_extension_runtime_message(extension_id, 6, test_sender(), "{\"type\":\"z\"}"_string, world->context_id());
+    EXPECT_EQ(replies.size(), 6u);
+    EXPECT(!replies[5].json.has_value());
+
+    // A message for an extension with no world here is answered empty too.
+    page.dispatch_extension_runtime_message("11111111-2222-3333-4444-555555555555"_string, 7, test_sender(), "1"_string, world->context_id());
+    EXPECT_EQ(replies.size(), 7u);
+    EXPECT(!replies[6].json.has_value());
+
+    world->detach();
+}
+
 NEVER_INLINE static auto snapshot_of_removed_listener(JS::Realm& realm, GC::Weak<JS::FunctionObject>& weak)
 {
     auto list = realm.heap().allocate<Web::Extensions::EventListenerList>();
@@ -301,6 +455,31 @@ TEST_CASE(listener_snapshot_retains_removed_functions_during_collection)
     EXPECT(listener);
     if (listener)
         EXPECT(snapshot[0].ptr() == listener.ptr().ptr());
+}
+
+TEST_CASE(dispatch_counts_the_snapshot_it_invokes)
+{
+    TestPage test_page;
+    auto first = Web::Extensions::ExtensionWorld::create(*test_page.document, test_descriptor());
+    for (auto world : { first }) {
+        auto result = world->run_script("listeners.js", uR"(
+            function listener() {
+                document.dispatchEvent(new Event("remove-runtime-listeners"));
+            }
+            const second = () => {};
+            browser.runtime.onMessage.addListener(listener);
+            browser.runtime.onMessage.addListener(second);
+            document.addEventListener("remove-runtime-listeners", () => {
+                browser.runtime.onMessage.removeListener(listener);
+                browser.runtime.onMessage.removeListener(second);
+            });
+        )"sv,
+            URL::URL {});
+        EXPECT(!result.is_abrupt());
+    }
+    test_page.page->dispatch_extension_runtime_message(test_descriptor().id, 80, test_sender(), "null"_string, first->context_id());
+    EXPECT_EQ(test_page.client->replies.size(), 1u);
+    first->detach();
 }
 
 static NEVER_INLINE void scrub_extension_test_stack()
@@ -328,4 +507,106 @@ TEST_CASE(unreachable_api_event_cycle_is_collectible)
     scrub_extension_test_stack();
     Web::Bindings::main_thread_vm().heap().collect_garbage();
     EXPECT(!listeners);
+}
+
+TEST_CASE(detached_receiver_declines_an_asynchronous_message)
+{
+    TestPage test_page;
+    auto world = Web::Extensions::ExtensionWorld::create(*test_page.document, test_descriptor());
+    auto result = world->run_script("listener.js", u"browser.runtime.onMessage.addListener(() => true);"sv, URL::URL {});
+    EXPECT(!result.is_abrupt());
+    test_page.page->dispatch_extension_runtime_message(test_descriptor().id, 91, test_sender(), "null"_string, world->context_id());
+    EXPECT(test_page.client->replies.is_empty());
+    world->detach();
+    EXPECT_EQ(test_page.client->replies.size(), 1u);
+}
+
+TEST_CASE(disabled_and_replaced_extensions_revoke_live_contexts)
+{
+    TestPage test_page;
+    auto descriptor = test_descriptor();
+    auto unrelated = descriptor;
+    unrelated.id = "11111111-2222-3333-4444-555555555555"_string;
+    auto& extensions = Web::Extensions::ExtensionSet::the();
+    extensions.set_extensions({ descriptor, unrelated });
+    GC::Ref world = test_page.document->ensure_extension_world(descriptor);
+    GC::Ref other = test_page.document->ensure_extension_world(unrelated);
+    auto get_url = GC::make_root(world->run_script("save.js", u"browser.runtime.getURL"sv, {}).value().as_function());
+    auto get_manifest = GC::make_root(world->run_script("save.js", u"browser.runtime.getManifest"sv, {}).value().as_function());
+    auto add_listener = GC::make_root(world->run_script("save.js", u"browser.runtime.onMessage.addListener"sv, {}).value().as_function());
+    auto function = GC::Ref { world->run_script("callback.js", u"() => 42"sv, {}).value().as_function() };
+    auto callback = world->realm().heap().allocate<Web::WebIDL::CallbackType>(*function, world->realm());
+
+    (void)world->run_script("pending.js", u"globalThis.marker = []; new Promise(resolve => { globalThis.resolveLater = resolve; }).then(() => marker.push(42));"sv, {});
+    auto resolve_later = GC::make_root(world->run_script("save.js", u"resolveLater"sv, {}).value().as_function());
+    auto marker = GC::make_root(world->run_script("save.js", u"marker"sv, {}).value().as_object());
+
+    extensions.set_extensions({ unrelated });
+    EXPECT(world->is_detached());
+    EXPECT(!other->is_detached());
+    auto& vm = Web::Bindings::main_thread_vm();
+    EXPECT(JS::call(vm, *get_url, JS::js_undefined()).is_error());
+    EXPECT(JS::call(vm, *get_manifest, JS::js_undefined()).is_error());
+    EXPECT(JS::call(vm, *add_listener, JS::js_undefined(), function).is_error());
+    auto completion = Web::WebIDL::invoke_callback(*callback, {}, Web::WebIDL::ExceptionBehavior::Rethrow, {});
+    EXPECT(!completion.is_abrupt());
+    EXPECT(completion.value().is_undefined());
+    EXPECT(!JS::call(vm, *resolve_later, JS::js_undefined()).is_error());
+    test_page.run_microtasks();
+    EXPECT_EQ(MUST(marker->get(vm.names.length)).as_i32(), 0);
+
+    extensions.set_extensions({ descriptor, unrelated });
+    GC::Ref replacement = test_page.document->ensure_extension_world(descriptor);
+    EXPECT(replacement.ptr() != world.ptr());
+    descriptor.name = "Replaced"_string;
+    extensions.set_extensions({ descriptor, unrelated });
+    EXPECT(replacement->is_detached());
+    EXPECT(!other->is_detached());
+    world->detach();
+    replacement->detach();
+    other->detach();
+    extensions.set_extensions({});
+}
+
+TEST_CASE(send_message_normalizes_arguments_and_scopes_callback_errors)
+{
+    TestPage test_page;
+    auto world = Web::Extensions::ExtensionWorld::create(*test_page.document, test_descriptor());
+    auto result = world->run_script("callbacks.js", uR"JS(
+        globalThis.results = [];
+        globalThis.returns = [];
+        const callback = value => results.push([value, browser.runtime.lastError === undefined]);
+        returns.push(browser.runtime.sendMessage({ n: 1 }, callback));
+        returns.push(browser.runtime.sendMessage({ n: 2 }, {}, callback));
+        returns.push(browser.runtime.sendMessage(browser.runtime.id, { n: 3 }, callback));
+        returns.push(browser.runtime.sendMessage(browser.runtime.id, { n: 4 }, {}, callback));
+        returns.push(browser.runtime.sendMessage(null, { n: 5 }, null, callback));
+        browser.runtime.sendMessage({ n: 6 }, undefined).then(callback);
+        globalThis.failure = false;
+        const returned = browser.runtime.sendMessage(1n, value => {
+            failure = value === undefined && typeof browser.runtime.lastError.message === 'string';
+        });
+        returns.push(returned);
+        if (returned instanceof Promise) returned.catch(() => {});
+        globalThis.primitiveFailure = false;
+        browser.runtime.sendMessage({ toJSON() { throw 'bad message'; } }, () => {
+            primitiveFailure = typeof browser.runtime.lastError.message === 'string';
+        });
+        globalThis.externalFailure = false;
+        browser.runtime.sendMessage('another-extension', 1, {}, () => {
+            externalFailure = typeof browser.runtime.lastError.message === 'string';
+        });
+    )JS"sv,
+        URL::URL {});
+    EXPECT(!result.is_abrupt());
+    EXPECT_EQ(test_page.client->sent_messages.size(), 6u);
+    auto messages = test_page.client->sent_messages;
+    for (size_t i = 0; i < messages.size(); ++i) {
+        EXPECT_EQ(messages[i].json, MUST(String::formatted("{{\"n\":{}}}", i + 1)));
+        test_page.page->complete_extension_runtime_message(messages[i].request_id, "42"_string);
+    }
+    test_page.run_microtasks();
+    auto check = world->run_script("check.js", u"JSON.stringify([returns.every(value => value === undefined), results, failure, primitiveFailure, externalFailure, browser.runtime.lastError === undefined])"sv, URL::URL {});
+    EXPECT_EQ(check.value().as_string().utf16_string(), u"[true,[[42,true],[42,true],[42,true],[42,true],[42,true],[42,true]],true,true,true,true]"sv);
+    world->detach();
 }
