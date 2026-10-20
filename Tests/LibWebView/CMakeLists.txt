@@ -8,6 +8,7 @@ set(TEST_SOURCES
     TestCrashReportDiagnostics.cpp
     TestDownloadSegmentation.cpp
     TestDownloadStore.cpp
+    TestExtensionManifest.cpp
     TestExternalURLHandler.cpp
     TestFaviconStore.cpp
     TestHistoryStore.cpp
@@ -56,6 +57,9 @@ foreach(source IN LISTS TEST_SOURCES)
     set(test_libraries LibDatabase LibWebView LibURL)
     if (source STREQUAL "TestProfile.cpp" OR source STREQUAL "TestDownloadSegmentation.cpp")
         list(APPEND test_libraries LibHTTP)
+    endif()
+    if (source STREQUAL "TestExtensionManifest.cpp")
+        list(APPEND test_libraries LibCore LibFileSystem LibWebCommon)
     endif()
     if (source STREQUAL "TestFontService.cpp")
         list(APPEND test_libraries LibFileSystem LibIPC LibGfx)
