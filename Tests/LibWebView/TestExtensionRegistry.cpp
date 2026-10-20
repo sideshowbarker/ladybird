@@ -73,6 +73,29 @@ TEST_CASE(resource_requests_require_enabled_extension_and_page_authorization)
     EXPECT(!registry.may_access_resource(id, "/public/file.txt"sv, allowed));
 }
 
+TEST_CASE(context_registration_requires_a_matching_document)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    auto extension = TRY_OR_FAIL(registry.load_unpacked(directory.extension("one"sv, R"({
+        "manifest_version": 3, "name": "Contexts", "version": "1",
+        "content_scripts": [{ "matches": ["https://allowed.test/*"], "exclude_matches": ["https://allowed.test/private/*"] }]
+    })"sv)));
+    auto const& id = extension->id();
+    auto url = [](StringView value) { return URL::Parser::basic_parse(value).release_value(); };
+    EXPECT(registry.may_create_context(id, url("https://allowed.test/page"sv), true));
+    EXPECT(!registry.may_create_context(id, url("https://allowed.test/private/page"sv), true));
+    EXPECT(!registry.may_create_context(id, url("https://unrelated.test/page"sv), true));
+    EXPECT(!registry.may_create_context(id, url("https://allowed.test/page"sv), false));
+    auto own = url(MUST(String::formatted("ladybird-extension://{}/page.html", id)));
+    EXPECT(registry.may_create_context(id, own, false));
+    EXPECT(!registry.may_create_context(id, own, false, true));
+    EXPECT(!registry.may_create_context(id, url("https://allowed.test/page"sv), true, true));
+    registry.set_enabled(id, false);
+    EXPECT(!registry.may_create_context(id, own, true));
+}
+
 TEST_CASE(load_unpacked_assigns_a_uuid_and_persists)
 {
     TemporaryDirectory directory;

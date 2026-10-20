@@ -117,6 +117,24 @@ bool ExtensionRegistry::may_access_resource(StringView id, StringView path, URL:
     return extension->is_web_accessible(path, document_url);
 }
 
+bool ExtensionRegistry::may_create_context(StringView id, URL::URL const& document_url, bool is_top_level, bool inherited) const
+{
+    auto extension = find(id);
+    if (!extension || !is_enabled(id))
+        return false;
+    if (!inherited && document_url.scheme() == Web::Extensions::scheme && document_url.serialized_host() == id)
+        return true;
+    for (auto const& script : extension->descriptor().content_scripts) {
+        if ((inherited && !script.match_about_blank) || (!is_top_level && !script.all_frames) || script.world != Web::Extensions::ExecutionWorld::Isolated)
+            continue;
+        if (script.exclude_matches.contains([&](auto const& pattern) { return pattern.matches(document_url); }))
+            continue;
+        if (script.matches.contains([&](auto const& pattern) { return pattern.matches(document_url); }))
+            return true;
+    }
+    return false;
+}
+
 void ExtensionRegistry::notify_changed()
 {
     if (on_changed)
