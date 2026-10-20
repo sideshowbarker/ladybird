@@ -53,6 +53,7 @@
 #include <LibWebView/CrashReport.h>
 #include <LibWebView/CrashReportOutbox.h>
 #include <LibWebView/CrashReportStore.h>
+#include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/FontService.h>
 #include <LibWebView/FontServiceHost.h>
@@ -725,7 +726,9 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
         CrashReportOutbox::the().discard_all();
 
     m_extension_registry = make<ExtensionRegistry>(*m_settings);
+    m_extension_message_broker = make<ExtensionMessageBroker>();
     m_extension_registry->on_changed = [this] {
+        m_extension_message_broker->reconcile_contexts();
         auto descriptors = m_extension_registry->enabled_descriptors();
         WebContentClient::for_each_client([&](WebContentClient& client) {
             client.async_set_extensions(descriptors);
