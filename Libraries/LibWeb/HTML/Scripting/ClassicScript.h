@@ -28,6 +28,9 @@ public:
         Yes,
     };
     static GC::Ref<ClassicScript> create(ByteString filename, Utf16View source, EnvironmentSettingsObject&, URL::URL base_url, size_t source_line_number = 1, MutedErrors = MutedErrors::No, ScriptRegistry::IsInlineSource = ScriptRegistry::IsInlineSource::No);
+    // Parses the source in the given realm, which the script then runs in, while its settings object stays the
+    // given one. This is how a content script runs in an extension world of its document's window.
+    static GC::Ref<ClassicScript> create_in_realm(ByteString filename, Utf16View source, EnvironmentSettingsObject&, JS::Realm& parse_realm, URL::URL base_url, MutedErrors = MutedErrors::No);
     static GC::Ref<ClassicScript> create_from_pre_parsed(ByteString filename, NonnullRefPtr<JS::SourceCode const> source_code, EnvironmentSettingsObject&, URL::URL base_url, JS::ParsedProgram, MutedErrors = MutedErrors::No);
     static GC::Ref<ClassicScript> create_from_pre_compiled(ByteString filename, NonnullRefPtr<JS::SourceCode const> source_code, EnvironmentSettingsObject&, URL::URL base_url, JS::CompiledProgram, MutedErrors = MutedErrors::No);
     static GC::Ref<ClassicScript> create_from_bytecode_cache(ByteString filename, NonnullRefPtr<JS::SourceCode const> source_code, EnvironmentSettingsObject&, URL::URL base_url, NonnullRefPtr<JS::DecodedBytecodeCache>, MutedErrors = MutedErrors::No);
@@ -44,6 +47,8 @@ public:
     MutedErrors muted_errors() const { return m_muted_errors; }
 
 private:
+    static GC::Ref<ClassicScript> create_with_parse_realm(ByteString filename, Utf16View source, EnvironmentSettingsObject&, JS::Realm& parse_realm, URL::URL base_url, size_t source_line_number, MutedErrors, ScriptRegistry::IsInlineSource);
+
     ClassicScript(URL::URL base_url, ByteString filename, EnvironmentSettingsObject&);
     ClassicScript(URL::URL base_url, ByteString filename, Utf16String display_filename, EnvironmentSettingsObject&);
 

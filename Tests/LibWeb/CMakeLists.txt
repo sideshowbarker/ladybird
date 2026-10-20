@@ -12,6 +12,7 @@ set(TEST_SOURCES
     TestEventLoop.cpp
     TestExtensionDescriptor.cpp
     TestExtensionMatchPattern.cpp
+    TestExtensionWorld.cpp
     TestFaviconDecoding.cpp
     TestFetchEngineMessages.cpp
     TestFetchExecutor.cpp
@@ -101,6 +102,11 @@ target_sources(TestWindowProxyWorld PRIVATE
     ${ladybird_SOURCE_DIR}/Libraries/LibWeb/WebIDL/CallbackType.cpp
 )
 target_link_libraries(TestWindowProxyWorld PRIVATE LibGC LibJS LibWeb)
+target_sources(TestExtensionWorld PRIVATE
+    ${ladybird_SOURCE_DIR}/Libraries/LibWeb/DOM/IDLEventListener.cpp
+    ${ladybird_SOURCE_DIR}/Libraries/LibWeb/WebIDL/CallbackType.cpp
+)
+target_link_libraries(TestExtensionWorld PRIVATE LibGC LibJS LibURL LibWeb LibWebCommon)
 
 add_subdirectory("test-web")
 
