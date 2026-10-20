@@ -140,6 +140,7 @@
 #include <LibWeb/Editing/SpellingMarkers.h>
 #include <LibWeb/Editing/WritingSuggestionController.h>
 #include <LibWeb/Extensions/ContentScriptInjector.h>
+#include <LibWeb/Extensions/ExtensionDocumentContext.h>
 #include <LibWeb/Extensions/ExtensionWorld.h>
 #include <LibWeb/Fetch/Engine/NetworkTransportHandle.h>
 #include <LibWeb/Fetch/Fetching/Checks.h>
@@ -963,6 +964,7 @@ void Document::visit_edges(Cell::Visitor& visitor)
     Base::visit_edges(visitor);
     for (auto const& world : m_extension_worlds)
         visitor.visit(world.value);
+    visitor.visit(m_extension_document_context);
     m_style_scope.visit_edges(visitor);
     m_paint_timing_state.visit_edges(visitor);
     m_commit_messages->visit_edges(visitor);
@@ -6631,6 +6633,8 @@ void Document::destroy()
     if (m_content_script_idle_timer)
         m_content_script_idle_timer->stop();
     detach_extension_worlds();
+    if (m_extension_document_context)
+        m_extension_document_context->detach();
 
     // AD-HOC: Destruction does not go through did_stop_being_active_document_in_navigable().
     //         Tear the layout tree down now instead of holding it until finalization.
@@ -7270,6 +7274,10 @@ void Document::make_active()
 
     // 4. Set window's relevant settings object's execution ready flag.
     HTML::relevant_settings_object(window).execution_ready = true;
+
+    // One of a loaded extension's own documents gets the "browser" namespace before any of its scripts run.
+    if (!m_extension_document_context)
+        m_extension_document_context = Extensions::ExtensionDocumentContext::create_if_extension_document(*this);
 
     if (m_needs_to_call_page_did_load) {
         navigable()->page().client().page_did_finish_loading(navigable()->id(), id());

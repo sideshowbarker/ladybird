@@ -96,6 +96,7 @@ public:
     static Settings& settings() { return *the().m_settings; }
     static ExtensionRegistry& extension_registry() { return *the().m_extension_registry; }
     static ExtensionMessageBroker& extension_message_broker() { return *the().m_extension_message_broker; }
+    static ExtensionBackgroundHost& extension_background_host() { return *the().m_extension_background_host; }
     static Profile const& profile() { return *the().m_profile; }
     BrowserProcess& browser_process() { return *m_browser_process; }
     bool should_exit_after_profile_coordination() const { return m_should_exit_after_profile_coordination; }
@@ -609,6 +610,8 @@ private:
     OwnPtr<Settings> m_settings;
     OwnPtr<ExtensionRegistry> m_extension_registry;
     OwnPtr<ExtensionMessageBroker> m_extension_message_broker;
+    OwnPtr<ExtensionBackgroundHost> m_extension_background_host;
+    bool m_extension_background_pages_may_start { false };
     OwnPtr<BrowserProcess> m_browser_process;
     bool m_should_exit_after_profile_coordination { false };
     OwnPtr<ApplicationSettingsObserver> m_settings_observer;

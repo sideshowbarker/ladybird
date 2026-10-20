@@ -1,0 +1,10 @@
+{
+    "manifest_version": 2,
+    "name": "Messaging MV2 Fixture",
+    "version": "1.0",
+    "description": "The same exchange with a manifest version 2 background page.",
+    "background": { "scripts": ["bg.js"] },
+    "content_scripts": [
+        { "matches": ["file:///*/Extensions/background-receives-from-mv2.html"], "js": ["cs.js"], "run_at": "document_end" }
+    ]
+}
