@@ -2130,6 +2130,29 @@ void Document::set_url(URL::URL const& url)
     respond_to_base_url_changes(old_document_url, old_base_url);
 }
 
+Optional<URL::URL> Document::url_for_extension_matching() const
+{
+    if (!HTML::url_matches_about_blank(url()) && !HTML::url_matches_about_srcdoc(url()))
+        return url();
+
+    GC::RootHashTable<HTML::Navigable const*> visited;
+    GC::Ptr<HTML::Navigable> ancestor = navigable();
+    while (ancestor) {
+        if (visited.set(ancestor.ptr()) == AK::HashSetResult::ReplacedExistingEntry)
+            return {};
+        ancestor = ancestor->parent() ? ancestor->parent() : ancestor->active_browsing_context_opener_navigable();
+        if (!ancestor)
+            return {};
+        auto ancestor_origin = ancestor->active_document_origin();
+        if (!ancestor_origin.has_value() || !origin().is_same_origin(*ancestor_origin))
+            return {};
+        auto ancestor_url = ancestor->active_document_url();
+        if (ancestor_url.has_value() && !HTML::url_matches_about_blank(*ancestor_url) && !HTML::url_matches_about_srcdoc(*ancestor_url))
+            return ancestor_url;
+    }
+    return {};
+}
+
 // https://html.spec.whatwg.org/multipage/urls-and-fetching.html#fallback-base-url
 URL::URL Document::fallback_base_url() const
 {

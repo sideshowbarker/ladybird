@@ -19,6 +19,7 @@
 #include <LibURL/Parser.h>
 #include <LibWeb/Bindings/MainThreadVM.h>
 #include <LibWeb/DOM/Document.h>
+#include <LibWeb/Extensions/ExtensionSet.h>
 #include <LibWeb/Fetch/Engine/NetworkTransportHandle.h>
 #include <LibWeb/Fetch/Infrastructure/HTTP/Requests.h>
 #include <LibWeb/Fetch/Infrastructure/NetworkPartitionKey.h>
@@ -29,6 +30,7 @@
 #include <LibWeb/Page/Page.h>
 #include <LibWeb/Platform/EventLoopPlugin.h>
 #include <LibWeb/Platform/Timer.h>
+#include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebCommon/Loader/UserAgent.h>
 
 namespace Web {
@@ -388,6 +390,80 @@ void ResourceLoader::handle_file_load_request(LoadRequest& request, FileHandler 
     page->client().request_file(move(file_request));
 }
 
+// Response headers for an extension's resource: the type guessed from the path, a policy that lets any page embed
+// the resources the extension exposes, and the extension's own content security policy for its documents.
+static NonnullRefPtr<HTTP::HeaderList> response_headers_for_extension_resource(StringView path, Extensions::ExtensionDescriptor const& extension)
+{
+    return HTTP::HeaderList::create({
+        { "Access-Control-Allow-Origin"sv, "*"sv },
+        { "Cross-Origin-Resource-Policy"sv, "cross-origin"sv },
+        { "Content-Security-Policy"sv, extension.extension_pages_csp.to_byte_string() },
+        { "Content-Type"sv, Core::guess_mime_type_based_on_filename(path) },
+    });
+}
+
+template<typename FileHandler, typename ErrorHandler>
+void ResourceLoader::handle_extension_load_request(LoadRequest& request, FileHandler on_file, ErrorHandler on_error)
+{
+    auto page = request.page();
+    if (!page) {
+        on_error(ByteString("INTERNAL ERROR: No Page for extension scheme request"sv));
+        return;
+    }
+
+    auto const& url = request.url().value();
+    auto const* extension = Extensions::ExtensionSet::the().find(url.serialized_host());
+    if (!extension) {
+        on_error(ByteString::formatted("No extension with id {}", url.serialized_host()));
+        return;
+    }
+
+    auto path = MUST(String::from_utf8(url.serialize_path()));
+
+    // The background page is generated from the manifest rather than read from the extension's directory.
+    if (path == Extensions::generated_background_page_path) {
+        if (!extension->has_background) {
+            on_error(ByteString("Extension has no background page"sv));
+            return;
+        }
+        FileLoadResult load_result {
+            .data = extension->background_document_html.bytes(),
+            .response_headers = response_headers_for_extension_resource(path, *extension),
+        };
+        on_file(load_result);
+        return;
+    }
+
+    FileRequest file_request(url.serialize_path(), [on_file, on_error, path, extension_id = extension->id](ErrorOr<i32> file_or_error) mutable {
+        if (file_or_error.is_error()) {
+            on_error(ByteString::formatted("{}", file_or_error.error()));
+            return;
+        }
+        auto maybe_file = Core::File::adopt_fd(file_or_error.value(), Core::File::OpenMode::Read);
+        if (maybe_file.is_error()) {
+            on_error(ByteString::formatted("{}", maybe_file.error()));
+            return;
+        }
+        auto maybe_data = maybe_file.value()->read_until_eof();
+        if (maybe_data.is_error()) {
+            on_error(ByteString::formatted("{}", maybe_data.error()));
+            return;
+        }
+        // The extension set may have been replaced while the file was being opened.
+        auto const* extension = Extensions::ExtensionSet::the().find(extension_id);
+        if (!extension) {
+            on_error(ByteString::formatted("No extension with id {}", extension_id));
+            return;
+        }
+        FileLoadResult load_result {
+            .data = maybe_data.value().bytes(),
+            .response_headers = response_headers_for_extension_resource(path, *extension),
+        };
+        on_file(load_result);
+    });
+    page->client().request_extension_resource(extension->id, path, move(file_request));
+}
+
 template<typename ResourceHandler, typename ErrorHandler>
 void ResourceLoader::handle_about_load_request(LoadRequest const& request, ResourceHandler on_resource, ErrorHandler on_error)
 {
@@ -506,6 +582,22 @@ RefPtr<Fetch::Engine::NetworkTransportHandle> ResourceLoader::load(LoadRequest& 
             [on_complete](ByteString const& message) {
                 Requests::RequestTimingInfo fixme_implement_timing_info {};
                 on_complete->function()(false, fixme_implement_timing_info, StringView(message));
+            });
+        return nullptr;
+    }
+
+    if (url.scheme() == Extensions::scheme) {
+        handle_extension_load_request(
+            request,
+            [request, on_headers_received = move(on_headers_received), on_data_received = move(on_data_received), on_complete](FileLoadResult const& load_result) {
+                log_success(request);
+                on_headers_received->function()(nullptr, load_result.response_headers, {}, {}, {}, {}, Requests::CacheState::NotCached);
+                on_data_received->function()(Requests::ResponseData::from_bytes(load_result.data));
+                on_complete->function()(true, load_result.timing_info, {});
+            },
+            [on_complete, request](ByteString const& message) {
+                log_failure(request, message);
+                on_complete->function()(false, {}, StringView(message));
             });
         return nullptr;
     }

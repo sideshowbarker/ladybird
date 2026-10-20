@@ -873,6 +873,8 @@ public:
     virtual void page_did_consume_user_activation([[maybe_unused]] HTML::UserActivationConsumption consumption) { }
 
     virtual void request_file(FileRequest) = 0;
+    // Asks the UI process for a file of the extension's directory, named by the path of a ladybird-extension:// URL.
+    virtual void request_extension_resource([[maybe_unused]] String const& extension_id, [[maybe_unused]] String const& path, FileRequest file_request) { file_request.on_file_request_finish(Error::from_errno(ENOENT)); }
 
     // https://html.spec.whatwg.org/multipage/input.html#show-the-picker,-if-applicable
     virtual void page_did_request_color_picker([[maybe_unused]] Color current_color) { }

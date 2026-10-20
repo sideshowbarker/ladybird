@@ -1089,6 +1089,10 @@ public:
     HTML::CrossProcessId id() const { return m_id.value(); }
     void set_id(HTML::CrossProcessId);
 
+    // The URL that extension content scripts and resource checks match this document by: its own, or for about:blank
+    // and about:srcdoc, the URL of its nearest same-origin parent or opener that isn't one — never its base URL.
+    Optional<URL::URL> url_for_extension_matching() const;
+
     // https://html.spec.whatwg.org/multipage/dom.html#concept-document-about-base-url
     Optional<URL::URL> about_base_url() const { return m_about_base_url; }
     void set_about_base_url(Optional<URL::URL> url)

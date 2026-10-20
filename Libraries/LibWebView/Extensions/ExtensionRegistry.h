@@ -39,6 +39,7 @@ public:
 
     RefPtr<Extension> find(StringView id) const;
     bool is_enabled(StringView id) const;
+    bool may_access_resource(StringView id, StringView path, URL::URL const& document_url) const;
     Vector<NonnullRefPtr<Extension>> const& extensions() const { return m_extensions; }
     Vector<Web::Extensions::ExtensionDescriptor> enabled_descriptors() const;
 
