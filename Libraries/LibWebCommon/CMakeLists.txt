@@ -5,6 +5,7 @@ set(SOURCES
     CSS/PreferredColorScheme.cpp
     CSS/StyleSheetIdentifier.cpp
     CSS/SystemColor.cpp
+    Extensions/ExtensionDescriptor.cpp
     Extensions/MatchPattern.cpp
     Fetch/Infrastructure/DataURL.cpp
     Fetch/Infrastructure/HTTP/Statuses.cpp
