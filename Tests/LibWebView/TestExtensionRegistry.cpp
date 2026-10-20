@@ -11,6 +11,7 @@
 #include <LibCore/System.h>
 #include <LibFileSystem/FileSystem.h>
 #include <LibTest/TestCase.h>
+#include <LibURL/Parser.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Settings.h>
 
@@ -49,6 +50,28 @@ struct TemporaryDirectory {
 }
 
 static constexpr auto minimal_manifest = R"({ "manifest_version": 3, "name": "Minimal", "version": "1" })"sv;
+
+TEST_CASE(resource_requests_require_enabled_extension_and_page_authorization)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    auto extension = TRY_OR_FAIL(registry.load_unpacked(directory.extension("one"sv, R"({
+        "manifest_version": 3, "name": "Resources", "version": "1",
+        "web_accessible_resources": [{ "resources": ["public/*"], "matches": ["https://allowed.test/*"] }]
+    })"sv)));
+    auto const& id = extension->id();
+    auto allowed = URL::Parser::basic_parse("https://allowed.test/page"sv).release_value();
+    auto unrelated = URL::Parser::basic_parse("https://unrelated.test/page"sv).release_value();
+    auto own = URL::Parser::basic_parse(MUST(String::formatted("ladybird-extension://{}/page.html", id))).release_value();
+    EXPECT(registry.may_access_resource(id, "/public/file.txt"sv, allowed));
+    EXPECT(!registry.may_access_resource(id, "/private.txt"sv, allowed));
+    EXPECT(!registry.may_access_resource(id, "/public/file.txt"sv, unrelated));
+    EXPECT(registry.may_access_resource(id, "/private.txt"sv, own));
+    registry.set_enabled(id, false);
+    EXPECT(!registry.may_access_resource(id, "/private.txt"sv, own));
+    EXPECT(!registry.may_access_resource(id, "/public/file.txt"sv, allowed));
+}
 
 TEST_CASE(load_unpacked_assigns_a_uuid_and_persists)
 {

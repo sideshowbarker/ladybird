@@ -1,0 +1,7 @@
+allowed fetch ok: true
+allowed content-type: image/svg+xml
+allowed body mentions svg: true
+private path: TypeError
+manifest: TypeError
+locked extension: TypeError
+unknown extension: TypeError

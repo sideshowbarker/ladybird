@@ -1,0 +1,9 @@
+{
+    "manifest_version": 3,
+    "name": "Resources Fixture",
+    "version": "1.0",
+    "description": "Serves a page and a web-accessible resource for the extension URL tests.",
+    "web_accessible_resources": [
+        { "resources": ["public/*", "page.html"], "matches": ["<all_urls>"] }
+    ]
+}

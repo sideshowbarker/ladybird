@@ -27,6 +27,7 @@
 #include <LibWeb/ContentSecurityPolicy/BlockingAlgorithms.h>
 #include <LibWeb/DOM/Document.h>
 #include <LibWeb/DOMURL/DOMURL.h>
+#include <LibWeb/Extensions/ExtensionSet.h>
 #include <LibWeb/Fetch/BodyInit.h>
 #include <LibWeb/Fetch/Engine/FetchBodyDeliveryGate.h>
 #include <LibWeb/Fetch/Engine/FetchByteChannel.h>
@@ -87,6 +88,7 @@
 #include <LibWeb/Streams/TransformStream.h>
 #include <LibWeb/UpgradeInsecureRequests/AbstractOperations.h>
 #include <LibWeb/WebIDL/ExceptionOrUtils.h>
+#include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebCommon/Fetch/Infrastructure/DataURL.h>
 #include <LibWebCommon/Fetch/Infrastructure/HTTP/Statuses.h>
 #include <LibWebCommon/Fetch/Infrastructure/URL.h>
@@ -802,8 +804,11 @@ static NonnullRefPtr<PendingResponse> get_response(Infrastructure::FetchParams c
 
     // -> request’s current URL’s scheme is not an HTTP(S) scheme
     // AD-HOC: We allow CORS requests for resource:// URLs from opaque origins to enable requesting JS modules from internal pages.
+    // AD-HOC: We allow CORS requests for ladybird-extension:// URLs: the loader serves a web-accessible resource
+    //         with "Access-Control-Allow-Origin: *" and refuses everything else, so the CORS check below decides.
     if (!Infrastructure::is_http_or_https_scheme(request->current_url().scheme())
-        && !(origin && origin->is_opaque() && request->current_url().scheme() == "resource"sv)) {
+        && !(origin && origin->is_opaque() && request->current_url().scheme() == "resource"sv)
+        && request->current_url().scheme() != Extensions::scheme) {
         // NOTE: At this point all other request modes have been handled. Ensure we're not lying in the error message :^)
         VERIFY(request->mode() == Infrastructure::Request::Mode::CORS);
 
@@ -1860,6 +1865,11 @@ NonnullRefPtr<PendingResponse> scheme_fetch(Infrastructure::FetchParams const& f
 
         response->set_body(Infrastructure::byte_sequence_as_response_body(data_url_struct.value().body));
         return PendingResponse::create(fetch_params, response);
+    }
+    // AD-HOC: "ladybird-extension"
+    else if (request->current_url().scheme() == Extensions::scheme) {
+        // The loader fetch below decides whether this request may load the resource.
+        return nonstandard_resource_loader_file_or_http_network_fetch(fetch_params);
     }
     // -> "file"
     // AD-HOC: "resource"
@@ -2940,6 +2950,31 @@ static void log_response(auto const& status_code, auto const& headers, auto cons
 }
 #endif
 
+// Whether a request may load a ladybird-extension:// URL: an extension's own documents may load anything of it, the
+// browser itself may navigate to any of its pages, and everyone else may load only its web-accessible resources,
+// judged by the URL of the document making the request.
+static bool extension_resource_load_is_allowed(Infrastructure::Request& request)
+{
+    auto const& url = request.current_url();
+    auto const* extension = Extensions::ExtensionSet::the().find(url.serialized_host());
+    if (!extension)
+        return false;
+
+    if (auto const* origin = request.origin().get_pointer<URL::Origin>(); origin && origin->is_same_origin(url.origin()))
+        return true;
+
+    if (!request.client().has_value())
+        return request.mode() == Infrastructure::Request::Mode::Navigate;
+
+    // A client in another process is known only by the context it had when the fetch started.
+    Optional<URL::URL> initiator;
+    if (auto client = resolve_client(request))
+        initiator = client->responsible_document() ? client->responsible_document()->url_for_extension_matching() : Optional<URL::URL> { client->creation_url };
+    else if (auto const& snapshot = request.client_snapshot())
+        initiator = snapshot->creation_url;
+    return initiator.has_value() && extension->is_web_accessible(url.serialize_path(), *initiator);
+}
+
 static URL::URL content_blocker_source_url_for_request(Infrastructure::Request& request)
 {
     if (request.destination().has_value() && request.destination().value() == Infrastructure::Request::Destination::Document)
@@ -3102,6 +3137,9 @@ NonnullRefPtr<PendingResponse> nonstandard_resource_loader_file_or_http_network_
     auto request = fetch_params.request();
     auto* engine_record = fetch_params.engine_record();
     VERIFY(engine_record);
+
+    if (request->current_url().scheme() == Extensions::scheme && !extension_resource_load_is_allowed(request))
+        return PendingResponse::create(fetch_params, Infrastructure::Response::network_error("Request for an extension resource that is not web-accessible blocked"_string));
 
     auto load_request_headers = request->header_list();
     if (g_disk_cache_enabled_for_navigations_for_testing && request->mode() == Infrastructure::Request::Mode::Navigate) {

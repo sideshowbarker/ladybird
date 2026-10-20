@@ -1,0 +1,6 @@
+{
+    "manifest_version": 2,
+    "name": "Locked Fixture",
+    "version": "1.0",
+    "description": "Has no web-accessible resources, so no page may load anything of it."
+}

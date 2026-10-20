@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script>
+    // Dot segments never reach a file outside the web-accessible resources, let alone the extension directory.
+    asyncTest(async done => {
+        const id = internals.extensionId("Resources Fixture");
+        for (const [label, path] of [
+            ["climb above the root", "/../../manifest.json"],
+            ["climb out of the public directory", "/public/../manifest.json"],
+            ["encoded climb out of the public directory", "/public/%2e%2e/manifest.json"],
+            ["encoded slash", "/public/..%2fmanifest.json"],
+            ["uppercase encoded slash", "/public/..%2Fmanifest.json"],
+            ["encoded backslash", "/public/..%5cmanifest.json"],
+            ["encoded NUL", "/public/pic.svg%00.js"],
+            ["climb back into the public directory", "/public/../public/pic.svg"],
+        ]) {
+            try {
+                const response = await fetch(`ladybird-extension://${id}${path}`);
+                println(`${label}: loaded ${new URL(response.url).pathname}`);
+            } catch (e) {
+                println(`${label}: ${e.name}`);
+            }
+        }
+        done();
+    });
+</script>

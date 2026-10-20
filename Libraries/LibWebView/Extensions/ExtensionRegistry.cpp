@@ -6,6 +6,9 @@
 
 #include <AK/Random.h>
 #include <LibFileSystem/FileSystem.h>
+#include <LibURL/URL.h>
+#include <LibWebCommon/Extensions/ResourcePath.h>
+#include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Settings.h>
 
@@ -102,6 +105,16 @@ Vector<Web::Extensions::ExtensionDescriptor> ExtensionRegistry::enabled_descript
             descriptors.append(extension->descriptor());
     }
     return descriptors;
+}
+
+bool ExtensionRegistry::may_access_resource(StringView id, StringView path, URL::URL const& document_url) const
+{
+    auto extension = find(id);
+    if (!extension || !is_enabled(id) || Web::Extensions::canonical_resource_path(path).is_error())
+        return false;
+    if (document_url.scheme() == Web::Extensions::scheme && document_url.serialized_host() == id)
+        return true;
+    return extension->is_web_accessible(path, document_url);
 }
 
 void ExtensionRegistry::notify_changed()
