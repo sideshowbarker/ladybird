@@ -11,12 +11,12 @@
 
 namespace Web::Extensions {
 
-GC::Ref<JS::Object> install_namespace(JS::Realm& realm, ExtensionDescriptor const& descriptor, NamespaceContext context, EventListenerList& on_message_listeners)
+GC::Ref<JS::Object> install_namespace(JS::Realm& realm, MessagingContext& messaging_context, NamespaceContext context)
 {
     auto attributes = JS::Attribute::Writable | JS::Attribute::Configurable;
 
     auto namespace_object = JS::Object::create(realm, realm.intrinsics().object_prototype());
-    namespace_object->define_direct_property("runtime"_utf16_fly_string, create_runtime(realm, descriptor, context, on_message_listeners), attributes);
+    namespace_object->define_direct_property("runtime"_utf16_fly_string, create_runtime(realm, messaging_context, context), attributes);
 
     // Both names refer to the same object, so an extension written against either works.
     auto& global = realm.global_object();
