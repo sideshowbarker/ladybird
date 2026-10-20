@@ -78,6 +78,7 @@
 #include <LibWeb/CSS/StyleEngineInput.h>
 #include <LibWeb/CSS/StyleSheetIdentifier.h>
 #include <LibWeb/CSS/StyleSheetImport.h>
+#include <LibWeb/CSS/StyleSheetInvalidation.h>
 #include <LibWeb/CSS/StyleSheetList.h>
 #include <LibWeb/CSS/StyleSheetState.h>
 #include <LibWeb/CSS/StyleValues/ColorSchemeStyleValue.h>
@@ -138,6 +139,7 @@
 #include <LibWeb/Editing/SpellCheckController.h>
 #include <LibWeb/Editing/SpellingMarkers.h>
 #include <LibWeb/Editing/WritingSuggestionController.h>
+#include <LibWeb/Extensions/ContentScriptInjector.h>
 #include <LibWeb/Extensions/ExtensionWorld.h>
 #include <LibWeb/Fetch/Engine/NetworkTransportHandle.h>
 #include <LibWeb/Fetch/Fetching/Checks.h>
@@ -1087,6 +1089,7 @@ void Document::visit_edges(Cell::Visitor& visitor)
 
     visitor.visit(m_active_view_transition);
     visitor.visit(m_dynamic_view_transition_style_sheet);
+    visitor.visit(m_extension_style_sheets);
 
     for (auto& view_transition : m_update_callback_queue)
         visitor.visit(view_transition);
@@ -5356,6 +5359,8 @@ void Document::completely_finish_loading()
 
     navigable->page().client().page_did_change_hosted_navigable_state(navigable->id(), navigable->hosted_state());
 
+    Extensions::run_content_scripts(*this, Extensions::RunAt::DocumentIdle);
+
     ScopeGuard notify_observers = [this] {
         notify_each_document_observer([&](auto const& document_observer) {
             return document_observer.document_completely_loaded();
@@ -6621,7 +6626,10 @@ void Document::destroy()
     // 6. Run any unloading document cleanup steps for document that are defined by this specification and other applicable specifications.
     run_unloading_cleanup_steps();
 
-    // AD-HOC: An extension world's wrapper cache must be detached before its document goes away.
+    // AD-HOC: An extension world's wrapper cache must be detached before its document goes away, and no content
+    //         script runs in a destroyed document.
+    if (m_content_script_idle_timer)
+        m_content_script_idle_timer->stop();
     detach_extension_worlds();
 
     // AD-HOC: Destruction does not go through did_stop_being_active_document_in_navigable().
@@ -10219,6 +10227,9 @@ GC::Ref<WebIDL::ObservableArray> Document::adopted_style_sheets() const
 
 void Document::for_each_active_css_style_sheet(Function<void(CSS::StyleSheetState&)> const& callback) const
 {
+    for (auto const& sheet : m_extension_style_sheets)
+        callback(*sheet);
+
     for (auto& style_sheet : m_style_scope.style_sheets()) {
         if (!style_sheet->disabled())
             callback(*style_sheet);
@@ -12638,6 +12649,58 @@ void Document::detach_extension_worlds()
     for (auto const& world : m_extension_worlds)
         world.value->detach();
     m_extension_worlds.clear();
+}
+
+void Document::children_changed(ChildrenChangedMetadata const& metadata)
+{
+    Base::children_changed(metadata);
+
+    // The document element has just been created: the document_start point of content scripts.
+    if (metadata.type == ChildrenChangedMetadata::Type::Inserted && document_element() && metadata.node.ptr() == document_element())
+        Extensions::run_content_scripts(*this, Extensions::RunAt::DocumentStart);
+}
+
+void Document::run_content_scripts_for_newly_active_document()
+{
+    // A document that already had its element, or had already completely loaded, before it became fully active (a
+    // navigable's initial about:blank) gets its content scripts now, at every run_at point it has reached.
+    if (!document_element())
+        return;
+    Extensions::run_content_scripts(*this, is_completely_loaded() ? Extensions::RunAt::DocumentIdle : Extensions::RunAt::DocumentStart);
+}
+
+void Document::schedule_content_script_idle_point()
+{
+    if (content_scripts_ran_at(Extensions::RunAt::DocumentIdle))
+        return;
+    // Idle is 200 ms after DOMContentLoaded, or load completion, whichever comes first.
+    m_content_script_idle_timer = Core::Timer::create_single_shot(AK::Duration::from_milliseconds(200), [this] {
+        Extensions::run_content_scripts(*this, Extensions::RunAt::DocumentIdle);
+    });
+    m_content_script_idle_timer->start();
+}
+
+void Document::add_extension_style_sheet(Utf16String const& source, URL::URL const& url)
+{
+    auto sheet = parse_css_stylesheet(CSS::Parser::ParsingParams { *this }, source.utf16_view(), url);
+    sheet->add_owning_document_or_shadow_root(*this);
+    m_extension_style_sheets.append(sheet);
+    sheet->load_pending_image_resources(*this);
+    sheet->evaluate_media_queries(*this);
+
+    CSS::StyleSheetState* following = nullptr;
+    bool found = false;
+    for_each_active_css_style_sheet([&](auto& candidate) {
+        if (found && !following)
+            following = &candidate;
+        if (&candidate == sheet.ptr())
+            found = true;
+    });
+    CSS::record_stylesheet_attached(*sheet, *this, following);
+    CSS::record_stylesheet_conditions(*sheet, *this, sheet->native_media_list().matches());
+    CSS::invalidate_rule_cache_after_style_sheet_change(*this, *sheet);
+    fonts()->synchronize_css_connected_font_order();
+    record_style_environment_change();
 }
 
 }

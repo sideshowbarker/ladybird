@@ -1173,6 +1173,11 @@ void LocalNavigable::initialize_navigable(NonnullRefPtr<DocumentState> document_
     //         top-level traversable by the window handle it gets once it is created, so it does that once it has one.
     if (WebDriver::BiDi::is_active() && !is_top_level_traversable() && !is_stand_in)
         WebDriver::BiDi::document_is_ready_for_scripts(document);
+
+    // The document is fully active only now that its navigable exists; any content scripts it has reached run here. A
+    // stand-in's document holds the place of one another process runs scripts in, so it gets none.
+    if (!is_stand_in)
+        document->run_content_scripts_for_newly_active_document();
 }
 
 // AD-HOC: The debug settings and the compositor tree are per page, so a child navigable starts from its parent's. A

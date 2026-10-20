@@ -351,6 +351,7 @@ set(SOURCES
     EventTiming/PerformanceEventTiming.cpp
     Extensions/API/Event.cpp
     Extensions/API/Runtime.cpp
+    Extensions/ContentScriptInjector.cpp
     Extensions/ExtensionSet.cpp
     Extensions/ExtensionWorld.cpp
     Extensions/Namespace.cpp

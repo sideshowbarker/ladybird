@@ -1,0 +1,12 @@
+{
+    "manifest_version": 3,
+    "name": "Run At Fixture",
+    "version": "1.0",
+    "description": "Content scripts at each run_at point, plus a style sheet, for the injection tests.",
+    "content_scripts": [
+        { "matches": ["file:///*/Extensions/run-at-order.html", "file:///*/Extensions/idle-timer-after-document-destroyed.html?child"], "js": ["start.js"], "run_at": "document_start", "all_frames": true },
+        { "matches": ["file:///*/Extensions/run-at-order.html", "file:///*/Extensions/idle-timer-after-document-destroyed.html?child"], "js": ["end.js"], "run_at": "document_end", "all_frames": true },
+        { "matches": ["file:///*/Extensions/run-at-order.html", "file:///*/Extensions/idle-timer-after-document-destroyed.html?child"], "js": ["idle.js"], "run_at": "document_idle", "all_frames": true },
+        { "matches": ["file:///*/Extensions/css-injection.html"], "css": ["style.css"], "js": ["css-done.js"], "run_at": "document_end" }
+    ]
+}
