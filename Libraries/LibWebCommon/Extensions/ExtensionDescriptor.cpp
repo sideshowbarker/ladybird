@@ -6,7 +6,36 @@
 
 #include <LibIPC/Decoder.h>
 #include <LibIPC/Encoder.h>
+#include <LibURL/URL.h>
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
+#include <LibWebCommon/Extensions/ResourcePath.h>
+
+namespace Web::Extensions {
+
+bool ExtensionDescriptor::is_web_accessible(StringView url_path, URL::URL const& initiator) const
+{
+    auto relative_path = canonical_resource_path(url_path);
+    if (relative_path.is_error())
+        return false;
+    for (auto const& resource : web_accessible_resources) {
+        bool path_allowed = false;
+        for (auto const& glob : resource.resource_globs) {
+            if (glob_matches(glob, relative_path.value())) {
+                path_allowed = true;
+                break;
+            }
+        }
+        if (!path_allowed)
+            continue;
+        for (auto const& pattern : resource.matches) {
+            if (pattern.matches(initiator))
+                return true;
+        }
+    }
+    return false;
+}
+
+}
 
 namespace IPC {
 

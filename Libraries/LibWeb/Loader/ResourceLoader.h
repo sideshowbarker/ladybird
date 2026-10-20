@@ -97,6 +97,8 @@ private:
     };
     template<typename FileHandler, typename ErrorHandler>
     void handle_file_load_request(LoadRequest& request, FileHandler on_file, ErrorHandler on_error);
+    template<typename FileHandler, typename ErrorHandler>
+    void handle_extension_load_request(LoadRequest& request, FileHandler on_file, ErrorHandler on_error);
     template<typename ResourceHandler>
     void handle_about_load_request(LoadRequest const& request, ResourceHandler on_resource, GC::Ref<GC::Function<void(ByteString const&)>> on_error);
     template<typename ResourceHandler, typename ErrorHandler>

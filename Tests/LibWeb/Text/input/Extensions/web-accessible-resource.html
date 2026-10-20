@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script>
+    // Only the resources an extension lists as web-accessible load from a web page.
+    asyncTest(async done => {
+        const resources = internals.extensionId("Resources Fixture");
+        const locked = internals.extensionId("Locked Fixture");
+
+        const allowed = await fetch(`ladybird-extension://${resources}/public/pic.svg`);
+        println(`allowed fetch ok: ${allowed.ok}`);
+        println(`allowed content-type: ${allowed.headers.get("content-type")}`);
+        println(`allowed body mentions svg: ${(await allowed.text()).includes("<svg")}`);
+
+        for (const [label, url] of [
+            ["private path", `ladybird-extension://${resources}/private/secret.txt`],
+            ["manifest", `ladybird-extension://${resources}/manifest.json`],
+            ["locked extension", `ladybird-extension://${locked}/public/pic.svg`],
+            ["unknown extension", `ladybird-extension://00000000-0000-0000-0000-000000000000/public/pic.svg`],
+        ]) {
+            try {
+                const response = await fetch(url);
+                println(`${label}: loaded, status ${response.status}`);
+            } catch (e) {
+                println(`${label}: ${e.name}`);
+            }
+        }
+        done();
+    });
+</script>

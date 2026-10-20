@@ -1,0 +1,3 @@
+id looks like a UUID: true
+title: Extension Page
+origin is the extension's: true
