@@ -116,6 +116,7 @@ struct BrowserOptions {
     // How much memory a WebContent process may use before it is ended. Zero means that there is no limit, and no value
     // means the default limit for this machine.
     Optional<u64> web_content_memory_limit_in_bytes {};
+    Vector<ByteString> extension_directories {};
 };
 
 enum class HTTPDiskCacheMode {

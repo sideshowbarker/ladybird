@@ -59,6 +59,7 @@ class RequestServerInstance;
 class RequestServerManager;
 class RequestServerSiteBindings;
 class PermissionManager;
+class ExtensionRegistry;
 class Settings;
 class CertificateUI;
 class SettingsUI;

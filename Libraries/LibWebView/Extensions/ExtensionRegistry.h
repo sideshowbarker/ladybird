@@ -23,6 +23,8 @@ namespace WebView {
 // The extensions the user has loaded, in install order. Each one is persisted in Settings as its id, its
 // directory, and whether it is enabled; the registry reloads them from disk at startup.
 class WEBVIEW_API ExtensionRegistry {
+    AK_ALLOC_WITH_KMALLOC;
+
 public:
     explicit ExtensionRegistry(Settings&);
 

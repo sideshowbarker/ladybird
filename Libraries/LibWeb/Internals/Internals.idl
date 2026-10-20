@@ -31,6 +31,9 @@ interface Internals {
     undefined setFontDisplayTime(FontFace fontFace, unsigned long milliseconds);
     DOMString setTimeZone(DOMString timeZone);
 
+    // The id of the loaded extension with the given manifest name, or the empty string.
+    DOMString extensionId(DOMString name);
+
     undefined gc();
 
     // How many worker agents are alive in this process. One that a worker's owner let go of still counts until its
