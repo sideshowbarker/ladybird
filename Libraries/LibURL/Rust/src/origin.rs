@@ -247,6 +247,11 @@ impl<Serialization: AsRef<str>> Url<Serialization> {
             // AD-HOC: resource:// URLs are internal browser resources; give them a shared tuple origin
             // so that same-origin checks pass between any two resource:// documents or worker scripts.
             "resource" => Origin::new_tuple("resource", empty_host(), None),
+            // AD-HOC: An extension's pages share one tuple origin per extension, whose host is the extension's id, so
+            // an extension's documents are same-origin with each other and with nothing else.
+            "ladybird-extension" if self.serialized_host().is_some() => {
+                Origin::new_tuple("ladybird-extension", self.host(), None)
+            }
             // -> "file"
             "file" => {
                 // Unfortunate as it is, this is left as an exercise to the reader. When in doubt, return a new opaque origin.
