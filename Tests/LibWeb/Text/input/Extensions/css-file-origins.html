@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<style>
+    .target { color: red; }
+    #equal { color: blue; }
+</style>
+<div id="author" class="target"></div>
+<div id="important" style="color: green !important"></div>
+<div id="order"></div><div id="separate"></div><div id="equal"></div><div id="media"></div>
+<div id="first-url"></div><div id="second-url"></div>
+<script>
+    asyncTest(done => {
+        document.addEventListener("extension-css-ready", () => {
+            for (const id of ["author", "important", "order", "separate", "equal", "media"])
+                println(`${id}: ${getComputedStyle(document.getElementById(id)).color}`);
+            const extensionId = internals.extensionId("CSS Files Fixture");
+            for (const [id, path] of [["first-url", "a/first.svg"], ["second-url", "b/second.svg"]])
+                println(`${id}: ${getComputedStyle(document.getElementById(id)).backgroundImage.includes(`ladybird-extension://${extensionId}/${path}`)}`);
+            done();
+        });
+    });
+</script>

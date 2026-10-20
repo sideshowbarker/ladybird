@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<body>
+<script>
+    // exclude_matches wins over "matches", judged on the path and query of each frame's own URL.
+    if (location.search !== "") {
+        // A child frame: report what the content script left behind, once the document_end point has passed.
+        window.addEventListener("load", () => {
+            parent.postMessage({ query: location.search, included: document.documentElement.dataset.included }, "*");
+        });
+    } else {
+        asyncTest(async done => {
+            await new Promise(resolve => window.addEventListener("load", resolve));
+            const reports = {};
+            const received = new Promise(resolve => {
+                window.addEventListener("message", event => {
+                    reports[event.data.query] = event.data.included;
+                    if (Object.keys(reports).length === 2)
+                        resolve();
+                });
+            });
+            for (const query of ["?included", "?excluded"]) {
+                const iframe = document.createElement("iframe");
+                iframe.src = location.href + query;
+                document.body.append(iframe);
+            }
+            await received;
+            println(`top: included=${document.documentElement.dataset.included}`);
+            println(`?included frame: included=${reports["?included"]}`);
+            println(`?excluded frame: included=${reports["?excluded"]}`);
+            done();
+        });
+    }
+</script>
+</body>

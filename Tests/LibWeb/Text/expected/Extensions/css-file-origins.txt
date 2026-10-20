@@ -1,0 +1,8 @@
+author: rgb(0, 128, 0)
+important: rgb(0, 128, 0)
+order: rgb(0, 0, 255)
+separate: rgb(0, 128, 0)
+equal: rgb(0, 0, 255)
+media: rgb(0, 0, 255)
+first-url: true
+second-url: true

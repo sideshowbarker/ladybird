@@ -1,0 +1,4 @@
+start: body absent, readyState loading
+start ran 1 time(s)
+end: readyState interactive, after start true
+idle: readyState complete, after end true

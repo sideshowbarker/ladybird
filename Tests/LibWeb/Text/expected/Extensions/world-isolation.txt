@@ -1,0 +1,7 @@
+content script saw window.pageSecret as: undefined
+content script saw body expando as: undefined
+content script's namespace: object true
+content script saw the page's DOM: true
+page sees window.extensionSecret as: undefined
+page sees body expando as: undefined
+page sees browser as: undefined
