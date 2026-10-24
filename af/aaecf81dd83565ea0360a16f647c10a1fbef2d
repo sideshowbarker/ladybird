@@ -17,9 +17,9 @@ event, just as it does in Ladybird.
 WebKit offers a suggestion only where both VisibleSelection::
 canEnableWritingSuggestions() and Element::isWritingSuggestionsEnabled()
 allow one. Ladybird’s WritingSuggestionController::is_eligible() follows
-the latter, autocomplete=off and all, but also allows the Telephone
-input type, which the spec now lists and WebKit’s HTMLInputElement::
-supportsWritingSuggestions() doesn’t.
+the latter, including its autocomplete=off check. But it also allows
+the Telephone input type, which the spec now lists and WebKit’s
+HTMLInputElement::supportsWritingSuggestions() doesn’t.
 
 WebKit keeps the suggestion out of its accessibility text runs, in
 AccessibilityRenderObject’s shouldExcludeTextRunsForPseudoElement().
