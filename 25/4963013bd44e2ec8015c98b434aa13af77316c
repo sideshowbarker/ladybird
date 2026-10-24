@@ -1,6 +1,8 @@
 Ladybird binds Reload Without Cache to Option-Command-R and Command-
 Shift-R on macOS, and to Ctrl-Shift-R and Ctrl-F5 on other platforms.
-And a Shift-click on the Reload button runs it too.
+And a Shift-click on the Reload button runs it too. But on the Stop
+button that takes its place while a page loads, a Shift-click stops the
+load, the same as in Chrome.
 
 Option-Command-R is Safari’s binding. Chrome binds Command-Shift-R on
 macOS (accelerators_cocoa.mm), and Ctrl-Shift-R, Ctrl-F5, and Shift-F5
