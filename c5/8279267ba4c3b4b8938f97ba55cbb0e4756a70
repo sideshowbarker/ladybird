@@ -1,0 +1,7 @@
+The UI process knows a message is the background page’s by the view the
+page is in, not by its path, as WebKit’s WebExtensionContext::
+runtimeSendMessage() fills in sender details from its own state. A
+reload replaces the background view, as WebKit’s WebExtensionContext::
+unload() unloads the old background content, and a failed load settles
+the waiting messages, as WebKit’s didFailNavigation() unloads a
+background that failed to load.
