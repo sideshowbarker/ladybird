@@ -58,6 +58,7 @@ class Extension;
 class ExtensionBackgroundHost;
 class ExtensionMessageBroker;
 class ExtensionRegistry;
+class ExtensionStorageStore;
 class Settings;
 class SettingsUI;
 class SpellChecker;

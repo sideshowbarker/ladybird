@@ -11,6 +11,7 @@ set(TEST_SOURCES
     TestExtensionManifest.cpp
     TestExtensionMessageBroker.cpp
     TestExtensionRegistry.cpp
+    TestExtensionStorageStore.cpp
     TestExternalURLHandler.cpp
     TestFaviconStore.cpp
     TestHistoryStore.cpp
@@ -60,7 +61,7 @@ foreach(source IN LISTS TEST_SOURCES)
     if (source STREQUAL "TestProfile.cpp" OR source STREQUAL "TestDownloadSegmentation.cpp")
         list(APPEND test_libraries LibHTTP)
     endif()
-    if (source STREQUAL "TestExtensionManifest.cpp" OR source STREQUAL "TestExtensionRegistry.cpp" OR source STREQUAL "TestExtensionMessageBroker.cpp")
+    if (source STREQUAL "TestExtensionStorageStore.cpp" OR source STREQUAL "TestExtensionManifest.cpp" OR source STREQUAL "TestExtensionRegistry.cpp" OR source STREQUAL "TestExtensionMessageBroker.cpp")
         list(APPEND test_libraries LibCore LibFileSystem LibWebCommon)
     endif()
     if (source STREQUAL "TestFontService.cpp")
