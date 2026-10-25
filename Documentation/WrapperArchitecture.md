@@ -48,9 +48,10 @@ violation; cross-agent object graphs are not directly shared.
 
 Generated bindings make one realm decision per IDL member. Instance members
 default to the validated receiver realm; static members, constructors, and
-namespace members use the caller/current realm; `[NeedsCallerRealm]` is the
-single opt-out for instance members whose observable allocation realm is the
-caller realm.
+namespace members use the caller/current realm; `[NeedsCallerRealm]` opts out
+for instance members whose observable allocation realm is the caller realm.
+`[CloneAcrossWorlds]` selects caller-realm cloning in bindings for stored JS
+values, without passing a realm to implementation getters.
 
 The detailed policy, including exception wrapping and current opt-out
 categories, lives in

@@ -1,0 +1,28 @@
+page received startup error: false
+own startup error: initial private exception
+page detail: 42/true/object
+page function detail: null
+page error: 42/true/object
+page function error: null
+page data: 42/true/object
+page function data: null
+page state: 42/true/object
+page function state: null
+extension detail: 42/true/undefined
+extension detail: null
+extension error: 42/true/undefined
+extension error: null
+extension data: 42/true/undefined
+extension data: null
+extension state: 42/true/undefined
+extension state: null
+same world detail: true
+same world error: true
+same world data: true
+same world state: true
+extension history: 42/true/undefined
+extension history identity: true
+page history: 43/true/object
+page history identity: true
+own error: private exception
+page received error: false

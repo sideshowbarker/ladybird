@@ -25,7 +25,7 @@ def member_realm_expr(
     if is_static or interface.is_namespace:
         return "realm"
 
-    if "NeedsCallerRealm" in member.extended_attributes:
+    if any(name in member.extended_attributes for name in ("NeedsCallerRealm", "CloneAcrossWorlds", "FilterErrorEventByWorld")):
         return "realm"
 
     return "this_object_realm"

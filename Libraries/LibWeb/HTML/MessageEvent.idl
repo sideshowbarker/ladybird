@@ -6,7 +6,7 @@ typedef (WindowProxy or MessagePort) MessageEventSource;
 interface MessageEvent : Event {
     constructor(DOMString type, optional MessageEventInit eventInitDict = {});
 
-    readonly attribute any data;
+    [CloneAcrossWorlds] readonly attribute any data;
     readonly attribute USVString origin;
     readonly attribute DOMString lastEventId;
     readonly attribute MessageEventSource? source;

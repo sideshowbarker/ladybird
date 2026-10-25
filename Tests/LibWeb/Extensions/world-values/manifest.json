@@ -1,0 +1,6 @@
+{
+    "manifest_version": 3,
+    "name": "World Values Fixture",
+    "version": "1",
+    "content_scripts": [{ "matches": ["file:///*/Extensions/world-values.html"], "js": ["content.js"], "run_at": "document_end" }]
+}
