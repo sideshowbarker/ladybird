@@ -83,7 +83,7 @@ Match patterns follow the usual grammar: `<all_urls>`, or `<scheme>://<host><pat
 
 ### The `runtime` API
 
-`browser.runtime.sendMessage(message)` serializes the message as JSON and returns a promise. The message goes to each of the extension’s own pages that’s open — its background page, and any other page at its `ladybird-extension://` URL — except the one sending it; a content script never receives a runtime message. The promise resolves with the first reply, or with `undefined` once every listener has declined, and a message that can’t be serialized (a function, a cycle) rejects it.
+`browser.runtime.sendMessage(message)` serializes the message as JSON and returns a promise. The message goes to each of the extension’s own pages that’s open — its background page, and any other page at its `ladybird-extension://` URL — except the one sending it; a content script never receives a runtime message. The promise rejects with “Could not establish connection. Receiving end does not exist.” when no receiving context has a listener, including when its background page fails to start. Otherwise, it resolves with the first reply, or with `undefined` once every listener has declined, and a message that can’t be serialized (a function, a cycle) rejects it.
 
 The extension’s own id may come before the message, and an options object after it (empty, or with an `includeTlsChannelId` boolean, which does nothing); the id of another extension is an error, since there’s no messaging between extensions. With a callback as the last argument, `sendMessage()` returns `undefined` and calls the callback with the reply instead, and when the call fails, `runtime.lastError` is an object with a `message` while that callback runs — and `undefined` at any other time.
 

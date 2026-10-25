@@ -3,8 +3,24 @@
     "name": "Messaging Fixture",
     "version": "1.0",
     "description": "A background page and a content script that exchange runtime messages.",
-    "background": { "scripts": ["bg.js"] },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
     "content_scripts": [
-        { "matches": ["file:///*/Extensions/send-message-*.html", "file:///*/Extensions/background-to-content.html"], "js": ["cs.js"], "run_at": "document_end" }
+        {
+            "matches": [
+                "file:///*/Extensions/send-message-*.html",
+                "file:///*/Extensions/background-to-content.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end",
+            "exclude_matches": [
+                "file:///*/Extensions/send-message-no-listener.html"
+            ]
+        }
     ]
 }

@@ -284,9 +284,9 @@ private:
     virtual void did_create_extension_context(String extension_id, u64 context_id, Web::HTML::CrossProcessId document_id, u64 revision) override;
     virtual void did_destroy_extension_context(String extension_id, u64 context_id) override;
     virtual void did_send_extension_runtime_message(String extension_id, u64 request_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id) override;
-    virtual void did_reply_to_extension_runtime_message(u64 dispatch_id, Optional<String> reply_json) override;
+    virtual void did_reply_to_extension_runtime_message(u64 dispatch_id, Web::Extensions::MessageResult reply_json) override;
     virtual void dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Web::Extensions::MessageSender const&, String const& message_json, u64 context_id) override;
-    virtual void complete_extension_runtime_message(u64 request_id, Optional<String> const& reply_json) override;
+    virtual void complete_extension_runtime_message(u64 request_id, Web::Extensions::MessageResult const& reply_json) override;
     virtual void did_request_color_picker(Color current_color) override;
     virtual void did_request_geolocation_position(u64 request_id, Web::HTML::CrossProcessId document_id) override;
     virtual void did_cancel_geolocation_position_request(u64 request_id) override;

@@ -1914,7 +1914,7 @@ void Page::dispatch_extension_runtime_message(String const& extension_id, u64 di
     Extensions::MessageRouter::the().dispatch(*this, extension_id, dispatch_id, sender, message_json, context_id);
 }
 
-void Page::complete_extension_runtime_message(u64 request_id, Optional<String> const& reply_json)
+void Page::complete_extension_runtime_message(u64 request_id, Web::Extensions::MessageResult const& reply_json)
 {
     Extensions::MessageRouter::the().complete(*this, request_id, reply_json);
 }

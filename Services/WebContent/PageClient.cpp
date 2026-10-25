@@ -1969,7 +1969,7 @@ void PageClient::page_did_send_extension_runtime_message(String const& extension
     client().async_did_send_extension_runtime_message(m_id, extension_id, request_id, sender, message_json, context_id);
 }
 
-void PageClient::page_did_reply_to_extension_runtime_message(u64 dispatch_id, Optional<String> const& reply_json)
+void PageClient::page_did_reply_to_extension_runtime_message(u64 dispatch_id, Web::Extensions::MessageResult const& reply_json)
 {
     client().async_did_reply_to_extension_runtime_message(m_id, dispatch_id, reply_json);
 }

@@ -7,6 +7,7 @@ set(SOURCES
     CSS/SystemColor.cpp
     Extensions/ExtensionDescriptor.cpp
     Extensions/MatchPattern.cpp
+    Extensions/MessageResult.cpp
     Extensions/MessageSender.cpp
     Extensions/ResourcePath.cpp
     Fetch/Infrastructure/DataURL.cpp

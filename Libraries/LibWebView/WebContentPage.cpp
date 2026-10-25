@@ -1733,7 +1733,7 @@ void WebContentPage::did_send_extension_runtime_message(String extension_id, u64
     Application::extension_message_broker().send(*this, extension_id, request_id, sender, message_json, context_id);
 }
 
-void WebContentPage::did_reply_to_extension_runtime_message(u64 dispatch_id, Optional<String> reply_json)
+void WebContentPage::did_reply_to_extension_runtime_message(u64 dispatch_id, Web::Extensions::MessageResult reply_json)
 {
     Application::extension_message_broker().reply(*this, dispatch_id, reply_json);
 }
@@ -1743,7 +1743,7 @@ void WebContentPage::dispatch_extension_runtime_message(String const& extension_
     async_dispatch_extension_runtime_message(extension_id, dispatch_id, sender, message_json, context_id);
 }
 
-void WebContentPage::complete_extension_runtime_message(u64 request_id, Optional<String> const& reply_json)
+void WebContentPage::complete_extension_runtime_message(u64 request_id, Web::Extensions::MessageResult const& reply_json)
 {
     async_extension_runtime_message_reply(request_id, reply_json);
 }
