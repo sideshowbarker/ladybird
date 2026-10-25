@@ -636,6 +636,7 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_bookmark_store = make<BookmarkStore>(BookmarkStore::create(LexicalPath::join(profile().paths().config, "Bookmarks.json"sv).string()));
     m_extension_registry = make<ExtensionRegistry>(*m_settings);
     m_extension_storage_store = make<ExtensionStorageStore>(profile().paths().data);
+    m_extension_registry->set_storage_store(*m_extension_storage_store);
     m_extension_message_broker = make<ExtensionMessageBroker>();
     m_extension_background_host = make<ExtensionBackgroundHost>();
     m_extension_background_host->prepare(*m_extension_registry);
