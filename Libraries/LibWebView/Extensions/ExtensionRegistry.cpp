@@ -65,6 +65,23 @@ void ExtensionRegistry::set_enabled(StringView id, bool enabled)
     notify_changed();
 }
 
+bool ExtensionRegistry::is_allowed_in_private(StringView id) const
+{
+    for (auto const& installed : m_settings.installed_extensions()) {
+        if (installed.id == id)
+            return installed.allowed_in_private;
+    }
+    return false;
+}
+
+void ExtensionRegistry::set_allowed_in_private(StringView id, bool allowed)
+{
+    if (!find(id) || is_allowed_in_private(id) == allowed)
+        return;
+    m_settings.set_installed_extension_allowed_in_private(id, allowed);
+    notify_changed();
+}
+
 void ExtensionRegistry::restore_from_settings()
 {
     Vector<String> ids_to_forget;
@@ -100,30 +117,30 @@ bool ExtensionRegistry::is_enabled(StringView id) const
     return false;
 }
 
-Vector<Web::Extensions::ExtensionDescriptor> ExtensionRegistry::enabled_descriptors() const
+Vector<Web::Extensions::ExtensionDescriptor> ExtensionRegistry::enabled_descriptors(IsPrivate is_private) const
 {
     Vector<Web::Extensions::ExtensionDescriptor> descriptors;
     for (auto const& extension : m_extensions) {
-        if (is_enabled(extension->id()))
+        if (is_enabled(extension->id()) && (is_private == IsPrivate::No || is_allowed_in_private(extension->id())))
             descriptors.append(extension->descriptor());
     }
     return descriptors;
 }
 
-bool ExtensionRegistry::may_access_resource(StringView id, StringView path, URL::URL const& document_url) const
+bool ExtensionRegistry::may_access_resource(StringView id, StringView path, URL::URL const& document_url, IsPrivate is_private) const
 {
     auto extension = find(id);
-    if (!extension || !is_enabled(id) || Web::Extensions::canonical_resource_path(path).is_error())
+    if (!extension || !is_enabled(id) || (is_private == IsPrivate::Yes && !is_allowed_in_private(id)) || Web::Extensions::canonical_resource_path(path).is_error())
         return false;
     if (document_url.scheme() == Web::Extensions::scheme && document_url.serialized_host() == id)
         return true;
     return extension->is_web_accessible(path, document_url);
 }
 
-bool ExtensionRegistry::may_create_context(StringView id, URL::URL const& document_url, bool is_top_level, bool inherited) const
+bool ExtensionRegistry::may_create_context(StringView id, URL::URL const& document_url, bool is_top_level, bool inherited, IsPrivate is_private) const
 {
     auto extension = find(id);
-    if (!extension || !is_enabled(id))
+    if (!extension || !is_enabled(id) || (is_private == IsPrivate::Yes && !is_allowed_in_private(id)))
         return false;
     if (!inherited && document_url.scheme() == Web::Extensions::scheme && document_url.serialized_host() == id)
         return true;
