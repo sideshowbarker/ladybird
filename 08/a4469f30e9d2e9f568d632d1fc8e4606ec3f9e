@@ -1,0 +1,18 @@
+Ladybird’s sendMessage() sorts out its arguments the way Blink’s
+RuntimeHooksDelegate::HandleSendMessage() does, and so does Gecko’s
+parseBonkersArgs(), except that it reads an ambiguous two-argument
+call as a message and options. Ladybird accepts the includeTlsChannelId
+option, which does nothing, as Blink does; Gecko accepts only empty
+options, and WebKit ignores them.
+
+runtime.lastError holds an error only while the callback of a failed
+call runs, as in Blink’s APIRequestHandler::AsyncResultHandler::
+ResolveRequest(), Gecko’s BaseContext::withLastError(), and WebKit’s
+WebExtensionAPIRuntimeBase::reportError().
+
+A context that goes away drops its pending calls and declines the
+answers it owed. Blink’s ExtensionMessagePort::Prune() removes a
+disconnected frame’s receivers and their pending responses, and Gecko’s
+recvConduitClosed() closes the context’s port. WebKit’s one-shot path
+ties replies to a ReplyCallbackAggregator its callbacks hold, rather
+than to a per-document map.
