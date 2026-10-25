@@ -33,6 +33,10 @@ public:
     class Endpoint {
     public:
         virtual ~Endpoint() = default;
+        virtual void dispatch_extension_runtime_connect(u64 context_id, u64 channel_id, u64 port_id, String const& name, Web::Extensions::MessageSender const&) = 0;
+        virtual void complete_extension_runtime_connect(u64 context_id, u64 port_id, u64 channel_id, Optional<String> const& error) = 0;
+        virtual void dispatch_extension_port_message(u64 context_id, u64 channel_id, u64 port_id, String const& json) = 0;
+        virtual void dispatch_extension_port_disconnect(u64 context_id, u64 port_id, Optional<String> const& error) = 0;
         virtual bool extension_has_permission(String const&, StringView) const { return false; }
         virtual void complete_extension_storage(u64, Web::Extensions::StorageResult const&) { }
         virtual void dispatch_extension_storage_changed(String const&, String const&) { }
@@ -53,6 +57,13 @@ public:
     void reply(Endpoint& target, u64 dispatch_id, Web::Extensions::MessageResult const& reply_json);
 
     void request_storage(Endpoint&, u64 context_id, u64 request_id, Web::Extensions::StorageRequest const&, ExtensionStorageStore&);
+
+    void connect(Endpoint&, u64 context_id, u64 port_id, Optional<String> target_extension_id, String name);
+    void connect_ack(Endpoint&, u64 context_id, u64 channel_id, bool accepted);
+    void port_post_message(Endpoint&, u64 context_id, u64 channel_id, u64 port_id, String json);
+    void port_disconnect(Endpoint&, u64 context_id, u64 channel_id, u64 port_id);
+    void close_channels_for(String const& extension_id);
+    bool has_open_channels(String const& extension_id) const;
 
 private:
     struct Context;
@@ -75,11 +86,42 @@ private:
         String extension_id;
         Web::HTML::CrossProcessId document_id;
         u64 revision;
+        HashMap<u64, u64> ports;
     };
     struct Target {
         Endpoint* endpoint;
         u64 context_id;
     };
+    struct PortEndpoint {
+        Endpoint* endpoint;
+        u64 context_id;
+        u64 port_id;
+        bool background { false };
+        bool dispatched { false };
+        bool acknowledged { false };
+    };
+    struct Channel {
+        String extension_id;
+        u64 revision;
+        String name;
+        Web::Extensions::MessageSender sender;
+        PortEndpoint opener;
+        HashMap<u64, PortEndpoint> receivers;
+        Vector<String> queued_messages;
+        size_t outstanding { 0 };
+        bool waiting_for_background { false };
+        bool opening { true };
+        bool had_receiver { false };
+    };
+    bool owns_port(Endpoint&, u64 context_id, u64 channel_id, u64 port_id) const;
+    void dispatch_connect(u64 channel_id);
+    void finish_opening(u64 channel_id);
+    void remove_port(u64 channel_id, PortEndpoint const&);
+    void forget_port(u64 channel_id, PortEndpoint const&);
+    void close_channel(u64 channel_id, Optional<String> error = {}, bool notify_opener = true);
+    HashMap<u64, Channel> m_channels;
+    u64 m_next_channel_id { 1 };
+    u64 m_next_receiver_port_id { 1ull << 63 };
     HashMap<Endpoint*, HashMap<u64, Context>> m_contexts;
     HashMap<u64, PendingRequest> m_pending_requests;
     // Each dispatch id maps to the pending request it belongs to and the endpoint it went to.

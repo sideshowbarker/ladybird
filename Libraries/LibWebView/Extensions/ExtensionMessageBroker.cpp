@@ -122,7 +122,7 @@ void ExtensionMessageBroker::context_created(Endpoint& endpoint, String const& e
         return;
     auto& contexts = m_contexts.ensure(&endpoint);
     if (!contexts.contains(context_id))
-        contexts.set(context_id, Context { extension_id, document_id, revision });
+        contexts.set(context_id, Context { extension_id, document_id, revision, {} });
 }
 
 void ExtensionMessageBroker::context_destroyed(Endpoint& endpoint, String const& extension_id, u64 context_id)
@@ -133,7 +133,10 @@ void ExtensionMessageBroker::context_destroyed(Endpoint& endpoint, String const&
     auto context = contexts->get(context_id);
     if (!context.has_value() || context->extension_id != extension_id)
         return;
+    auto ports = context->ports;
     contexts->remove(context_id);
+    for (auto const& [channel_id, port_id] : ports)
+        remove_port(channel_id, { &endpoint, context_id, port_id });
     m_queued_messages.remove_all_matching([&](auto const& message) {
         return message.source == &endpoint && message.context_id == context_id;
     });
@@ -204,6 +207,17 @@ void ExtensionMessageBroker::background_finished(String const& extension_id, u64
         messages.append(message);
         return true;
     });
+    Vector<u64> channels;
+    for (auto const& [id, channel] : m_channels) {
+        if (channel.extension_id == extension_id && channel.revision == revision && channel.waiting_for_background)
+            channels.append(id);
+    }
+    for (auto id : channels) {
+        if (success)
+            dispatch_connect(id);
+        else
+            close_channel(id, "Could not establish connection. Receiving end does not exist."_string);
+    }
     for (auto const& message : messages) {
         // An earlier completion can destroy another queued sender.
         auto contexts = m_contexts.get(message.source);
@@ -316,6 +330,232 @@ void ExtensionMessageBroker::decline(u64 pending_id)
         return;
     if (--pending->outstanding == 0)
         settle(pending_id, pending->had_listener ? MessageResult { MessageResult::NoReply {} } : MessageResult::no_receiver());
+}
+
+bool ExtensionMessageBroker::owns_port(Endpoint& endpoint, u64 context_id, u64 channel_id, u64 port_id) const
+{
+    auto contexts = m_contexts.get(&endpoint);
+    auto context = contexts.has_value() ? contexts->get(context_id) : Optional<Context const&> {};
+    return context.has_value() && context->ports.get(channel_id) == port_id
+        && storage_context_is_current(&endpoint, context_id, *context);
+}
+
+void ExtensionMessageBroker::connect(Endpoint& source, u64 context_id, u64 port_id, Optional<String> target_extension_id, String name)
+{
+    auto contexts = m_contexts.get(&source);
+    auto context = contexts.has_value() ? contexts->get(context_id) : Optional<Context&> {};
+    if (!context.has_value() || !storage_context_is_current(&source, context_id, *context))
+        return;
+    if (target_extension_id.has_value() && *target_extension_id != context->extension_id) {
+        source.complete_extension_runtime_connect(context_id, port_id, 0, "Could not establish connection. Receiving end does not exist."_string);
+        return;
+    }
+    for (auto const& [id, registered_port] : context->ports) {
+        if (registered_port == port_id)
+            return;
+    }
+    auto sender = source.extension_message_sender(context->extension_id, context->document_id).release_value();
+    auto channel_id = m_next_channel_id++;
+    bool waiting = m_starting_backgrounds.get(context->extension_id) == context->revision;
+    m_channels.set(channel_id, Channel { .extension_id = context->extension_id, .revision = context->revision, .name = move(name), .sender = sender, .opener = { &source, context_id, port_id, sender.from_background }, .receivers = {}, .queued_messages = {}, .waiting_for_background = waiting });
+    context->ports.set(channel_id, port_id);
+    source.complete_extension_runtime_connect(context_id, port_id, channel_id, {});
+    if (!waiting)
+        dispatch_connect(channel_id);
+}
+
+void ExtensionMessageBroker::dispatch_connect(u64 channel_id)
+{
+    auto channel = m_channels.get(channel_id);
+    if (!channel.has_value())
+        return;
+    channel->waiting_for_background = false;
+    Vector<u64> ports;
+    for (auto& [endpoint, contexts] : m_contexts) {
+        for (auto& [context_id, context] : contexts) {
+            if ((endpoint == channel->opener.endpoint && context_id == channel->opener.context_id)
+                || context.extension_id != channel->extension_id || context.revision != channel->revision
+                || !storage_context_is_current(endpoint, context_id, context))
+                continue;
+            auto sender = endpoint->extension_message_sender(context.extension_id, context.document_id);
+            if (!sender.has_value() || !sender->url.has_value())
+                continue;
+            auto url = URL::Parser::basic_parse(*sender->url);
+            if (!url.has_value() || url->scheme() != "ladybird-extension"sv || url->serialized_host() != context.extension_id)
+                continue;
+            auto port_id = m_next_receiver_port_id++;
+            channel->receivers.set(port_id, { endpoint, context_id, port_id, sender->from_background });
+            context.ports.set(channel_id, port_id);
+            ports.append(port_id);
+        }
+    }
+    channel->outstanding = ports.size();
+    auto name = channel->name;
+    auto sender = channel->sender;
+    for (auto port_id : ports) {
+        channel = m_channels.get(channel_id);
+        if (!channel.has_value())
+            return;
+        auto receiver = channel->receivers.get(port_id);
+        if (!receiver.has_value())
+            continue;
+        receiver->dispatched = true;
+        auto target = *receiver;
+        target.endpoint->dispatch_extension_runtime_connect(target.context_id, channel_id, port_id, name, sender);
+    }
+    finish_opening(channel_id);
+}
+
+void ExtensionMessageBroker::connect_ack(Endpoint& endpoint, u64 context_id, u64 channel_id, bool accepted)
+{
+    auto contexts = m_contexts.get(&endpoint);
+    auto context = contexts.has_value() ? contexts->get(context_id) : Optional<Context&> {};
+    auto port_id = context.has_value() ? Optional<u64> { context->ports.get(channel_id) } : Optional<u64> {};
+    auto channel = m_channels.get(channel_id);
+    if (!port_id.has_value() || !channel.has_value() || !owns_port(endpoint, context_id, channel_id, *port_id))
+        return;
+    auto receiver = channel->receivers.get(*port_id);
+    if (!receiver.has_value() || !receiver->dispatched || receiver->acknowledged)
+        return;
+    receiver->acknowledged = true;
+    --channel->outstanding;
+    if (accepted) {
+        channel->had_receiver = true;
+    } else {
+        auto target = *receiver;
+        channel->receivers.remove(*port_id);
+        forget_port(channel_id, target);
+    }
+    finish_opening(channel_id);
+}
+
+void ExtensionMessageBroker::finish_opening(u64 channel_id)
+{
+    auto channel = m_channels.get(channel_id);
+    if (!channel.has_value() || !channel->opening || channel->waiting_for_background || channel->outstanding)
+        return;
+    if (channel->receivers.is_empty()) {
+        close_channel(channel_id, channel->had_receiver ? Optional<String> {} : "Could not establish connection. Receiving end does not exist."_string);
+        return;
+    }
+    channel->opening = false;
+    auto queued = move(channel->queued_messages);
+    auto opener = channel->opener;
+    for (auto& json : queued)
+        port_post_message(*opener.endpoint, opener.context_id, channel_id, opener.port_id, move(json));
+}
+
+void ExtensionMessageBroker::port_post_message(Endpoint& endpoint, u64 context_id, u64 channel_id, u64 port_id, String json)
+{
+    if (!owns_port(endpoint, context_id, channel_id, port_id))
+        return;
+    auto channel = m_channels.get(channel_id);
+    if (!channel.has_value())
+        return;
+    auto opener = channel->opener;
+    if (opener.endpoint != &endpoint || opener.context_id != context_id || opener.port_id != port_id) {
+        opener.endpoint->dispatch_extension_port_message(opener.context_id, channel_id, opener.port_id, json);
+        return;
+    }
+    if (channel->opening) {
+        if (channel->queued_messages.size() == 1024) {
+            close_channel(channel_id, "Port message queue is full"_string);
+            return;
+        }
+        channel->queued_messages.append(move(json));
+        return;
+    }
+    Vector<PortEndpoint> targets;
+    for (auto const& [id, receiver] : channel->receivers)
+        targets.append(receiver);
+    for (auto const& target : targets) {
+        if (owns_port(*target.endpoint, target.context_id, channel_id, target.port_id))
+            target.endpoint->dispatch_extension_port_message(target.context_id, channel_id, target.port_id, json);
+    }
+}
+
+void ExtensionMessageBroker::forget_port(u64 channel_id, PortEndpoint const& port)
+{
+    auto contexts = m_contexts.get(port.endpoint);
+    if (!contexts.has_value())
+        return;
+    if (auto context = contexts->get(port.context_id); context.has_value())
+        context->ports.remove(channel_id);
+}
+
+void ExtensionMessageBroker::close_channel(u64 channel_id, Optional<String> error, bool notify_opener)
+{
+    auto channel = m_channels.take(channel_id);
+    if (!channel.has_value())
+        return;
+    forget_port(channel_id, channel->opener);
+    for (auto const& [id, receiver] : channel->receivers)
+        forget_port(channel_id, receiver);
+    auto notify = [&](PortEndpoint const& port) {
+        auto contexts = m_contexts.get(port.endpoint);
+        if (contexts.has_value() && contexts->contains(port.context_id))
+            port.endpoint->dispatch_extension_port_disconnect(port.context_id, port.port_id, error);
+    };
+    if (notify_opener)
+        notify(channel->opener);
+    for (auto const& [id, receiver] : channel->receivers) {
+        if (receiver.dispatched)
+            notify(receiver);
+    }
+}
+
+void ExtensionMessageBroker::remove_port(u64 channel_id, PortEndpoint const& port)
+{
+    auto channel = m_channels.get(channel_id);
+    if (!channel.has_value())
+        return;
+    if (channel->opener.endpoint == port.endpoint && channel->opener.context_id == port.context_id && channel->opener.port_id == port.port_id) {
+        close_channel(channel_id, {}, false);
+        return;
+    }
+    auto receiver = channel->receivers.take(port.port_id);
+    if (!receiver.has_value())
+        return;
+    forget_port(channel_id, *receiver);
+    channel->had_receiver |= receiver->dispatched;
+    if (!receiver->acknowledged)
+        --channel->outstanding;
+    if (channel->opening)
+        finish_opening(channel_id);
+    else if (channel->receivers.is_empty())
+        close_channel(channel_id);
+}
+
+void ExtensionMessageBroker::port_disconnect(Endpoint& endpoint, u64 context_id, u64 channel_id, u64 port_id)
+{
+    if (owns_port(endpoint, context_id, channel_id, port_id))
+        remove_port(channel_id, { &endpoint, context_id, port_id });
+}
+
+void ExtensionMessageBroker::close_channels_for(String const& extension_id)
+{
+    Vector<u64> channels;
+    for (auto const& [id, channel] : m_channels) {
+        if (channel.extension_id == extension_id)
+            channels.append(id);
+    }
+    for (auto id : channels)
+        close_channel(id);
+}
+
+bool ExtensionMessageBroker::has_open_channels(String const& extension_id) const
+{
+    for (auto const& [id, channel] : m_channels) {
+        if (channel.extension_id != extension_id)
+            continue;
+        if (channel.opener.background)
+            return true;
+        for (auto const& [port_id, receiver] : channel.receivers) {
+            if (receiver.background)
+                return true;
+        }
+    }
+    return false;
 }
 
 }
