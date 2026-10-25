@@ -96,14 +96,15 @@ public:
     struct Reply {
         u64 dispatch_id;
         Optional<String> json;
+        Web::Extensions::MessageResult result;
     };
     virtual void page_did_send_extension_runtime_message(String const& extension_id, u64 request_id, Web::Extensions::MessageSender const& sender, String const& json, u64) override
     {
         sent_messages.append({ extension_id, request_id, sender, json });
     }
-    virtual void page_did_reply_to_extension_runtime_message(u64 dispatch_id, Optional<String> const& json) override
+    virtual void page_did_reply_to_extension_runtime_message(u64 dispatch_id, Web::Extensions::MessageResult const& result) override
     {
-        replies.append({ dispatch_id, json });
+        replies.append({ dispatch_id, result.value.has<Web::Extensions::MessageResult::Reply>() ? Optional<String> { result.value.get<Web::Extensions::MessageResult::Reply>().json } : OptionalNone {}, result });
     }
     virtual void page_did_create_extension_context(String const& extension_id, u64, Web::HTML::CrossProcessId, u64) override { created_contexts.append(extension_id); }
     virtual void page_did_destroy_extension_context(String const& extension_id, u64) override { destroyed_contexts.append(extension_id); }
@@ -371,7 +372,7 @@ TEST_CASE(send_message_notifies_the_page_client_and_resolves_on_reply)
     EXPECT(!sent.sender.from_background);
     EXPECT(sent.sender.url.has_value());
 
-    test_page.page->complete_extension_runtime_message(sent.request_id, "{\"answer\":\"pong\"}"_string);
+    test_page.page->complete_extension_runtime_message(sent.request_id, Web::Extensions::MessageResult::Reply { "{\"answer\":\"pong\"}"_string });
     test_page.run_microtasks();
     auto reply = world->run_script("read.js", u"globalThis.__reply.answer"sv, URL::URL {});
     EXPECT_EQ(reply.value().as_string().utf16_string(), u"pong"sv);
@@ -406,7 +407,7 @@ TEST_CASE(dispatch_runs_listeners_and_collects_the_reply)
     page.dispatch_extension_runtime_message(extension_id, 1, test_sender(), "{\"type\":\"a\"}"_string, world->context_id());
     EXPECT_EQ(replies.size(), 1u);
     EXPECT_EQ(replies[0].dispatch_id, 1u);
-    EXPECT(!replies[0].json.has_value());
+    EXPECT(replies[0].result.value.has<Web::Extensions::MessageResult::NoListener>());
 
     // A listener answers with sendResponse, and sees the message and the sender.
     (void)world->run_script("l1.js", u"globalThis.l1 = (message, sender, sendResponse) => { sendResponse(`sync:${message.type}:${sender.id}:${sender.url}`); }; browser.runtime.onMessage.addListener(globalThis.l1);"sv, URL::URL {});
@@ -418,7 +419,7 @@ TEST_CASE(dispatch_runs_listeners_and_collects_the_reply)
     (void)world->run_script("l1b.js", u"browser.runtime.onMessage.removeListener(globalThis.l1); globalThis.l1b = (m) => 'ignored:' + m.type; browser.runtime.onMessage.addListener(globalThis.l1b);"sv, URL::URL {});
     page.dispatch_extension_runtime_message(extension_id, 20, test_sender(), "{\"type\":\"b2\"}"_string, world->context_id());
     EXPECT_EQ(replies.size(), 3u);
-    EXPECT(!replies[2].json.has_value());
+    EXPECT(replies[2].result.value.has<Web::Extensions::MessageResult::NoReply>());
     replies.remove(2);
 
     // A listener that calls sendResponse synchronously with an object.
@@ -668,7 +669,7 @@ TEST_CASE(send_message_normalizes_arguments_and_scopes_callback_errors)
     auto messages = test_page.client->sent_messages;
     for (size_t i = 0; i < messages.size(); ++i) {
         EXPECT_EQ(messages[i].json, MUST(String::formatted("{{\"n\":{}}}", i + 1)));
-        test_page.page->complete_extension_runtime_message(messages[i].request_id, "42"_string);
+        test_page.page->complete_extension_runtime_message(messages[i].request_id, Web::Extensions::MessageResult::Reply { "42"_string });
     }
     test_page.run_microtasks();
     auto check = world->run_script("check.js", u"JSON.stringify([returns.every(value => value === undefined), results, failure, primitiveFailure, externalFailure, browser.runtime.lastError === undefined])"sv, URL::URL {});

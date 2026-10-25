@@ -24,15 +24,16 @@ struct FakeEndpoint final : public ExtensionMessageBroker::Endpoint {
     struct Completion {
         u64 request_id;
         Optional<String> json;
+        Web::Extensions::MessageResult result;
     };
 
     virtual void dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, MessageSender const& sender, String const& json, u64 context_id) override
     {
         dispatches.append({ extension_id, dispatch_id, sender, json, context_id });
     }
-    virtual void complete_extension_runtime_message(u64 request_id, Optional<String> const& json) override
+    virtual void complete_extension_runtime_message(u64 request_id, Web::Extensions::MessageResult const& result) override
     {
-        completions.append({ request_id, json });
+        completions.append({ request_id, result.value.has<Web::Extensions::MessageResult::Reply>() ? Optional<String> { result.value.get<Web::Extensions::MessageResult::Reply>().json } : OptionalNone {}, result });
     }
 
     Vector<Dispatch> dispatches;
@@ -127,21 +128,21 @@ TEST_CASE(first_defined_reply_wins)
         broker.context_created(*endpoint, MUST(String::from_utf8(x)), 1, { 1, 1 }, 1);
 
     broker.send(a, MUST(String::from_utf8(x)), 1, sender_for(x), "1"_string, 1);
-    broker.reply(c, c.dispatches[0].dispatch_id, "\"from c\""_string);
+    broker.reply(c, c.dispatches[0].dispatch_id, Web::Extensions::MessageResult::Reply { "\"from c\""_string });
     EXPECT_EQ(a.completions.size(), 1u);
     EXPECT_EQ(a.completions[0].request_id, 1u);
     EXPECT_EQ(a.completions[0].json, "\"from c\""sv);
 
     // A later reply changes nothing.
-    broker.reply(b, b.dispatches[0].dispatch_id, "\"from b\""_string);
+    broker.reply(b, b.dispatches[0].dispatch_id, Web::Extensions::MessageResult::Reply { "\"from b\""_string });
     EXPECT_EQ(a.completions.size(), 1u);
 
     // A reply with an unknown dispatch id is ignored.
-    broker.reply(b, 999999, "\"stray\""_string);
+    broker.reply(b, 999999, Web::Extensions::MessageResult::Reply { "\"stray\""_string });
     EXPECT_EQ(a.completions.size(), 1u);
 }
 
-TEST_CASE(no_targets_replies_empty_immediately)
+TEST_CASE(no_targets_rejects_immediately)
 {
     ExtensionMessageBroker broker;
     FakeEndpoint a;
@@ -150,6 +151,7 @@ TEST_CASE(no_targets_replies_empty_immediately)
     broker.send(a, MUST(String::from_utf8(x)), 3, sender_for(x), "1"_string, 1);
     EXPECT_EQ(a.completions.size(), 1u);
     EXPECT_EQ(a.completions[0].request_id, 3u);
+    EXPECT(a.completions[0].result.value.has<Web::Extensions::MessageResult::Error>());
     EXPECT(!a.completions[0].json.has_value());
 
     // A context of a different extension isn't a target either.
@@ -195,7 +197,7 @@ TEST_CASE(destroyed_target_counts_as_declined)
     EXPECT_EQ(b.dispatches.size(), 1u);
     EXPECT_EQ(a.dispatches.size(), 1u);
     broker.endpoint_gone(c);
-    broker.reply(a, a.dispatches[0].dispatch_id, "\"late\""_string);
+    broker.reply(a, a.dispatches[0].dispatch_id, Web::Extensions::MessageResult::Reply { "\"late\""_string });
     EXPECT_EQ(c.completions.size(), 0u);
 }
 
@@ -233,9 +235,9 @@ TEST_CASE(wrong_endpoint_cannot_consume_a_dispatch)
     broker.context_created(target, id, 1, { 1, 1 }, 1);
     broker.send(source, id, 100, sender_for(x), "null"_string, 1);
     auto dispatch_id = target.dispatches[0].dispatch_id;
-    broker.reply(unrelated, dispatch_id, "99"_string);
+    broker.reply(unrelated, dispatch_id, Web::Extensions::MessageResult::Reply { "99"_string });
     EXPECT(source.completions.is_empty());
-    broker.reply(target, dispatch_id, "42"_string);
+    broker.reply(target, dispatch_id, Web::Extensions::MessageResult::Reply { "42"_string });
     EXPECT_EQ(source.completions.size(), 1u);
     if (!source.completions.is_empty())
         EXPECT_EQ(source.completions[0].json, "42"sv);
@@ -268,7 +270,7 @@ TEST_CASE(destroying_a_sender_context_drops_its_pending_request)
     broker.context_created(target, id, 1, { 1, 1 }, 1);
     broker.send(source, id, 111, sender_for(x), "null"_string, 1);
     broker.context_destroyed(source, id, 1);
-    broker.reply(target, target.dispatches[0].dispatch_id, "42"_string);
+    broker.reply(target, target.dispatches[0].dispatch_id, Web::Extensions::MessageResult::Reply { "42"_string });
     EXPECT(source.completions.is_empty());
 }
 
@@ -285,7 +287,7 @@ TEST_CASE(context_identity_is_scoped_to_its_endpoint_and_document)
     EXPECT_EQ(a.dispatches[0].context_id, 2u);
     EXPECT(b.dispatches.is_empty());
     broker.context_destroyed(a, id, 1);
-    broker.reply(a, a.dispatches[0].dispatch_id, "2"_string);
+    broker.reply(a, a.dispatches[0].dispatch_id, Web::Extensions::MessageResult::Reply { "2"_string });
     EXPECT(a.completions.is_empty());
 
     broker.context_created(b, id, 1, { 1, 1 }, 1);
@@ -327,7 +329,7 @@ TEST_CASE(replies_keep_their_request_identity_when_dispatch_maps_shrink)
     for (u64 request = 1; request <= 256; ++request)
         broker.send(source, id, request, sender_for(x), "null"_string, 1);
     for (size_t i = 0; i < target.dispatches.size(); ++i)
-        broker.reply(target, target.dispatches[i].dispatch_id, MUST(String::formatted("{}", i + 1)));
+        broker.reply(target, target.dispatches[i].dispatch_id, Web::Extensions::MessageResult::Reply { MUST(String::formatted("{}", i + 1)) });
     EXPECT_EQ(source.completions.size(), 256u);
     for (auto const& completion : source.completions)
         EXPECT_EQ(completion.json, MUST(String::formatted("{}", completion.request_id)));
@@ -345,7 +347,7 @@ TEST_CASE(runtime_messages_never_target_content_scripts)
     broker.send(source, id, 1, sender_for(x), "1"_string, 1);
     EXPECT(content.dispatches.is_empty());
     EXPECT_EQ(page.dispatches.size(), 1u);
-    broker.reply(page, page.dispatches[0].dispatch_id, "2"_string);
+    broker.reply(page, page.dispatches[0].dispatch_id, Web::Extensions::MessageResult::Reply { "2"_string });
     EXPECT_EQ(source.completions.size(), 1u);
     broker.send(page, id, 2, sender_for(x), "1"_string, 1);
     EXPECT(content.dispatches.is_empty());
@@ -368,7 +370,7 @@ TEST_CASE(messages_wait_for_background_startup_and_settle_on_failure)
     broker.background_finished(id, 1, true);
     EXPECT_EQ(background.dispatches.size(), 1u);
     if (!background.dispatches.is_empty())
-        broker.reply(background, background.dispatches[0].dispatch_id, "2"_string);
+        broker.reply(background, background.dispatches[0].dispatch_id, Web::Extensions::MessageResult::Reply { "2"_string });
     EXPECT_EQ(source.completions.size(), 1u);
     EXPECT_EQ(source.completions[0].json, "2"sv);
 
@@ -386,4 +388,24 @@ TEST_CASE(messages_wait_for_background_startup_and_settle_on_failure)
     broker.background_finished(id, 1, true);
     EXPECT_EQ(source.completions.size(), 2u);
     EXPECT_EQ(background.dispatches.size(), 1u);
+}
+
+TEST_CASE(listener_presence_is_distinct_from_a_declined_reply)
+{
+    ExtensionMessageBroker broker;
+    FakeEndpoint source, first, second;
+    auto id = MUST(String::from_utf8(x));
+    for (auto* endpoint : { &source, &first, &second })
+        broker.context_created(*endpoint, id, 1, { 1, 1 }, 1);
+    broker.send(source, id, 1, sender_for(x), "null"_string, 1);
+    broker.reply(first, first.dispatches.last().dispatch_id, Web::Extensions::MessageResult::NoListener {});
+    EXPECT(source.completions.is_empty());
+    broker.reply(second, second.dispatches.last().dispatch_id, Web::Extensions::MessageResult::NoListener {});
+    EXPECT(source.completions.last().result.value.has<Web::Extensions::MessageResult::Error>());
+    EXPECT_EQ(source.completions.last().result.value.get<Web::Extensions::MessageResult::Error>().message, "Could not establish connection. Receiving end does not exist."sv);
+
+    broker.send(source, id, 2, sender_for(x), "null"_string, 1);
+    broker.reply(first, first.dispatches.last().dispatch_id, Web::Extensions::MessageResult::NoReply {});
+    broker.reply(second, second.dispatches.last().dispatch_id, Web::Extensions::MessageResult::NoListener {});
+    EXPECT(source.completions.last().result.value.has<Web::Extensions::MessageResult::NoReply>());
 }

@@ -15,6 +15,7 @@
 #include <LibWebCommon/Clipboard/SystemClipboard.h>
 #include <LibWebCommon/ContentSecurityPolicy/Directives/NavigationType.h>
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
+#include <LibWebCommon/Extensions/MessageResult.h>
 #include <LibWebCommon/Extensions/MessageSender.h>
 #include <LibWebCommon/Fullscreen/FullscreenRequestType.h>
 #include <LibWebCommon/Gamepad/GamepadSnapshot.h>
@@ -248,7 +249,7 @@ endpoint WebContentServer routed by Web::PageId page_id
     set_content_blockers(Core::AnonymousBuffer patterns) =|
     set_extensions(Vector<Web::Extensions::ExtensionDescriptor> extensions) =|
     dispatch_extension_runtime_message(Web::PageId page_id, String extension_id, u64 dispatch_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id) =|
-    extension_runtime_message_reply(Web::PageId page_id, u64 request_id, Optional<String> reply_json) =|
+    extension_runtime_message_reply(Web::PageId page_id, u64 request_id, Web::Extensions::MessageResult reply_json) =|
 
     set_autoplay_settings(Web::PageId page_id, Web::HTML::AutoplayPolicy policy, Vector<Utf16String> allowlist) =|
     set_preferred_color_scheme(Web::PageId page_id, Web::CSS::PreferredColorScheme color_scheme) =|

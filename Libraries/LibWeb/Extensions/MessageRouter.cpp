@@ -54,7 +54,7 @@ public:
         // A reply that can't be serialized counts as none.
         if (!json.is_error() && json.value().has_value())
             reply_json = json.value()->to_utf8();
-        m_page->client().page_did_reply_to_extension_runtime_message(m_dispatch_id, reply_json);
+        m_page->client().page_did_reply_to_extension_runtime_message(m_dispatch_id, reply_json.has_value() ? MessageResult { MessageResult::Reply { *reply_json } } : MessageResult {});
         MessageRouter::the().finished_dispatch(m_dispatch_id);
     }
 
@@ -162,7 +162,7 @@ GC::Ref<JS::PromiseCapability> MessageRouter::send(MessagingContext& context, JS
     return promise;
 }
 
-void MessageRouter::complete(Page& page, u64 request_id, Optional<String> const& reply_json)
+void MessageRouter::complete(Page& page, u64 request_id, Web::Extensions::MessageResult const& reply_json)
 {
     auto candidate = m_pending_sends.get(request_id);
     if (!candidate.has_value() || candidate->page != &page)
@@ -172,8 +172,12 @@ void MessageRouter::complete(Page& page, u64 request_id, Optional<String> const&
     auto& realm = *pending->realm;
     HTML::TemporaryExecutionContext execution_context { realm, HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };
     auto value = JS::js_undefined();
-    if (reply_json.has_value()) {
-        auto parsed = JS::JSONObject::parse_json(realm.vm(), Utf16String::from_utf8(*reply_json));
+    if (reply_json.value.has<MessageResult::Error>()) {
+        WebIDL::reject_promise(realm, *pending->promise, JS::Error::create(realm, Utf16String::from_utf8(reply_json.value.get<MessageResult::Error>().message)));
+        return;
+    }
+    if (reply_json.value.has<MessageResult::Reply>()) {
+        auto parsed = JS::JSONObject::parse_json(realm.vm(), Utf16String::from_utf8(reply_json.value.get<MessageResult::Reply>().json));
         if (!parsed.is_error())
             value = parsed.value();
     }
@@ -208,7 +212,7 @@ void MessageRouter::dispatch(Page& page, String const& extension_id, u64 dispatc
     for (auto const& target : targets)
         listener_count += target.listeners.size();
     if (listener_count == 0) {
-        page.client().page_did_reply_to_extension_runtime_message(dispatch_id, {});
+        page.client().page_did_reply_to_extension_runtime_message(dispatch_id, MessageResult::NoListener {});
         return;
     }
     m_pending_dispatches.set(dispatch_id, PendingDispatch { GC::make_root(collector), targets[0].context.ptr() });

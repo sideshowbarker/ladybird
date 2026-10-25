@@ -258,9 +258,10 @@ public:
         return Web::Extensions::MessageSender { .extension_id = id, .url = "https://example.com/"_string, .from_background = false };
     }
     virtual void dispatch_extension_runtime_message(String const&, u64, Web::Extensions::MessageSender const&, String const&, u64) override { VERIFY_NOT_REACHED(); }
-    virtual void complete_extension_runtime_message(u64, Optional<String> const& json) override
+    virtual void complete_extension_runtime_message(u64, Web::Extensions::MessageResult const& result) override
     {
-        EXPECT(!json.has_value());
+        EXPECT(result.value.has<Web::Extensions::MessageResult::Error>());
+        EXPECT_EQ(result.value.get<Web::Extensions::MessageResult::Error>().message, "Could not establish connection. Receiving end does not exist."sv);
         ++completions;
     }
 };
