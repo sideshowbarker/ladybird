@@ -21,6 +21,7 @@
 #include <LibWebView/Extensions/ExtensionBackgroundHost.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
+#include <LibWebView/Extensions/ExtensionStorageStore.h>
 #include <LibWebView/Settings.h>
 #include <LibWebView/ViewImplementation.h>
 
@@ -462,4 +463,38 @@ TEST_CASE(private_opt_in_filters_descriptors_and_notifies)
     EXPECT_EQ(registry.enabled_descriptors(WebView::IsPrivate::No).size(), 1u);
     auto disabled_settings = WebView::Settings::create(directory.settings_path());
     EXPECT(!disabled_settings.installed_extensions()[0].allowed_in_private);
+}
+
+TEST_CASE(disable_keeps_storage_and_remove_deletes_after_revocation)
+{
+    Core::EventLoop loop;
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    WebView::ExtensionStorageStore store(directory.path);
+    ExtensionRegistry registry(settings);
+    registry.set_storage_store(store);
+    auto extension = TRY_OR_FAIL(registry.load_unpacked(directory.extension("one"sv, minimal_manifest)));
+    auto id = extension->id();
+    auto file = LexicalPath::join(directory.path, "extensions"sv, id, "storage-local.json"sv).string();
+    bool written = false;
+    JsonObject items;
+    items.set("key"sv, 1);
+    store.set(id, items, false, [&](auto result) { EXPECT(!result.is_error()); written = true; });
+    loop.spin_until([&] { return written; });
+    registry.set_enabled(id, false);
+    EXPECT(FileSystem::exists(file));
+    bool read = false;
+    store.get(id, {}, [&](auto result) { EXPECT(!result.is_error()); if (!result.is_error()) EXPECT_EQ(result.value().get_i32("key"sv).value(), 1); read = true; });
+    loop.spin_until([&] { return read; });
+    registry.set_enabled(id, true);
+    bool revoked = false;
+    registry.on_changed = [&] { revoked = !registry.find(id) && !registry.is_enabled(id); };
+    items.set("key"sv, 2);
+    store.set(id, move(items), false, [](auto result) { EXPECT(!result.is_error()); });
+    registry.remove(id);
+    EXPECT(revoked);
+    read = false;
+    store.get(id, {}, [&](auto result) { EXPECT(!result.is_error()); if (!result.is_error()) EXPECT(result.value().is_empty()); read = true; });
+    loop.spin_until([&] { return read; });
+    EXPECT(!FileSystem::exists(LexicalPath(file).dirname()));
 }
