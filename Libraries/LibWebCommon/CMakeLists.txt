@@ -9,6 +9,7 @@ set(SOURCES
     Extensions/MatchPattern.cpp
     Extensions/MessageResult.cpp
     Extensions/MessageSender.cpp
+    Extensions/Storage.cpp
     Extensions/ResourcePath.cpp
     Fetch/Infrastructure/DataURL.cpp
     Fetch/Infrastructure/HTTP/Statuses.cpp
