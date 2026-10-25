@@ -1,6 +1,6 @@
 Ladybird routes an extension’s runtime messages in the UI process:
-every page registers the contexts it hosts, a message fans out to
-every other page with a context of that extension, the first reply
+every page registers the contexts it hosts, a message goes to each
+context of the extension’s own pages but the sender’s, the first reply
 settles the request, and declines from every target mean nobody
 replied. WebKit’s WebExtensionContext::runtimeSendMessage() picks the
 processes with a listener for the event through processes(eventType,
@@ -14,9 +14,7 @@ channel in CloseChannel() when the receivers’ ports go away
 (message_service.cc). Gecko’s ProxyMessenger.recvRuntimeMessage() in
 ExtensionParent.sys.mjs casts the message to every child context of
 the extension through ConduitsParent’s castRuntimeMessage() and
-resolves with the first defined response. Counting contexts per page
-rather than per frame is what WebKit’s per-process listener counts
-(addListener/removeListener on WebExtensionContext) do.
+resolves with the first defined response.
 
 Runtime messages go only to an extension’s own pages, never to content
 scripts, as in Blink’s ExtensionMessagePort::CreateForExtension()
