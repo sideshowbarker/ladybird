@@ -19,10 +19,7 @@ ExtensionPolicyService::CheckDocument() runs on document-element-
 inserted and Script.injectInto() awaits promiseDocumentReady for
 document_end and Promise.race([promiseDocumentIdle,
 promiseDocumentLoaded]) for document_idle; MozDocumentMatcher::
-Matches() checks all_frames and match_about_blank first. Content
-script CSS joins the document’s user sheet as WebKit’s
-UserStyleSheet with UserStyleLevel::User and Blink’s
-InjectStylesheet() into the user sheet collection do.
+Matches() checks all_frames and match_about_blank first.
 
 Each content-script CSS file is an author sheet of its own, with
 its own URL as its base, ahead of the page’s sheets. Blink does
