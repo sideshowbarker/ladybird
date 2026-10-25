@@ -1,3 +1,23 @@
+Ladybird gives each extension one world per document: a realm whose
+global is another wrapper of the same Window, with an Extension
+WrapperWorld behind it, and installs “browser” and “chrome” (one
+object) on that global. WebKit creates one DOMWrapperWorld per
+extension, named “WebExtension-<id>”, and WebExtensionControllerProxy::
+globalObjectIsAvailableForFrame() sets both “browser” and “chrome” on
+the world’s global to one WebExtensionAPINamespace when the frame’s
+window object becomes available in that world. Blink allocates a
+Blink isolated world id per extension in IsolatedWorldManager::
+GetOrCreateIsolatedWorldForHost(), and the renderer’s Dispatcher::
+DidCreateScriptContext() registers a ScriptContext of type
+kContentScript whose NativeExtensionBindingsSystem installs only
+“chrome”. Gecko runs a content script in a Cu.Sandbox whose
+sandboxPrototype is the content window, with wantXrays, and
+ContentScriptContextChild defines both “browser” and “chrome” through
+Schemas.exportLazyGetter. Ladybird keeps the listeners of an API
+event in a GC cell the world owns, which is the role of WebKit’s
+WebExtensionAPIEvent listener list and Blink’s per-context
+APIEventHandler.
+
 Before a dispatch calls its listeners, it roots them all. Blink’s
 EventEmitter::DispatchSync() keeps them in a v8::LocalVector of handles
 too, and WebKit’s WebExtensionAPIEvent::invokeListenersWithArgument()
