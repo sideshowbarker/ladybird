@@ -387,3 +387,13 @@ TEST_CASE(malformed_match_host_reports_the_manifest_key)
     if (result.is_error())
         EXPECT(result.error().contains("matches"sv));
 }
+
+TEST_CASE(only_supported_api_permissions_are_retained)
+{
+    auto manifest = TRY_OR_FAIL(WebView::ExtensionManifest::parse(R"({
+        "manifest_version": 3, "name": "Permissions", "version": "1",
+        "permissions": ["unknownPermission", "unlimitedStorage", "storage", "tabs"]
+    })"sv));
+    EXPECT_EQ(manifest.permissions.size(), 3u);
+    EXPECT(!manifest.permissions.contains_slow("unknownPermission"sv));
+}

@@ -364,3 +364,52 @@ TEST_CASE(normalizing_an_installed_path_preserves_disabled_state)
     EXPECT_EQ(settings.installed_extensions()[0].path, path);
     EXPECT(!registry.is_enabled(id));
 }
+
+TEST_CASE(permission_grants_persist_and_reload_never_expands_them)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    auto path = directory.extension("permissions"sv, R"({
+        "manifest_version": 2, "name": "Permissions", "version": "1",
+        "permissions": ["storage", "storage", "https://example.com/*"]
+    })"sv);
+    auto extension = TRY_OR_FAIL(registry.load_unpacked(path));
+    auto id = extension->id();
+    EXPECT_EQ(extension->descriptor().api_permissions, (Vector { "storage"_string }));
+    EXPECT(extension->descriptor().has_permission("storage"sv));
+    EXPECT_EQ(extension->descriptor().host_permissions.size(), 1u);
+    EXPECT(extension->descriptor().host_permissions[0].matches(URL::Parser::basic_parse("https://example.com/a"sv).release_value()));
+    EXPECT_EQ(settings.installed_extensions()[0].granted_permissions, (Vector { "storage"_string }));
+
+    directory.extension("permissions"sv, R"({
+        "manifest_version": 3, "name": "Permissions", "version": "2",
+        "permissions": ["tabs", "storage", "unlimitedStorage"],
+        "host_permissions": ["https://other.test/*"]
+    })"sv);
+    extension = TRY_OR_FAIL(registry.load_unpacked(path));
+    EXPECT_EQ(extension->id(), id);
+    EXPECT_EQ(extension->descriptor().api_permissions, (Vector { "storage"_string }));
+    EXPECT(!extension->descriptor().has_permission("tabs"sv));
+    EXPECT(!extension->descriptor().has_permission("unlimitedStorage"sv));
+    EXPECT_EQ(extension->descriptor().host_permissions.size(), 1u);
+    EXPECT(extension->descriptor().host_permissions[0].matches(URL::Parser::basic_parse("https://other.test/a"sv).release_value()));
+
+    auto restored_settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry restored { restored_settings };
+    restored.restore_from_settings();
+    EXPECT_EQ(restored.find(id)->descriptor().api_permissions, (Vector { "storage"_string }));
+    EXPECT_EQ(restored_settings.installed_extensions()[0].granted_permissions, (Vector { "storage"_string }));
+}
+
+TEST_CASE(first_install_grants_sorted_supported_permissions)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    auto extension = TRY_OR_FAIL(registry.load_unpacked(directory.extension("permissions"sv, R"({
+        "manifest_version": 3, "name": "Permissions", "version": "1",
+        "permissions": ["unlimitedStorage", "tabs", "storage", "unknown"]
+    })"sv)));
+    EXPECT_EQ(extension->descriptor().api_permissions, (Vector { "storage"_string, "tabs"_string, "unlimitedStorage"_string }));
+}

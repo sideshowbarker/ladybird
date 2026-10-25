@@ -63,6 +63,8 @@ struct WEBCOMMON_API ExtensionDescriptor {
     String version;
     u8 manifest_version { 3 };
     String manifest_json;
+    Vector<String> api_permissions {};
+    Vector<MatchPattern> host_permissions {};
     String extension_pages_csp;
     Vector<WebAccessibleResourceDescriptor> web_accessible_resources;
     Vector<ContentScriptDescriptor> content_scripts;
@@ -71,6 +73,8 @@ struct WEBCOMMON_API ExtensionDescriptor {
 
     // Whether a page at the initiator URL may load the resource at the URL path (which begins with "/").
     [[nodiscard]] bool is_web_accessible(StringView url_path, URL::URL const& initiator) const;
+
+    bool has_permission(StringView permission) const { return api_permissions.contains_slow(permission); }
 
     bool operator==(ExtensionDescriptor const&) const = default;
 };

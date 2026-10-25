@@ -26,17 +26,20 @@ ErrorOr<NonnullRefPtr<Extension>, String> ExtensionRegistry::load_unpacked(ByteS
         return MUST(String::formatted("Can't resolve extension directory: {}", canonical_directory.error()));
     directory = canonical_directory.release_value();
     Optional<String> existing_id;
+    Optional<Vector<String>> granted_permissions;
     for (auto const& installed : m_settings.installed_extensions()) {
         auto installed_directory = FileSystem::real_path(installed.path);
-        if (!installed_directory.is_error() && installed_directory.value() == directory)
+        if (!installed_directory.is_error() && installed_directory.value() == directory) {
             existing_id = installed.id;
+            granted_permissions = installed.granted_permissions;
+        }
     }
 
     // Load before persisting, so a directory that doesn't hold a valid extension is never installed.
     auto id = existing_id.value_or_lazy_evaluated([&] { return AK::generate_random_uuid(); });
-    auto extension = TRY(Extension::load_unpacked(directory, id));
+    auto extension = TRY(Extension::load_unpacked(directory, id, move(granted_permissions)));
 
-    m_settings.add_installed_extension(directory, id);
+    m_settings.add_installed_extension(directory, id, extension->descriptor().api_permissions);
 
     m_extensions.remove_all_matching([&](auto const& loaded) { return loaded->id() == extension->id(); });
     m_extensions.append(extension);
@@ -66,7 +69,7 @@ void ExtensionRegistry::restore_from_settings()
 {
     Vector<String> ids_to_forget;
     for (auto const& installed : m_settings.installed_extensions()) {
-        auto extension = Extension::load_unpacked(installed.path, installed.id);
+        auto extension = Extension::load_unpacked(installed.path, installed.id, installed.granted_permissions);
         if (extension.is_error()) {
             dbgln("Not restoring extension {} from {}: {}", installed.id, installed.path, extension.error());
             ids_to_forget.append(installed.id);
