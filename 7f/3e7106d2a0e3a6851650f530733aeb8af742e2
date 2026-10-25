@@ -1,0 +1,13 @@
+Before a dispatch calls its listeners, it roots them all. Blink’s
+EventEmitter::DispatchSync() keeps them in a v8::LocalVector of handles
+too, and WebKit’s WebExtensionAPIEvent::invokeListenersWithArgument()
+copies its list of reference-counted listeners first. And Gecko’s
+EventManager holds each callback in a closure, and calls it only after
+shouldFire() confirms that its context is still live.
+
+Nothing of a detached world runs in the shared document again.
+Blink resets the context in ScriptContext::Invalidate(), Gecko’s
+ContentScriptContextChild::close() nukes the sandbox of the content
+script, and WebKit’s JSWebExtensionWrapper::finalize() drops the API
+object — so a retained function or callback of the old world can’t
+act in any of them either.
