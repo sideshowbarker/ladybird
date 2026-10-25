@@ -1,0 +1,16 @@
+{
+    "manifest_version": 3,
+    "name": "No listener fixture",
+    "version": "1",
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/send-message-no-listener.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}
