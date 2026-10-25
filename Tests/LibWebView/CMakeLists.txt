@@ -68,6 +68,7 @@ set(TEST_SOURCES
     TestExtensionManifest.cpp
     TestExtensionMessageBroker.cpp
     TestExtensionRegistry.cpp
+    TestExtensionStorageStore.cpp
     TestExternalURLHandler.cpp
     TestFaviconStore.cpp
     TestForceDarkSettings.cpp
