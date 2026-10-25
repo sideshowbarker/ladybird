@@ -6,11 +6,13 @@
 
 #pragma once
 
+#include <AK/HashMap.h>
 #include <LibGC/Cell.h>
 #include <LibJS/Forward.h>
 #include <LibJS/Runtime/Value.h>
 #include <LibWeb/Export.h>
 #include <LibWeb/Extensions/API/Event.h>
+#include <LibWeb/Extensions/API/Port.h>
 #include <LibWeb/Forward.h>
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
 #include <LibWebCommon/Extensions/MessageSender.h>
@@ -43,6 +45,10 @@ public:
             m_local_storage_listeners->revoke();
     }
 
+    void set_connect_listeners(GC::Ref<EventListenerList> listeners) { m_connect_listeners = listeners; }
+    GC::Ptr<EventListenerList> connect_listeners() { return m_connect_listeners; }
+    HashMap<u64, GC::Ref<Port>>& live_ports() { return m_live_ports; }
+
     u64 context_id() const { return m_context_id; }
     virtual DOM::Document& document() = 0;
 
@@ -60,6 +66,9 @@ protected:
     virtual void visit_edges(Visitor& visitor) override
     {
         Base::visit_edges(visitor);
+        visitor.visit(m_connect_listeners);
+        for (auto const& [id, port] : m_live_ports)
+            visitor.visit(port);
         visitor.visit(m_last_error);
         visitor.visit(m_storage_listeners);
         visitor.visit(m_local_storage_listeners);
@@ -73,6 +82,8 @@ protected:
 private:
     inline static u64 s_next_context_id { 0 };
     u64 m_context_id;
+    GC::Ptr<EventListenerList> m_connect_listeners;
+    HashMap<u64, GC::Ref<Port>> m_live_ports;
     GC::Ptr<EventListenerList> m_storage_listeners;
     GC::Ptr<EventListenerList> m_local_storage_listeners;
     JS::Value m_last_error { JS::js_undefined() };

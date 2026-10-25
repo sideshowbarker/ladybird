@@ -52,10 +52,17 @@ public:
     void complete_storage(Page&, u64, StorageResult const&);
     void dispatch_storage_changed(Page&, String const&, String const&);
 
+    GC::Ref<JS::Object> connect(MessagingContext&, Optional<String> target_extension_id, String const& name);
+    void dispatch_connect(Page&, u64 context_id, u64 channel_id, u64 port_id, String const& name, MessageSender const&);
+    void complete_connect(Page&, u64 context_id, u64 port_id, u64 channel_id, Optional<String> const& error);
+    void dispatch_port_message(Page&, u64 context_id, u64 channel_id, u64 port_id, String const& json);
+    void dispatch_port_disconnect(Page&, u64 context_id, u64 port_id, Optional<String> const& error);
+
     void finished_dispatch(u64 dispatch_id);
 
 private:
     MessageRouter();
+    MessagingContext* context_for(Page&, u64 context_id);
     void reconcile_contexts();
 
     struct PendingSend {
@@ -76,6 +83,8 @@ private:
     };
     HashMap<u64, PendingStorage> m_pending_storage;
     HashTable<GC::RawPtr<MessagingContext>> m_contexts;
+    HashMap<u64, GC::RawPtr<MessagingContext>> m_contexts_by_id;
+    u64 m_next_port_id { 1 };
     HashMap<u64, PendingDispatch> m_pending_dispatches;
     HashMap<u64, PendingSend> m_pending_sends;
     u64 m_next_request_id { 1 };

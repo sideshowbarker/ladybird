@@ -55,9 +55,9 @@ ALLOWED_REALM_MENTIONS = {
         "The AbortSignal and AbortController facades and node helpers use callback/materialization realms",
     ),
     "Extensions": (
-        16,
-        27,
-        "extension worlds create and own the realms content scripts run in, the browser namespace materializes its JS objects there, and API completions, storage values, and runtime messages materialize results in a context's realm",
+        18,
+        29,
+        "extension worlds create and own the realms content scripts run in, the browser namespace materializes its JS objects there, and API completions, storage values, runtime messages, and Port objects and events materialize results in a context's realm",
     ),
     "Fetch": (
         22,
