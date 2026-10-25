@@ -1,0 +1,13 @@
+Ladybird resolves an extension directory to its real, absolute path
+before comparing or storing it. Blink makes the path absolute too, with
+MakeAbsoluteFilePath() in UnpackedInstaller::LoadFromCommandLine();
+Gecko’s temporary add-on install takes an nsIFile, which rejects a
+relative path in InitWithNativePath(); and WebKit keeps a file resource
+URL, which is always absolute.
+
+A reload or a re-enable gives the extension a new revision, so the
+contexts of the old instance lose their authority. Blink tears them
+down in Dispatcher::UnloadExtension(), through ScriptContextSet::
+OnExtensionUnloaded(), and WebKit in WebExtensionContext::unload().
+Gecko’s ContentScriptContextChild::close() unloads the APIs and nukes
+the content script’s sandbox.
