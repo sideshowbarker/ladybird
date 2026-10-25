@@ -81,6 +81,10 @@ Both manifest versions are supported, and both will stay supported — an exten
 
 Match patterns follow the usual grammar: `<all_urls>`, or `<scheme>://<host><path>` where the scheme is `*` (http, https, ws, and wss), `http`, `https`, `ws`, `wss`, `file`, or `ftp`; the host is `*`, `*.` followed by a domain, or a domain (and empty for `file`); and the path starts with `/` and may contain `*`. A host is parsed the way a URL’s host is, so a malformed one is an error, and an internationalized domain name or an IP address matches however a URL spells it. The path part is matched against the URL’s path plus its query string, and the port and fragment are ignored.
 
+### Private windows
+
+Extensions are off in private windows by default. Set an installed extension’s `allowed_in_private` Settings key to `true` to opt in. Its background page remains in the normal profile, and its `storage.local` data is shared with normal windows. Changing the setting through the registry updates running processes immediately.
+
 ### Permission grants
 
 A first command-line installation grants the declared supported API permissions and saves them as `granted_permissions` in Settings. A reload keeps that grant set: Newly declared API permissions remain ungranted and are logged. Settings entries without this key have no API grants. The permission confirmation UI will arrive with `about:extensions`.

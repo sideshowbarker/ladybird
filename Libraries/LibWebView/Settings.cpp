@@ -79,6 +79,7 @@ static constexpr auto EXTENSIONS_KEY = "extensions"sv;
 static constexpr auto EXTENSION_ID_KEY = "id"sv;
 static constexpr auto EXTENSION_PATH_KEY = "path"sv;
 static constexpr auto EXTENSION_ENABLED_KEY = "enabled"sv;
+static constexpr auto EXTENSION_ALLOWED_IN_PRIVATE_KEY = "allowed_in_private"sv;
 static constexpr auto EXTENSION_GRANTED_PERMISSIONS_KEY = "granted_permissions"sv;
 
 static constexpr auto BROWSING_DATA_KEY = "browsingData"sv;
@@ -448,7 +449,7 @@ Settings Settings::create(ByteString settings_path, Vector<String> platform_lang
                         granted_permissions.append(permission.as_string());
                 }
             }
-            settings.m_installed_extensions.append({ *id, path->to_byte_string(), value.as_object().get_bool(EXTENSION_ENABLED_KEY).value_or(true), move(granted_permissions) });
+            settings.m_installed_extensions.append({ *id, path->to_byte_string(), value.as_object().get_bool(EXTENSION_ENABLED_KEY).value_or(true), move(granted_permissions), value.as_object().get_bool(EXTENSION_ALLOWED_IN_PRIVATE_KEY).value_or(false) });
         }
     }
 
@@ -677,6 +678,7 @@ JsonValue Settings::serialize_json() const
         object.set(EXTENSION_ID_KEY, extension.id);
         object.set(EXTENSION_PATH_KEY, MUST(String::from_byte_string(extension.path)));
         object.set(EXTENSION_ENABLED_KEY, extension.enabled);
+        object.set(EXTENSION_ALLOWED_IN_PRIVATE_KEY, extension.allowed_in_private);
         JsonArray permissions;
         for (auto const& permission : extension.granted_permissions)
             permissions.must_append(permission);
@@ -1190,6 +1192,20 @@ void Settings::set_installed_extension_enabled(StringView id, bool enabled)
         if (extension.id != id || extension.enabled == enabled)
             continue;
         extension.enabled = enabled;
+        persist_settings();
+
+        for (auto& observer : m_observers)
+            observer.extensions_changed();
+        return;
+    }
+}
+
+void Settings::set_installed_extension_allowed_in_private(StringView id, bool allowed)
+{
+    for (auto& extension : m_installed_extensions) {
+        if (extension.id != id || extension.allowed_in_private == allowed)
+            continue;
+        extension.allowed_in_private = allowed;
         persist_settings();
 
         for (auto& observer : m_observers)

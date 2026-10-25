@@ -14,6 +14,7 @@
 #include <AK/String.h>
 #include <AK/Vector.h>
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
+#include <LibWebView/BrowsingSession.h>
 #include <LibWebView/Export.h>
 #include <LibWebView/Extensions/Extension.h>
 #include <LibWebView/Forward.h>
@@ -33,16 +34,18 @@ public:
     ErrorOr<NonnullRefPtr<Extension>, String> load_unpacked(ByteString directory);
     void remove(StringView id);
     void set_enabled(StringView id, bool enabled);
+    void set_allowed_in_private(StringView id, bool);
+    bool is_allowed_in_private(StringView id) const;
 
     // Loads every extension in Settings, dropping the ones whose directory no longer loads.
     void restore_from_settings();
 
     RefPtr<Extension> find(StringView id) const;
     bool is_enabled(StringView id) const;
-    bool may_access_resource(StringView id, StringView path, URL::URL const& document_url) const;
-    bool may_create_context(StringView id, URL::URL const& document_url, bool is_top_level, bool inherited = false) const;
+    bool may_access_resource(StringView id, StringView path, URL::URL const& document_url, IsPrivate = IsPrivate::No) const;
+    bool may_create_context(StringView id, URL::URL const& document_url, bool is_top_level, bool inherited = false, IsPrivate = IsPrivate::No) const;
     Vector<NonnullRefPtr<Extension>> const& extensions() const { return m_extensions; }
-    Vector<Web::Extensions::ExtensionDescriptor> enabled_descriptors() const;
+    Vector<Web::Extensions::ExtensionDescriptor> enabled_descriptors(IsPrivate = IsPrivate::No) const;
 
     // Called after every change to the set of loaded or enabled extensions.
     Function<void()> on_changed;

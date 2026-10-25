@@ -688,9 +688,8 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_extension_registry->on_changed = [this] {
         m_extension_background_host->prepare(*m_extension_registry);
         m_extension_message_broker->reconcile_contexts();
-        auto descriptors = m_extension_registry->enabled_descriptors();
         WebContentClient::for_each_client([&](WebContentClient& client) {
-            client.async_set_extensions(descriptors);
+            client.async_set_extensions(m_extension_registry->enabled_descriptors(client.is_private()));
             return IterationDecision::Continue;
         });
         if (m_extension_background_pages_may_start) {
@@ -1252,7 +1251,7 @@ ErrorOr<NonnullRefPtr<WebContentClient>> Application::create_web_content_client(
     if (m_content_blocker_list_buffer.has_value())
         client->async_set_content_blockers(*m_content_blocker_list_buffer);
 
-    if (auto descriptors = m_extension_registry->enabled_descriptors(); !descriptors.is_empty())
+    if (auto descriptors = m_extension_registry->enabled_descriptors(is_private); !descriptors.is_empty())
         client->async_set_extensions(move(descriptors));
 
     m_web_content_clients.set(client);

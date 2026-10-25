@@ -1625,7 +1625,7 @@ void WebContentPage::did_request_extension_resource(String extension_id, String 
     }
     bool allowed = false;
     for_each_extension_document([&](CanonicalNavigable const&, CanonicalDocument const&, URL::URL const& url) {
-        allowed = Application::extension_registry().may_access_resource(extension_id, path, url);
+        allowed = Application::extension_registry().may_access_resource(extension_id, path, url, client().is_private());
         return allowed ? IterationDecision::Break : IterationDecision::Continue;
     });
     if (!allowed) {
@@ -1694,7 +1694,7 @@ Optional<u64> WebContentPage::extension_revision(String const& extension_id) con
 {
     auto& registry = Application::extension_registry();
     auto extension = registry.find(extension_id);
-    if (!extension || !registry.is_enabled(extension_id))
+    if (!extension || !registry.is_enabled(extension_id) || (client().is_private() == IsPrivate::Yes && !registry.is_allowed_in_private(extension_id)))
         return {};
     return extension->descriptor().revision;
 }
@@ -1706,7 +1706,7 @@ Optional<Web::Extensions::MessageSender> WebContentPage::extension_message_sende
         if (document.id() != document_id)
             return IterationDecision::Continue;
         auto matching_url = extension_matching_url(navigable, document, url);
-        if (!matching_url.has_value() || !Application::extension_registry().may_create_context(extension_id, *matching_url, !navigable.parent(), url != *matching_url))
+        if (!matching_url.has_value() || !Application::extension_registry().may_create_context(extension_id, *matching_url, !navigable.parent(), url != *matching_url, client().is_private()))
             return IterationDecision::Continue;
         sender = Web::Extensions::MessageSender {
             .extension_id = extension_id,
