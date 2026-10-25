@@ -140,7 +140,7 @@ void MessageRouter::unregister_context(MessagingContext& context)
     context.page().client().page_did_destroy_extension_context(context.extension_id(), context.context_id());
 }
 
-JS::ThrowCompletionOr<JS::Value> MessageRouter::send(MessagingContext& context, JS::Value message)
+GC::Ref<JS::PromiseCapability> MessageRouter::send(MessagingContext& context, JS::Value message)
 {
     auto& realm = context.realm();
     auto& vm = realm.vm();
@@ -148,18 +148,18 @@ JS::ThrowCompletionOr<JS::Value> MessageRouter::send(MessagingContext& context, 
     // A message that can't be serialized rejects the promise rather than throwing.
     auto json = JS::JSONObject::stringify_impl(vm, message, JS::js_undefined(), JS::js_undefined());
     if (json.is_error())
-        return WebIDL::create_rejected_promise(realm, json.release_error().value())->promise();
+        return WebIDL::create_rejected_promise(realm, json.release_error().value());
     if (!json.value().has_value())
-        return WebIDL::create_rejected_promise(realm, JS::TypeError::create(realm, "The message can't be serialized as JSON"_utf16))->promise();
+        return WebIDL::create_rejected_promise(realm, JS::TypeError::create(realm, "The message can't be serialized as JSON"_utf16));
 
     if (context.is_detached())
-        return WebIDL::create_rejected_promise(realm, JS::TypeError::create(realm, "The extension context is detached"_utf16))->promise();
+        return WebIDL::create_rejected_promise(realm, JS::TypeError::create(realm, "The extension context is detached"_utf16));
 
     auto promise = WebIDL::create_promise(realm);
     auto request_id = m_next_request_id++;
     m_pending_sends.set(request_id, PendingSend { GC::make_root(promise), GC::make_root(realm), &context.page(), &context });
     context.page().client().page_did_send_extension_runtime_message(context.extension_id(), request_id, context.sender(), json.value()->to_utf8(), context.context_id());
-    return promise->promise();
+    return promise;
 }
 
 void MessageRouter::complete(Page& page, u64 request_id, Optional<String> const& reply_json)
