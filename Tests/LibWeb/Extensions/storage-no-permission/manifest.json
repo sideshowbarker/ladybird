@@ -1,0 +1,19 @@
+{
+    "manifest_version": 3,
+    "name": "Storage permission fixture",
+    "version": "1.0",
+    "permissions": [
+        "unlimitedStorage"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/storage-no-permission.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

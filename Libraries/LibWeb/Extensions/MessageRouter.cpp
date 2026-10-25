@@ -16,9 +16,11 @@
 #include <LibJS/Runtime/VM.h>
 #include <LibWeb/DOM/Document.h>
 #include <LibWeb/Extensions/API/Event.h>
+#include <LibWeb/Extensions/API/Storage.h>
 #include <LibWeb/Extensions/ExtensionSet.h>
 #include <LibWeb/Extensions/MessageRouter.h>
 #include <LibWeb/Extensions/MessagingContext.h>
+#include <LibWeb/HTML/Scripting/ExceptionReporter.h>
 #include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
 #include <LibWeb/Page/Page.h>
 #include <LibWeb/WebIDL/Promise.h>
@@ -120,6 +122,9 @@ MessageRouter& MessageRouter::the()
 void MessageRouter::register_context(MessagingContext& context)
 {
     m_contexts.set(&context);
+    auto& page = context.page();
+    page.on_extension_storage_reply = [this, &page](u64 request_id, StorageResult const& result) { complete_storage(page, request_id, result); };
+    page.on_extension_storage_changed = [this, &page](String const& id, String const& changes) { dispatch_storage_changed(page, id, changes); };
     context.page().client().page_did_create_extension_context(context.extension_id(), context.context_id(), context.document().id(), context.descriptor().revision);
 }
 
@@ -127,6 +132,8 @@ void MessageRouter::unregister_context(MessagingContext& context)
 {
     if (!m_contexts.remove(&context))
         return;
+    context.revoke_storage_listeners();
+    m_pending_storage.remove_all_matching([&](auto, auto const& pending) { return pending.sender.context.ptr() == &context; });
     m_pending_sends.remove_all_matching([&](auto, auto const& pending) { return pending.context.ptr() == &context; });
     Vector<u64> dispatches;
     for (auto const& [id, pending] : m_pending_dispatches) {
@@ -182,6 +189,82 @@ void MessageRouter::complete(Page& page, u64 request_id, Web::Extensions::Messag
             value = parsed.value();
     }
     WebIDL::resolve_promise(realm, *pending->promise, value);
+}
+
+GC::Ref<JS::PromiseCapability> MessageRouter::request_storage(MessagingContext& context, StorageRequest const& request, Optional<JsonObject> defaults)
+{
+    auto& realm = context.realm();
+    if (context.is_detached())
+        return WebIDL::create_rejected_promise(realm, JS::TypeError::create(realm, "The extension context is detached"_utf16));
+    auto promise = WebIDL::create_promise(realm);
+    auto request_id = m_next_request_id++;
+    m_pending_storage.set(request_id, { { GC::make_root(promise), GC::make_root(realm), &context.page(), &context }, move(defaults) });
+    context.page().client().page_did_request_extension_storage(context.context_id(), request_id, request);
+    return promise;
+}
+
+void MessageRouter::complete_storage(Page& page, u64 request_id, StorageResult const& result)
+{
+    auto candidate = m_pending_storage.get(request_id);
+    if (!candidate.has_value() || candidate->sender.page.ptr() != &page)
+        return;
+    auto pending = m_pending_storage.take(request_id);
+    auto& realm = *pending->sender.realm;
+    HTML::TemporaryExecutionContext execution_context { realm, HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };
+    if (result.type == StorageResult::Type::Error) {
+        WebIDL::reject_promise(realm, *pending->sender.promise, JS::Error::create(realm, Utf16String::from_utf8(result.json_or_error)));
+        return;
+    }
+    JS::Value value = JS::js_undefined();
+    if (result.type == StorageResult::Type::Bytes)
+        value = JS::Value(result.bytes);
+    if (result.type == StorageResult::Type::Items) {
+        auto parsed = JsonValue::from_string(result.json_or_error);
+        if (parsed.is_error() || !parsed.value().is_object()) {
+            WebIDL::reject_promise(realm, *pending->sender.promise, JS::Error::create(realm, "Invalid storage response"_utf16));
+            return;
+        }
+        if (pending->defaults.has_value()) {
+            parsed.value().as_object().for_each_member([&](auto const& key, auto const& item) { pending->defaults->set(key, item); });
+            value = storage_value_from_json(realm, *pending->defaults);
+        } else {
+            value = storage_value_from_json(realm, parsed.value());
+        }
+    }
+    WebIDL::resolve_promise(realm, *pending->sender.promise, value);
+}
+
+void MessageRouter::dispatch_storage_changed(Page& page, String const& id, String const& json)
+{
+    auto parsed = JsonValue::from_string(json);
+    if (parsed.is_error() || !parsed.value().is_object())
+        return;
+    GC::RootVector<GC::Ref<MessagingContext>> targets;
+    for (auto context : m_contexts) {
+        if (!context->is_detached() && &context->page() == &page && context->extension_id() == id && context->descriptor().has_permission("storage"sv))
+            targets.append(*context);
+    }
+    for (auto context : targets) {
+        if (context->is_detached())
+            continue;
+        auto& realm = context->realm();
+        HTML::TemporaryExecutionContext execution_context { realm, HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };
+        auto changes = storage_value_from_json(realm, parsed.value());
+        for (bool local : { false, true }) {
+            auto list = local ? context->local_storage_listeners() : context->storage_listeners();
+            if (!list)
+                continue;
+            auto listeners = list->listeners();
+            for (auto listener : listeners) {
+                if (context->is_detached())
+                    break;
+                Array<JS::Value, 2> arguments { changes, JS::PrimitiveString::create(realm.vm(), "local"_utf16) };
+                auto result = JS::call(realm.vm(), JS::Value { listener }, JS::js_undefined(), ReadonlySpan<JS::Value> { arguments }.slice(0, local ? 1 : 2));
+                if (result.is_error())
+                    HTML::report_exception(result, realm);
+            }
+        }
+    }
 }
 
 static GC::Ref<JS::Object> sender_object(JS::Realm& realm, MessageSender const& sender)

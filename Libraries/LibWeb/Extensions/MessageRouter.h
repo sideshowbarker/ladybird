@@ -8,6 +8,7 @@
 
 #include <AK/HashMap.h>
 #include <AK/HashTable.h>
+#include <AK/JsonObject.h>
 #include <AK/Optional.h>
 #include <AK/String.h>
 #include <AK/Types.h>
@@ -20,6 +21,7 @@
 #include <LibWeb/Forward.h>
 #include <LibWebCommon/Extensions/MessageResult.h>
 #include <LibWebCommon/Extensions/MessageSender.h>
+#include <LibWebCommon/Extensions/Storage.h>
 
 namespace Web::Extensions {
 
@@ -46,6 +48,10 @@ public:
     // A message addressed to one registered context of the extension on this page.
     void dispatch(Page&, String const& extension_id, u64 dispatch_id, MessageSender const&, String const& message_json, u64 context_id);
 
+    GC::Ref<JS::PromiseCapability> request_storage(MessagingContext&, StorageRequest const&, Optional<JsonObject> defaults = {});
+    void complete_storage(Page&, u64, StorageResult const&);
+    void dispatch_storage_changed(Page&, String const&, String const&);
+
     void finished_dispatch(u64 dispatch_id);
 
 private:
@@ -64,6 +70,11 @@ private:
         GC::RawPtr<MessagingContext> context;
     };
 
+    struct PendingStorage {
+        PendingSend sender;
+        Optional<JsonObject> defaults;
+    };
+    HashMap<u64, PendingStorage> m_pending_storage;
     HashTable<GC::RawPtr<MessagingContext>> m_contexts;
     HashMap<u64, PendingDispatch> m_pending_dispatches;
     HashMap<u64, PendingSend> m_pending_sends;
