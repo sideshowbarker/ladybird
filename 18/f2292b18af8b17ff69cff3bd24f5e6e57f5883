@@ -1,9 +1,9 @@
 Ladybird serves ladybird-extension:// URLs by asking the UI process
-for the file, decides access once where fetch hands off to the
-loader, and answers with the extension’s content security policy,
-Access-Control-Allow-Origin: *, and a cross-origin resource policy.
-WebKit’s WebExtensionURLSchemeHandler runs in the UI process: it
-refuses a request from a non-extension frame unless
+for the file, decides access where fetch hands off to the loader and
+again in the UI process, and answers with the extension’s content
+security policy, Access-Control-Allow-Origin: *, and a cross-origin
+resource policy. WebKit’s WebExtensionURLSchemeHandler runs in the UI
+process: it refuses a request from a non-extension frame unless
 WebExtension::isWebAccessibleResource(requestURL, frameDocumentURL)
 says yes, then responds with the bundle’s data, the MIME type from
 resourceMIMETypeForPath(), the extension’s contentSecurityPolicy(),
