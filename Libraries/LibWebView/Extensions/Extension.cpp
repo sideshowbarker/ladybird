@@ -5,6 +5,7 @@
  */
 
 #include <AK/LexicalPath.h>
+#include <AK/QuickSort.h>
 #include <AK/Utf16View.h>
 #include <LibCore/File.h>
 #include <LibCore/System.h>
@@ -94,7 +95,7 @@ static String read_error(StringView relative_path, Error const& error)
     return MUST(String::formatted("Can't read \"{}\": {}", relative_path, error));
 }
 
-ErrorOr<NonnullRefPtr<Extension>, String> Extension::load_unpacked(ByteString directory, String id)
+ErrorOr<NonnullRefPtr<Extension>, String> Extension::load_unpacked(ByteString directory, String id, Optional<Vector<String>> granted_permissions)
 {
     auto resource_directory = Core::Directory::create(directory, Core::Directory::CreateDirectories::No);
     if (resource_directory.is_error())
@@ -110,6 +111,21 @@ ErrorOr<NonnullRefPtr<Extension>, String> Extension::load_unpacked(ByteString di
     descriptor.version = manifest.version;
     descriptor.manifest_version = manifest.manifest_version;
     descriptor.manifest_json = manifest_json.release_value();
+    for (auto const& permission : manifest.permissions) {
+        if (granted_permissions.has_value() && !granted_permissions->contains_slow(permission)) {
+            dbgln("Extension {} requests an ungranted permission: {}", id, permission);
+            continue;
+        }
+        if (!descriptor.api_permissions.contains_slow(permission))
+            descriptor.api_permissions.append(permission);
+    }
+    quick_sort(descriptor.api_permissions);
+    for (auto const& host : manifest.host_permissions) {
+        auto pattern = Web::Extensions::MatchPattern::parse(host);
+        if (pattern.is_error())
+            return MUST(String::formatted("manifest.json: Invalid host permission: {}", host));
+        descriptor.host_permissions.append(pattern.release_value());
+    }
     descriptor.extension_pages_csp = manifest.extension_pages_csp;
     descriptor.web_accessible_resources = manifest.web_accessible_resources;
     descriptor.has_background = manifest.background.has_value();

@@ -89,6 +89,7 @@ static constexpr auto EXTENSIONS_KEY = "extensions"sv;
 static constexpr auto EXTENSION_ID_KEY = "id"sv;
 static constexpr auto EXTENSION_PATH_KEY = "path"sv;
 static constexpr auto EXTENSION_ENABLED_KEY = "enabled"sv;
+static constexpr auto EXTENSION_GRANTED_PERMISSIONS_KEY = "granted_permissions"sv;
 
 static constexpr auto GLOBAL_PRIVACY_CONTROL_KEY = "globalPrivacyControl"sv;
 static constexpr auto CRASH_REPORT_SENDING_KEY = "crashReportSending"sv;
@@ -791,7 +792,14 @@ Settings Settings::create(ByteString settings_path, Vector<String> platform_lang
             auto path = value.as_object().get_string(EXTENSION_PATH_KEY);
             if (!id.has_value() || id->is_empty() || !path.has_value() || path->is_empty())
                 continue;
-            settings.m_installed_extensions.append({ *id, path->to_byte_string(), value.as_object().get_bool(EXTENSION_ENABLED_KEY).value_or(true) });
+            Vector<String> granted_permissions;
+            if (auto permissions = value.as_object().get_array(EXTENSION_GRANTED_PERMISSIONS_KEY); permissions.has_value()) {
+                for (auto const& permission : permissions->values()) {
+                    if (permission.is_string())
+                        granted_permissions.append(permission.as_string());
+                }
+            }
+            settings.m_installed_extensions.append({ *id, path->to_byte_string(), value.as_object().get_bool(EXTENSION_ENABLED_KEY).value_or(true), move(granted_permissions) });
         }
     }
 
@@ -976,6 +984,10 @@ JsonValue Settings::serialize_json() const
         object.set(EXTENSION_ID_KEY, extension.id);
         object.set(EXTENSION_PATH_KEY, MUST(String::from_byte_string(extension.path)));
         object.set(EXTENSION_ENABLED_KEY, extension.enabled);
+        JsonArray permissions;
+        for (auto const& permission : extension.granted_permissions)
+            permissions.must_append(permission);
+        object.set(EXTENSION_GRANTED_PERMISSIONS_KEY, move(permissions));
         extensions.must_append(move(object));
     }
     settings.set(EXTENSIONS_KEY, move(extensions));
@@ -1562,7 +1574,7 @@ HTTP::DiskCacheSettings Settings::disk_cache_settings() const
     return { .maximum_size = config_variable_as_integer<u64>(ConfigVariableID::MaximumDiskCacheSize) * MiB };
 }
 
-String Settings::add_installed_extension(ByteString path, Optional<String> id)
+String Settings::add_installed_extension(ByteString path, Optional<String> id, Vector<String> granted_permissions)
 {
     for (auto& extension : m_installed_extensions) {
         if (extension.path != path && (!id.has_value() || extension.id != *id))
@@ -1578,7 +1590,7 @@ String Settings::add_installed_extension(ByteString path, Optional<String> id)
 
     if (!id.has_value())
         id = AK::generate_random_uuid();
-    m_installed_extensions.append({ *id, move(path), true });
+    m_installed_extensions.append({ *id, move(path), true, move(granted_permissions) });
     persist_settings();
 
     for (auto& observer : m_observers)

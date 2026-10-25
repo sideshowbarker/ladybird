@@ -218,7 +218,7 @@ ErrorOr<ExtensionManifest, String> ExtensionManifest::parse(StringView manifest_
     for (auto const& permission : TRY(parse_string_array(object, "permissions"sv))) {
         if (permission == "<all_urls>"sv || permission.contains("://"sv))
             manifest.host_permissions.append(permission);
-        else
+        else if (permission == "storage"sv || permission == "unlimitedStorage"sv || permission == "tabs"sv)
             manifest.permissions.append(permission);
     }
     manifest.host_permissions.extend(TRY(parse_string_array(object, "host_permissions"sv)));

@@ -70,6 +70,8 @@ TEST_CASE(descriptor_round_trips_through_ipc)
         .version = "1.2.3"_string,
         .manifest_version = 2,
         .manifest_json = "{\"name\":\"Test Extension\"}"_string,
+        .api_permissions = { "storage"_string, "tabs"_string },
+        .host_permissions = { MUST(MatchPattern::parse("https://example.com/*"sv)) },
         .extension_pages_csp = "script-src 'self'; object-src 'self'"_string,
         .web_accessible_resources = { { .resource_globs = { "images/*.png"_string }, .matches = { MatchPattern::all_urls() } } },
         .content_scripts = { first_script, second_script },
