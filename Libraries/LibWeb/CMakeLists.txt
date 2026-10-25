@@ -30,6 +30,7 @@ set(SOURCES
     Bindings/RustBindingsServices.cpp
     Bindings/PrincipalHostDefined.cpp
     Bindings/Wrappable.cpp
+    Bindings/WorldSafeValue.cpp
     Bindings/WrapperWorld.cpp
     Clipboard/Clipboard.cpp
     Clipboard/ClipboardEvent.cpp

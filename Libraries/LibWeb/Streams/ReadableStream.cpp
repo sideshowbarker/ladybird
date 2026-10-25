@@ -11,6 +11,7 @@
 #include <LibJS/Runtime/Realm.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibWeb/Bindings/RustSerialization.h>
+#include <LibWeb/Bindings/WorldSafeValue.h>
 #include <LibWeb/Bindings/WrapperWorld.h>
 #include <LibWeb/DOM/AbortSignal.h>
 #include <LibWeb/DOM/IDLEventListener.h>
@@ -362,9 +363,10 @@ void web_streams_message_port_add_handlers(void* realm, HTML::MessagePort* port,
 
 JSValue web_streams_message_event_data(JSValue event)
 {
-    auto* message_event = Bindings::impl_from<HTML::MessageEvent>(&JS::HostABI::value_from_abi(event).as_object());
+    auto& event_object = JS::HostABI::value_from_abi(event).as_object();
+    auto* message_event = Bindings::impl_from<HTML::MessageEvent>(&event_object);
     VERIFY(message_event);
-    return JS::HostABI::value_to_abi(message_event->data());
+    return JS::HostABI::value_to_abi(Bindings::world_safe_value(event_object.shape().realm(), message_event->data()));
 }
 
 JSCompletion web_streams_message_port_post_message(void* realm, HTML::MessagePort* port, JSValue message)

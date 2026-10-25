@@ -23,6 +23,7 @@
 #include <LibWeb/DOM/Text.h>
 #include <LibWeb/DOM/Utils.h>
 #include <LibWeb/HTML/AttributeNames.h>
+#include <LibWeb/HTML/ErrorEvent.h>
 #include <LibWeb/HTML/EventNames.h>
 #include <LibWeb/HTML/HTMLAnchorElement.h>
 #include <LibWeb/HTML/HTMLButtonElement.h>
@@ -68,6 +69,9 @@ bool EventDispatcher::inner_invoke(Event& event, EventTarget::ClonedEventListene
         auto& callback = listener->callback->callback();
         // AD-HOC: DOM dispatch has no isolated-world lifecycle; detached-world listeners can't observe events.
         if (Bindings::host_defined_wrapper_world(callback.callback->shape().realm()).is_detached())
+            continue;
+        // AD-HOC: Error reporting targets the shared Window, so only listeners in the reporting world may observe it.
+        if (auto const* error = as_if<HTML::ErrorEvent>(&event); error && !error->can_dispatch_in_world(Bindings::host_defined_wrapper_world(callback.callback->shape().realm())))
             continue;
 
         // 2. Set found to true.

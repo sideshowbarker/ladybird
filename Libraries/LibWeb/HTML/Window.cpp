@@ -1734,7 +1734,7 @@ WebIDL::ExceptionOr<void> Window::post_message(JS::Realm& realm, JS::Value messa
 // https://dom.spec.whatwg.org/#dom-window-event
 Variant<GC::Ref<DOM::Event>, Empty> Window::event() const
 {
-    // The event getter steps are to return this’s current event.
+    // The event getter steps are to return this's current event.
     if (auto* current_event = this->current_event())
         return GC::Ref<DOM::Event> { const_cast<DOM::Event&>(*current_event) };
     return Empty {};

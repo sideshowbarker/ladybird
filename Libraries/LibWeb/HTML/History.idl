@@ -6,7 +6,7 @@ enum ScrollRestoration { "auto", "manual" };
 interface History {
     readonly attribute unsigned long length;
     [ImplementedAs=scroll_restoration] attribute ScrollRestoration scrollRestoration;
-    readonly attribute any state;
+    [CloneAcrossWorlds=Cached] readonly attribute any state;
     undefined go(optional long delta = 0);
     undefined back();
     undefined forward();

@@ -543,6 +543,20 @@ def write_attribute_getter(
 
     auto R = idl_object->get_the_attribute_associated_elements(content_attribute, TRY(WebIDL::throw_dom_exception_if_needed(vm, *vm.current_realm(), [&] {{ return idl_object->{idl_implementation_cpp_name(attribute)}(); }})));"""
 
+    if "CloneAcrossWorlds" in attribute.extended_attributes:
+        if context.resolve_typedef(attribute.type).name != "any":
+            raise RuntimeError(f"[CloneAcrossWorlds] attribute '{attribute.name}' must have type any")
+        mode = attribute.extended_attributes["CloneAcrossWorlds"]
+        if mode not in ("", "Cached"):
+            raise RuntimeError(f"[CloneAcrossWorlds] value on '{attribute.name}' must be empty or Cached")
+        includes.add("LibWeb/Bindings/WorldSafeValue.h")
+        clone = "cached_world_safe_value" if mode == "Cached" else "world_safe_value"
+        getter_steps += f"\n    R = {clone}({getter_realm_argument}, R);"
+
+    if "FilterErrorEventByWorld" in attribute.extended_attributes:
+        includes.add("LibWeb/Bindings/WorldSafeValue.h")
+        getter_steps += "\n    R = world_safe_event(realm, R);"
+
     if "CachedAttribute" in attribute.extended_attributes and "LegacyUnforgeable" not in attribute.extended_attributes:
         includes.add("LibWeb/Bindings/WrapperWorld.h")
         includes.add(bindings_glue_header_for_interface(interface))
