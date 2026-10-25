@@ -98,6 +98,8 @@ ErrorOr<void> encode(Encoder& encoder, Web::Extensions::ExtensionDescriptor cons
     TRY(encoder.encode(extension.version));
     TRY(encoder.encode(extension.manifest_version));
     TRY(encoder.encode(extension.manifest_json));
+    TRY(encoder.encode(extension.api_permissions));
+    TRY(encoder.encode(extension.host_permissions));
     TRY(encoder.encode(extension.extension_pages_csp));
     TRY(encoder.encode(extension.web_accessible_resources));
     TRY(encoder.encode(extension.content_scripts));
@@ -116,6 +118,8 @@ ErrorOr<Web::Extensions::ExtensionDescriptor> decode(Decoder& decoder)
     extension.version = TRY(decoder.decode<String>());
     extension.manifest_version = TRY(decoder.decode<u8>());
     extension.manifest_json = TRY(decoder.decode<String>());
+    extension.api_permissions = TRY(decoder.decode<Vector<String>>());
+    extension.host_permissions = TRY(decoder.decode<Vector<Web::Extensions::MatchPattern>>());
     extension.extension_pages_csp = TRY(decoder.decode<String>());
     extension.web_accessible_resources = TRY(decoder.decode<Vector<Web::Extensions::WebAccessibleResourceDescriptor>>());
     extension.content_scripts = TRY(decoder.decode<Vector<Web::Extensions::ContentScriptDescriptor>>());

@@ -77,9 +77,13 @@ Both manifest versions are supported, and both will stay supported — an exten
 | `web_accessible_resources`                                                                                           | Version 2’s list of path globs (every page may load them), or version 3’s list of `{ "resources": [...], "matches": [...] }` objects.                                                    |
 | `background`: `scripts`, `page`, `service_worker`, `type`                                                            | `scripts` and `service_worker` are wrapped in a generated page; `page` is loaded as is; `"type": "module"` makes the generated script tags modules.                                      |
 | `content_security_policy`                                                                                            | Version 2’s policy string, or version 3’s object with an `extension_pages` entry. The default is `script-src 'self'; object-src 'self'`, which blocks inline scripts in extension pages. |
-| `permissions`, `host_permissions`                                                                                    | Parsed (a version 2 `permissions` list is split into permission names and host patterns) but not enforced yet, since no API that needs a permission exists yet.                          |
+| `permissions`, `host_permissions`                                                                                    | Supported API permissions are `storage`, `unlimitedStorage`, and `tabs`; other names are ignored. Host patterns are parsed separately.                          |
 
 Match patterns follow the usual grammar: `<all_urls>`, or `<scheme>://<host><path>` where the scheme is `*` (http, https, ws, and wss), `http`, `https`, `ws`, `wss`, `file`, or `ftp`; the host is `*`, `*.` followed by a domain, or a domain (and empty for `file`); and the path starts with `/` and may contain `*`. A host is parsed the way a URL’s host is, so a malformed one is an error, and an internationalized domain name or an IP address matches however a URL spells it. The path part is matched against the URL’s path plus its query string, and the port and fragment are ignored.
+
+### Permission grants
+
+A first command-line installation grants the declared supported API permissions and saves them as `granted_permissions` in Settings. A reload keeps that grant set: Newly declared API permissions remain ungranted and are logged. Settings entries without this key have no API grants. The permission confirmation UI will arrive with `about:extensions`.
 
 ### The `runtime` API
 
@@ -103,7 +107,7 @@ Any other return value is ignored; the listener has declined. `removeListener()`
 - No toolbar button, popup, options page, or `about:extensions`.
 - No packaged extensions (`.xpi`, `.crx`, `.zip`): only unpacked directories.
 - A manifest version 3 `service_worker` runs as a script of the generated background page, not as a worker, so `self`, `importScripts()`, and worker-only APIs aren’t there, while `window` and `document` are. An extension that only uses the `runtime` API won’t notice.
-- `permissions` and `host_permissions` aren’t enforced.
+- Host permissions are recorded for APIs that use them; they don’t control declared content-script injection.
 
 ## Key concepts
 
