@@ -1,0 +1,14 @@
+The UI process checks every extension resource request against its own
+registry and against the documents the requesting process hosts. Blink’s
+AllowExtensionResourceLoad() checks enablement, process ownership,
+and web accessibility in the browser process too, and WebKit’s
+WebExtensionURLSchemeHandler decides by the frame’s document URL. Blink
+can tell which frame asked, though, and Ladybird can’t yet.
+
+For an about:blank or about:srcdoc document, Ladybird uses the URL of
+its nearest same-origin parent or opener, and so does Blink, in
+ContentScriptInjectionUrlGetter::Get(), which walks same-origin
+ancestors with a cycle guard. Gecko’s MozDocumentMatcher uses DocInfo::
+PrincipalURL(), derived from the document’s principal, and WebKit’s
+LocalFrame::injectUserScript() uses the parent document’s URL.
+None of them ever uses a base URL.
