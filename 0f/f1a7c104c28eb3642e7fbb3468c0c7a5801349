@@ -1,0 +1,19 @@
+Ladybird parses manifest.json in the UI process into one model for
+manifest versions 2 and 3, reads the content scripts at load time,
+and generates the page that hosts background scripts. WebKit’s
+WebExtension::parseManifest() and its parse*Properties() helpers do
+the same in the UI process, with generatedBackgroundContent() for
+the background scripts and isWebAccessibleResource(requestURL,
+pageURL) for resource access. Blink’s Extension::Create() runs the
+manifest handlers (content_scripts_handler.cc, web_accessible_
+resources_info.cc, csp_info.cc) in the browser process, generates
+the background page in GenerateBackgroundPageContents() of
+extension_protocols.cc, and gates resource loads with
+AllowExtensionResourceLoad(). Gecko’s ExtensionData.parseManifest()
+in Extension.sys.mjs produces the same shape, WebExtensionPolicy::
+IsWebAccessiblePath() and SourceMayAccessPath() answer resource
+access, and ExtensionProtocolHandler::AllowExternalResource() refuses
+a file outside the extension directory, which is the check Ladybird’s
+resolve_resource_path() makes segment by segment. The version-2
+“permissions” list mixing host patterns with permission names is
+split the way Gecko’s ExtensionData does in parseManifest().
