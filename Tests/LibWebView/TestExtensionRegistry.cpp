@@ -167,6 +167,7 @@ TEST_CASE(restore_from_settings_reloads_enabled_extensions_and_skips_missing_dir
     EXPECT(registry.find(present_id));
     EXPECT_EQ(registry.enabled_descriptors().size(), 1u);
     EXPECT_EQ(registry.enabled_descriptors()[0].id, present_id);
+    EXPECT(registry.enabled_descriptors(WebView::IsPrivate::Yes).is_empty());
     EXPECT_EQ(settings.installed_extensions().size(), 2u);
 }
 
@@ -412,4 +413,53 @@ TEST_CASE(first_install_grants_sorted_supported_permissions)
         "permissions": ["unlimitedStorage", "tabs", "storage", "unknown"]
     })"sv)));
     EXPECT_EQ(extension->descriptor().api_permissions, (Vector { "storage"_string, "tabs"_string, "unlimitedStorage"_string }));
+}
+
+TEST_CASE(private_access_defaults_to_false_in_settings)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    auto extension = TRY_OR_FAIL(registry.load_unpacked(directory.extension("private"sv, minimal_manifest)));
+    EXPECT(!extension->id().is_empty());
+    auto file = TRY_OR_FAIL(Core::File::open(directory.settings_path(), Core::File::OpenMode::Read));
+    auto bytes = TRY_OR_FAIL(file->read_until_eof());
+    auto json = TRY_OR_FAIL(JsonValue::from_string(bytes));
+    auto const& entry = json.as_object().get_array("extensions"sv)->at(0).as_object();
+    EXPECT(entry.get_bool("allowed_in_private"sv).has_value());
+    EXPECT_EQ(entry.get_bool("allowed_in_private"sv).value_or(true), false);
+}
+
+TEST_CASE(private_opt_in_filters_descriptors_and_notifies)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    auto extension = TRY_OR_FAIL(registry.load_unpacked(directory.extension("private"sv, minimal_manifest)));
+    auto id = extension->id();
+    auto own = URL::Parser::basic_parse(MUST(String::formatted("ladybird-extension://{}/page.html", id))).release_value();
+    EXPECT(!registry.is_allowed_in_private(id));
+    EXPECT_EQ(registry.enabled_descriptors(WebView::IsPrivate::No).size(), 1u);
+    EXPECT(registry.enabled_descriptors(WebView::IsPrivate::Yes).is_empty());
+    EXPECT(!registry.may_create_context(id, own, true, false, WebView::IsPrivate::Yes));
+    EXPECT(!registry.may_access_resource(id, "/manifest.json"sv, own, WebView::IsPrivate::Yes));
+    size_t notifications = 0;
+    registry.on_changed = [&] { ++notifications; };
+    registry.set_allowed_in_private(id, true);
+    EXPECT_EQ(notifications, 1u);
+    EXPECT_EQ(registry.enabled_descriptors(WebView::IsPrivate::Yes).size(), 1u);
+    EXPECT(registry.may_create_context(id, own, true, false, WebView::IsPrivate::Yes));
+    EXPECT(registry.may_access_resource(id, "/manifest.json"sv, own, WebView::IsPrivate::Yes));
+    auto persisted = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry restored { persisted };
+    restored.restore_from_settings();
+    EXPECT(restored.is_allowed_in_private(id));
+    registry.set_allowed_in_private(id, true);
+    EXPECT_EQ(notifications, 1u);
+    registry.set_allowed_in_private(id, false);
+    EXPECT_EQ(notifications, 2u);
+    EXPECT(registry.enabled_descriptors(WebView::IsPrivate::Yes).is_empty());
+    EXPECT_EQ(registry.enabled_descriptors(WebView::IsPrivate::No).size(), 1u);
+    auto disabled_settings = WebView::Settings::create(directory.settings_path());
+    EXPECT(!disabled_settings.installed_extensions()[0].allowed_in_private);
 }
