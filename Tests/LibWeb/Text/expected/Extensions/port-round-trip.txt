@@ -1,0 +1,4 @@
+name: port-round-trip, sender absent: true, error: null
+1: true
+{"text":"two"}: true
+[3]: true
