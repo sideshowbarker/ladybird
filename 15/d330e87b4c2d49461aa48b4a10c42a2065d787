@@ -1,0 +1,15 @@
+Ladybird refuses an encoded “/” in an extension resource path, as Blink
+does in ExtensionURLToRelativeFilePath(), which decodes the path with
+UnescapeBinaryURLComponentSafe() and fail_on_path_separators set.
+Gecko instead decodes escaped dots and slashes before the URL is
+normalized, in SubstitutingProtocolHandler::NewURI(), and then its
+ResolveURI() rejects a decoded backslash.
+
+Ladybird checks the real location of the file it opened against
+the extension directory. The other engines check by path: Blink’s
+ExtensionResource::GetFilePath() requires the normalized resource
+to be under the normalized root, Gecko’s ExtensionProtocolHandler::
+NewStream() checks nsIFile::Contains(), and WebKit’s WebExtension::
+resourceFileURLForPath() compares real paths. Checking the opened
+file rather than its path means a symlink swapped in after the
+check can’t escape either.
