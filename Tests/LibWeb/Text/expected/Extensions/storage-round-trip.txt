@@ -1,0 +1,12 @@
+{"a":1,"nil":null,"nested":{"b":[true,"value"]}}
+{"a":1,"nil":null,"nested":{"b":[true,"value"]}}
+{"a":1}
+{"nil":null}
+{"a":1,"fallback":2,"nil":null}
+{}
+{}
+2
+{}
+{"nil":null}
+0
+10485760

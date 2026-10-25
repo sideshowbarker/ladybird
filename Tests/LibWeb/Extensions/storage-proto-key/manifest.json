@@ -1,0 +1,19 @@
+{
+    "manifest_version": 3,
+    "name": "Storage proto-key fixture",
+    "version": "1.0",
+    "permissions": [
+        "storage"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/storage-proto-key.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}
