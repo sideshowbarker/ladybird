@@ -1,0 +1,17 @@
+When another world reads an object-valued event payload, Ladybird
+returns a clone of it made in the reader’s realm, or null when the
+value can’t be cloned. Blink does the same for CustomEvent::detail() and
+MessageEvent::data(), through WorldSafeV8Reference::GetAcrossWorld(),
+but its ErrorEvent::error() returns null across worlds, where Ladybird
+returns a clone. WebKit’s JSCustomEvent::detail(), JSErrorEvent::
+error(), JSMessageEvent::data(), JSPopStateEvent::state(), and
+JSHistory::state() all clone through cachedPropertyValue() and
+cloneAcrossWorlds(). Gecko has no clones here: Its compartment wrappers
+stand in for the object, and AccessCheck::wrapperSubsumes() decides
+what the reader may touch.
+
+History.state keeps one clone per reading world, as Blink’s History::
+StateHelper() caches the state on the world’s own wrapper and WebKit’s
+JSHistory::state() caches it too. And an uncaught error stays in
+its world: Blink’s ErrorEvent::CanBeDispatchedInWorld() limits
+its dispatch the same way.
