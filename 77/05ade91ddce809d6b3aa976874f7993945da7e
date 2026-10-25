@@ -1,0 +1,25 @@
+Ladybird runs document_start scripts when the document element is
+inserted, document_end right after DOMContentLoaded, and
+document_idle at min(DOMContentLoaded + 200 ms, load completion),
+each once per document with a catch-up for points a document reached
+before it was fully active. Blink’s ScriptInjectionManager::RFOHelper
+hooks DidCreateDocumentElement() for kDocumentStart and
+DidDispatchDOMContentLoadedEvent() for kDocumentEnd, and arms
+kDocumentIdle as min(DOMContentLoaded + kScriptIdleTimeoutInMs, load)
+(script_injection_manager.cc); UserScript::MatchesURL() applies
+exclude patterns and globs first, then matches, and
+MatchesDocument() handles match_about_blank by the creator’s URL.
+WebKit injects DocumentStart from HTMLConstructionSite::
+insertHTMLHtmlStartTagBeforeHTML() and DocumentEnd from FrameLoader::
+finishedParsing(), folds DocumentIdle into DocumentEnd, and matches
+at injection time with UserContentURLPattern::matchesPatterns(url,
+allowlist, blocklist), with UserContentMatchParentFrame for about:
+blank (LocalFrame::injectUserScriptImmediately()). Gecko’s
+ExtensionPolicyService::CheckDocument() runs on document-element-
+inserted and Script.injectInto() awaits promiseDocumentReady for
+document_end and Promise.race([promiseDocumentIdle,
+promiseDocumentLoaded]) for document_idle; MozDocumentMatcher::
+Matches() checks all_frames and match_about_blank first. Content
+script CSS joins the document’s user sheet as WebKit’s
+UserStyleSheet with UserStyleLevel::User and Blink’s
+InjectStylesheet() into the user sheet collection do.

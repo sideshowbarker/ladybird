@@ -1,0 +1,25 @@
+Ladybird serves ladybird-extension:// URLs by asking the UI process
+for the file, decides access once where fetch hands off to the
+loader, and answers with the extension’s content security policy,
+Access-Control-Allow-Origin: *, and a cross-origin resource policy.
+WebKit’s WebExtensionURLSchemeHandler runs in the UI process: it
+refuses a request from a non-extension frame unless
+WebExtension::isWebAccessibleResource(requestURL, frameDocumentURL)
+says yes, then responds with the bundle’s data, the MIME type from
+resourceMIMETypeForPath(), the extension’s contentSecurityPolicy(),
+and Access-Control-Allow-Origin: * (WebExtensionURLSchemeHandlerCocoa
+.mm). Blink’s ExtensionURLLoaderFactory in the browser process gates
+each load with AllowExtensionResourceLoad() (extension_protocols.cc),
+which admits the extension’s own process, browser-initiated
+navigations, and web-accessible resources through
+AllowCrossRendererResourceLoad(), and BuildHttpHeaders() adds the
+CSP, COOP/COEP, Access-Control-Allow-Origin: * and
+Cross-Origin-Resource-Policy: cross-origin; GenerateBackgroundPage
+Contents() synthesizes the background page. Gecko’s
+ExtensionProtocolHandler::SubstituteChannel() resolves the file in
+the parent, AllowExternalResource() refuses a file outside the
+extension directory, and nsContentSecurityManager consults
+WebExtensionPolicy::SourceMayAccessPath() for a page’s load of a
+moz-extension URL. Treating the scheme as a fetch scheme so
+navigations reach the loader is Ladybird-specific plumbing; the
+others register the scheme with their URL layers instead.
