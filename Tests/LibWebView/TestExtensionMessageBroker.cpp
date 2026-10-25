@@ -4,8 +4,15 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <AK/LexicalPath.h>
+#include <AK/Random.h>
+#include <LibCore/Directory.h>
+#include <LibCore/EventLoop.h>
+#include <LibCore/StandardPaths.h>
+#include <LibFileSystem/FileSystem.h>
 #include <LibTest/TestCase.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
+#include <LibWebView/Extensions/ExtensionStorageStore.h>
 
 using Web::Extensions::MessageSender;
 using WebView::ExtensionMessageBroker;
@@ -35,6 +42,13 @@ struct FakeEndpoint final : public ExtensionMessageBroker::Endpoint {
     {
         completions.append({ request_id, result.value.has<Web::Extensions::MessageResult::Reply>() ? Optional<String> { result.value.get<Web::Extensions::MessageResult::Reply>().json } : OptionalNone {}, result });
     }
+
+    bool storage_permission { true };
+    Vector<Web::Extensions::StorageResult> storage_replies;
+    Vector<String> storage_events;
+    virtual bool extension_has_permission(String const&, StringView permission) const override { return permission == "storage"sv && storage_permission; }
+    virtual void complete_extension_storage(u64, Web::Extensions::StorageResult const& result) override { storage_replies.append(result); }
+    virtual void dispatch_extension_storage_changed(String const&, String const& changes) override { storage_events.append(changes); }
 
     Vector<Dispatch> dispatches;
     Vector<Completion> completions;
@@ -408,4 +422,93 @@ TEST_CASE(listener_presence_is_distinct_from_a_declined_reply)
     broker.reply(first, first.dispatches.last().dispatch_id, Web::Extensions::MessageResult::NoReply {});
     broker.reply(second, second.dispatches.last().dispatch_id, Web::Extensions::MessageResult::NoListener {});
     EXPECT(source.completions.last().result.value.has<Web::Extensions::MessageResult::NoReply>());
+}
+
+namespace {
+
+struct StorageFixture {
+    Core::EventLoop loop;
+    ByteString root { LexicalPath::join(Core::StandardPaths::tempfile_directory(), AK::generate_random_uuid()).string() };
+    WebView::ExtensionStorageStore store { root };
+    ExtensionMessageBroker broker;
+    FakeEndpoint a, b, other;
+    String id;
+    StorageFixture()
+        : id(MUST(String::from_utf8(x)))
+    {
+        MUST(Core::Directory::create(root, Core::Directory::CreateDirectories::Yes));
+        broker.context_created(a, id, 1, { 1, 1 }, 1);
+        broker.context_created(b, id, 2, { 1, 1 }, 1);
+        broker.context_created(other, MUST(String::from_utf8(y)), 3, { 1, 1 }, 1);
+    }
+    ~StorageFixture() { MUST(FileSystem::remove(root, FileSystem::RecursionMode::Allowed)); }
+    void drain()
+    {
+        bool done = false;
+        store.get(id, {}, [&](auto) { done = true; });
+        loop.spin_until([&] { return done; });
+    }
+    void set(FakeEndpoint& endpoint, u64 context_id = 1)
+    {
+        broker.request_storage(endpoint, context_id, 1, { .operation = Web::Extensions::StorageRequest::Operation::Set, .keys = {}, .items_json = R"({"key":1})"_string }, store);
+    }
+};
+
+}
+
+TEST_CASE(storage_permission_is_enforced)
+{
+    StorageFixture f;
+    f.a.storage_permission = false;
+    f.set(f.a);
+    f.drain();
+    EXPECT_EQ(f.a.storage_replies.size(), 1u);
+    if (!f.a.storage_replies.is_empty()) {
+        EXPECT(f.a.storage_replies[0].type == Web::Extensions::StorageResult::Type::Error);
+        EXPECT_EQ(f.a.storage_replies[0].json_or_error, "Missing the storage permission"sv);
+    }
+    EXPECT(f.a.storage_events.is_empty());
+}
+
+TEST_CASE(storage_request_from_detached_or_forged_context_is_dropped)
+{
+    StorageFixture f;
+    f.set(f.a, 2);
+    f.broker.context_destroyed(f.a, f.id, 1);
+    f.set(f.a);
+    f.b.revision = 2;
+    f.set(f.b, 2);
+    f.drain();
+    EXPECT(f.a.storage_replies.is_empty());
+    EXPECT(f.b.storage_replies.is_empty());
+    EXPECT(f.other.storage_events.is_empty());
+    EXPECT(!FileSystem::exists(LexicalPath::join(f.root, "extensions"sv).string()));
+}
+
+TEST_CASE(storage_changes_include_writer_and_only_same_extension)
+{
+    StorageFixture f;
+    f.set(f.a);
+    f.drain();
+    EXPECT_EQ(f.a.storage_replies.size(), 1u);
+    EXPECT_EQ(f.a.storage_events.size(), 1u);
+    EXPECT_EQ(f.b.storage_events.size(), 1u);
+    EXPECT(f.other.storage_events.is_empty());
+    if (!f.a.storage_events.is_empty())
+        EXPECT_EQ(f.a.storage_events[0], R"({"key":{"newValue":1}})"sv);
+    f.set(f.a);
+    f.drain();
+    EXPECT_EQ(f.a.storage_events.size(), 1u);
+    EXPECT_EQ(f.b.storage_events.size(), 1u);
+}
+
+TEST_CASE(storage_detach_during_write_drops_reply_but_not_other_events)
+{
+    StorageFixture f;
+    f.set(f.a);
+    f.broker.endpoint_gone(f.a);
+    f.drain();
+    EXPECT(f.a.storage_replies.is_empty());
+    EXPECT(f.a.storage_events.is_empty());
+    EXPECT_EQ(f.b.storage_events.size(), 1u);
 }

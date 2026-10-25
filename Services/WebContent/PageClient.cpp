@@ -1874,6 +1874,11 @@ void PageClient::page_did_send_extension_runtime_message(String const& extension
     client().async_did_send_extension_runtime_message(m_id, extension_id, request_id, sender, message_json, context_id);
 }
 
+void PageClient::page_did_request_extension_storage(u64 context_id, u64 request_id, Web::Extensions::StorageRequest const& request)
+{
+    client().async_did_request_extension_storage(m_id, context_id, request_id, request);
+}
+
 void PageClient::page_did_reply_to_extension_runtime_message(u64 dispatch_id, Web::Extensions::MessageResult const& reply_json)
 {
     client().async_did_reply_to_extension_runtime_message(m_id, dispatch_id, reply_json);

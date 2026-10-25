@@ -243,6 +243,8 @@ private:
     virtual void set_content_blockers(Core::AnonymousBuffer patterns) override;
     virtual void set_extensions(Vector<Web::Extensions::ExtensionDescriptor> extensions) override;
     virtual void dispatch_extension_runtime_message(Web::PageId page_id, String extension_id, u64 dispatch_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id) override;
+    virtual void extension_storage_reply(Web::PageId, u64, Web::Extensions::StorageResult) override;
+    virtual void dispatch_extension_storage_changed(Web::PageId, String, String) override;
     virtual void extension_runtime_message_reply(Web::PageId page_id, u64 request_id, Web::Extensions::MessageResult reply_json) override;
 
     virtual void set_autoplay_settings(Web::PageId page_id, Web::HTML::AutoplayPolicy policy, Vector<Utf16String> allowlist) override;

@@ -3132,6 +3132,18 @@ void ConnectionFromClient::dispatch_extension_runtime_message(Web::PageId page_i
         page->page().dispatch_extension_runtime_message(extension_id, dispatch_id, sender, message_json, context_id);
 }
 
+void ConnectionFromClient::extension_storage_reply(Web::PageId page_id, u64 request_id, Web::Extensions::StorageResult result)
+{
+    if (auto page = this->page(page_id); page.has_value())
+        page->page().complete_extension_storage(request_id, result);
+}
+
+void ConnectionFromClient::dispatch_extension_storage_changed(Web::PageId page_id, String extension_id, String changes_json)
+{
+    if (auto page = this->page(page_id); page.has_value())
+        page->page().dispatch_extension_storage_changed(extension_id, changes_json);
+}
+
 void ConnectionFromClient::extension_runtime_message_reply(Web::PageId page_id, u64 request_id, Web::Extensions::MessageResult reply_json)
 {
     if (auto page = this->page(page_id); page.has_value())

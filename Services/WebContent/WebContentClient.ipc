@@ -22,6 +22,7 @@
 #include <LibWebCommon/ContentSecurityPolicy/Directives/NavigationType.h>
 #include <LibWebCommon/Extensions/MessageResult.h>
 #include <LibWebCommon/Extensions/MessageSender.h>
+#include <LibWebCommon/Extensions/Storage.h>
 #include <LibWebCommon/Fetch/Infrastructure/HTTP/RequestPriority.h>
 #include <LibWebCommon/FileAPI/SerializedBlobURLEntry.h>
 #include <LibWebCommon/Fullscreen/FullscreenRequestType.h>
@@ -232,6 +233,7 @@ endpoint WebContentClient routed by Web::PageId page_id
     did_create_extension_context(Web::PageId page_id, String extension_id, u64 context_id, Web::HTML::CrossProcessId document_id, u64 revision) =|
     did_destroy_extension_context(Web::PageId page_id, String extension_id, u64 context_id) =|
     did_send_extension_runtime_message(Web::PageId page_id, String extension_id, u64 request_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id) =|
+    did_request_extension_storage(Web::PageId page_id, u64 context_id, u64 request_id, Web::Extensions::StorageRequest request) =|
     did_reply_to_extension_runtime_message(Web::PageId page_id, u64 dispatch_id, Web::Extensions::MessageResult reply_json) =|
     did_request_color_picker(Web::PageId page_id, Color current_color) =|
     did_request_geolocation_position(Web::PageId page_id, u64 request_id) =|
