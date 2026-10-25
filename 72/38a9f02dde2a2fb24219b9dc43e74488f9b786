@@ -1,0 +1,21 @@
+Ladybird hosts an extension’s background page in a hidden headless
+view in its own WebContent process, loading the manifest’s page or a
+generated page of script tags, and gives any document at the
+extension’s own URL the browser namespace when it becomes active.
+WebKit’s WebExtensionContext::loadBackgroundContent() creates a
+hidden WKWebView for backgroundContentURL(), which is the manifest’s
+page or the generatedBackgroundContent() page of script tags, and
+WebExtensionControllerProxy::globalObjectIsAvailableForFrame()
+installs the namespace on a main-world frame whose URL belongs to the
+extension (extensionContext(frame.url())). Blink’s MV2 background
+page is a BackgroundContents hosted by ExtensionHost
+(extensions/browser/extension_host.cc) at _generated_background_page
+.html from GenerateBackgroundPageContents(), and its MV3 background
+is a service worker started by ServiceWorkerTaskQueue; Dispatcher::
+DidCreateScriptContext() registers any chrome-extension:// frame as a
+privileged context. Gecko’s BackgroundPage (ext-backgroundPage.js) is
+a HiddenExtensionPage loading _generated_background_page.html, and
+ExtensionPolicyService::CheckDocument() initializes an extension
+document through ProcessScript().InitExtensionDocument() when its
+principal carries an add-on policy. Tearing the host down before the
+rest of the Application is Ladybird-specific plumbing.
