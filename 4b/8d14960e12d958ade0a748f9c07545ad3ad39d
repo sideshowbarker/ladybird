@@ -1,0 +1,16 @@
+Ladybird’s MatchPattern parses the scheme/host/path grammar once and
+matches a URL’s path together with its query string, ignoring the
+port and the fragment. WebKit’s WebExtensionMatchPattern does the
+same, with matchesURL() and a matchesPattern() that compares two
+patterns, and its allHostsAndSchemesMatchPattern() is the “<all_urls>”
+case; at injection time WebCore’s UserContentURLPattern::
+matchesPatterns() checks the allowlist and blocklist. Blink’s
+URLPattern (extensions/common/url_pattern.cc) splits a pattern into
+scheme, host, port, and path with MatchesURL(), and UserScript::
+MatchesURL() applies exclude patterns and globs first, then the
+include patterns. Gecko’s MatchPattern (MatchPattern.cpp) keeps
+mScheme, mDomain, and mPath, and MatchPatternSet::Matches() ORs a
+manifest’s patterns together; its MozDocumentMatcher adds exclusion
+and glob handling on top. Ladybird folds the query string into the
+path match, as Blink and Gecko do; WebKit does too, through
+UserContentURLPattern.
