@@ -13,6 +13,7 @@
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
 #include <LibWebCommon/Extensions/MatchPattern.h>
 #include <LibWebCommon/Extensions/MessageResult.h>
+#include <LibWebCommon/Extensions/Storage.h>
 
 using namespace Web::Extensions;
 
@@ -106,4 +107,32 @@ TEST_CASE(message_results_round_trip_through_ipc)
 {
     for (auto const& result : { MessageResult { MessageResult::Reply { "null"_string } }, MessageResult { MessageResult::NoReply {} }, MessageResult { MessageResult::NoListener {} }, MessageResult { MessageResult::Error { "failed"_string } } })
         EXPECT_EQ(round_trip(result), result);
+}
+
+TEST_CASE(storage_messages_round_trip_through_ipc)
+{
+    for (auto operation : { StorageRequest::Operation::Get, StorageRequest::Operation::Set, StorageRequest::Operation::Remove, StorageRequest::Operation::Clear, StorageRequest::Operation::BytesInUse }) {
+        StorageRequest request { operation, Vector<String> { "__proto__"_string, "key"_string }, R"({"key":null})"_string };
+        EXPECT_EQ(round_trip(request), request);
+        request.keys.clear();
+        EXPECT_EQ(round_trip(request), request);
+    }
+    for (auto type : { StorageResult::Type::Items, StorageResult::Type::Bytes, StorageResult::Type::Empty, StorageResult::Type::Error }) {
+        StorageResult result { type, "payload"_string, 10485760 };
+        EXPECT_EQ(round_trip(result), result);
+    }
+}
+
+TEST_CASE(storage_messages_reject_unknown_tags)
+{
+    IPC::MessageBuffer buffer;
+    IPC::Encoder encoder { buffer };
+    MUST(encoder.encode(u8 { 255 }));
+    auto data = buffer.take_data();
+    FixedMemoryStream stream { data.span() };
+    Queue<IPC::Attachment> attachments;
+    IPC::Decoder decoder { stream, attachments };
+    EXPECT(decoder.decode<StorageRequest>().is_error());
+    MUST(stream.seek(0));
+    EXPECT(decoder.decode<StorageResult>().is_error());
 }

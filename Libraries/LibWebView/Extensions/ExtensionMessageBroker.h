@@ -11,17 +11,20 @@
 #include <AK/String.h>
 #include <AK/Types.h>
 #include <AK/Vector.h>
+#include <AK/Weakable.h>
 #include <LibWebCommon/Extensions/MessageResult.h>
 #include <LibWebCommon/Extensions/MessageSender.h>
+#include <LibWebCommon/Extensions/Storage.h>
 #include <LibWebCommon/HTML/CrossProcessId.h>
 #include <LibWebView/Export.h>
+#include <LibWebView/Forward.h>
 
 namespace WebView {
 
 // Routes runtime messages between an extension's contexts across WebContent processes. A page registers each
 // context with its document identity; a message goes to each receiving context under its own dispatch id. The first
 // answer settles the sender's request, and once every target declines or goes away, the request has no reply.
-class WEBVIEW_API ExtensionMessageBroker {
+class WEBVIEW_API ExtensionMessageBroker : public Weakable<ExtensionMessageBroker> {
     AK_ALLOC_WITH_KMALLOC;
 
 public:
@@ -30,6 +33,9 @@ public:
     class Endpoint {
     public:
         virtual ~Endpoint() = default;
+        virtual bool extension_has_permission(String const&, StringView) const { return false; }
+        virtual void complete_extension_storage(u64, Web::Extensions::StorageResult const&) { }
+        virtual void dispatch_extension_storage_changed(String const&, String const&) { }
         virtual Optional<u64> extension_revision(String const& extension_id) const = 0;
         virtual Optional<Web::Extensions::MessageSender> extension_message_sender(String const& extension_id, Web::HTML::CrossProcessId document_id) const = 0;
         virtual void dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Web::Extensions::MessageSender const&, String const& message_json, u64 context_id) = 0;
@@ -46,7 +52,10 @@ public:
     void send(Endpoint& source, String const& extension_id, u64 request_id, Web::Extensions::MessageSender const&, String const& message_json, u64 context_id);
     void reply(Endpoint& target, u64 dispatch_id, Web::Extensions::MessageResult const& reply_json);
 
+    void request_storage(Endpoint&, u64 context_id, u64 request_id, Web::Extensions::StorageRequest const&, ExtensionStorageStore&);
+
 private:
+    struct Context;
     struct PendingRequest {
         Endpoint* source { nullptr };
         u64 request_id { 0 };
@@ -55,6 +64,8 @@ private:
         bool had_listener { false };
     };
 
+    bool storage_context_is_current(Endpoint*, u64 context_id, Context const&) const;
+    void broadcast_storage_changes(String const&, u64 revision, String const&);
     void settle(u64 pending_id, Web::Extensions::MessageResult const& reply_json);
     void decline(u64 pending_id);
 
