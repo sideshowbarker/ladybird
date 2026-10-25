@@ -1,0 +1,16 @@
+Each content-script CSS file is an author sheet of its own, with
+its own URL as its base, ahead of the page’s sheets. Blink does
+the same: UserScriptInjector::GetCssOrigin() returns kAuthor, and
+StyleSheetCollection::PrepareUpdateActiveStyleSheets() puts injected
+author sheets before the page’s. Gecko preloads each file URI in its
+CSSCache and adds it as an AUTHOR_SHEET through windowUtils.addSheet(),
+and WebKit’s WebExtensionContext::addInjectedContent() makes a
+UserStyleSheet for each file, at UserStyleLevel::Author and with the
+file’s own extension URL as its base.
+
+When match_about_blank is set, Ladybird matches an about:blank or
+about:srcdoc document by the URL of its nearest same-origin parent
+or opener, as Blink’s ContentScriptInjectionUrlGetter::Get() does;
+Gecko’s MozDocumentMatcher::Matches() uses the principal’s URL,
+and WebKit’s LocalFrame::injectUserScript() the parent document’s.
+None of them ever uses a base URL.
