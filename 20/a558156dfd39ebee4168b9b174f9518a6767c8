@@ -14,3 +14,12 @@ manifest’s patterns together; its MozDocumentMatcher adds exclusion
 and glob handling on top. Ladybird folds the query string into the
 path match, as Blink and Gecko do; WebKit does too, through
 UserContentURLPattern.
+
+A match pattern’s host goes through the URL host parser, so Ladybird
+rejects a malformed host and keeps every other one in canonical form.
+Blink’s URLPattern::Parse() does the same: It rejects any host that
+net::CanonicalizeHost() fails on. WebKit’s WebExtensionMatchPattern,
+through UserContentURLPattern, rejects credentials, ports, and
+malformed IPv6 brackets, but doesn’t canonicalize. And Gecko’s
+MatchPatternCore copies the host as written (dropping IPv6 brackets),
+so it accepts more host text than Ladybird does.
