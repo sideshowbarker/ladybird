@@ -108,8 +108,8 @@ impl ErrorEvent {
     }
 
     // https://html.spec.whatwg.org/multipage/webappapis.html#dom-errorevent-error
-    pub(crate) fn error(&self, _: &mut CallContext) -> WebIdlResult<Value> {
-        Ok(self.error)
+    pub(crate) fn error(&self, cx: &mut CallContext) -> WebIdlResult<Value> {
+        Ok(cx.world_safe_value(self.error))
     }
 }
 

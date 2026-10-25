@@ -13,6 +13,7 @@
 #include <LibWeb/Bindings/PrincipalHostDefined.h>
 #include <LibWeb/Bindings/RustInterface.h>
 #include <LibWeb/Bindings/RustSerialization.h>
+#include <LibWeb/Bindings/WorldSafeValue.h>
 #include <LibWeb/Bindings/Wrappable.h>
 #include <LibWeb/Bindings/WrapperWorld.h>
 #include <LibWeb/DOM/Document.h>
@@ -107,6 +108,7 @@ bool web_bindings_realm_is_window(void* realm);
 bool web_bindings_realm_is_secure_context(void* realm);
 bool web_bindings_realm_exposes_experimental_member(void* realm, ReadonlyBytes name);
 void web_bindings_report_an_exception(void* realm, JSValue exception);
+JSValue web_bindings_world_safe_value(void* realm, JSValue value);
 HTML::Window* web_bindings_window_from_global_object(JSObject* global_object);
 void web_bindings_for_each_active_window(void* ctx, void (*on_window)(void*, HTML::Window*));
 DOM::Document* web_bindings_window_associated_document(HTML::Window*);
@@ -208,6 +210,11 @@ bool web_bindings_realm_exposes_experimental_member(void* realm, ReadonlyBytes n
 void web_bindings_report_an_exception(void* realm, JSValue exception)
 {
     HTML::report_exception(JS::throw_completion(JS::HostABI::value_from_abi(exception)), *static_cast<JS::Realm*>(realm));
+}
+
+JSValue web_bindings_world_safe_value(void* realm, JSValue value)
+{
+    return JS::HostABI::value_to_abi(world_safe_value(*static_cast<JS::Realm*>(realm), JS::HostABI::value_from_abi(value)));
 }
 
 void web_bindings_push_element_queue()

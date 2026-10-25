@@ -128,6 +128,7 @@ void Event::visit_edges(GC::Cell::Visitor& visitor)
     visitor.visit(m_target);
     visitor.visit(m_related_target);
     visitor.visit(m_current_target);
+    visitor.visit(m_dispatch_world);
     for (auto& it : m_path) {
         visitor.visit(it.invocation_target);
         visitor.visit(it.shadow_adjusted_target);
@@ -323,6 +324,16 @@ Vector<GC::Root<EventTarget>> Event::composed_path() const
 
     // 17. Return composedPath.
     return composed_path;
+}
+
+void Event::restrict_to_world(Bindings::WrapperWorld& world)
+{
+    m_dispatch_world = world;
+}
+
+bool Event::can_dispatch_in_world(Bindings::WrapperWorld const& world) const
+{
+    return !m_dispatch_world || m_dispatch_world.ptr() == &world;
 }
 
 }

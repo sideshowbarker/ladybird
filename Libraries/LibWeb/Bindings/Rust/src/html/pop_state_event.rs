@@ -77,8 +77,8 @@ impl PopStateEvent {
     }
 
     // https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-popstateevent-state
-    pub(crate) fn state(&self, _: &mut CallContext) -> WebIdlResult<Value> {
-        Ok(self.state)
+    pub(crate) fn state(&self, cx: &mut CallContext) -> WebIdlResult<Value> {
+        Ok(cx.world_safe_value(self.state))
     }
 
     // https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-popstateevent-hasuavisualtransition

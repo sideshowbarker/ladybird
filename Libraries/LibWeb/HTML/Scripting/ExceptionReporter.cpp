@@ -10,6 +10,7 @@
 #include <LibJS/Runtime/ConsoleObject.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibJS/Runtime/Value.h>
+#include <LibWeb/Bindings/WrapperWorld.h>
 #include <LibWeb/HTML/DedicatedWorkerGlobalScope.h>
 #include <LibWeb/HTML/ErrorEvent.h>
 #include <LibWeb/HTML/ErrorInformation.h>
@@ -146,7 +147,9 @@ void report_an_exception(JS::Object& global, JS::Value exception, Optional<Error
         // 2. If global implements EventTarget, then set notHandled to the result of firing an event named
         //    error at global, using ErrorEvent, with the cancelable attribute initialized to true, and
         //    additional attributes initialized according to errorInfo.
-        not_handled = window_or_worker->this_impl().dispatch_event(create_error_event(realm, EventNames::error, { .cancelable = true }, error_info));
+        auto event = create_error_event(realm, EventNames::error, { .cancelable = true }, error_info);
+        event->restrict_to_world(Bindings::host_defined_wrapper_world(realm));
+        not_handled = window_or_worker->this_impl().dispatch_event(event);
 
         // 3. Set global's in error reporting mode to false.
         window_or_worker->set_in_error_reporting_mode(false);

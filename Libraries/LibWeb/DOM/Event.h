@@ -19,6 +19,7 @@ namespace Web::Bindings {
 enum class InterfaceName : u16;
 class RustInterfaceCell;
 struct EventInit;
+class WrapperWorld;
 
 }
 
@@ -200,6 +201,10 @@ public:
     virtual bool is_mouse_event() const { return false; }
     virtual bool is_pointer_event() const { return false; }
 
+    // AD-HOC: An error event reported to a Window that several wrapper worlds share reaches only the reporting world.
+    void restrict_to_world(Bindings::WrapperWorld&);
+    bool can_dispatch_in_world(Bindings::WrapperWorld const&) const;
+
 protected:
     void initialize_event(Utf16FlyString const&, bool, bool);
 
@@ -232,6 +237,8 @@ private:
     TouchTargetList m_touch_target_list;
 
     HighResolutionTime::DOMHighResTimeStamp m_time_stamp { 0 };
+
+    GC::Ptr<Bindings::WrapperWorld> m_dispatch_world;
 
     void set_cancelled_flag();
 };

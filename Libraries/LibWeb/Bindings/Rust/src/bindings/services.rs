@@ -53,6 +53,10 @@ unsafe extern "C" {
 
     pub(crate) fn web_bindings_report_an_exception(realm: *mut c_void, exception: u64);
 
+    /// The value for a getter in the realm to return: an object of another wrapper world becomes a structured clone of
+    /// it made in the realm, or null if it can't be cloned. Anything else is the value itself.
+    pub(crate) fn web_bindings_world_safe_value(realm: *mut c_void, value: u64) -> u64;
+
     /// Runs the steps with the context while an execution context of the realm is on the stack, as an
     /// HTML::TemporaryExecutionContext puts it there, with callbacks enabled if `callbacks_enabled`.
     pub(crate) fn web_bindings_with_temporary_execution_context(

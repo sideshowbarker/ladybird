@@ -82,6 +82,9 @@ bool EventDispatcher::inner_invoke(Event& event, EventTarget::ClonedEventListene
         // AD-HOC: DOM dispatch has no isolated-world lifecycle; detached-world listeners can't observe events.
         if (Bindings::host_defined_wrapper_world(callback.callback->shape().realm()).is_detached())
             continue;
+        // AD-HOC: Error reporting targets the shared Window, so only listeners in the reporting world may observe it.
+        if (!event.can_dispatch_in_world(Bindings::host_defined_wrapper_world(callback.callback->shape().realm())))
+            continue;
 
         // 2. Set found to true.
         found = true;

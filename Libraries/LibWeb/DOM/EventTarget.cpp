@@ -21,6 +21,7 @@
 #include <LibJS/ScriptCompilation.h>
 #include <LibWeb/Bindings/EventTarget.h>
 #include <LibWeb/Bindings/MainThreadVM.h>
+#include <LibWeb/Bindings/WorldSafeValue.h>
 #include <LibWeb/Bindings/Wrappable.h>
 #include <LibWeb/Bindings/WrapperWorld.h>
 #include <LibWeb/ContentSecurityPolicy/BlockingAlgorithms.h>
@@ -196,7 +197,7 @@ JS::Completion invoke_event_handler(WebIDL::CallbackType& callback, DOM::Event& 
         auto wrapped_colno = JS::Value(error_information.colno);
 
         auto this_value = current_target_wrapper(callback.associated_realm(), event);
-        return WebIDL::invoke_callback(callback, this_value.ptr(), { { wrapped_message, wrapped_filename, wrapped_lineno, wrapped_colno, error_information.error } });
+        return WebIDL::invoke_callback(callback, this_value.ptr(), { { wrapped_message, wrapped_filename, wrapped_lineno, wrapped_colno, Bindings::world_safe_value(callback.associated_realm(), error_information.error) } });
     }
 
     auto& callback_realm = callback.associated_realm();

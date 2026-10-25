@@ -45,7 +45,7 @@ use libjs_rust::api::{ErrorKind, Gc, Object, Realm, Throw, ThrowCompletionOr, Va
 
 use crate::bindings::services::{
     web_bindings_create_dom_exception, web_bindings_pop_element_queue_and_invoke_reactions,
-    web_bindings_push_element_queue,
+    web_bindings_push_element_queue, web_bindings_world_safe_value,
 };
 
 /// Runs the steps of a [CEReactions] construct, https://html.spec.whatwg.org/multipage/custom-elements.html#cereactions
@@ -92,6 +92,21 @@ impl<'vm> CallContext<'vm> {
 
     pub(crate) fn realm(&self) -> Gc<Realm> {
         self.realm
+    }
+
+    /// The stored JS value for a getter to return to the caller: An object of another wrapper world becomes a clone
+    /// of it made in the caller's realm, or null if it can't be cloned, so that it can't expose that world's global.
+    pub(crate) fn world_safe_value(&self, value: Value) -> Value {
+        if !value.is_object() {
+            return value;
+        }
+        // SAFETY: The realm is a live cell, and the value is a value of the runtime.
+        unsafe {
+            Value::from_raw(web_bindings_world_safe_value(
+                self.realm.as_ptr().cast(),
+                value.to_raw(),
+            ))
+        }
     }
 }
 

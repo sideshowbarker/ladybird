@@ -76,8 +76,8 @@ impl CustomEvent {
     }
 
     // https://dom.spec.whatwg.org/#dom-customevent-detail
-    pub(crate) fn detail(&self, _: &mut CallContext) -> WebIdlResult<Value> {
-        Ok(*self.detail.borrow())
+    pub(crate) fn detail(&self, cx: &mut CallContext) -> WebIdlResult<Value> {
+        Ok(cx.world_safe_value(*self.detail.borrow()))
     }
 
     // https://dom.spec.whatwg.org/#dom-customevent-initcustomevent

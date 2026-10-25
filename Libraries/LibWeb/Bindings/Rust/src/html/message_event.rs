@@ -190,8 +190,8 @@ impl MessageEvent {
         self.state.borrow().data
     }
 
-    pub(crate) fn data(&self, _: &mut CallContext) -> WebIdlResult<Value> {
-        Ok(self.data_value())
+    pub(crate) fn data(&self, cx: &mut CallContext) -> WebIdlResult<Value> {
+        Ok(cx.world_safe_value(self.data_value()))
     }
 
     // https://html.spec.whatwg.org/multipage/comms.html#dom-messageevent-origin
