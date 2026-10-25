@@ -10,6 +10,7 @@
 #include <LibWebCommon/Extensions/ResourcePath.h>
 #include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
+#include <LibWebView/Extensions/ExtensionStorageStore.h>
 #include <LibWebView/Settings.h>
 
 namespace WebView {
@@ -49,10 +50,25 @@ ErrorOr<NonnullRefPtr<Extension>, String> ExtensionRegistry::load_unpacked(ByteS
 
 void ExtensionRegistry::remove(StringView id)
 {
-    auto removed = m_extensions.remove_all_matching([&](auto const& extension) { return extension->id() == id; });
-    m_settings.remove_installed_extension(id);
+    Optional<String> installed_id;
+    for (auto const& installed : m_settings.installed_extensions()) {
+        if (installed.id == id) {
+            installed_id = installed.id;
+            break;
+        }
+    }
+    if (!installed_id.has_value())
+        return;
+    auto removed = m_extensions.remove_all_matching([&](auto const& extension) { return extension->id() == *installed_id; });
+    m_settings.remove_installed_extension(*installed_id);
     if (removed)
         notify_changed();
+    if (m_storage_store) {
+        m_storage_store->delete_storage(*installed_id, [id = *installed_id](ErrorOr<void> result) {
+            if (result.is_error())
+                warnln("Unable to delete extension {} storage: {}", id, result.error());
+        });
+    }
 }
 
 void ExtensionRegistry::set_enabled(StringView id, bool enabled)

@@ -7,7 +7,7 @@ The mechanism follows Ladybird’s process model: the UI process reads extension
 This document is for two audiences. The first part is for people who want to use or write an extension; the rest is for maintainers reviewing or extending the implementation.
 
 > [!NOTE]
-> What’s described here is the first stage of extensions support: content scripts, extension pages and resources, runtime messaging, and background pages. There’s no toolbar button, popup, `storage`, `tabs`, or `about:extensions` page yet. The _Future work_ section at the end lists what’s planned.
+> What’s described here is extensions support for content scripts, extension pages and resources, runtime messaging, background pages, and local storage. There’s no toolbar button, popup, `tabs`, or `about:extensions` page yet. The _Future work_ section at the end lists what’s planned.
 
 ## Using extensions
 
@@ -31,12 +31,14 @@ Installed extensions are enabled by default. There’s no UI yet for listing, di
 
 ### What an extension gets
 
-An existing WebExtension works unchanged when it uses only what the first stage provides:
+An existing WebExtension works unchanged when it uses only the supported features:
 
 - **Content scripts**, declared in the manifest’s `content_scripts`: JavaScript and CSS injected into every page that matches, at `document_start`, `document_end`, or `document_idle`, in all frames or just the top one, in the extension’s own isolated world or (with `"world": "MAIN"`) the page’s.
 - **Extension pages and resources**, at `ladybird-extension://<id>/<path>`: an extension’s own pages load any of its files, and web pages load the ones its `web_accessible_resources` expose.
 - **A background page** (manifest version 2 `background.scripts` or `background.page`, or manifest version 3 `background.service_worker`, which runs as a page script rather than as a worker), hosted in a hidden page of its own as long as the extension is enabled.
 - **The `browser` and `chrome` namespaces**, which are the same object, with `runtime.id`, `runtime.getURL()`, `runtime.getManifest()`, `runtime.sendMessage()`, `runtime.onMessage`, and `runtime.lastError`.
+
+- **Local storage**, with the `storage` permission: `storage.local` methods and change events shared by the extension’s contexts.
 
 A minimal extension that does something visible:
 
@@ -105,9 +107,27 @@ Any other return value is ignored; the listener has declined. `removeListener()`
 
 `browser.runtime.getURL("images/icon.png")` returns `ladybird-extension://<id>/images/icon.png`, and `browser.runtime.getManifest()` returns a fresh parse of `manifest.json`.
 
+### The `storage.local` API
+
+The `storage` permission exposes `browser.storage` and `chrome.storage`. Granting `unlimitedStorage` alone doesn’t expose the namespace. Content scripts and extension documents share one store per extension, and extensions can’t read each other’s items.
+
+- `get()` and `get(null)` return every item. A string selects one key, an array selects those keys, and an object supplies default values for missing keys. Empty arrays and objects select nothing. A stored `null` remains distinct from a missing key.
+- `set(object)` updates the supplied keys atomically. Values follow JSON serialization; cycles and other serialization failures reject the call before any request is sent. Keys such as `__proto__` are ordinary data properties.
+- `remove(stringOrArray)` deletes selected keys atomically; missing keys have no effect. `clear()` removes every item.
+- `getBytesInUse()` and `getBytesInUse(null)` report total usage. A string or array selects keys. Each key is counted once, using its UTF-8 bytes plus its serialized JSON value’s bytes.
+- `QUOTA_BYTES` is 10,485,760. The granted `unlimitedStorage` permission lifts that limit. An over-quota update changes nothing.
+
+Each method returns a promise. With a final callback, it returns `undefined` and calls the callback on completion. Failures call it with no arguments and expose `runtime.lastError.message` only while it runs; promise calls reject with an error instead.
+
+`storage.onChanged` listeners receive `(changes, "local")`, and `storage.local.onChanged` listeners receive `(changes)`. Each changed key has `oldValue`, `newValue`, or both, according to whether it existed before and after the write. Unchanged writes emit no event. Committed changes reach every live context of the extension, including the writer, in write order.
+
+The UI process keeps `<profile data>/extensions/<id>/storage-local.json`, containing `{"formatVersion":1,"items":{...}}`. File IO runs on a worker. Each mutation replaces the file atomically before publishing its result. Write failures preserve the prior map; corrupt files and unsupported format versions report an error and remain in place for recovery. Temporary profiles keep the file under their temporary data directory.
+
+Disabling an extension keeps its storage. Removing it through the registry first revokes its contexts, then queues deletion after outstanding writes. Deletion failures are logged. Editing an extension out of Settings directly doesn’t run that removal operation. Private windows require the extension’s opt-in and share its normal-profile storage. The removal confirmation UI comes with `about:extensions`.
+
 ### What isn’t there yet
 
-- No `storage`, `tabs`, `i18n`, `scripting`, `action`, `webNavigation`, `webRequest`, or `declarativeNetRequest`; no `runtime.connect()` ports.
+- No `storage.sync` or `storage.session`; no `tabs`, `i18n`, `scripting`, `action`, `webNavigation`, `webRequest`, or `declarativeNetRequest`; no `runtime.connect()` ports.
 - No toolbar button, popup, options page, or `about:extensions`.
 - No packaged extensions (`.xpi`, `.crx`, `.zip`): only unpacked directories.
 - A manifest version 3 `service_worker` runs as a script of the generated background page, not as a worker, so `self`, `importScripts()`, and worker-only APIs aren’t there, while `window` and `document` are. An extension that only uses the `runtime` API won’t notice.
@@ -314,7 +334,7 @@ Messages are JSON rather than structured clones, so a `Date` or a `Map` doesn’
 
 `ExtensionBackgroundHost::sync()` keeps one hidden `HeadlessWebView` per enabled extension whose descriptor `has_background`, starting and stopping views as the registry changes, and replacing a view once its extension has a new revision. The view loads `ladybird-extension://<id>/_generated_background_page.html` — served from the descriptor’s `background_document_html`, a page of `<script src>` tags for `background.scripts` or the `service_worker`, with `type="module"` when the manifest says so — or the manifest’s own `background.page`. A background page whose WebContent process crashes is reloaded.
 
-From the moment a background is due to start (`prepare()` runs before any descriptor goes out), the broker holds the messages sent to its extension, and delivers them once the page has loaded and its scripts have run. A failed load, a crash, a disable, a replacement, or 30 seconds without a finished load settles them with no reply; after a crash, the page reloads, and new messages wait for it again.
+From the moment a background is due to start (`prepare()` runs before any descriptor goes out), the broker holds the messages sent to its extension, and delivers them once the page has loaded and its scripts have run. A failed load, a crash, a disable, a replacement, or 30 seconds without a finished load rejects them with the receiving-end error; after a crash, the page reloads, and new messages wait for it again.
 
 Because the background page is an ordinary document at the extension’s origin, it gets its namespace through the same `ExtensionDocumentContext` that any extension page does. The UI process marks its messages as the background page’s when they come from the page in the extension’s background view — the manifest’s own `background.page` included — rather than by its path. It’s a full page in its own process, so it can use `fetch()`, timers, and the DOM, and it stays alive for as long as the extension is enabled; there’s no event-page idle unload yet.
 
@@ -332,6 +352,8 @@ Because the background page is an ordinary document at the extension’s origin,
 
 The IPC-encodable types live in `LibWebCommon/Extensions/`, which both sides link: `ExtensionDescriptor` (with `ContentScriptDescriptor` and `WebAccessibleResourceDescriptor`), `MatchPattern`, `MessageSender`, and the scheme constants in `Scheme.h`.
 
+Storage transport adds `did_request_extension_storage(page_id, context_id, request_id, request)` from WebContent to UI, plus `extension_storage_reply(page_id, request_id, result)` and `dispatch_extension_storage_changed(page_id, extension_id, changes_json)` in the other direction.
+
 ## Security model
 
 - **A WebContent process never reads the extension directory.** It receives script sources in the descriptor and asks the UI process for everything else by id and path. The UI process opens the file through a handle on the extension’s directory, and refuses anything outside it, symlinks included.
@@ -339,7 +361,7 @@ The IPC-encodable types live in `LibWebCommon/Extensions/`, which both sides lin
 - **Extension ids are per-profile UUIDs**, so a page can’t probe for installed extensions at a URL that’s the same everywhere. An id isn’t a secret, though — a content script can reveal it — so every request is still checked.
 - **Content scripts can’t be reached by the page.** Their realm, prototypes, and wrapper cache are separate; only the DOM is shared, an object an event carries from one world to another arrives as a clone, a content script’s uncaught errors stay in its world, and the page’s CSP doesn’t apply to them.
 - **Extension pages get a CSP** of `script-src 'self'; object-src 'self'` unless the manifest sets one, so an extension page can’t run inline or remote script.
-- **Extensions have no privileges beyond the above yet.** There’s no API that reads or changes browser state, so there’s nothing for `permissions` to gate; when such APIs arrive, enforcing the manifest’s permissions comes with them.
+- **Storage requests require the granted `storage` permission.** The UI resolves each request against its registered page, document, and extension revision. It derives the extension id from that record and drops unknown or stale contexts. Renderers never open the storage file.
 
 Known gaps: The UI process can’t yet tell which document of a WebContent process asked for a resource, so every document of a process that hosts one allowed document gets the same answer. It checks that a context’s document exists and that the extension’s content scripts match it, but it can’t prove that a script of that extension runs there. And on a platform with neither `F_GETPATH`, `/proc/self/fd`, nor `GetFinalPathNameByHandleW()`, every extension file read fails, rather than going unchecked.
 
@@ -355,6 +377,8 @@ Known gaps: The UI process can’t yet tell which document of a WebContent proce
 | `Tests/LibWebView/TestExtensionRegistry.cpp`      | Install, reload, enable/disable, remove, restore from a Settings file, path normalization, revisions, resource access, background replacement |
 | `Tests/LibWebView/TestExtensionMessageBroker.cpp` | Recipients, first reply wins, declines, a context or page going away, forged replies, startup queuing                                         |
 | `Tests/LibWeb/TestExtensionWorld.cpp`             | Parsing in a foreign realm, world isolation, the namespace, `sendMessage` serialization, listener reply semantics, detach                     |
+
+`TestExtensionStorageStore` covers exact quota accounting, atomic writes, unchanged values, operation order, reopening, corrupt files, write failure, and deletion. Registry and broker tests cover removal ordering, permissions, stale contexts, and change delivery.
 
 ### Text tests (`Tests/LibWeb/Text/input/Extensions/`)
 
@@ -378,12 +402,14 @@ Build/release/bin/test-web --test-path Tests/LibWeb -f 'Extensions/*'
 | `web-accessible-resource`             | `resources`, `locked` | Exposed resources load, unexposed ones and a locked extension’s don’t                             |
 | `resource-path-cannot-escape`         | `resources`           | `..`, empty segments, and encoded separators are refused                                          |
 | `send-message-round-trip`             | `messaging`           | `sendResponse`, `return true`, a returned promise, and `sender`                                   |
-| `send-message-no-listener`            | `messaging`           | Resolves with `undefined` when nobody replies                                                     |
+| `send-message-no-listener`            | `messaging-no-listener` | Rejects with the receiving-end error when no listener exists                                                     |
 | `background-receives-from-mv2`        | `messaging-mv2`       | A manifest version 2 background page gets the message                                             |
 | `css-file-origins`                    | `css-files`           | Each CSS file is an author sheet of its own: manifest order, its own namespaces, its own base URL |
 | `about-blank-trusted-ancestry`        | `trusted-ancestry`    | An `about:blank` frame matches by its creator’s URL, never by a base URL the page set             |
 | `world-values`                        | `world-values`        | Event payloads cross worlds as clones, and uncaught errors stay in their world                    |
 | `background-to-content`               | `messaging`           | A content script never receives a runtime message                                                 |
+
+The `storage-*` text tests cover selection forms and defaults, prototype-named keys, both change events across content and background contexts, callbacks and scoped errors, permission gating, and isolation between extensions. Each independent test has its own fixture identity so parallel runs don’t share mutable storage.
 
 ## File guide
 
@@ -392,6 +418,7 @@ Build/release/bin/test-web --test-path Tests/LibWeb -f 'Extensions/*'
 - `MatchPattern.{h,cpp}`: The match-pattern grammar and matcher, plus `glob_matches()` for resource globs.
 - `ExtensionDescriptor.{h,cpp}`: `ExtensionDescriptor`, `ContentScriptDescriptor`, `WebAccessibleResourceDescriptor`, their IPC encoding, and `is_web_accessible()`.
 - `MessageSender.{h,cpp}`: Who sent a runtime message.
+- `MessageResult.{h,cpp}` and `Storage.{h,cpp}`: Tagged runtime results and storage requests/results.
 - `ResourcePath.{h,cpp}`: Decode and resolve an extension URL path, the same way for the access check and the open.
 - `Scheme.h`: The scheme name and the generated background page’s path.
 
@@ -400,7 +427,8 @@ Build/release/bin/test-web --test-path Tests/LibWeb -f 'Extensions/*'
 - `ExtensionManifest.{h,cpp}`: `manifest.json` parsing for both versions, and the generated background page.
 - `Extension.{h,cpp}`: An unpacked extension: load it, and open a file inside it.
 - `ExtensionRegistry.{h,cpp}`: The installed extensions, persisted through `Settings`.
-- `ExtensionMessageBroker.{h,cpp}`: Cross-page message routing.
+- `ExtensionMessageBroker.{h,cpp}`: Cross-page message routing and storage authorization.
+- `ExtensionStorageStore.{h,cpp}`: Serialized file operations, quota checks, and changed values.
 - `ExtensionBackgroundHost.{h,cpp}`: The hidden views for background pages.
 
 Elsewhere in LibWebView: `Settings.{h,cpp}` (the `extensions` key and `InstalledExtension`), `Application.{h,cpp}` (`--load-extension`, owning the registry, broker, and host, pushing descriptors), `WebContentPage.{h,cpp}` (the IPC handlers, and the `Endpoint` implementation).
@@ -413,7 +441,7 @@ Elsewhere in LibWebView: `Settings.{h,cpp}` (the `extensions` key and `Installed
 - `MessagingContext.h`: What the router needs from either.
 - `ContentScriptInjector.{h,cpp}`: Matching and the three `run_at` points.
 - `MessageRouter.{h,cpp}`: `sendMessage` and `onMessage` dispatch within a process.
-- `Namespace.{h,cpp}`, `API/Runtime.{h,cpp}`, `API/Event.{h,cpp}`: The `browser`/`chrome` object.
+- `Namespace.{h,cpp}`, `API/Runtime.{h,cpp}`, `API/Event.{h,cpp}`, `API/Storage.{h,cpp}`, `API/Completion.{h,cpp}`: The `browser`/`chrome` object.
 
 Hooks elsewhere in LibWeb: `DOM/Document.{h,cpp}` (worlds, run_at bookkeeping, the idle timer, extension style sheets, the document context, `url_for_extension_matching()`), `HTML/Parser/HTMLParser.cpp` (`document_end`), `HTML/LocalNavigable.cpp` (the initial `about:blank`), `HTML/Scripting/ClassicScript.{h,cpp}` (`create_in_realm()`, and the realm errors are reported to), `Bindings/WorldSafeValue.{h,cpp}` and the `[CloneAcrossWorlds]` and `[FilterErrorEventByWorld]` IDL extended attributes in `Meta/Generators/libweb_bindings/` (cloning event payloads, and hiding error events, across worlds), `DOM/EventDispatcher.cpp`, `WebIDL/AbstractOperations.cpp`, `Bindings/MainThreadVM.cpp`, and `HTML/WindowOrWorkerGlobalScope.cpp` (skipping a detached world’s listeners, callbacks, jobs, and timers), `Fetch/Fetching/Fetching.cpp` (the access check and the scheme branch), `Fetch/Infrastructure/URL.h` (`FETCH_SCHEMES`), `Loader/ResourceLoader.{h,cpp}` (serving the scheme), `Page/Page.{h,cpp}` (the client hooks), `Internals/Internals.{idl,h,cpp}` (`extensionId()`), and `LibURL/Rust/src/origin.rs` (the origin).
 
@@ -425,7 +453,6 @@ Hooks elsewhere in LibWeb: `DOM/Document.{h,cpp}` (worlds, run_at bookkeeping, t
 
 Planned next, roughly in order:
 
-- `storage.local`, backed by a JSON file per extension in the UI process.
 - `runtime.connect()` and `Port`, over the same broker.
 - `i18n.getMessage()` with `_locales`, and `tabs.query()` and `tabs.sendMessage()` basics.
 - An `about:extensions` page: list, enable and disable, remove, load unpacked.
