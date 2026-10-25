@@ -5,6 +5,7 @@
  */
 
 #include <LibGC/Heap.h>
+#include <LibWeb/Bindings/WrapperWorld.h>
 #include <LibWeb/HTML/ErrorEvent.h>
 
 namespace Web::HTML {
@@ -34,6 +35,17 @@ void ErrorEvent::visit_edges(GC::Cell::Visitor& visitor)
 {
     Base::visit_edges(visitor);
     visitor.visit(m_error);
+    visitor.visit(m_dispatch_world);
+}
+
+void ErrorEvent::restrict_to_world(Bindings::WrapperWorld& world)
+{
+    m_dispatch_world = world;
+}
+
+bool ErrorEvent::can_dispatch_in_world(Bindings::WrapperWorld const& world) const
+{
+    return !m_dispatch_world || m_dispatch_world.ptr() == &world;
 }
 
 }

@@ -3,7 +3,7 @@
 interface PopStateEvent : Event {
     constructor([FlyString] DOMString type, optional PopStateEventInit eventInitDict = {});
 
-    readonly attribute any state;
+    [CloneAcrossWorlds] readonly attribute any state;
     readonly attribute boolean hasUAVisualTransition;
 };
 

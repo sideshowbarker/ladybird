@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script>
+removeTestErrorHandler();
+let startupError = false;
+window.addEventListener("error", () => { startupError = true; });
+asyncTest(async done => {
+    await new Promise(resolve => window.addEventListener("load", resolve));
+    println(`page received startup error: ${startupError}`);
+    println(`own startup error: ${document.documentElement.dataset.ownError}`);
+    const cases = [[CustomEvent, "detail"], [ErrorEvent, "error"], [MessageEvent, "data"], [PopStateEvent, "state"]];
+    for (const [Constructor, property] of cases) {
+        document.addEventListener(`extension-${property}`, event => {
+            const value = event[property];
+            println(`extension ${property}: ${value === null ? "null" : `${value.answer}/${Object.getPrototypeOf(value) === Object.prototype}/${value.constructor.constructor("return typeof browser")()}`}`);
+        });
+        document.dispatchEvent(new Constructor(`page-${property}`, { [property]: { answer: 42 } }));
+        println(`page ${property}: ${document.documentElement.getAttribute(`data-${property}`)}`);
+        document.dispatchEvent(new Constructor(`page-${property}`, { [property]: () => window }));
+        println(`page function ${property}: ${document.documentElement.getAttribute(`data-${property}`)}`);
+    }
+    document.dispatchEvent(new Event("run-extension-values"));
+    for (const [, property] of cases)
+        println(`same world ${property}: ${document.documentElement.getAttribute(`data-own-${property}`)}`);
+    let value = history.state;
+    println(`extension history: ${value.answer}/${Object.getPrototypeOf(value) === Object.prototype}/${value.constructor.constructor("return typeof browser")()}`);
+    println(`extension history identity: ${history.state === value}`);
+    history.replaceState({ answer: 43 }, "");
+    document.dispatchEvent(new Event("read-page-history"));
+    println(`page history: ${document.documentElement.dataset.history}`);
+    println(`page history identity: ${document.documentElement.dataset.historyIdentity}`);
+    let leakedError = false;
+    window.addEventListener("error", () => { leakedError = true; });
+    document.dispatchEvent(new Event("throw-extension-error"));
+    println(`own error: ${document.documentElement.dataset.ownError}`);
+    println(`page received error: ${leakedError}`);
+    done();
+});
+</script>

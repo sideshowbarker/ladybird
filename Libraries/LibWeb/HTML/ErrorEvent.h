@@ -42,6 +42,8 @@ public:
 
     // https://html.spec.whatwg.org/multipage/webappapis.html#dom-errorevent-error
     JS::Value const& error() const { return m_error; }
+    void restrict_to_world(Bindings::WrapperWorld&);
+    bool can_dispatch_in_world(Bindings::WrapperWorld const&) const;
 
 private:
     ErrorEvent(Utf16FlyString const& event_name, ErrorEventInit const& event_init, HighResolutionTime::DOMHighResTimeStamp);
@@ -53,6 +55,7 @@ private:
     u32 m_lineno { 0 };
     u32 m_colno { 0 };
     JS::Value m_error;
+    GC::Ptr<Bindings::WrapperWorld> m_dispatch_world;
 };
 
 }

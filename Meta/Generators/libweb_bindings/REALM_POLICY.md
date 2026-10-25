@@ -18,11 +18,28 @@ Generated bindings make one explicit realm decision per IDL member.
   constructor still uses the caller/current realm for WebIDL conversions,
   exception wrapping, wrapper allocation, and prototype selection; only the
   implementation helper call omits the realm argument.
-- `[NeedsCallerRealm]` is the single opt-out for an instance member whose
+- `[NeedsCallerRealm]` opts out for an instance member whose
   Web-facing result or implementation algorithm is specified to use the
   caller/current realm. Getter/setter-specific caller-realm annotations are not
   used; an attribute-level `[NeedsCallerRealm]` applies to the generated
   accessor(s).
+
+`[CloneAcrossWorlds]` marks an `any` attribute that exposes a stored JS value.
+Bindings read the implementation getter without a realm argument, then clone
+object values from another wrapper world into the caller realm. Same-world
+values and primitives pass through unchanged; uncloneable objects become null.
+The member uses the caller realm for exceptions and conversion, without
+requiring `[NeedsCallerRealm]` on the implementation getter.
+`[CloneAcrossWorlds=Cached]` retains clone identity through a weak cache keyed
+by the source object and destination world, as required by `History.state`.
+Use the plain annotation when adding another stored-value attribute that must
+isolate values across worlds.
+
+`[FilterErrorEventByWorld]` (on `Window.event`) makes the generated getter
+hide an error event that's restricted to another wrapper world, using the
+caller realm both for that check and for wrapping the result. The
+implementation getter only returns the current event and makes no realm
+decision.
 
 The shared generator entry point is
 `Meta/Generators/libweb_bindings/realms.py::member_realm_expr()`. New generated

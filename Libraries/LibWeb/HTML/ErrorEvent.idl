@@ -7,7 +7,7 @@ interface ErrorEvent : Event {
     readonly attribute USVString filename;
     readonly attribute unsigned long lineno;
     readonly attribute unsigned long colno;
-    readonly attribute any error;
+    [CloneAcrossWorlds] readonly attribute any error;
 };
 
 // https://html.spec.whatwg.org/multipage/webappapis.html#erroreventinit

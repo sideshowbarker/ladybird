@@ -57,6 +57,8 @@ GC::Ref<ClassicScript> ClassicScript::create_with_parse_realm(ByteString filenam
     // 5. Set script's base URL to baseURL.
     auto script = GC::Heap::the().allocate<ClassicScript>(move(base_url), move(filename), settings);
 
+    script->m_execution_realm = parse_realm;
+
     // 6. Set script's fetch options to options.
     // NB: Callers set the script's fetch options once it has been created.
 
@@ -253,7 +255,8 @@ JS::Completion ClassicScript::run(RethrowErrors rethrow_errors, GC::Ptr<JS::Envi
         VERIFY(rethrow_errors == RethrowErrors::No);
 
         // 1. Report an exception given by evaluationStatus.[[Value]] for script's settings object's global object.
-        report_an_exception(settings.global_object(), evaluation_status.value(), OmitError::No, this);
+        // AD-HOC: An isolated world's script uses its document's settings, but its errors belong to its own global.
+        report_an_exception(m_execution_realm->global_object(), evaluation_status.value(), OmitError::No, this);
 
         // 2. Clean up after running script with settings.
         clean_up_after_running_script(settings);
@@ -275,11 +278,13 @@ JS::Completion ClassicScript::run(RethrowErrors rethrow_errors, GC::Ptr<JS::Envi
 
 ClassicScript::ClassicScript(URL::URL base_url, ByteString filename, EnvironmentSettingsObject& settings)
     : Script(move(base_url), move(filename), settings)
+    , m_execution_realm(settings.realm())
 {
 }
 
 ClassicScript::ClassicScript(URL::URL base_url, ByteString filename, Utf16String display_filename, EnvironmentSettingsObject& settings)
     : Script(move(base_url), move(filename), move(display_filename), settings)
+    , m_execution_realm(settings.realm())
 {
 }
 
@@ -289,6 +294,7 @@ void ClassicScript::visit_edges(Cell::Visitor& visitor)
 {
     Base::visit_edges(visitor);
     visitor.visit(m_script_record);
+    visitor.visit(m_execution_realm);
 }
 
 }

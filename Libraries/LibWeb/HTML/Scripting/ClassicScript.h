@@ -57,6 +57,7 @@ private:
     virtual void visit_edges(Cell::Visitor&) override;
 
     GC::Ptr<JS::Script> m_script_record;
+    GC::Ref<JS::Realm> m_execution_realm;
     MutedErrors m_muted_errors { MutedErrors::No };
 };
 

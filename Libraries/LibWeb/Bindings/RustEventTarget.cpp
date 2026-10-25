@@ -9,6 +9,7 @@
 #include <LibJS/Runtime/Realm.h>
 #include <LibURL/RustIntegration.h>
 #include <LibWeb/Bindings/RustEventTarget.h>
+#include <LibWeb/Bindings/WorldSafeValue.h>
 #include <LibWeb/Bindings/WrapperWorld.h>
 #include <LibWeb/DOM/EventDispatcher.h>
 #include <LibWeb/DOM/IDLEventListener.h>
@@ -211,9 +212,10 @@ DOM::Event* web_bindings_create_message_event_with_origin(void* realm, ReadonlyB
 
 JSValue web_bindings_message_event_data(JSValue event)
 {
-    auto* message_event = impl_from<HTML::MessageEvent>(&JS::HostABI::value_from_abi(event).as_object());
+    auto& event_object = JS::HostABI::value_from_abi(event).as_object();
+    auto* message_event = impl_from<HTML::MessageEvent>(&event_object);
     VERIFY(message_event);
-    return JS::HostABI::value_to_abi(message_event->data());
+    return JS::HostABI::value_to_abi(world_safe_value(event_object.shape().realm(), message_event->data()));
 }
 
 void web_bindings_set_event_owner(RustEvent* event, u16 interface_name, RustInterfaceCell* owner)
