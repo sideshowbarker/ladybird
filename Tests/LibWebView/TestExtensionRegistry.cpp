@@ -252,6 +252,11 @@ public:
 
 class StartupMessageEndpoint final : public WebView::ExtensionMessageBroker::Endpoint {
 public:
+    virtual void dispatch_extension_runtime_connect(u64, u64, u64, String const&, Web::Extensions::MessageSender const&) override { }
+    virtual void complete_extension_runtime_connect(u64, u64, u64, Optional<String> const&) override { }
+    virtual void dispatch_extension_port_message(u64, u64, u64, String const&) override { }
+    virtual void dispatch_extension_port_disconnect(u64, u64, Optional<String> const&) override { }
+
     u64 revision { 0 };
     size_t completions { 0 };
     virtual Optional<u64> extension_revision(String const&) const override { return revision; }

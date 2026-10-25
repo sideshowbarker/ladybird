@@ -280,6 +280,14 @@ private:
     virtual void did_change_picture_in_picture_video_size(Gfx::IntSize video_size) override;
     virtual void did_change_picture_in_picture_player_controls_visibility(bool shown) override;
     virtual void did_request_file(ByteString path, i32 request_id) override;
+    virtual void extension_runtime_connect(u64 context_id, u64 port_id, Optional<String> target_extension_id, String name) override;
+    virtual void extension_runtime_connect_ack(u64 context_id, u64 channel_id, bool accepted) override;
+    virtual void extension_port_post_message(u64 context_id, u64 channel_id, u64 port_id, String json) override;
+    virtual void extension_port_disconnect(u64 context_id, u64 channel_id, u64 port_id) override;
+    virtual void dispatch_extension_runtime_connect(u64 context_id, u64 channel_id, u64 port_id, String const& name, Web::Extensions::MessageSender const& sender) override;
+    virtual void complete_extension_runtime_connect(u64 context_id, u64 port_id, u64 channel_id, Optional<String> const& error) override;
+    virtual void dispatch_extension_port_message(u64 context_id, u64 channel_id, u64 port_id, String const& json) override;
+    virtual void dispatch_extension_port_disconnect(u64 context_id, u64 port_id, Optional<String> const& error) override;
     virtual void did_request_extension_resource(String extension_id, String path, i32 request_id) override;
     virtual void did_create_extension_context(String extension_id, u64 context_id, Web::HTML::CrossProcessId document_id, u64 revision) override;
     virtual void did_destroy_extension_context(String extension_id, u64 context_id) override;

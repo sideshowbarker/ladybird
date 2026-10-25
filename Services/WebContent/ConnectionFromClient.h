@@ -247,6 +247,10 @@ private:
     virtual void set_content_blocking_policy(Web::PageId page_id, bool enabled, Vector<String> disabled_sites) override;
     virtual void set_content_blockers(Core::AnonymousBuffer patterns) override;
     virtual void set_extensions(Vector<Web::Extensions::ExtensionDescriptor> extensions) override;
+    virtual void dispatch_extension_runtime_connect(Web::PageId, u64, u64, u64, String, Web::Extensions::MessageSender) override { }
+    virtual void extension_runtime_connect_result(Web::PageId, u64, u64, u64, Optional<String>) override { }
+    virtual void dispatch_extension_port_message(Web::PageId, u64, u64, u64, String) override { }
+    virtual void dispatch_extension_port_disconnect(Web::PageId, u64, u64, Optional<String>) override { }
     virtual void dispatch_extension_runtime_message(Web::PageId page_id, String extension_id, u64 dispatch_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id) override;
     virtual void extension_storage_reply(Web::PageId, u64, Web::Extensions::StorageResult) override;
     virtual void dispatch_extension_storage_changed(Web::PageId, String, String) override;

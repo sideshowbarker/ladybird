@@ -33,6 +33,7 @@ public:
     // directory again reloads it from disk and keeps its id.
     ErrorOr<NonnullRefPtr<Extension>, String> load_unpacked(ByteString directory);
     void remove(StringView id);
+    void set_message_broker(ExtensionMessageBroker& broker) { m_message_broker = &broker; }
     void set_storage_store(ExtensionStorageStore& store) { m_storage_store = &store; }
     void set_enabled(StringView id, bool enabled);
     void set_allowed_in_private(StringView id, bool);
@@ -55,6 +56,7 @@ private:
     void notify_changed();
 
     Settings& m_settings;
+    ExtensionMessageBroker* m_message_broker { nullptr };
     ExtensionStorageStore* m_storage_store { nullptr };
     Vector<NonnullRefPtr<Extension>> m_extensions;
 };

@@ -43,6 +43,49 @@ struct FakeEndpoint final : public ExtensionMessageBroker::Endpoint {
         completions.append({ request_id, result.value.has<Web::Extensions::MessageResult::Reply>() ? Optional<String> { result.value.get<Web::Extensions::MessageResult::Reply>().json } : OptionalNone {}, result });
     }
 
+    struct PortEndpoint {
+        u64 context_id;
+        u64 channel_id;
+        u64 port_id;
+    };
+    struct Connect : PortEndpoint {
+        String name;
+        MessageSender sender;
+    };
+    struct PortMessage : PortEndpoint {
+        String json;
+    };
+    struct Disconnect {
+        u64 context_id;
+        u64 port_id;
+        Optional<String> error;
+    };
+    Vector<Connect> connects;
+    Vector<PortEndpoint> connected;
+    Vector<PortMessage> port_messages;
+    Vector<Disconnect> disconnected;
+    Function<void()> on_connect;
+    virtual void dispatch_extension_runtime_connect(u64 context, u64 channel, u64 port, String const& name, MessageSender const& sender) override
+    {
+        connects.append({ { context, channel, port }, name, sender });
+        if (on_connect)
+            on_connect();
+    }
+    virtual void complete_extension_runtime_connect(u64 context, u64 port, u64 channel, Optional<String> const& error) override
+    {
+        connected.append({ context, channel, port });
+        if (error.has_value())
+            disconnected.append({ context, port, error });
+    }
+    virtual void dispatch_extension_port_message(u64 context, u64 channel, u64 port, String const& json) override
+    {
+        port_messages.append({ { context, channel, port }, json });
+    }
+    virtual void dispatch_extension_port_disconnect(u64 context, u64 port, Optional<String> const& error) override
+    {
+        disconnected.append({ context, port, error });
+    }
+
     bool storage_permission { true };
     Vector<Web::Extensions::StorageResult> storage_replies;
     Vector<String> storage_events;
@@ -55,6 +98,7 @@ struct FakeEndpoint final : public ExtensionMessageBroker::Endpoint {
     bool authorized { true };
     u64 revision { 1 };
     bool content_script { false };
+    bool background { false };
 
     virtual Optional<u64> extension_revision(String const&) const override
     {
@@ -65,7 +109,7 @@ struct FakeEndpoint final : public ExtensionMessageBroker::Endpoint {
     {
         if (!authorized || document_id != Web::HTML::CrossProcessId { 1, 1 })
             return {};
-        return MessageSender { .extension_id = extension_id, .url = content_script ? "https://example.com/"_string : MUST(String::formatted("ladybird-extension://{}/page.html", extension_id)), .from_background = false };
+        return MessageSender { .extension_id = extension_id, .url = content_script ? "https://example.com/"_string : MUST(String::formatted("ladybird-extension://{}/page.html", extension_id)), .from_background = background };
     }
 };
 
@@ -511,4 +555,257 @@ TEST_CASE(storage_detach_during_write_drops_reply_but_not_other_events)
     EXPECT(f.a.storage_replies.is_empty());
     EXPECT(f.a.storage_events.is_empty());
     EXPECT_EQ(f.b.storage_events.size(), 1u);
+}
+
+namespace {
+
+struct PortFixture {
+    ExtensionMessageBroker broker;
+    FakeEndpoint opener, first, second, foreign;
+    String id;
+    PortFixture()
+        : id(MUST(String::from_utf8(x)))
+    {
+        first.background = true;
+        for (auto* endpoint : { &opener, &first, &second })
+            broker.context_created(*endpoint, id, 1, { 1, 1 }, 1);
+        broker.context_created(foreign, MUST(String::from_utf8(y)), 1, { 1, 1 }, 1);
+    }
+    u64 connect()
+    {
+        broker.connect(opener, 1, 42, {}, "conversation"_string);
+        return opener.connected.last().channel_id;
+    }
+    void ack(FakeEndpoint& endpoint, bool accepted = true)
+    {
+        broker.connect_ack(endpoint, 1, endpoint.connects.last().channel_id, accepted);
+    }
+    void disconnect(FakeEndpoint& endpoint)
+    {
+        auto port = endpoint.connects.last();
+        broker.port_disconnect(endpoint, 1, port.channel_id, port.port_id);
+    }
+};
+
+}
+
+TEST_CASE(connect_reaches_every_page_but_the_opener)
+{
+    PortFixture f;
+    FakeEndpoint content;
+    content.content_script = true;
+    f.broker.context_created(content, f.id, 1, { 1, 1 }, 1);
+    f.broker.context_created(f.opener, f.id, 2, { 1, 1 }, 1);
+    auto channel = f.connect();
+    EXPECT_EQ(f.first.connects.size(), 1u);
+    EXPECT_EQ(f.second.connects.size(), 1u);
+    EXPECT_EQ(f.opener.connects.size(), 1u);
+    EXPECT_EQ(f.opener.connects[0].context_id, 2u);
+    EXPECT(content.connects.is_empty());
+    EXPECT(f.foreign.connects.is_empty());
+    EXPECT_EQ(f.first.connects[0].channel_id, channel);
+    EXPECT_EQ(f.first.connects[0].name, "conversation"sv);
+    EXPECT_EQ(f.first.connects[0].sender.extension_id, x);
+    EXPECT_EQ(f.first.connects[0].sender.url, MUST(String::formatted("ladybird-extension://{}/page.html", x)));
+}
+
+TEST_CASE(no_listener_disconnects_the_opener_with_the_receiving_end_error)
+{
+    PortFixture f;
+    f.connect();
+    f.ack(f.first, false);
+    EXPECT(f.opener.disconnected.is_empty());
+    f.ack(f.second, false);
+    EXPECT_EQ(f.opener.disconnected.size(), 1u);
+    EXPECT_EQ(f.opener.disconnected.last().error, "Could not establish connection. Receiving end does not exist."sv);
+    EXPECT(!f.broker.has_open_channels(f.id));
+}
+
+TEST_CASE(other_extension_id_disconnects_with_the_receiving_end_error)
+{
+    PortFixture f;
+    f.broker.connect(f.opener, 1, 42, MUST(String::from_utf8(y)), {});
+    EXPECT_EQ(f.opener.disconnected.size(), 1u);
+    EXPECT_EQ(f.opener.disconnected.last().error, "Could not establish connection. Receiving end does not exist."sv);
+    EXPECT(f.foreign.connects.is_empty());
+    EXPECT(f.first.connects.is_empty());
+}
+
+TEST_CASE(messages_queue_until_every_target_acks)
+{
+    PortFixture f;
+    auto channel = f.connect();
+    f.broker.port_post_message(f.opener, 1, channel, 42, "1"_string);
+    f.ack(f.first);
+    f.broker.port_post_message(f.opener, 1, channel, 42, "2"_string);
+    EXPECT(f.first.port_messages.is_empty());
+    f.ack(f.second);
+    for (auto* endpoint : { &f.first, &f.second }) {
+        EXPECT_EQ(endpoint->port_messages.size(), 2u);
+        EXPECT_EQ(endpoint->port_messages[0].json, "1"sv);
+        EXPECT_EQ(endpoint->port_messages[1].json, "2"sv);
+    }
+    f.broker.port_post_message(f.first, 1, channel, f.first.connects[0].port_id, "3"_string);
+    EXPECT_EQ(f.opener.port_messages.size(), 1u);
+    EXPECT_EQ(f.second.port_messages.size(), 2u);
+}
+
+TEST_CASE(queue_overflow_closes_the_channel)
+{
+    PortFixture f;
+    auto channel = f.connect();
+    for (size_t i = 0; i < 1024; ++i)
+        f.broker.port_post_message(f.opener, 1, channel, 42, "1"_string);
+    EXPECT(f.opener.disconnected.is_empty());
+    f.broker.port_post_message(f.opener, 1, channel, 42, "2"_string);
+    EXPECT_EQ(f.opener.disconnected.size(), 1u);
+    EXPECT_EQ(f.opener.disconnected.last().error, "Port message queue is full"sv);
+    f.ack(f.first);
+    f.ack(f.second);
+    EXPECT(f.first.port_messages.is_empty());
+    EXPECT(!f.broker.has_open_channels(f.id));
+}
+
+TEST_CASE(opener_survives_while_a_receiver_remains)
+{
+    PortFixture f;
+    auto channel = f.connect();
+    f.ack(f.first);
+    f.ack(f.second);
+    f.disconnect(f.first);
+    EXPECT(f.first.disconnected.is_empty());
+    EXPECT(f.opener.disconnected.is_empty());
+    f.broker.port_post_message(f.opener, 1, channel, 42, "1"_string);
+    EXPECT(f.first.port_messages.is_empty());
+    EXPECT_EQ(f.second.port_messages.size(), 1u);
+    f.disconnect(f.second);
+    EXPECT_EQ(f.opener.disconnected.size(), 1u);
+    EXPECT(!f.opener.disconnected.last().error.has_value());
+}
+
+TEST_CASE(opener_disconnect_reaches_every_receiver)
+{
+    PortFixture f;
+    auto channel = f.connect();
+    f.ack(f.first);
+    f.ack(f.second);
+    f.broker.port_disconnect(f.opener, 1, channel, 42);
+    EXPECT(f.opener.disconnected.is_empty());
+    EXPECT_EQ(f.first.disconnected.size(), 1u);
+    EXPECT_EQ(f.second.disconnected.size(), 1u);
+    EXPECT(!f.first.disconnected.last().error.has_value());
+    EXPECT(!f.broker.has_open_channels(f.id));
+}
+
+TEST_CASE(endpoint_destruction_removes_only_its_side)
+{
+    PortFixture f;
+    auto channel = f.connect();
+    f.ack(f.first);
+    f.ack(f.second);
+    f.broker.endpoint_gone(f.first);
+    EXPECT(f.opener.disconnected.is_empty());
+    f.broker.port_post_message(f.opener, 1, channel, 42, "1"_string);
+    EXPECT_EQ(f.second.port_messages.size(), 1u);
+    EXPECT(f.first.port_messages.is_empty());
+    f.broker.endpoint_gone(f.opener);
+    EXPECT_EQ(f.second.disconnected.size(), 1u);
+    EXPECT(f.first.disconnected.is_empty());
+}
+
+TEST_CASE(opener_detaching_while_opening_closes_the_channel)
+{
+    PortFixture f;
+    auto detach = [&] { f.broker.context_destroyed(f.opener, f.id, 1); };
+    f.first.on_connect = [detach] { detach(); };
+    f.second.on_connect = [detach] { detach(); };
+    f.connect();
+    EXPECT_EQ(f.first.connects.size() + f.second.connects.size(), 1u);
+    EXPECT_EQ(f.first.disconnected.size() + f.second.disconnected.size(), 1u);
+    EXPECT(!f.broker.has_open_channels(f.id));
+    EXPECT(f.opener.disconnected.is_empty());
+}
+
+TEST_CASE(foreign_channel_ids_are_ignored)
+{
+    PortFixture f;
+    auto channel = f.connect();
+    f.broker.connect_ack(f.foreign, 1, channel, true);
+    f.broker.port_post_message(f.foreign, 1, channel, 42, "99"_string);
+    f.broker.port_disconnect(f.foreign, 1, channel, 42);
+    f.broker.port_disconnect(f.opener, 2, channel, 42);
+    f.broker.port_disconnect(f.opener, 1, channel, 43);
+    f.broker.port_disconnect(f.second, 1, channel, f.first.connects[0].port_id);
+    EXPECT(f.opener.disconnected.is_empty());
+    EXPECT(f.first.port_messages.is_empty());
+    f.broker.port_post_message(f.opener, 1, channel, 42, "1"_string);
+    f.ack(f.first);
+    EXPECT(f.first.port_messages.is_empty());
+    f.ack(f.second);
+    EXPECT_EQ(f.first.port_messages.size(), 1u);
+    EXPECT_EQ(f.second.port_messages.size(), 1u);
+}
+
+TEST_CASE(disable_closes_the_extensions_channels)
+{
+    PortFixture f;
+    f.connect();
+    f.broker.close_channels_for(f.id);
+    EXPECT_EQ(f.opener.disconnected.size(), 1u);
+    EXPECT_EQ(f.first.disconnected.size(), 1u);
+    EXPECT_EQ(f.second.disconnected.size(), 1u);
+    EXPECT(!f.opener.disconnected.last().error.has_value());
+    EXPECT(!f.broker.has_open_channels(f.id));
+}
+
+TEST_CASE(has_open_channels_tracks_the_background)
+{
+    PortFixture f;
+    EXPECT(!f.broker.has_open_channels(f.id));
+    f.connect();
+    EXPECT(f.broker.has_open_channels(f.id));
+    EXPECT(!f.broker.has_open_channels(MUST(String::from_utf8(y))));
+    f.ack(f.first);
+    f.ack(f.second);
+    EXPECT(f.broker.has_open_channels(f.id));
+    f.disconnect(f.first);
+    EXPECT(!f.broker.has_open_channels(f.id));
+    EXPECT(f.opener.disconnected.is_empty());
+}
+
+TEST_CASE(receiver_disconnect_during_onconnect_is_clean_and_drops_queued_messages)
+{
+    PortFixture f;
+    auto channel = f.connect();
+    f.broker.port_post_message(f.opener, 1, channel, 42, "1"_string);
+    f.disconnect(f.first);
+    f.ack(f.first);
+    f.ack(f.second, false);
+    EXPECT_EQ(f.opener.disconnected.size(), 1u);
+    EXPECT(!f.opener.disconnected.last().error.has_value());
+    EXPECT(f.first.port_messages.is_empty());
+}
+
+TEST_CASE(ports_wait_for_background_startup_and_handle_failure_or_detachment)
+{
+    PortFixture f;
+    f.broker.background_starting(f.id, 1);
+    auto channel = f.connect();
+    f.broker.port_post_message(f.opener, 1, channel, 42, "1"_string);
+    EXPECT(f.first.connects.is_empty());
+    f.broker.background_finished(f.id, 1, true);
+    f.ack(f.first);
+    f.ack(f.second);
+    EXPECT_EQ(f.first.port_messages.size(), 1u);
+    f.broker.close_channels_for(f.id);
+    f.broker.background_starting(f.id, 1);
+    f.connect();
+    f.broker.background_finished(f.id, 1, false);
+    EXPECT_EQ(f.opener.disconnected.last().error, "Could not establish connection. Receiving end does not exist."sv);
+    f.broker.background_starting(f.id, 1);
+    f.connect();
+    f.broker.context_destroyed(f.opener, f.id, 1);
+    f.broker.background_finished(f.id, 1, true);
+    EXPECT_EQ(f.first.connects.size(), 1u);
+    EXPECT(!f.broker.has_open_channels(f.id));
 }

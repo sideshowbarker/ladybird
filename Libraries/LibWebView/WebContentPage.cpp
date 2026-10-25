@@ -1614,6 +1614,46 @@ void WebContentPage::did_request_file(ByteString path, i32 request_id)
         async_handle_file_return(0, file.release_value(), request_id);
 }
 
+void WebContentPage::extension_runtime_connect(u64 context_id, u64 port_id, Optional<String> target_extension_id, String name)
+{
+    Application::extension_message_broker().connect(*this, context_id, port_id, move(target_extension_id), move(name));
+}
+
+void WebContentPage::extension_runtime_connect_ack(u64 context_id, u64 channel_id, bool accepted)
+{
+    Application::extension_message_broker().connect_ack(*this, context_id, channel_id, accepted);
+}
+
+void WebContentPage::extension_port_post_message(u64 context_id, u64 channel_id, u64 port_id, String json)
+{
+    Application::extension_message_broker().port_post_message(*this, context_id, channel_id, port_id, move(json));
+}
+
+void WebContentPage::extension_port_disconnect(u64 context_id, u64 channel_id, u64 port_id)
+{
+    Application::extension_message_broker().port_disconnect(*this, context_id, channel_id, port_id);
+}
+
+void WebContentPage::dispatch_extension_runtime_connect(u64 context_id, u64 channel_id, u64 port_id, String const& name, Web::Extensions::MessageSender const& sender)
+{
+    async_dispatch_extension_runtime_connect(context_id, channel_id, port_id, name, sender);
+}
+
+void WebContentPage::complete_extension_runtime_connect(u64 context_id, u64 port_id, u64 channel_id, Optional<String> const& error)
+{
+    async_extension_runtime_connect_result(context_id, port_id, channel_id, error);
+}
+
+void WebContentPage::dispatch_extension_port_message(u64 context_id, u64 channel_id, u64 port_id, String const& json)
+{
+    async_dispatch_extension_port_message(context_id, channel_id, port_id, json);
+}
+
+void WebContentPage::dispatch_extension_port_disconnect(u64 context_id, u64 port_id, Optional<String> const& error)
+{
+    async_dispatch_extension_port_disconnect(context_id, port_id, error);
+}
+
 void WebContentPage::did_request_extension_resource(String extension_id, String path, i32 request_id)
 {
     // The renderer names a path of a ladybird-extension:// URL. The extension checks the opened file's location,
