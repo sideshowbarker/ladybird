@@ -1,0 +1,19 @@
+Runtime messages go only to an extension’s own pages, never to content
+scripts, as in Blink’s ExtensionMessagePort::CreateForExtension()
+and WebKit’s WebExtensionContext::runtimeSendMessage(). Gecko’s
+ConduitsParent::_cast() keeps content scripts out for a content-script
+sender, but still has a route from extension pages to content scripts.
+
+The broker takes the sender from its own view of the sending document,
+as Blink’s ValidateSourceContextAndExtractExtensionId() validates
+the source through its RenderFrameHost and Gecko’s verifyEnv() checks
+principals and ancestry. A dispatch id answers only from the page
+it went to, as Gecko’s ConduitsParent::receiveMessage() rejects the
+wrong actor and WebKit’s Connection::takeAsyncReplyHandler() keeps
+its handlers per connection.
+
+While a background page starts, a message waits for it, as with Blink’s
+MessageService::EnqueuePendingMessageForLazyBackgroundLoad(), Gecko’s
+wakeupBackground(), which normalizeArgs() awaits, and WebKit’s
+m_actionsToPerformAfterBackgroundContentLoads. The 30-second deadline
+for a page that never loads is Ladybird’s own.
