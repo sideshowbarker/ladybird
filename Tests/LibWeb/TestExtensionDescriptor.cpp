@@ -12,6 +12,7 @@
 #include <LibIPC/Encoder.h>
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
 #include <LibWebCommon/Extensions/MatchPattern.h>
+#include <LibWebCommon/Extensions/MessageResult.h>
 
 using namespace Web::Extensions;
 
@@ -97,4 +98,10 @@ TEST_CASE(descriptor_defaults)
     ExtensionDescriptor descriptor;
     EXPECT_EQ(descriptor.manifest_version, 3);
     EXPECT(!descriptor.has_background);
+}
+
+TEST_CASE(message_results_round_trip_through_ipc)
+{
+    for (auto const& result : { MessageResult { MessageResult::Reply { "null"_string } }, MessageResult { MessageResult::NoReply {} }, MessageResult { MessageResult::NoListener {} }, MessageResult { MessageResult::Error { "failed"_string } } })
+        EXPECT_EQ(round_trip(result), result);
 }

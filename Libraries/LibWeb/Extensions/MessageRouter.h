@@ -18,6 +18,7 @@
 #include <LibJS/Runtime/Completion.h>
 #include <LibWeb/Export.h>
 #include <LibWeb/Forward.h>
+#include <LibWebCommon/Extensions/MessageResult.h>
 #include <LibWebCommon/Extensions/MessageSender.h>
 
 namespace Web::Extensions {
@@ -39,8 +40,8 @@ public:
     // runtime.sendMessage(message): serializes the message in the context's realm and returns the promise of a reply.
     GC::Ref<JS::PromiseCapability> send(MessagingContext&, JS::Value message);
 
-    // The reply to a message this process sent: the JSON of the reply, or nothing when no listener replied.
-    void complete(Page&, u64 request_id, Optional<String> const& reply_json);
+    // The result of a message this process sent: a JSON reply, a decline, or an error.
+    void complete(Page&, u64 request_id, Web::Extensions::MessageResult const& reply_json);
 
     // A message addressed to one registered context of the extension on this page.
     void dispatch(Page&, String const& extension_id, u64 dispatch_id, MessageSender const&, String const& message_json, u64 context_id);

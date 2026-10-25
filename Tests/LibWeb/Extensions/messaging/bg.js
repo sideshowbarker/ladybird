@@ -9,6 +9,9 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     else if (message.type === "who")
         sendResponse({ id: browser.runtime.id === sender.id, background: location.pathname });
     else if (message.type === "helloFromBackground")
-        browser.runtime.sendMessage({ type: "from-background" }).then(reply => sendResponse(`content said ${reply}`));
+        browser.runtime.sendMessage({ type: "from-background" }).then(
+            reply => sendResponse(`content said ${reply}`),
+            error => sendResponse(`runtime rejected: ${error.message}`)
+        );
     if (message.type === "helloFromBackground") return true;
 });

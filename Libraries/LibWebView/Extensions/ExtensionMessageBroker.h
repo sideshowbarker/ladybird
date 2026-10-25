@@ -11,6 +11,7 @@
 #include <AK/String.h>
 #include <AK/Types.h>
 #include <AK/Vector.h>
+#include <LibWebCommon/Extensions/MessageResult.h>
 #include <LibWebCommon/Extensions/MessageSender.h>
 #include <LibWebCommon/HTML/CrossProcessId.h>
 #include <LibWebView/Export.h>
@@ -32,7 +33,7 @@ public:
         virtual Optional<u64> extension_revision(String const& extension_id) const = 0;
         virtual Optional<Web::Extensions::MessageSender> extension_message_sender(String const& extension_id, Web::HTML::CrossProcessId document_id) const = 0;
         virtual void dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Web::Extensions::MessageSender const&, String const& message_json, u64 context_id) = 0;
-        virtual void complete_extension_runtime_message(u64 request_id, Optional<String> const& reply_json) = 0;
+        virtual void complete_extension_runtime_message(u64 request_id, Web::Extensions::MessageResult const& reply_json) = 0;
     };
 
     void context_created(Endpoint&, String const& extension_id, u64 context_id, Web::HTML::CrossProcessId document_id, u64 revision);
@@ -43,7 +44,7 @@ public:
     void background_finished(String const& extension_id, u64 revision, bool success);
 
     void send(Endpoint& source, String const& extension_id, u64 request_id, Web::Extensions::MessageSender const&, String const& message_json, u64 context_id);
-    void reply(Endpoint& target, u64 dispatch_id, Optional<String> const& reply_json);
+    void reply(Endpoint& target, u64 dispatch_id, Web::Extensions::MessageResult const& reply_json);
 
 private:
     struct PendingRequest {
@@ -51,9 +52,10 @@ private:
         u64 request_id { 0 };
         u64 source_context_id { 0 };
         size_t outstanding { 0 };
+        bool had_listener { false };
     };
 
-    void settle(u64 pending_id, Optional<String> const& reply_json);
+    void settle(u64 pending_id, Web::Extensions::MessageResult const& reply_json);
     void decline(u64 pending_id);
 
     void drop_request(u64 pending_id);

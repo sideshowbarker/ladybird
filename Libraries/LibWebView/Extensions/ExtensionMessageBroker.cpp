@@ -9,6 +9,8 @@
 
 namespace WebView {
 
+using Web::Extensions::MessageResult;
+
 void ExtensionMessageBroker::context_created(Endpoint& endpoint, String const& extension_id, u64 context_id, Web::HTML::CrossProcessId document_id, u64 revision)
 {
     if (endpoint.extension_revision(extension_id) != revision || !endpoint.extension_message_sender(extension_id, document_id).has_value())
@@ -105,7 +107,7 @@ void ExtensionMessageBroker::background_finished(String const& extension_id, u64
         if (success)
             send(*message.source, message.extension_id, message.request_id, {}, message.json, message.context_id);
         else
-            message.source->complete_extension_runtime_message(message.request_id, {});
+            message.source->complete_extension_runtime_message(message.request_id, MessageResult::no_receiver());
     }
 }
 
@@ -117,7 +119,7 @@ void ExtensionMessageBroker::send(Endpoint& source, String const& extension_id, 
         ? source.extension_message_sender(extension_id, context->document_id)
         : Optional<Web::Extensions::MessageSender> {};
     if (!sender.has_value()) {
-        source.complete_extension_runtime_message(request_id, {});
+        source.complete_extension_runtime_message(request_id, MessageResult::no_receiver());
         return;
     }
     if (m_starting_backgrounds.get(extension_id) == context->revision) {
@@ -138,7 +140,7 @@ void ExtensionMessageBroker::send(Endpoint& source, String const& extension_id, 
         }
     }
     if (targets.is_empty()) {
-        source.complete_extension_runtime_message(request_id, {});
+        source.complete_extension_runtime_message(request_id, MessageResult::no_receiver());
         return;
     }
 
@@ -157,7 +159,7 @@ void ExtensionMessageBroker::send(Endpoint& source, String const& extension_id, 
     }
 }
 
-void ExtensionMessageBroker::reply(Endpoint& target, u64 dispatch_id, Optional<String> const& reply_json)
+void ExtensionMessageBroker::reply(Endpoint& target, u64 dispatch_id, Web::Extensions::MessageResult const& reply_json)
 {
     Optional<u64> pending_id = m_dispatch_to_pending.get(dispatch_id);
     auto endpoint = m_dispatch_to_endpoint.get(dispatch_id);
@@ -166,10 +168,15 @@ void ExtensionMessageBroker::reply(Endpoint& target, u64 dispatch_id, Optional<S
     m_dispatch_to_pending.remove(dispatch_id);
     m_dispatch_to_endpoint.remove(dispatch_id);
 
-    if (reply_json.has_value())
+    if (reply_json.value.has<MessageResult::Reply>() || reply_json.value.has<MessageResult::Error>()) {
         settle(*pending_id, reply_json);
-    else
+    } else {
+        if (reply_json.value.has<MessageResult::NoReply>()) {
+            if (auto pending = m_pending_requests.get(*pending_id); pending.has_value())
+                pending->had_listener = true;
+        }
         decline(*pending_id);
+    }
 }
 
 void ExtensionMessageBroker::drop_request(u64 pending_id)
@@ -186,7 +193,7 @@ void ExtensionMessageBroker::drop_request(u64 pending_id)
     }
 }
 
-void ExtensionMessageBroker::settle(u64 pending_id, Optional<String> const& reply_json)
+void ExtensionMessageBroker::settle(u64 pending_id, Web::Extensions::MessageResult const& reply_json)
 {
     auto pending = m_pending_requests.get(pending_id);
     if (!pending.has_value())
@@ -203,7 +210,7 @@ void ExtensionMessageBroker::decline(u64 pending_id)
     if (!pending.has_value())
         return;
     if (--pending->outstanding == 0)
-        settle(pending_id, {});
+        settle(pending_id, pending->had_listener ? MessageResult { MessageResult::NoReply {} } : MessageResult::no_receiver());
 }
 
 }
