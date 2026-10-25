@@ -107,6 +107,7 @@ struct InstalledExtension {
     String id;
     ByteString path;
     bool enabled { true };
+    Vector<String> granted_permissions {};
 };
 
 struct ContentBlockerList {
@@ -238,7 +239,7 @@ public:
 
     Vector<InstalledExtension> const& installed_extensions() const { return m_installed_extensions; }
     // Returns the extension's id: the one it already has when the path is installed, else the given or a new one.
-    String add_installed_extension(ByteString path, Optional<String> id = {});
+    String add_installed_extension(ByteString path, Optional<String> id = {}, Vector<String> granted_permissions = {});
     void set_installed_extension_enabled(StringView id, bool enabled);
     void remove_installed_extension(StringView id);
 
