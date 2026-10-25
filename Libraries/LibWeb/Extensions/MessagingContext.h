@@ -10,6 +10,7 @@
 #include <LibJS/Forward.h>
 #include <LibJS/Runtime/Value.h>
 #include <LibWeb/Export.h>
+#include <LibWeb/Extensions/API/Event.h>
 #include <LibWeb/Forward.h>
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
 #include <LibWebCommon/Extensions/MessageSender.h>
@@ -26,6 +27,21 @@ public:
 
     JS::Value last_error() const { return m_last_error; }
     void set_last_error(JS::Value value) { m_last_error = value; }
+
+    void set_storage_listeners(GC::Ref<EventListenerList> global, GC::Ref<EventListenerList> local)
+    {
+        m_storage_listeners = global;
+        m_local_storage_listeners = local;
+    }
+    GC::Ptr<EventListenerList> storage_listeners() { return m_storage_listeners; }
+    GC::Ptr<EventListenerList> local_storage_listeners() { return m_local_storage_listeners; }
+    void revoke_storage_listeners()
+    {
+        if (m_storage_listeners)
+            m_storage_listeners->revoke();
+        if (m_local_storage_listeners)
+            m_local_storage_listeners->revoke();
+    }
 
     u64 context_id() const { return m_context_id; }
     virtual DOM::Document& document() = 0;
@@ -45,6 +61,8 @@ protected:
     {
         Base::visit_edges(visitor);
         visitor.visit(m_last_error);
+        visitor.visit(m_storage_listeners);
+        visitor.visit(m_local_storage_listeners);
     }
 
     MessagingContext()
@@ -55,6 +73,8 @@ protected:
 private:
     inline static u64 s_next_context_id { 0 };
     u64 m_context_id;
+    GC::Ptr<EventListenerList> m_storage_listeners;
+    GC::Ptr<EventListenerList> m_local_storage_listeners;
     JS::Value m_last_error { JS::js_undefined() };
 };
 

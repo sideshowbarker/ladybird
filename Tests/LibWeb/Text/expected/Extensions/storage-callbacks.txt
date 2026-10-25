@@ -1,0 +1,12 @@
+true
+set callback
+{"key":2}
+{"key":2}
+4
+0
+storage.local QUOTA_BYTES quota exceeded
+true
+storage.local QUOTA_BYTES quota exceeded
+true
+{"key":2}
+{}
