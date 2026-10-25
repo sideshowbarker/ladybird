@@ -61,7 +61,7 @@ dictionary WindowPostMessageOptions : StructuredSerializeOptions {
 
 // https://dom.spec.whatwg.org/#interface-window-extensions
 partial interface Window {
-    [Replaceable] readonly attribute (Event or undefined) event; // legacy
+    [Replaceable, FilterErrorEventByWorld] readonly attribute (Event or undefined) event; // legacy
 };
 
 // https://w3c.github.io/requestidlecallback/#window_extensions

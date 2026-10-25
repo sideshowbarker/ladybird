@@ -10,6 +10,7 @@
 #include <LibJS/Runtime/ConsoleObject.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibJS/Runtime/Value.h>
+#include <LibWeb/Bindings/WrapperWorld.h>
 #include <LibWeb/HTML/DedicatedWorkerGlobalScope.h>
 #include <LibWeb/HTML/ErrorEvent.h>
 #include <LibWeb/HTML/ErrorInformation.h>
@@ -145,7 +146,9 @@ void report_an_exception(JS::Object& global, JS::Value exception, Optional<Error
         event_init.colno = error_info.colno;
         event_init.error = error_info.error;
 
-        not_handled = window_or_worker->this_impl().dispatch_event(ErrorEvent::create(EventNames::error, event_init, HighResolutionTime::current_high_resolution_time(global)));
+        auto event = ErrorEvent::create(EventNames::error, event_init, HighResolutionTime::current_high_resolution_time(global));
+        event->restrict_to_world(Bindings::host_defined_wrapper_world(realm));
+        not_handled = window_or_worker->this_impl().dispatch_event(event);
 
         // 3. Set global's in error reporting mode to false.
         window_or_worker->set_in_error_reporting_mode(false);
