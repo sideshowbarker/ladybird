@@ -56,6 +56,7 @@
 #include <LibWebView/Extensions/ExtensionBackgroundHost.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
+#include <LibWebView/Extensions/ExtensionStorageStore.h>
 #include <LibWebView/FontService.h>
 #include <LibWebView/FontServiceHost.h>
 #include <LibWebView/HSTSStore.h>
@@ -729,6 +730,7 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
         CrashReportOutbox::the().discard_all();
 
     m_extension_registry = make<ExtensionRegistry>(*m_settings);
+    m_extension_storage_store = make<ExtensionStorageStore>(profile().paths().data);
     m_extension_message_broker = make<ExtensionMessageBroker>();
     m_extension_background_host = make<ExtensionBackgroundHost>();
     m_extension_background_host->prepare(*m_extension_registry);

@@ -63,6 +63,7 @@ class Extension;
 class ExtensionBackgroundHost;
 class ExtensionMessageBroker;
 class ExtensionRegistry;
+class ExtensionStorageStore;
 class Settings;
 class CertificateUI;
 class SettingsUI;

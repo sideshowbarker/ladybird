@@ -35,6 +35,7 @@ set(SOURCES
     Extensions/ExtensionManifest.cpp
     Extensions/ExtensionMessageBroker.cpp
     Extensions/ExtensionRegistry.cpp
+    Extensions/ExtensionStorageStore.cpp
     ExternalURLHandler.cpp
     FaviconStore.cpp
     FileDownloader.cpp
