@@ -9,6 +9,7 @@
 #include <LibURL/URL.h>
 #include <LibWebCommon/Extensions/ResourcePath.h>
 #include <LibWebCommon/Extensions/Scheme.h>
+#include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Extensions/ExtensionStorageStore.h>
 #include <LibWebView/Settings.h>
@@ -40,6 +41,8 @@ ErrorOr<NonnullRefPtr<Extension>, String> ExtensionRegistry::load_unpacked(ByteS
     auto id = existing_id.value_or_lazy_evaluated([&] { return AK::generate_random_uuid(); });
     auto extension = TRY(Extension::load_unpacked(directory, id, move(granted_permissions)));
 
+    if (existing_id.has_value() && m_message_broker)
+        m_message_broker->close_channels_for(*existing_id);
     m_settings.add_installed_extension(directory, id, extension->descriptor().api_permissions);
 
     m_extensions.remove_all_matching([&](auto const& loaded) { return loaded->id() == extension->id(); });
@@ -59,6 +62,8 @@ void ExtensionRegistry::remove(StringView id)
     }
     if (!installed_id.has_value())
         return;
+    if (m_message_broker)
+        m_message_broker->close_channels_for(*installed_id);
     auto removed = m_extensions.remove_all_matching([&](auto const& extension) { return extension->id() == *installed_id; });
     m_settings.remove_installed_extension(*installed_id);
     if (removed)
@@ -76,6 +81,8 @@ void ExtensionRegistry::set_enabled(StringView id, bool enabled)
     auto extension = find(id);
     if (!extension || is_enabled(id) == enabled)
         return;
+    if (m_message_broker)
+        m_message_broker->close_channels_for(extension->id());
     extension->renew_instance();
     m_settings.set_installed_extension_enabled(id, enabled);
     notify_changed();
