@@ -1969,6 +1969,26 @@ void PageClient::page_did_send_extension_runtime_message(String const& extension
     client().async_did_send_extension_runtime_message(m_id, extension_id, request_id, sender, message_json, context_id);
 }
 
+void PageClient::page_did_connect_extension_runtime(u64 context_id, u64 port_id, Optional<String> const& target_extension_id, String const& name)
+{
+    client().async_extension_runtime_connect(m_id, context_id, port_id, target_extension_id, name);
+}
+
+void PageClient::page_did_ack_extension_runtime_connect(u64 context_id, u64 channel_id, bool accepted)
+{
+    client().async_extension_runtime_connect_ack(m_id, context_id, channel_id, accepted);
+}
+
+void PageClient::page_did_post_extension_port_message(u64 context_id, u64 channel_id, u64 port_id, String const& json)
+{
+    client().async_extension_port_post_message(m_id, context_id, channel_id, port_id, json);
+}
+
+void PageClient::page_did_disconnect_extension_port(u64 context_id, u64 channel_id, u64 port_id)
+{
+    client().async_extension_port_disconnect(m_id, context_id, channel_id, port_id);
+}
+
 void PageClient::page_did_request_extension_storage(u64 context_id, u64 request_id, Web::Extensions::StorageRequest const& request)
 {
     client().async_did_request_extension_storage(m_id, context_id, request_id, request);

@@ -76,6 +76,40 @@ GC::Ref<JS::Object> create_runtime(JS::Realm& realm, MessagingContext& context, 
         },
         0, attributes);
 
+    auto connect_listeners = realm.heap().allocate<EventListenerList>();
+    context.set_connect_listeners(connect_listeners);
+    runtime->define_direct_property("onConnect"_utf16_fly_string, create_event(realm, connect_listeners), attributes);
+    runtime->define_native_function(
+        realm, "connect"_utf16_fly_string, [context = GC::Ref { context }](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            if (context->is_detached())
+                return vm.throw_completion<JS::TypeError>("The extension context is gone"sv);
+            if (vm.argument_count() > 2)
+                return vm.throw_completion<JS::TypeError>("Invalid runtime.connect arguments"sv);
+            Optional<String> extension_id;
+            auto info = vm.argument(0);
+            if (info.is_string()) {
+                extension_id = info.as_string().utf16_string().to_utf8();
+                info = vm.argument(1);
+            } else if (vm.argument_count() > 1) {
+                return vm.throw_completion<JS::TypeError>("The extension ID must be a string"sv);
+            }
+            String name;
+            if (!info.is_nullish()) {
+                if (!info.is_object())
+                    return vm.throw_completion<JS::TypeError>("Invalid runtime.connect options"sv);
+                auto value = TRY(info.as_object().get("name"_utf16_fly_string));
+                if (!value.is_undefined()) {
+                    if (!value.is_string())
+                        return vm.throw_completion<JS::TypeError>("The port name must be a string"sv);
+                    name = value.as_string().utf16_string().to_utf8();
+                }
+            }
+            if (context->is_detached())
+                return vm.throw_completion<JS::TypeError>("The extension context is gone"sv);
+            return MessageRouter::the().connect(*context, move(extension_id), name);
+        },
+        0, attributes);
+
     runtime->define_direct_property("onMessage"_utf16_fly_string, create_event(realm, context.message_listeners()), attributes);
 
     runtime->define_native_function(

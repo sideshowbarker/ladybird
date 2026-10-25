@@ -433,6 +433,10 @@ public:
 
     // WebExtension messaging from the UI process: a message for this page's contexts of the extension, and the
     // reply to a message a context of this page sent.
+    void dispatch_extension_runtime_connect(u64 context_id, u64 channel_id, u64 port_id, String const& name, Extensions::MessageSender const& sender);
+    void complete_extension_runtime_connect(u64 context_id, u64 port_id, u64 channel_id, Optional<String> const& error);
+    void dispatch_extension_port_message(u64 context_id, u64 channel_id, u64 port_id, String const& json);
+    void dispatch_extension_port_disconnect(u64 context_id, u64 port_id, Optional<String> const& error);
     void dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Extensions::MessageSender const&, String const& message_json, u64 context_id);
     void complete_extension_storage(u64 request_id, Extensions::StorageResult const&);
     void dispatch_extension_storage_changed(String const& extension_id, String const& changes_json);
@@ -889,6 +893,10 @@ public:
     virtual void page_did_create_extension_context([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id, [[maybe_unused]] Web::HTML::CrossProcessId document_id, [[maybe_unused]] u64 revision) { }
     virtual void page_did_destroy_extension_context([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id) { }
     virtual void page_did_send_extension_runtime_message([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 request_id, [[maybe_unused]] Extensions::MessageSender const& sender, [[maybe_unused]] String const& message_json, [[maybe_unused]] u64 context_id) { }
+    virtual void page_did_connect_extension_runtime(u64, u64, Optional<String> const&, String const&) { }
+    virtual void page_did_ack_extension_runtime_connect(u64, u64, bool) { }
+    virtual void page_did_post_extension_port_message(u64, u64, u64, String const&) { }
+    virtual void page_did_disconnect_extension_port(u64, u64, u64) { }
     virtual void page_did_request_extension_storage(u64, u64, Extensions::StorageRequest const&) { }
     virtual void page_did_reply_to_extension_runtime_message([[maybe_unused]] u64 dispatch_id, [[maybe_unused]] Web::Extensions::MessageResult const& reply_json) { }
 

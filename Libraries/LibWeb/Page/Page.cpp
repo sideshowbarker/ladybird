@@ -1909,6 +1909,26 @@ GC::Ptr<HTML::HTMLMediaElement> Page::media_context_menu_element()
     return static_cast<HTML::HTMLMediaElement*>(dom_node);
 }
 
+void Page::dispatch_extension_runtime_connect(u64 context_id, u64 channel_id, u64 port_id, String const& name, Extensions::MessageSender const& sender)
+{
+    Extensions::MessageRouter::the().dispatch_connect(*this, context_id, channel_id, port_id, name, sender);
+}
+
+void Page::complete_extension_runtime_connect(u64 context_id, u64 port_id, u64 channel_id, Optional<String> const& error)
+{
+    Extensions::MessageRouter::the().complete_connect(*this, context_id, port_id, channel_id, error);
+}
+
+void Page::dispatch_extension_port_message(u64 context_id, u64 channel_id, u64 port_id, String const& json)
+{
+    Extensions::MessageRouter::the().dispatch_port_message(*this, context_id, channel_id, port_id, json);
+}
+
+void Page::dispatch_extension_port_disconnect(u64 context_id, u64 port_id, Optional<String> const& error)
+{
+    Extensions::MessageRouter::the().dispatch_port_disconnect(*this, context_id, port_id, error);
+}
+
 void Page::dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Extensions::MessageSender const& sender, String const& message_json, u64 context_id)
 {
     Extensions::MessageRouter::the().dispatch(*this, extension_id, dispatch_id, sender, message_json, context_id);

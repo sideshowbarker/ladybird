@@ -3188,6 +3188,30 @@ void ConnectionFromClient::set_extensions(Vector<Web::Extensions::ExtensionDescr
     Web::Extensions::ExtensionSet::the().set_extensions(move(extensions));
 }
 
+void ConnectionFromClient::dispatch_extension_runtime_connect(Web::PageId page_id, u64 context_id, u64 channel_id, u64 port_id, String name, Web::Extensions::MessageSender sender)
+{
+    if (auto page = this->page(page_id); page.has_value())
+        page->page().dispatch_extension_runtime_connect(context_id, channel_id, port_id, name, sender);
+}
+
+void ConnectionFromClient::extension_runtime_connect_result(Web::PageId page_id, u64 context_id, u64 port_id, u64 channel_id, Optional<String> error)
+{
+    if (auto page = this->page(page_id); page.has_value())
+        page->page().complete_extension_runtime_connect(context_id, port_id, channel_id, error);
+}
+
+void ConnectionFromClient::dispatch_extension_port_message(Web::PageId page_id, u64 context_id, u64 channel_id, u64 port_id, String json)
+{
+    if (auto page = this->page(page_id); page.has_value())
+        page->page().dispatch_extension_port_message(context_id, channel_id, port_id, json);
+}
+
+void ConnectionFromClient::dispatch_extension_port_disconnect(Web::PageId page_id, u64 context_id, u64 port_id, Optional<String> error)
+{
+    if (auto page = this->page(page_id); page.has_value())
+        page->page().dispatch_extension_port_disconnect(context_id, port_id, error);
+}
+
 void ConnectionFromClient::dispatch_extension_runtime_message(Web::PageId page_id, String extension_id, u64 dispatch_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id)
 {
     if (auto page = this->page(page_id); page.has_value())

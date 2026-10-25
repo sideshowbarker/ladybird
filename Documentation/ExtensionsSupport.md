@@ -36,7 +36,7 @@ An existing WebExtension works unchanged when it uses only the supported feature
 - **Content scripts**, declared in the manifest’s `content_scripts`: JavaScript and CSS injected into every page that matches, at `document_start`, `document_end`, or `document_idle`, in all frames or just the top one, in the extension’s own isolated world or (with `"world": "MAIN"`) the page’s.
 - **Extension pages and resources**, at `ladybird-extension://<id>/<path>`: an extension’s own pages load any of its files, and web pages load the ones its `web_accessible_resources` expose.
 - **A background page** (manifest version 2 `background.scripts` or `background.page`, or manifest version 3 `background.service_worker`, which runs as a page script rather than as a worker), hosted in a hidden page of its own as long as the extension is enabled.
-- **The `browser` and `chrome` namespaces**, which are the same object, with `runtime.id`, `runtime.getURL()`, `runtime.getManifest()`, `runtime.sendMessage()`, `runtime.onMessage`, and `runtime.lastError`.
+- **The `browser` and `chrome` namespaces**, which are the same object, with `runtime.id`, `runtime.getURL()`, `runtime.getManifest()`, `runtime.sendMessage()`, `runtime.onMessage`, `runtime.connect()`, `runtime.onConnect`, and `runtime.lastError`.
 
 - **Local storage**, with the `storage` permission: `storage.local` methods and change events shared by the extension’s contexts.
 
@@ -107,6 +107,18 @@ Any other return value is ignored; the listener has declined. `removeListener()`
 
 `browser.runtime.getURL("images/icon.png")` returns `ladybird-extension://<id>/images/icon.png`, and `browser.runtime.getManifest()` returns a fresh parse of `manifest.json`.
 
+### Ports
+
+`runtime.connect()` returns a Port synchronously. It accepts an optional extension id and an optional `connectInfo` object, whose `name` is a string: `connect()`, `connect({ name })`, `connect(extensionId)`, or `connect(extensionId, { name })`. A lone string is an extension id, not a port name. Omitting the id or using the extension’s own id connects to its other extension pages, including its background. Content-script worlds never receive these connections; `tabs.connect()` isn’t supported.
+
+Each receiving page with a `runtime.onConnect` listener gets a Port. Ports expose `name`, `error` (initially `null`), `postMessage(message)`, `disconnect()`, `onMessage`, and `onDisconnect`; only receiver Ports expose `sender`, with the same `id` and `url` fields as runtime messages. An `onMessage` listener receives `(message, port)`, and an `onDisconnect` listener receives `(port)`.
+
+Messages use JSON. A value that can’t be serialized throws a TypeError synchronously and sends nothing. Opener messages wait until every target’s synchronous `onConnect` listeners have finished; each opening queue allows 1,024 messages before the channel disconnects with “Port message queue is full”. Messages from one sender arrive in send order. The opener sends to every receiver, and each receiver sends only to the opener.
+
+Calling `disconnect()` twice is harmless, and never fires the caller’s own `onDisconnect`. A receiver that disconnects or goes away leaves the opener connected while another receiver remains. Closing the opener notifies every receiver. Disabled, removed, or reloaded extensions lose all their channels. A disconnected Port never reconnects, and `postMessage()` on it throws “Attempting to use a disconnected port object”.
+
+When no target accepts, or another extension’s id is supplied, the Port disconnects asynchronously with “Could not establish connection. Receiving end does not exist.”. Before listeners run, the Port is disconnected and `port.error` holds an Error; `runtime.lastError.message` holds the same message only during those listeners, restoring any enclosing error afterward. A clean disconnect leaves `port.error` null and doesn’t change `runtime.lastError`.
+
 ### The `storage.local` API
 
 The `storage` permission exposes `browser.storage` and `chrome.storage`. Granting `unlimitedStorage` alone doesn’t expose the namespace. Content scripts and extension documents share one store per extension, and extensions can’t read each other’s items.
@@ -127,7 +139,7 @@ Disabling an extension keeps its storage. Removing it through the registry first
 
 ### What isn’t there yet
 
-- No `storage.sync` or `storage.session`; no `tabs`, `i18n`, `scripting`, `action`, `webNavigation`, `webRequest`, or `declarativeNetRequest`; no `runtime.connect()` ports.
+- No `storage.sync` or `storage.session`; no `tabs`, `i18n`, `scripting`, `action`, `webNavigation`, `webRequest`, or `declarativeNetRequest`.
 - No toolbar button, popup, options page, or `about:extensions`.
 - No packaged extensions (`.xpi`, `.crx`, `.zip`): only unpacked directories.
 - A manifest version 3 `service_worker` runs as a script of the generated background page, not as a worker, so `self`, `importScripts()`, and worker-only APIs aren’t there, while `window` and `document` are. An extension that only uses the `runtime` API won’t notice.
@@ -453,7 +465,6 @@ Hooks elsewhere in LibWeb: `DOM/Document.{h,cpp}` (worlds, run_at bookkeeping, t
 
 Planned next, roughly in order:
 
-- `runtime.connect()` and `Port`, over the same broker.
 - `i18n.getMessage()` with `_locales`, and `tabs.query()` and `tabs.sendMessage()` basics.
 - An `about:extensions` page: list, enable and disable, remove, load unpacked.
 - Event-page idle unload for background pages.

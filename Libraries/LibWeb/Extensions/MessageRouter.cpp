@@ -122,6 +122,7 @@ MessageRouter& MessageRouter::the()
 void MessageRouter::register_context(MessagingContext& context)
 {
     m_contexts.set(&context);
+    m_contexts_by_id.set(context.context_id(), &context);
     auto& page = context.page();
     page.on_extension_storage_reply = [this, &page](u64 request_id, StorageResult const& result) { complete_storage(page, request_id, result); };
     page.on_extension_storage_changed = [this, &page](String const& id, String const& changes) { dispatch_storage_changed(page, id, changes); };
@@ -132,6 +133,14 @@ void MessageRouter::unregister_context(MessagingContext& context)
 {
     if (!m_contexts.remove(&context))
         return;
+    m_contexts_by_id.remove(context.context_id());
+    if (auto listeners = context.connect_listeners())
+        listeners->revoke();
+    GC::RootVector<GC::Ref<Port>> ports;
+    for (auto const& [id, port] : context.live_ports())
+        ports.append(port);
+    for (auto port : ports)
+        port->disconnect();
     context.revoke_storage_listeners();
     m_pending_storage.remove_all_matching([&](auto, auto const& pending) { return pending.sender.context.ptr() == &context; });
     m_pending_sends.remove_all_matching([&](auto, auto const& pending) { return pending.context.ptr() == &context; });
@@ -369,6 +378,84 @@ void MessageRouter::dispatch(Page& page, String const& extension_id, u64 dispatc
             collector->decline();
         }
     }
+}
+
+MessagingContext* MessageRouter::context_for(Page& page, u64 context_id)
+{
+    auto context = m_contexts_by_id.get(context_id);
+    if (!context.has_value() || (*context)->is_detached() || &(*context)->page() != &page)
+        return nullptr;
+    return context->ptr();
+}
+
+GC::Ref<JS::Object> MessageRouter::connect(MessagingContext& context, Optional<String> target_extension_id, String const& name)
+{
+    auto port_id = m_next_port_id++;
+    auto port = Port::create(context, port_id, 0, name);
+    context.page().client().page_did_connect_extension_runtime(context.context_id(), port_id, target_extension_id, name);
+    return port->object();
+}
+
+void MessageRouter::dispatch_connect(Page& page, u64 context_id, u64 channel_id, u64 port_id, String const& name, MessageSender const& sender)
+{
+    auto* context = context_for(page, context_id);
+    if (!context || context->extension_id() != sender.extension_id || !context->connect_listeners() || context->connect_listeners()->is_empty()) {
+        page.client().page_did_ack_extension_runtime_connect(context_id, channel_id, false);
+        return;
+    }
+    auto rooted_context = GC::make_root(*context);
+    auto& realm = context->realm();
+    HTML::TemporaryExecutionContext execution_context { realm, HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };
+    auto listeners = context->connect_listeners()->listeners();
+    auto port = GC::make_root(Port::create(*context, port_id, channel_id, name, sender_object(realm, sender)));
+    for (auto listener : listeners) {
+        if (context->is_detached())
+            break;
+        auto result = JS::call(realm.vm(), *listener, JS::js_undefined(), JS::Value { &port->object() });
+        if (result.is_error())
+            HTML::report_exception(result, realm);
+    }
+    page.client().page_did_ack_extension_runtime_connect(context_id, channel_id, true);
+}
+
+void MessageRouter::complete_connect(Page& page, u64 context_id, u64 port_id, u64 channel_id, Optional<String> const& error)
+{
+    auto* context = context_for(page, context_id);
+    auto port = context ? context->live_ports().get(port_id) : Optional<GC::Ref<Port>&> {};
+    if (!port.has_value()) {
+        if (channel_id)
+            page.client().page_did_disconnect_extension_port(context_id, channel_id, port_id);
+        return;
+    }
+    auto rooted_port = GC::make_root(*port);
+    if (error.has_value())
+        rooted_port->receive_disconnect(error);
+    else
+        rooted_port->connected(channel_id);
+}
+
+void MessageRouter::dispatch_port_message(Page& page, u64 context_id, u64 channel_id, u64 port_id, String const& json)
+{
+    auto* context = context_for(page, context_id);
+    if (!context)
+        return;
+    auto port = context->live_ports().get(port_id);
+    if (!port.has_value() || (*port)->channel_id() != channel_id)
+        return;
+    auto rooted_port = GC::make_root(*port);
+    rooted_port->receive_message(json);
+}
+
+void MessageRouter::dispatch_port_disconnect(Page& page, u64 context_id, u64 port_id, Optional<String> const& error)
+{
+    auto* context = context_for(page, context_id);
+    if (!context)
+        return;
+    auto port = context->live_ports().get(port_id);
+    if (!port.has_value())
+        return;
+    auto rooted_port = GC::make_root(*port);
+    rooted_port->receive_disconnect(error);
 }
 
 }

@@ -346,6 +346,10 @@ private:
     virtual void page_did_create_extension_context(String const& extension_id, u64 context_id, Web::HTML::CrossProcessId document_id, u64 revision) override;
     virtual void page_did_destroy_extension_context(String const& extension_id, u64 context_id) override;
     virtual void page_did_send_extension_runtime_message(String const& extension_id, u64 request_id, Web::Extensions::MessageSender const&, String const& message_json, u64 context_id) override;
+    virtual void page_did_connect_extension_runtime(u64 context_id, u64 port_id, Optional<String> const& target_extension_id, String const& name) override;
+    virtual void page_did_ack_extension_runtime_connect(u64 context_id, u64 channel_id, bool accepted) override;
+    virtual void page_did_post_extension_port_message(u64 context_id, u64 channel_id, u64 port_id, String const& json) override;
+    virtual void page_did_disconnect_extension_port(u64 context_id, u64 channel_id, u64 port_id) override;
     virtual void page_did_request_extension_storage(u64, u64, Web::Extensions::StorageRequest const&) override;
     virtual void page_did_reply_to_extension_runtime_message(u64 dispatch_id, Web::Extensions::MessageResult const& reply_json) override;
     virtual URL::BlobURLEntry::Token page_did_add_blob_url_entry(Web::HTML::EnvironmentSettingsObject const&, Utf16String const& url, Web::FileAPI::SerializedBlobURLEntry const&) override;

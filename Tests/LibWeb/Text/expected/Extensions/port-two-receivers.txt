@@ -1,0 +1,4 @@
+both ready
+second-alive
+still connected: true
+last receiver: true, clean: true

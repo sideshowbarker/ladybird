@@ -352,6 +352,7 @@ set(SOURCES
     EventTiming/PerformanceEventTiming.cpp
     Extensions/API/Completion.cpp
     Extensions/API/Event.cpp
+    Extensions/API/Port.cpp
     Extensions/API/Runtime.cpp
     Extensions/API/Storage.cpp
     Extensions/ContentScriptInjector.cpp

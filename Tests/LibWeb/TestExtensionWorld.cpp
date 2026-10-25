@@ -109,6 +109,22 @@ public:
     virtual void page_did_create_extension_context(String const& extension_id, u64, Web::HTML::CrossProcessId, u64) override { created_contexts.append(extension_id); }
     virtual void page_did_destroy_extension_context(String const& extension_id, u64) override { destroyed_contexts.append(extension_id); }
 
+    struct PortOperation {
+        u64 context_id;
+        u64 channel_id;
+        u64 port_id;
+    };
+    Vector<PortOperation> port_connects;
+    Vector<PortOperation> port_disconnects;
+    virtual void page_did_connect_extension_runtime(u64 context_id, u64 port_id, Optional<String> const&, String const&) override
+    {
+        port_connects.append({ context_id, 0, port_id });
+    }
+    virtual void page_did_disconnect_extension_port(u64 context_id, u64 channel_id, u64 port_id) override
+    {
+        port_disconnects.append({ context_id, channel_id, port_id });
+    }
+
     Vector<SentMessage> sent_messages;
     Vector<Reply> replies;
     Vector<String> created_contexts;
@@ -804,4 +820,77 @@ TEST_CASE(storage_serialization_can_detach_its_context)
     auto result = world->run_script("detach-storage.js", u"browser.storage.local.set({ toJSON() { detach(); return {}; } });"sv, {});
     EXPECT(!result.is_abrupt());
     EXPECT(world->is_detached());
+}
+
+TEST_CASE(detached_context_disconnects_live_ports_and_never_runs_their_listeners)
+{
+    TestPage test_page;
+    auto world = Web::Extensions::ExtensionWorld::create(*test_page.document, test_descriptor());
+    auto result = world->run_script("ports.js", uR"JS(
+        globalThis.state = { messages: 0, disconnects: 0 };
+        globalThis.port = browser.runtime.connect({ name: "detach" });
+        port.onMessage.addListener(() => ++state.messages);
+        port.onDisconnect.addListener(() => ++state.disconnects);
+        state;
+    )JS"sv,
+        {});
+    EXPECT(!result.is_abrupt());
+    if (result.is_abrupt()) {
+        world->detach();
+        return;
+    }
+    auto state = GC::make_root(result.value());
+    EXPECT_EQ(test_page.client->port_connects.size(), 1u);
+    auto operation = test_page.client->port_connects[0];
+    test_page.page->complete_extension_runtime_connect(operation.context_id, operation.port_id, 99, {});
+    world->detach();
+    EXPECT_EQ(test_page.client->port_disconnects.size(), 1u);
+    EXPECT_EQ(test_page.client->port_disconnects[0].context_id, operation.context_id);
+    EXPECT_EQ(test_page.client->port_disconnects[0].channel_id, 99u);
+    EXPECT_EQ(test_page.client->port_disconnects[0].port_id, operation.port_id);
+    test_page.page->dispatch_extension_port_message(operation.context_id, 99, operation.port_id, "1"_string);
+    test_page.page->dispatch_extension_port_disconnect(operation.context_id, operation.port_id, "late"_string);
+    test_page.run_microtasks();
+    EXPECT_EQ(MUST(state.value().as_object().get("messages"_utf16_fly_string)).as_i32(), 0);
+    EXPECT_EQ(MUST(state.value().as_object().get("disconnects"_utf16_fly_string)).as_i32(), 0);
+}
+
+TEST_CASE(disconnected_ports_allow_listener_cleanup)
+{
+    for (bool remote : { false, true }) {
+        TestPage test_page;
+        auto world = Web::Extensions::ExtensionWorld::create(*test_page.document, test_descriptor());
+        auto result = world->run_script("port-cleanup.js", uR"JS(
+            globalThis.cleaned = false;
+            globalThis.port = browser.runtime.connect();
+            globalThis.listener = () => {};
+            port.onMessage.addListener(listener);
+            port.onDisconnect.addListener(() => {
+                port.onMessage.removeListener(listener);
+                cleaned = !port.onMessage.hasListener(listener);
+            });
+        )JS"sv,
+            {});
+        EXPECT(!result.is_abrupt());
+        auto operation = test_page.client->port_connects[0];
+        test_page.page->complete_extension_runtime_connect(operation.context_id, operation.port_id, 99, {});
+        if (remote) {
+            test_page.page->dispatch_extension_port_disconnect(operation.context_id, operation.port_id, {});
+            auto cleaned = world->run_script("check-cleanup.js", u"cleaned"sv, {});
+            EXPECT(cleaned.value().as_bool());
+        } else {
+            auto closed = world->run_script("close-port.js", u"port.disconnect();"sv, {});
+            EXPECT(!closed.is_abrupt());
+        }
+        auto after = world->run_script("cleanup-after-close.js", uR"JS(
+            port.onMessage.removeListener(listener);
+            port.onDisconnect.removeListener(listener);
+            !port.onMessage.hasListener(listener) && !port.onDisconnect.hasListener(listener);
+        )JS"sv,
+            {});
+        EXPECT(!after.is_abrupt());
+        if (!after.is_abrupt())
+            EXPECT(after.value().as_bool());
+        world->detach();
+    }
 }
