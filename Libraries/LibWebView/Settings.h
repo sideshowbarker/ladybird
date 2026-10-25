@@ -153,6 +153,7 @@ struct InstalledExtension {
     ByteString path;
     bool enabled { true };
     Vector<String> granted_permissions {};
+    bool allowed_in_private { false };
 };
 
 struct ContentBlockerList {
@@ -366,6 +367,7 @@ public:
     // Returns the extension's id: the one it already has when the path is installed, else the given or a new one.
     String add_installed_extension(ByteString path, Optional<String> id = {}, Vector<String> granted_permissions = {});
     void set_installed_extension_enabled(StringView id, bool enabled);
+    void set_installed_extension_allowed_in_private(StringView id, bool);
     void remove_installed_extension(StringView id);
 
     GlobalPrivacyControl global_privacy_control() const { return m_global_privacy_control; }
