@@ -1733,6 +1733,27 @@ void WebContentPage::did_send_extension_runtime_message(String extension_id, u64
     Application::extension_message_broker().send(*this, extension_id, request_id, sender, message_json, context_id);
 }
 
+bool WebContentPage::extension_has_permission(String const& id, StringView permission) const
+{
+    auto extension = Application::extension_registry().find(id);
+    return extension && extension_revision(id).has_value() && extension->descriptor().has_permission(permission);
+}
+
+void WebContentPage::did_request_extension_storage(u64 context_id, u64 request_id, Web::Extensions::StorageRequest request)
+{
+    Application::extension_message_broker().request_storage(*this, context_id, request_id, request, Application::extension_storage_store());
+}
+
+void WebContentPage::complete_extension_storage(u64 request_id, Web::Extensions::StorageResult const& result)
+{
+    async_extension_storage_reply(request_id, result);
+}
+
+void WebContentPage::dispatch_extension_storage_changed(String const& id, String const& changes)
+{
+    async_dispatch_extension_storage_changed(id, changes);
+}
+
 void WebContentPage::did_reply_to_extension_runtime_message(u64 dispatch_id, Web::Extensions::MessageResult reply_json)
 {
     Application::extension_message_broker().reply(*this, dispatch_id, reply_json);

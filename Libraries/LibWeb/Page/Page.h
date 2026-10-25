@@ -66,6 +66,7 @@
 #include <LibWebCommon/ContentSecurityPolicy/RemoteViolationDirective.h>
 #include <LibWebCommon/Extensions/MessageResult.h>
 #include <LibWebCommon/Extensions/MessageSender.h>
+#include <LibWebCommon/Extensions/Storage.h>
 #include <LibWebCommon/FileAPI/SerializedBlobURLEntry.h>
 #include <LibWebCommon/Fullscreen/FullscreenRequestType.h>
 #include <LibWebCommon/Gamepad/GamepadSnapshot.h>
@@ -433,6 +434,10 @@ public:
     // WebExtension messaging from the UI process: a message for this page's contexts of the extension, and the
     // reply to a message a context of this page sent.
     void dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Extensions::MessageSender const&, String const& message_json, u64 context_id);
+    void complete_extension_storage(u64 request_id, Extensions::StorageResult const&);
+    void dispatch_extension_storage_changed(String const& extension_id, String const& changes_json);
+    Function<void(u64, Extensions::StorageResult const&)> on_extension_storage_reply;
+    Function<void(String const&, String const&)> on_extension_storage_changed;
     void complete_extension_runtime_message(u64 request_id, Web::Extensions::MessageResult const& reply_json);
     void invalidate_user_style();
     void invalidate_style_for_preference_change();
@@ -884,6 +889,7 @@ public:
     virtual void page_did_create_extension_context([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id, [[maybe_unused]] Web::HTML::CrossProcessId document_id, [[maybe_unused]] u64 revision) { }
     virtual void page_did_destroy_extension_context([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id) { }
     virtual void page_did_send_extension_runtime_message([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 request_id, [[maybe_unused]] Extensions::MessageSender const& sender, [[maybe_unused]] String const& message_json, [[maybe_unused]] u64 context_id) { }
+    virtual void page_did_request_extension_storage(u64, u64, Extensions::StorageRequest const&) { }
     virtual void page_did_reply_to_extension_runtime_message([[maybe_unused]] u64 dispatch_id, [[maybe_unused]] Web::Extensions::MessageResult const& reply_json) { }
 
     virtual void request_file(FileRequest) = 0;

@@ -4,12 +4,117 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <AK/WeakPtr.h>
 #include <LibURL/Parser.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
+#include <LibWebView/Extensions/ExtensionStorageStore.h>
 
 namespace WebView {
 
 using Web::Extensions::MessageResult;
+
+using Web::Extensions::StorageRequest;
+using Web::Extensions::StorageResult;
+
+bool ExtensionMessageBroker::storage_context_is_current(Endpoint* endpoint, u64 context_id, Context const& expected) const
+{
+    auto registered = m_contexts.get(endpoint);
+    auto context = registered.has_value() ? registered->get(context_id) : Optional<Context const&> {};
+    return context.has_value() && context->extension_id == expected.extension_id && context->revision == expected.revision
+        && context->document_id == expected.document_id && endpoint->extension_revision(expected.extension_id) == expected.revision
+        && endpoint->extension_message_sender(expected.extension_id, expected.document_id).has_value();
+}
+
+void ExtensionMessageBroker::broadcast_storage_changes(String const& extension_id, u64 revision, String const& changes)
+{
+    Vector<Target> targets;
+    for (auto const& [endpoint, contexts] : m_contexts) {
+        for (auto const& [id, context] : contexts) {
+            if (context.extension_id == extension_id && context.revision == revision && storage_context_is_current(endpoint, id, context)) {
+                targets.append({ endpoint, id });
+                break;
+            }
+        }
+    }
+    for (auto const& target : targets) {
+        auto registered = m_contexts.get(target.endpoint);
+        auto context = registered.has_value() ? registered->get(target.context_id) : Optional<Context&> {};
+        if (context.has_value() && context->extension_id == extension_id && context->revision == revision
+            && storage_context_is_current(target.endpoint, target.context_id, *context)
+            && target.endpoint->extension_has_permission(extension_id, "storage"sv))
+            target.endpoint->dispatch_extension_storage_changed(extension_id, changes);
+    }
+}
+
+void ExtensionMessageBroker::request_storage(Endpoint& source, u64 context_id, u64 request_id, StorageRequest const& request, ExtensionStorageStore& store)
+{
+    auto registered = m_contexts.get(&source);
+    auto context = registered.has_value() ? registered->get(context_id) : Optional<Context&> {};
+    if (!context.has_value() || !storage_context_is_current(&source, context_id, *context))
+        return;
+    auto identity = *context;
+    auto const& id = identity.extension_id;
+    if (!source.extension_has_permission(id, "storage"sv)) {
+        source.complete_extension_storage(request_id, { StorageResult::Type::Error, "Missing the storage permission"_string });
+        return;
+    }
+    auto complete = [weak = make_weak_ptr(), endpoint = &source, context_id, request_id, identity](StorageResult result) {
+        if (weak && weak->storage_context_is_current(endpoint, context_id, identity))
+            endpoint->complete_extension_storage(request_id, result);
+    };
+    auto changed = [weak = make_weak_ptr(), id, revision = identity.revision, complete](ErrorOr<StorageChanges> result) {
+        if (result.is_error()) {
+            complete({ StorageResult::Type::Error, MUST(String::formatted("{}", result.error())) });
+            return;
+        }
+        if (weak && !result.value().is_empty()) {
+            JsonObject changes;
+            for (auto const& [key, change] : result.value()) {
+                JsonObject values;
+                if (change.old_value.has_value())
+                    values.set("oldValue"sv, *change.old_value);
+                if (change.new_value.has_value())
+                    values.set("newValue"sv, *change.new_value);
+                changes.set(key, move(values));
+            }
+            weak->broadcast_storage_changes(id, revision, changes.serialized());
+        }
+        complete({});
+    };
+    switch (request.operation) {
+    case StorageRequest::Operation::Get:
+        store.get(id, request.keys, [complete](ErrorOr<JsonObject> result) {
+            if (result.is_error())
+                complete({ StorageResult::Type::Error, MUST(String::formatted("{}", result.error())) });
+            else
+                complete({ StorageResult::Type::Items, result.value().serialized() });
+        });
+        break;
+    case StorageRequest::Operation::BytesInUse:
+        store.bytes_in_use(id, request.keys, [complete](ErrorOr<u64> result) {
+            if (result.is_error())
+                complete({ StorageResult::Type::Error, MUST(String::formatted("{}", result.error())) });
+            else
+                complete({ StorageResult::Type::Bytes, {}, result.value() });
+        });
+        break;
+    case StorageRequest::Operation::Set: {
+        auto parsed = JsonValue::from_string(request.items_json);
+        if (parsed.is_error() || !parsed.value().is_object()) {
+            complete({ StorageResult::Type::Error, "Storage items must be a JSON object"_string });
+            break;
+        }
+        store.set(id, parsed.release_value().as_object(), source.extension_has_permission(id, "unlimitedStorage"sv), move(changed));
+        break;
+    }
+    case StorageRequest::Operation::Remove:
+        store.remove(id, request.keys.value_or(Vector<String> {}), move(changed));
+        break;
+    case StorageRequest::Operation::Clear:
+        store.clear(id, move(changed));
+        break;
+    }
+}
 
 void ExtensionMessageBroker::context_created(Endpoint& endpoint, String const& extension_id, u64 context_id, Web::HTML::CrossProcessId document_id, u64 revision)
 {
