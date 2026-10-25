@@ -13,10 +13,10 @@ AllowExtensionResourceLoad(). Gecko’s ExtensionData.parseManifest()
 in Extension.sys.mjs produces the same shape, WebExtensionPolicy::
 IsWebAccessiblePath() and SourceMayAccessPath() answer resource
 access, and ExtensionProtocolHandler::AllowExternalResource() refuses
-a file outside the extension directory, which is the check Ladybird’s
-resolve_resource_path() makes segment by segment. The version-2
-“permissions” list mixing host patterns with permission names is
-split the way Gecko’s ExtensionData does in parseManifest().
+a file outside the extension directory, as Ladybird’s open_resource()
+does with the file it has opened. The version-2 “permissions” list
+mixing host patterns with permission names is split the way Gecko’s
+ExtensionData does in parseManifest().
 
 Ladybird refuses an encoded “/” in an extension resource path, as Blink
 does in ExtensionURLToRelativeFilePath(), which decodes the path with
