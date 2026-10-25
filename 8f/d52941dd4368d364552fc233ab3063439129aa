@@ -15,3 +15,13 @@ StateHelper() caches the state on the world’s own wrapper and WebKit’s
 JSHistory::state() caches it too. And an uncaught error stays in
 its world: Blink’s ErrorEvent::CanBeDispatchedInWorld() limits
 its dispatch the same way.
+
+Ladybird clones in generated bindings, behind the [CloneAcrossWorlds]
+IDL extended attribute, so its implementation getters stay realm-free.
+WebKit clones in its custom bindings too (JSCustomEventCustom.cpp and
+its siblings). But Blink does it in implementation code, where
+CustomEvent::detail() takes a ScriptState for WorldSafeV8Reference::
+GetAcrossWorld(); only the cloning itself, in ToWorldSafeValue(), lives
+in its bindings. And Gecko’s generated getters pass the value through
+MaybeWrapValue(), and so through JS_WrapValue(), which wraps it for
+the reader’s compartment rather than cloning it.
