@@ -8,6 +8,7 @@
 
 #include <LibGC/Cell.h>
 #include <LibJS/Forward.h>
+#include <LibJS/Runtime/Value.h>
 #include <LibWeb/Export.h>
 #include <LibWeb/Forward.h>
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
@@ -23,6 +24,9 @@ class WEB_API MessagingContext : public GC::Cell {
 public:
     virtual ~MessagingContext() override = default;
 
+    JS::Value last_error() const { return m_last_error; }
+    void set_last_error(JS::Value value) { m_last_error = value; }
+
     u64 context_id() const { return m_context_id; }
     virtual DOM::Document& document() = 0;
 
@@ -37,6 +41,12 @@ public:
     String const& extension_id() const { return descriptor().id; }
 
 protected:
+    virtual void visit_edges(Visitor& visitor) override
+    {
+        Base::visit_edges(visitor);
+        visitor.visit(m_last_error);
+    }
+
     MessagingContext()
         : m_context_id(++s_next_context_id)
     {
@@ -45,6 +55,7 @@ protected:
 private:
     inline static u64 s_next_context_id { 0 };
     u64 m_context_id;
+    JS::Value m_last_error { JS::js_undefined() };
 };
 
 }
