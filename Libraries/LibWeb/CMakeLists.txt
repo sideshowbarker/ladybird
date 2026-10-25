@@ -273,6 +273,7 @@ set(SOURCES
     EncryptedMediaExtensions/MediaKeySystemAccess.cpp
     EntriesAPI/FileSystemEntry.cpp
     EventTiming/EventTiming.cpp
+    Extensions/API/Completion.cpp
     Extensions/API/Event.cpp
     Extensions/API/Runtime.cpp
     Extensions/ContentScriptInjector.cpp
