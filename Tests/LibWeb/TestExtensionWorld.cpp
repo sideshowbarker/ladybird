@@ -513,12 +513,14 @@ static NEVER_INLINE void scrub_extension_test_stack()
         filler[i] = 0;
 }
 
-NEVER_INLINE static GC::Weak<Web::DOM::Document> destroy_document_with_optional_extension_namespace(bool install_extension, bool save_response = false, bool pending_send = false)
+NEVER_INLINE static GC::Weak<Web::DOM::Document> destroy_document_with_optional_extension_namespace(bool install_extension, bool save_response = false, bool pending_send = false, bool pending_storage = false)
 {
     TestPage test_page;
     auto document = test_page.document;
     if (install_extension) {
-        Web::Extensions::ExtensionSet::the().set_extensions({ test_descriptor() });
+        auto descriptor = test_descriptor();
+        descriptor.api_permissions = { "storage"_string };
+        Web::Extensions::ExtensionSet::the().set_extensions({ descriptor });
         document->set_url(URL::Parser::basic_parse("ladybird-extension://0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11/page.html"sv).value());
         auto context = Web::Extensions::ExtensionDocumentContext::create_if_extension_document(*document);
         VERIFY(context);
@@ -528,6 +530,8 @@ NEVER_INLINE static GC::Weak<Web::DOM::Document> destroy_document_with_optional_
         }
         if (pending_send)
             test_page.run_in_principal_realm(u"browser.runtime.sendMessage(42);"sv);
+        if (pending_storage)
+            test_page.run_in_principal_realm(u"browser.storage.local.get(); browser.storage.onChanged.addListener(() => document);"sv);
         context->detach();
         Web::Extensions::ExtensionSet::the().set_extensions({});
     }
@@ -778,4 +782,26 @@ TEST_CASE(nested_api_callbacks_restore_the_outer_error)
     auto check = world->run_script("check.js", u"inner && restored && browser.runtime.lastError === undefined"sv, {});
     EXPECT(check.value().as_bool());
     world->detach();
+}
+
+TEST_CASE(detached_storage_sender_releases_pending_promise_roots)
+{
+    auto document = destroy_document_with_optional_extension_namespace(true, false, false, true);
+    scrub_extension_test_stack();
+    Web::Bindings::main_thread_vm().heap().collect_garbage();
+    EXPECT(!document);
+}
+
+TEST_CASE(storage_serialization_can_detach_its_context)
+{
+    TestPage test_page;
+    auto descriptor = test_descriptor();
+    descriptor.api_permissions = { "storage"_string };
+    auto world = Web::Extensions::ExtensionWorld::create(*test_page.document, descriptor);
+    world->realm().global_object().define_native_function(world->realm(), "detach"_utf16_fly_string, [world](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+        world->detach();
+        return JS::js_undefined(); }, 0, JS::Attribute::Configurable);
+    auto result = world->run_script("detach-storage.js", u"browser.storage.local.set({ toJSON() { detach(); return {}; } });"sv, {});
+    EXPECT(!result.is_abrupt());
+    EXPECT(world->is_detached());
 }

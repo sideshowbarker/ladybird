@@ -1,0 +1,19 @@
+{
+    "manifest_version": 3,
+    "name": "Storage isolation fixture",
+    "version": "1.0",
+    "permissions": [
+        "storage"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/storage-isolation.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

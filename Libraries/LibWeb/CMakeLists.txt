@@ -363,6 +363,7 @@ set(SOURCES
     Extensions/API/Completion.cpp
     Extensions/API/Event.cpp
     Extensions/API/Runtime.cpp
+    Extensions/API/Storage.cpp
     Extensions/ContentScriptInjector.cpp
     Extensions/ExtensionDocumentContext.cpp
     Extensions/ExtensionSet.cpp
