@@ -1,3 +1,29 @@
+Ladybird serializes a runtime message as JSON in the sender’s realm,
+hands it to the UI process with a request id, and on the receiving
+page runs every onMessage listener with (message, sender,
+sendResponse), where sendResponse, a returned true plus a later
+sendResponse, or a returned promise answers, the first answer wins,
+and a plain returned value is ignored. WebKit does the same in
+WebExtensionAPIRuntime::sendMessage (JSON through
+Messages::WebExtensionContext::RuntimeSendMessage) and
+WebExtensionContextProxy::dispatchRuntimeMessageEvent(), whose
+listeners get a sendResponse callback and may return true or a
+promise; its WebExtensionCallbackHandler resolves the first reply and
+replies null when every listener finishes without one. Blink’s
+OneTimeMessageHandler (extensions/renderer/api/messaging/) opens a
+channel through MessageService::OpenChannelToExtension(), passes a
+sendResponse to each listener, keeps the port open for a true return
+value or a returned promise (MV3), and closes it with no response
+when all listeners return without one; a returned non-promise value
+is discarded. Gecko’s Messenger.sendRuntimeMessage() in
+ExtensionChild.sys.mjs serializes with a StructuredCloneHolder and
+casts the message through ProxyMessenger.recvRuntimeMessage() to
+every context; its recvRuntimeMessage() runs the listeners, treats a
+returned promise or a true-plus-sendResponse as the reply, and
+resolves with the first defined one. Ladybird keeps the reply
+collector as a GC cell so a sendResponse that arrives after the
+document died does nothing.
+
 Ladybird’s sendMessage() sorts out its arguments the way Blink’s
 RuntimeHooksDelegate::HandleSendMessage() does, and so does Gecko’s
 parseBonkersArgs(), except that it reads an ambiguous two-argument
