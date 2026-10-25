@@ -56,6 +56,7 @@
 #include <LibWebView/Extensions/ExtensionBackgroundHost.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
+#include <LibWebView/Extensions/ExtensionStorageStore.h>
 #include <LibWebView/FaviconStore.h>
 #include <LibWebView/FontService.h>
 #include <LibWebView/FontServiceHost.h>
@@ -682,6 +683,7 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_settings = make<Settings>(Settings::create(LexicalPath::join(profile().paths().config, "Settings.json"sv).string(), move(platform_languages)));
     m_bookmark_store = make<BookmarkStore>(BookmarkStore::create(LexicalPath::join(profile().paths().config, "Bookmarks.json"sv).string()));
     m_extension_registry = make<ExtensionRegistry>(*m_settings);
+    m_extension_storage_store = make<ExtensionStorageStore>(profile().paths().data);
     m_extension_message_broker = make<ExtensionMessageBroker>();
     m_extension_background_host = make<ExtensionBackgroundHost>();
     m_extension_background_host->prepare(*m_extension_registry);

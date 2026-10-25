@@ -94,6 +94,7 @@ public:
     static bool is_initialized() { return s_the != nullptr; }
 
     static Settings& settings() { return *the().m_settings; }
+    static ExtensionStorageStore& extension_storage_store() { return *the().m_extension_storage_store; }
     static ExtensionRegistry& extension_registry() { return *the().m_extension_registry; }
     static ExtensionMessageBroker& extension_message_broker() { return *the().m_extension_message_broker; }
     static ExtensionBackgroundHost& extension_background_host() { return *the().m_extension_background_host; }
@@ -609,6 +610,7 @@ private:
     Optional<Profile> m_profile;
     OwnPtr<Settings> m_settings;
     OwnPtr<ExtensionRegistry> m_extension_registry;
+    OwnPtr<ExtensionStorageStore> m_extension_storage_store;
     OwnPtr<ExtensionMessageBroker> m_extension_message_broker;
     OwnPtr<ExtensionBackgroundHost> m_extension_background_host;
     bool m_extension_background_pages_may_start { false };
