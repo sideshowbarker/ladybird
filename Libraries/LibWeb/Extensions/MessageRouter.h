@@ -33,7 +33,7 @@ public:
     void unregister_context(MessagingContext&);
 
     // runtime.sendMessage(message): serializes the message in the context's realm and returns the promise of a reply.
-    JS::ThrowCompletionOr<JS::Value> send(MessagingContext&, JS::Value message);
+    GC::Ref<JS::PromiseCapability> send(MessagingContext&, JS::Value message);
 
     // The reply to a message this process sent: the JSON of the reply, or nothing when no listener replied.
     void complete(Page&, u64 request_id, Optional<String> const& reply_json);

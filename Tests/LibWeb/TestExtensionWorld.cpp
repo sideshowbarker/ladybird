@@ -4,11 +4,15 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <AK/ScopeGuard.h>
 #include <LibGC/CellAllocator.h>
 #include <LibGC/Weak.h>
+#include <LibJS/Console.h>
 #include <LibJS/Runtime/AbstractOperations.h>
+#include <LibJS/Runtime/ConsoleObject.h>
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/Runtime/Realm.h>
+#include <LibJS/Runtime/VM.h>
 #include <LibJS/Script.h>
 #include <LibTest/TestCase.h>
 #include <LibURL/Parser.h>
@@ -40,6 +44,23 @@
 #include <LibWebCommon/Extensions/MessageSender.h>
 
 namespace {
+
+class TestConsoleClient final : public JS::ConsoleClient {
+    GC_CELL(TestConsoleClient, JS::ConsoleClient);
+    GC_DECLARE_ALLOCATOR(TestConsoleClient);
+
+public:
+    explicit TestConsoleClient(JS::Console& console)
+        : JS::ConsoleClient(console)
+    {
+    }
+    virtual JS::ThrowCompletionOr<JS::Value> printer(JS::Console::LogLevel, PrinterArguments) override { return JS::js_undefined(); }
+    virtual void clear() override { }
+    virtual void end_group() override { }
+    virtual void report_exception(Utf16View, Utf16View message, JS::ErrorData const&, bool) override { reported = message == u"callback failed"sv; }
+    bool reported { false };
+};
+GC_DEFINE_ALLOCATOR(TestConsoleClient);
 
 class TestPageClient final : public Web::PageClient {
     GC_CELL(TestPageClient, Web::PageClient);
@@ -652,5 +673,108 @@ TEST_CASE(send_message_normalizes_arguments_and_scopes_callback_errors)
     test_page.run_microtasks();
     auto check = world->run_script("check.js", u"JSON.stringify([returns.every(value => value === undefined), results, failure, primitiveFailure, externalFailure, browser.runtime.lastError === undefined])"sv, URL::URL {});
     EXPECT_EQ(check.value().as_string().utf16_string(), u"[true,[[42,true],[42,true],[42,true],[42,true],[42,true],[42,true]],true,true,true,true]"sv);
+    world->detach();
+}
+
+TEST_CASE(error_conversion_detaching_context_skips_api_callback)
+{
+    for (auto script : { u"browser.runtime.sendMessage({ toJSON() { throw { get message() { detach(); return 'failed'; } }; } }, () => { state.called = true; });"sv,
+             u"browser.runtime.sendMessage({ toJSON() { throw { message: { toString() { detach(); return 'failed'; } } }; } }, () => { state.called = true; });"sv }) {
+        TestPage test_page;
+        auto world = Web::Extensions::ExtensionWorld::create(*test_page.document, test_descriptor());
+        world->realm().global_object().define_native_function(world->realm(), "detach"_utf16_fly_string, [world](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> { world->detach(); return JS::js_undefined(); }, 0, JS::Attribute::Configurable);
+        auto state = GC::make_root(world->run_script("state.js", u"globalThis.state = { called: false }; state;"sv, {}).value());
+        auto result = world->run_script("error-conversion.js", script, {});
+        EXPECT(!result.is_abrupt());
+        test_page.run_microtasks();
+        EXPECT(world->is_detached());
+        EXPECT(!MUST(state.value().as_object().get("called"_utf16_fly_string)).as_bool());
+    }
+}
+
+TEST_CASE(failed_api_callback_receives_no_arguments)
+{
+    TestPage test_page;
+    auto world = Web::Extensions::ExtensionWorld::create(*test_page.document, test_descriptor());
+    auto result = world->run_script("callback-arguments.js", uR"JS(
+        globalThis.argumentCount = -1;
+        browser.runtime.sendMessage(1n, function () {
+            argumentCount = arguments.length;
+        });
+    )JS"sv,
+        {});
+    EXPECT(!result.is_abrupt());
+    test_page.run_microtasks();
+    auto check = world->run_script("check.js", u"argumentCount"sv, {});
+    EXPECT_EQ(check.value().as_i32(), 0);
+    world->detach();
+}
+
+TEST_CASE(throwing_api_callback_restores_error_and_reports_exception)
+{
+    TestPage test_page;
+    auto world = Web::Extensions::ExtensionWorld::create(*test_page.document, test_descriptor());
+    auto& console = world->realm().intrinsics().console_object()->console();
+    auto client = world->heap().allocate<TestConsoleClient>(console);
+    console.set_client(*client);
+    auto result = world->run_script("throwing-callback.js", uR"JS(
+        globalThis.scoped = false;
+        browser.runtime.sendMessage(1n, () => {
+            scoped = typeof browser.runtime.lastError.message === 'string';
+            throw new Error('callback failed');
+        });
+    )JS"sv,
+        {});
+    EXPECT(!result.is_abrupt());
+    test_page.run_microtasks();
+    auto check = world->run_script("check.js", u"scoped && browser.runtime.lastError === undefined"sv, {});
+    EXPECT(check.value().as_bool());
+    EXPECT(client->reported);
+    world->detach();
+}
+
+TEST_CASE(detached_context_does_not_invoke_api_callback)
+{
+    TestPage test_page;
+    auto world = Web::Extensions::ExtensionWorld::create(*test_page.document, test_descriptor());
+    auto result = world->run_script("detached-callback.js", uR"JS(
+        globalThis.result = { called: false };
+        browser.runtime.sendMessage(1n, () => { result.called = true; });
+        result;
+    )JS"sv,
+        {});
+    auto state = GC::make_root(result.value());
+    world->detach();
+    test_page.run_microtasks();
+    EXPECT(!MUST(state.value().as_object().get("called"_utf16_fly_string)).as_bool());
+}
+
+TEST_CASE(nested_api_callbacks_restore_the_outer_error)
+{
+    TestPage test_page;
+    auto world = Web::Extensions::ExtensionWorld::create(*test_page.document, test_descriptor());
+    {
+        auto& vm = Web::Bindings::main_thread_vm();
+        auto enqueue_promise_job = move(vm.host_enqueue_promise_job);
+        ScopeGuard restore = [&] { vm.host_enqueue_promise_job = move(enqueue_promise_job); };
+        // Run promise reactions inline so the inner API callback runs inside the outer callback.
+        vm.host_enqueue_promise_job = [](JS::PromiseJob job, GC::Ptr<JS::Realm>) { MUST(job.run()); };
+        auto result = world->run_script("nested-callback.js", uR"JS(
+        globalThis.restored = false;
+        globalThis.inner = false;
+        browser.runtime.sendMessage({ toJSON() { throw 'outer'; } }, () => {
+            const outer = browser.runtime.lastError;
+            browser.runtime.sendMessage({ toJSON() { throw 'inner'; } }, () => {
+                inner = browser.runtime.lastError.message === 'inner';
+            });
+            restored = browser.runtime.lastError === outer && outer.message === 'outer';
+        });
+    )JS"sv,
+            {});
+        EXPECT(!result.is_abrupt());
+    }
+    test_page.run_microtasks();
+    auto check = world->run_script("check.js", u"inner && restored && browser.runtime.lastError === undefined"sv, {});
+    EXPECT(check.value().as_bool());
     world->detach();
 }
