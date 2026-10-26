@@ -9,6 +9,7 @@
 #include <LibURL/URL.h>
 #include <LibWebCommon/Extensions/ResourcePath.h>
 #include <LibWebCommon/Extensions/Scheme.h>
+#include <LibWebCommon/Loader/UserAgent.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Extensions/ExtensionStorageStore.h>
@@ -19,6 +20,13 @@ namespace WebView {
 ExtensionRegistry::ExtensionRegistry(Settings& settings)
     : m_settings(settings)
 {
+}
+
+// Extensions are localized for the first language the user prefers.
+static String extension_locale(Settings const& settings)
+{
+    auto const& languages = settings.languages();
+    return languages.is_empty() ? Web::default_preferred_languages().first() : languages.first();
 }
 
 ErrorOr<NonnullRefPtr<Extension>, String> ExtensionRegistry::load_unpacked(ByteString directory)
@@ -39,7 +47,7 @@ ErrorOr<NonnullRefPtr<Extension>, String> ExtensionRegistry::load_unpacked(ByteS
 
     // Load before persisting, so a directory that doesn't hold a valid extension is never installed.
     auto id = existing_id.value_or_lazy_evaluated([&] { return AK::generate_random_uuid(); });
-    auto extension = TRY(Extension::load_unpacked(directory, id, move(granted_permissions)));
+    auto extension = TRY(Extension::load_unpacked(directory, id, move(granted_permissions), extension_locale(m_settings)));
 
     if (existing_id.has_value() && m_message_broker)
         m_message_broker->close_channels_for(*existing_id);
@@ -109,7 +117,7 @@ void ExtensionRegistry::restore_from_settings()
 {
     Vector<String> ids_to_forget;
     for (auto const& installed : m_settings.installed_extensions()) {
-        auto extension = Extension::load_unpacked(installed.path, installed.id, installed.granted_permissions);
+        auto extension = Extension::load_unpacked(installed.path, installed.id, installed.granted_permissions, extension_locale(m_settings));
         if (extension.is_error()) {
             dbgln("Not restoring extension {} from {}: {}", installed.id, installed.path, extension.error());
             ids_to_forget.append(installed.id);

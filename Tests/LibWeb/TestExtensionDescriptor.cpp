@@ -80,6 +80,8 @@ TEST_CASE(descriptor_round_trips_through_ipc)
         .background_document_html = "<!DOCTYPE html><script src=\"/bg.js\"></script>"_string,
     };
 
+    descriptor.messages.set("hello"_string, "Bonjour $1"_string);
+    descriptor.ui_locale = "fr-CA"_string;
     auto decoded = round_trip(descriptor);
     EXPECT_EQ(decoded, descriptor);
     EXPECT_EQ(decoded.content_scripts.size(), 2u);
