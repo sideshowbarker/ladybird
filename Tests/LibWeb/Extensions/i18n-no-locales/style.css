@@ -1,0 +1,5 @@
+#target {
+    --extension-url: url(ladybird-extension://__MSG_@@extension_id__/img.png);
+    text-align: __MSG_@@bidi_start_edge__;
+    direction: __MSG_@@bidi_dir__;
+}

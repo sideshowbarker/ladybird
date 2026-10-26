@@ -1,0 +1,24 @@
+case and named placeholder: true
+nine positions: true
+invalid dollar: true
+escaped dollar: true
+dollar run: true
+single digit: true
+missing position: true
+trailing dollar: true
+no substitutions: true
+over nine: true
+missing message: true
+escape before substitutions: true
+escape before dollar parsing: true
+escape requires true: true
+array proxy ignored: true
+object ignored: true
+throwing conversion skipped: true
+name must be a string: true
+number name rejected: true
+missing name rejected: true
+options must be an object: true
+null options allowed: true
+element getter failure: true
+option getter failure: true

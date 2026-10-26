@@ -1,0 +1,52 @@
+{
+    "title": {
+        "message": "Localized extension"
+    },
+    "description": {
+        "message": "Localized description"
+    },
+    "hello": {
+        "message": "Hello $WHO$",
+        "placeholders": {
+            "who": {
+                "content": "$1"
+            }
+        }
+    },
+    "positional": {
+        "message": "$1|$2|$3|$4|$5|$6|$7|$8|$9"
+    },
+    "invalid": {
+        "message": "a$xb"
+    },
+    "cost": {
+        "message": "cost $$5"
+    },
+    "run": {
+        "message": "$$$1"
+    },
+    "ten": {
+        "message": "$10"
+    },
+    "second": {
+        "message": "$2"
+    },
+    "trailing": {
+        "message": "end$"
+    },
+    "escape": {
+        "message": "<$1>"
+    },
+    "escape_dollar": {
+        "message": "$<"
+    },
+    "color": {
+        "message": "rgb(12, 34, 56)"
+    },
+    "literal": {
+        "message": "__MSG_color__"
+    },
+    "height": {
+        "message": "37px"
+    }
+}
