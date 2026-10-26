@@ -181,6 +181,9 @@ public:
 private:
     virtual Optional<u64> extension_revision(String const& extension_id) const override;
     virtual Optional<Web::Extensions::MessageSender> extension_message_sender(String const& extension_id, Web::HTML::CrossProcessId document_id) const override;
+    virtual Optional<u64> extension_view_id() const override;
+    virtual Optional<i64> extension_frame_id(Web::HTML::CrossProcessId document_id) const override;
+    virtual void annotate_extension_sender(Web::Extensions::MessageSender&, Web::HTML::CrossProcessId document_id) const override;
     void for_each_extension_document(Function<IterationDecision(CanonicalNavigable const&, CanonicalDocument const&, URL::URL const&)> const&) const;
     void relay_finished_input_event(WebContentPage const& reporting_page, u64 event_id, Web::EventResult);
     Optional<CanonicalNavigable&> population_worker_navigable(Web::HTML::CrossProcessId navigable_id) const;
@@ -292,6 +295,7 @@ private:
     virtual void did_create_extension_context(String extension_id, u64 context_id, Web::HTML::CrossProcessId document_id, u64 revision) override;
     virtual void did_destroy_extension_context(String extension_id, u64 context_id) override;
     virtual void did_send_extension_runtime_message(String extension_id, u64 request_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id) override;
+    virtual void did_send_extension_tab_message(String extension_id, u64 request_id, u64 context_id, i64 tab_id, Optional<i64> frame_id, String message_json) override;
     virtual void did_request_extension_storage(u64 context_id, u64 request_id, Web::Extensions::StorageRequest) override;
     virtual void did_request_extension_tabs_query(u64 context_id, u64 request_id, String query_json) override;
     virtual bool extension_has_permission(String const&, StringView) const override;

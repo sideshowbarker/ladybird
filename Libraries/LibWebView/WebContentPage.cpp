@@ -1759,6 +1759,46 @@ Optional<Web::Extensions::MessageSender> WebContentPage::extension_message_sende
     return sender;
 }
 
+Optional<u64> WebContentPage::extension_view_id() const
+{
+    auto view = traversable().view();
+    if (!view.has_value())
+        return {};
+    return view->view_id();
+}
+
+Optional<i64> WebContentPage::extension_frame_id(Web::HTML::CrossProcessId document_id) const
+{
+    Optional<i64> frame_id;
+    for_each_extension_document([&](CanonicalNavigable const& navigable, CanonicalDocument const& document, URL::URL const&) {
+        if (document.id() != document_id)
+            return IterationDecision::Continue;
+        frame_id = navigable.parent() ? extension_frame_id_for(navigable.id()) : 0;
+        return IterationDecision::Break;
+    });
+    return frame_id;
+}
+
+// A document in a tab sends as part of that tab, as the receiving extension may see it; a background page, which is in
+// no tab, sends with neither.
+void WebContentPage::annotate_extension_sender(Web::Extensions::MessageSender& sender, Web::HTML::CrossProcessId document_id) const
+{
+    sender.tab_json = {};
+    sender.frame_id = {};
+    auto view_id = extension_view_id();
+    auto& registry = Application::extension_registry();
+    auto extension = registry.find(sender.extension_id);
+    if (!view_id.has_value() || !extension)
+        return;
+    auto tabs = Application::the().extension_tabs();
+    auto tab = tabs.find_if([&](auto const& tab) { return tab.view_id == view_id; });
+    ExtensionTabViewer viewer { extension->descriptor(), registry.is_allowed_in_private(sender.extension_id), {}, {} };
+    if (tab == tabs.end() || !may_see_tab(viewer, *tab))
+        return;
+    sender.tab_json = serialize_extension_tab(viewer, *tab).serialized();
+    sender.frame_id = extension_frame_id(document_id);
+}
+
 void WebContentPage::did_create_extension_context(String extension_id, u64 context_id, Web::HTML::CrossProcessId document_id, u64 revision)
 {
     Application::extension_message_broker().context_created(*this, extension_id, context_id, document_id, revision);
@@ -1772,6 +1812,25 @@ void WebContentPage::did_destroy_extension_context(String extension_id, u64 cont
 void WebContentPage::did_send_extension_runtime_message(String extension_id, u64 request_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id)
 {
     Application::extension_message_broker().send(*this, extension_id, request_id, sender, message_json, context_id);
+}
+
+void WebContentPage::did_send_extension_tab_message(String extension_id, u64 request_id, u64 context_id, i64 tab_id, Optional<i64> frame_id, String message_json)
+{
+    auto& registry = Application::extension_registry();
+    Optional<u64> view_id;
+    if (auto extension = registry.find(extension_id)) {
+        ExtensionTabViewer viewer { extension->descriptor(), registry.is_allowed_in_private(extension_id), {}, {} };
+        for (auto const& tab : Application::the().extension_tabs()) {
+            if (tab.id == tab_id && may_see_tab(viewer, tab))
+                view_id = tab.view_id;
+        }
+    }
+    // A tab that doesn't exist, can't be seen, or hasn't loaded has nothing to receive the message.
+    if (!view_id.has_value()) {
+        complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::no_receiver());
+        return;
+    }
+    Application::extension_message_broker().send_to_tab(*this, extension_id, request_id, context_id, *view_id, frame_id, message_json);
 }
 
 bool WebContentPage::extension_has_permission(String const& id, StringView permission) const

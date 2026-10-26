@@ -179,6 +179,54 @@ static JS::ThrowCompletionOr<ParsedQuery> parse_query(JS::VM& vm, JS::Value argu
     return parsed;
 }
 
+static JS::ThrowCompletionOr<void> throw_send_message_error(JS::VM& vm, StringView detail)
+{
+    return vm.throw_completion<JS::TypeError>(Utf16String::formatted("Error in invocation of tabs.sendMessage(integer tabId, any message, optional object options, optional function callback): {}", detail));
+}
+
+struct SendMessageOptions {
+    Optional<i64> frame_id;
+    bool has_document_id { false };
+};
+
+static JS::ThrowCompletionOr<SendMessageOptions> parse_send_message_options(JS::VM& vm, JS::Value argument)
+{
+    SendMessageOptions options;
+    if (argument.is_nullish())
+        return options;
+    if (!argument.is_object() || argument.is_function() || is<JS::Array>(argument.as_object())) {
+        TRY(throw_send_message_error(vm, MUST(String::formatted("Error at parameter 'options': Invalid type: expected object, found {}.", type_name_of(argument)))));
+        VERIFY_NOT_REACHED();
+    }
+    auto& object = argument.as_object();
+    for (auto const& property_key : TRY(object.internal_own_property_keys())) {
+        auto key = TRY(JS::PropertyKey::from_value(vm, property_key));
+        if (key.is_symbol())
+            continue;
+        auto descriptor = TRY(object.internal_get_own_property(key));
+        if (!descriptor.has_value() || !*descriptor->enumerable)
+            continue;
+        auto name = key.is_string() ? key.as_string().to_utf16_string().to_utf8() : String::number(key.as_number());
+        auto value = TRY(object.get(key));
+        if (name == "frameId"sv) {
+            if (value.is_undefined())
+                continue;
+            if (!is_api_integer(value))
+                TRY(throw_send_message_error(vm, MUST(String::formatted("Error at parameter 'options': Error at property 'frameId': Invalid type: expected integer, found {}.", type_name_of(value)))));
+            options.frame_id = static_cast<i64>(value.as_double());
+        } else if (name == "documentId"sv) {
+            if (value.is_undefined())
+                continue;
+            if (!value.is_string())
+                TRY(throw_send_message_error(vm, MUST(String::formatted("Error at parameter 'options': Error at property 'documentId': Invalid type: expected string, found {}.", type_name_of(value)))));
+            options.has_document_id = true;
+        } else {
+            TRY(throw_send_message_error(vm, MUST(String::formatted("Error at parameter 'options': Unexpected property: '{}'.", name))));
+        }
+    }
+    return options;
+}
+
 GC::Ref<JS::Object> create_tabs(JS::Realm& realm, MessagingContext& context)
 {
     auto tabs = JS::Object::create(realm, realm.intrinsics().object_prototype());
@@ -198,6 +246,24 @@ GC::Ref<JS::Object> create_tabs(JS::Realm& realm, MessagingContext& context)
             return settle_api_call(*context, callback, WebIDL::create_rejected_promise(operation_realm, JS::Error::create(operation_realm, Utf16String::from_utf8(message))));
         }
         return settle_api_call(*context, callback, MessageRouter::the().query_tabs(*context, parsed.query.serialized())); }, 1, attributes);
+    tabs->define_native_function(realm, "sendMessage"_utf16_fly_string, [context = GC::Ref { context }](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        if (context->is_detached())
+            return vm.throw_completion<JS::TypeError>("The extension context is gone"sv);
+        auto count = vm.argument_count();
+        GC::Ptr<JS::FunctionObject> callback;
+        if (count > 2 && vm.argument(count - 1).is_function())
+            callback = vm.argument(--count).as_function();
+        if (count > 3)
+            TRY(throw_send_message_error(vm, "No matching signature."sv));
+        if (!is_api_integer(vm.argument(0)))
+            TRY(throw_send_message_error(vm, MUST(String::formatted("Error at parameter 'tabId': Invalid type: expected integer, found {}.", type_name_of(vm.argument(0))))));
+        auto options = TRY(parse_send_message_options(vm, count > 2 ? vm.argument(2) : JS::js_undefined()));
+        auto& operation_realm = context->realm();
+        // No API hands out document ids yet, so none can name a document.
+        if (options.has_document_id)
+            return settle_api_call(*context, callback, WebIDL::create_rejected_promise(operation_realm, JS::Error::create(operation_realm, "tabs.sendMessage() doesn't support documentId"_utf16)));
+        auto tab_id = static_cast<i64>(vm.argument(0).as_double());
+        return settle_api_call(*context, callback, MessageRouter::the().send_to_tab(*context, tab_id, options.frame_id, vm.argument(1))); }, 2, attributes);
     return tabs;
 }
 

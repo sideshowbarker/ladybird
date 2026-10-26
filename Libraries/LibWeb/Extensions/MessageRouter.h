@@ -52,6 +52,8 @@ public:
 
     // tabs.query(): the UI process answers with the matching tabs, through complete().
     GC::Ref<JS::PromiseCapability> query_tabs(MessagingContext&, String const& query_json);
+    // tabs.sendMessage(): like send(), but to the extension's content scripts in one tab.
+    GC::Ref<JS::PromiseCapability> send_to_tab(MessagingContext&, i64 tab_id, Optional<i64> frame_id, JS::Value message);
     void complete_storage(Page&, u64, StorageResult const&);
     void dispatch_storage_changed(Page&, String const&, String const&);
 

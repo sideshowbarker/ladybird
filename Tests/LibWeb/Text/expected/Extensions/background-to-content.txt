@@ -1,1 +1,1 @@
-background heard: "runtime rejected: Could not establish connection. Receiving end does not exist."
+background heard: "runtime rejected: Could not establish connection. Receiving end does not exist.; tabs: content said hi from the background"

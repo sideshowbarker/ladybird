@@ -899,6 +899,7 @@ public:
     virtual void page_did_disconnect_extension_port(u64, u64, u64) { }
     virtual void page_did_request_extension_storage(u64, u64, Extensions::StorageRequest const&) { }
     virtual void page_did_request_extension_tabs_query([[maybe_unused]] u64 context_id, [[maybe_unused]] u64 request_id, [[maybe_unused]] String const& query_json) { }
+    virtual void page_did_send_extension_tab_message([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 request_id, [[maybe_unused]] u64 context_id, [[maybe_unused]] i64 tab_id, [[maybe_unused]] Optional<i64> frame_id, [[maybe_unused]] String const& message_json) { }
     virtual void page_did_reply_to_extension_runtime_message([[maybe_unused]] u64 dispatch_id, [[maybe_unused]] Web::Extensions::MessageResult const& reply_json) { }
 
     virtual void request_file(FileRequest) = 0;

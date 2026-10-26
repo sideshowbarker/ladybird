@@ -1999,6 +1999,11 @@ void PageClient::page_did_request_extension_tabs_query(u64 context_id, u64 reque
     client().async_did_request_extension_tabs_query(m_id, context_id, request_id, query_json);
 }
 
+void PageClient::page_did_send_extension_tab_message(String const& extension_id, u64 request_id, u64 context_id, i64 tab_id, Optional<i64> frame_id, String const& message_json)
+{
+    client().async_did_send_extension_tab_message(m_id, extension_id, request_id, context_id, tab_id, frame_id, message_json);
+}
+
 void PageClient::page_did_reply_to_extension_runtime_message(u64 dispatch_id, Web::Extensions::MessageResult const& reply_json)
 {
     client().async_did_reply_to_extension_runtime_message(m_id, dispatch_id, reply_json);

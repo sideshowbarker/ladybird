@@ -257,6 +257,7 @@ void ExtensionMessageBroker::send(Endpoint& source, String const& extension_id, 
         m_queued_messages.append({ &source, extension_id, request_id, context_id, context->revision, message_json });
         return;
     }
+    source.annotate_extension_sender(*sender, context->document_id);
     Vector<Target> targets;
     for (auto& [endpoint, contexts] : m_contexts) {
         for (auto const& [id, target] : contexts) {
@@ -270,6 +271,55 @@ void ExtensionMessageBroker::send(Endpoint& source, String const& extension_id, 
                 targets.append({ endpoint, id });
         }
     }
+    dispatch_to_targets(source, extension_id, request_id, context_id, *sender, message_json, targets);
+}
+
+void ExtensionMessageBroker::send_to_tab(Endpoint& source, String const& extension_id, u64 request_id, u64 context_id, u64 view_id, Optional<i64> frame_id, String const& message_json)
+{
+    auto registered = m_contexts.get(&source);
+    auto context = registered.has_value() ? registered->get(context_id) : Optional<Context&> {};
+    auto sender = context.has_value() && context->extension_id == extension_id && source.extension_revision(extension_id) == context->revision
+        ? source.extension_message_sender(extension_id, context->document_id)
+        : Optional<Web::Extensions::MessageSender> {};
+    if (!sender.has_value()) {
+        source.complete_extension_runtime_message(request_id, MessageResult::no_receiver());
+        return;
+    }
+    // Only the extension's own documents have tabs; a renderer that claims otherwise for a content script gets an error.
+    auto source_url = sender->url.has_value() ? URL::Parser::basic_parse(*sender->url) : Optional<URL::URL> {};
+    if (!source_url.has_value() || source_url->scheme() != "ladybird-extension"sv || source_url->serialized_host() != extension_id) {
+        source.complete_extension_runtime_message(request_id, MessageResult::Error { "Content scripts can't send tab messages"_string });
+        return;
+    }
+    source.annotate_extension_sender(*sender, context->document_id);
+    // A negative frame id stands for every frame.
+    if (frame_id.has_value() && *frame_id < 0)
+        frame_id.clear();
+
+    // Only content scripts receive a tab's messages; the extension's own pages in that tab don't.
+    Vector<Target> targets;
+    for (auto& [endpoint, contexts] : m_contexts) {
+        if (endpoint->extension_view_id() != view_id)
+            continue;
+        for (auto const& [id, target] : contexts) {
+            if ((endpoint == &source && id == context_id) || target.extension_id != extension_id || endpoint->extension_revision(extension_id) != target.revision)
+                continue;
+            if (frame_id.has_value() && endpoint->extension_frame_id(target.document_id) != frame_id)
+                continue;
+            auto target_sender = endpoint->extension_message_sender(extension_id, target.document_id);
+            if (!target_sender.has_value() || !target_sender->url.has_value())
+                continue;
+            auto target_url = URL::Parser::basic_parse(*target_sender->url);
+            if (target_url.has_value() && target_url->scheme() == "ladybird-extension"sv && target_url->serialized_host() == extension_id)
+                continue;
+            targets.append({ endpoint, id });
+        }
+    }
+    dispatch_to_targets(source, extension_id, request_id, context_id, *sender, message_json, targets);
+}
+
+void ExtensionMessageBroker::dispatch_to_targets(Endpoint& source, String const& extension_id, u64 request_id, u64 context_id, Web::Extensions::MessageSender const& sender, String const& message_json, Vector<Target> const& targets)
+{
     if (targets.is_empty()) {
         source.complete_extension_runtime_message(request_id, MessageResult::no_receiver());
         return;
@@ -286,7 +336,7 @@ void ExtensionMessageBroker::send(Endpoint& source, String const& extension_id, 
     }
     for (size_t i = 0; i < targets.size(); ++i) {
         if (m_dispatch_to_pending.contains(dispatch_ids[i]))
-            targets[i].endpoint->dispatch_extension_runtime_message(extension_id, dispatch_ids[i], *sender, message_json, targets[i].context_id);
+            targets[i].endpoint->dispatch_extension_runtime_message(extension_id, dispatch_ids[i], sender, message_json, targets[i].context_id);
     }
 }
 
@@ -367,6 +417,7 @@ void ExtensionMessageBroker::connect(Endpoint& source, u64 context_id, u64 port_
             return;
     }
     auto sender = source.extension_message_sender(context->extension_id, context->document_id).release_value();
+    source.annotate_extension_sender(sender, context->document_id);
     auto channel_id = m_next_channel_id++;
     bool waiting = m_starting_backgrounds.get(context->extension_id) == context->revision;
     m_channels.set(channel_id, Channel { .extension_id = context->extension_id, .revision = context->revision, .name = move(name), .sender = sender, .opener = { &source, context_id, port_id, sender.from_background }, .receivers = {}, .queued_messages = {}, .waiting_for_background = waiting });

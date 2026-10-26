@@ -200,6 +200,27 @@ void MessageRouter::complete(Page& page, u64 request_id, Web::Extensions::Messag
     WebIDL::resolve_promise(realm, *pending->promise, value);
 }
 
+GC::Ref<JS::PromiseCapability> MessageRouter::send_to_tab(MessagingContext& context, i64 tab_id, Optional<i64> frame_id, JS::Value message)
+{
+    auto& realm = context.realm();
+    auto& vm = realm.vm();
+
+    auto json = JS::JSONObject::stringify_impl(vm, message, JS::js_undefined(), JS::js_undefined());
+    if (json.is_error())
+        return WebIDL::create_rejected_promise(realm, json.release_error().value());
+    if (!json.value().has_value())
+        return WebIDL::create_rejected_promise(realm, JS::TypeError::create(realm, "The message can't be serialized as JSON"_utf16));
+
+    if (context.is_detached())
+        return WebIDL::create_rejected_promise(realm, JS::TypeError::create(realm, "The extension context is detached"_utf16));
+
+    auto promise = WebIDL::create_promise(realm);
+    auto request_id = m_next_request_id++;
+    m_pending_sends.set(request_id, PendingSend { GC::make_root(promise), GC::make_root(realm), &context.page(), &context });
+    context.page().client().page_did_send_extension_tab_message(context.extension_id(), request_id, context.context_id(), tab_id, frame_id, json.value()->to_utf8());
+    return promise;
+}
+
 GC::Ref<JS::PromiseCapability> MessageRouter::query_tabs(MessagingContext& context, String const& query_json)
 {
     auto& realm = context.realm();
@@ -295,6 +316,12 @@ static GC::Ref<JS::Object> sender_object(JS::Realm& realm, MessageSender const& 
     object->define_direct_property("id"_utf16_fly_string, JS::PrimitiveString::create(realm.vm(), Utf16String::from_utf8(sender.extension_id)), attributes);
     if (sender.url.has_value())
         object->define_direct_property("url"_utf16_fly_string, JS::PrimitiveString::create(realm.vm(), Utf16String::from_utf8(*sender.url)), attributes);
+    if (sender.tab_json.has_value()) {
+        if (auto tab = JS::JSONObject::parse_json(realm.vm(), Utf16String::from_utf8(*sender.tab_json)); !tab.is_error())
+            object->define_direct_property("tab"_utf16_fly_string, tab.value(), attributes);
+    }
+    if (sender.frame_id.has_value())
+        object->define_direct_property("frameId"_utf16_fly_string, JS::Value(static_cast<double>(*sender.frame_id)), attributes);
     return object;
 }
 

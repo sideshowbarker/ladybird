@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<iframe srcdoc="<p>subframe</p>"></iframe>
+<script>
+    // frameId 0 is the tab's top frame, and a subframe's own id, from its sender.frameId, reaches only that subframe.
+    asyncTest(async done => {
+        await contentScriptReady();
+        // The subframe registers its frame id with the background page once its content script runs.
+        let registered = null;
+        for (let attempt = 0; registered === null && attempt < 100; ++attempt) {
+            registered = (await sendToBackground({ type: "describe-sender" })).subframeId;
+            if (registered === null) await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        println(`subframe id is positive: ${registered}`);
+        println(`top: ${JSON.stringify(await sendToBackground({ type: "ask", frame: "top" }))}`);
+        println(`subframe: ${JSON.stringify(await sendToBackground({ type: "ask", frame: "subframe" }))}`);
+        done();
+    });
+</script>
+</body>
