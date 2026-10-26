@@ -84,7 +84,7 @@ public:
     void review_crash_report(ByteString const& report_name);
 
     BrowserWindow& active_window() const { return *m_active_window; }
-    void set_active_window(BrowserWindow& window) { m_active_window = &window; }
+    void set_active_window(BrowserWindow& window);
     BrowserWindow* active_window_if_any() const { return m_active_window; }
     BrowserWindow* non_private_window_if_any() const;
 
@@ -149,6 +149,8 @@ private:
     virtual OwnPtr<WebView::PictureInPictureWindow> create_picture_in_picture_window(WebView::WebContentPage& requesting_page, WebView::CanonicalTraversable&, Gfx::IntSize video_size) override;
 
     virtual Optional<WebView::ViewImplementation&> active_web_view() const override;
+    virtual Vector<WebView::ExtensionTab> extension_tabs() const override;
+    virtual Vector<i64> extension_window_focus_order() const override { return m_extension_window_focus_order; }
     virtual Vector<WebView::BookmarkItem::Bookmark> bookmarks_for_all_tabs_in_current_window() const override;
     virtual Optional<WebView::ViewImplementation&> activate_tab_with_url(URL::URL const&, URL::ExcludeFragment) const override;
 
@@ -212,6 +214,7 @@ private:
 
     OwnPtr<QApplication> m_application;
     BrowserWindow* m_active_window { nullptr };
+    Vector<i64> m_extension_window_focus_order;
     OwnPtr<ProcessManagerWindow> m_process_manager_window;
     CrashReportNotifier m_crash_report_notifier;
 

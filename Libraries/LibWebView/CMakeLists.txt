@@ -33,6 +33,7 @@ set(SOURCES
     DownloadSegmentation.cpp
     DownloadStore.cpp
     Extensions/Extension.cpp
+    Extensions/ExtensionTabs.cpp
     Extensions/ExtensionBackgroundHost.cpp
     Extensions/ExtensionManifest.cpp
     Extensions/ExtensionMessageBroker.cpp

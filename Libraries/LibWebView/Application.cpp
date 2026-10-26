@@ -10,6 +10,7 @@
 #include <AK/JsonArray.h>
 #include <AK/JsonObject.h>
 #include <AK/Math.h>
+#include <AK/QuickSort.h>
 #include <AK/ScopeGuard.h>
 #include <AK/StringBuilder.h>
 #include <AK/Time.h>
@@ -57,6 +58,7 @@
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Extensions/ExtensionStorageStore.h>
+#include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/FaviconStore.h>
 #include <LibWebView/FontService.h>
 #include <LibWebView/FontServiceHost.h>
@@ -2320,6 +2322,7 @@ ErrorOr<int> Application::execute()
         auto theme = TRY(Gfx::load_system_theme(theme_path.string()));
 
         view = HeadlessWebView::create(move(theme), { m_browser_options.window_width, m_browser_options.window_height });
+        view->mark_as_extension_tab();
 
         if (!m_browser_options.webdriver_browser_endpoint.has_value()) {
             if (m_browser_options.urls.size() != 1)
@@ -3535,6 +3538,31 @@ Optional<Core::TimeZoneWatcher&> Application::time_zone_watcher()
     if (m_time_zone_watcher != nullptr)
         return *m_time_zone_watcher;
     return {};
+}
+
+Vector<ExtensionTab> Application::extension_tabs() const
+{
+    Vector<ExtensionTab> tabs;
+    ViewImplementation::for_each_view([&](ViewImplementation& view) {
+        if (!view.extension_tab_id().has_value())
+            return IterationDecision::Continue;
+        tabs.append({
+            .id = *view.extension_tab_id(),
+            .window_id = *view.extension_window_id(),
+            .index = 0,
+            .active = true,
+            .pinned = false,
+            .is_private = view.is_private(),
+            .view_id = view.view_id(),
+            .url = view.url(),
+            .title = view.title().to_utf8(),
+            .loading = view.is_loading(),
+            .in_popup_window = false,
+        });
+        return IterationDecision::Continue;
+    });
+    quick_sort(tabs, [](auto const& a, auto const& b) { return a.window_id < b.window_id; });
+    return tabs;
 }
 
 Vector<DevTools::TabDescription> Application::tab_list() const

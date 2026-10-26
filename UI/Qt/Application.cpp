@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <AK/QuickSort.h>
 #include <LibCore/ArgsParser.h>
 #include <LibURL/InternalURLs.h>
 #include <LibURL/URL.h>
@@ -776,9 +777,10 @@ BrowserWindow& Application::new_window(Vector<URL::URL> const& initial_urls, Win
 void Application::present_window(BrowserWindow& window, WindowConfiguration const& configuration, ShowWindow show_window)
 {
     set_active_window(window);
-    QObject::connect(&window, &QObject::destroyed, m_application.ptr(), [this, window = &window] {
+    QObject::connect(&window, &QObject::destroyed, m_application.ptr(), [this, window = &window, window_id = window.extension_window_id()] {
         if (m_active_window == window)
             m_active_window = nullptr;
+        m_extension_window_focus_order.remove_all_matching([&](auto id) { return id == window_id; });
     });
 
     window.set_window_rect(configuration.x, configuration.y, configuration.width, configuration.height);
@@ -1290,6 +1292,46 @@ Optional<WebView::ViewImplementation&> Application::active_web_view() const
     if (auto* active_tab = this->active_tab())
         return active_tab->view();
     return {};
+}
+
+Vector<WebView::ExtensionTab> Application::extension_tabs() const
+{
+    Vector<BrowserWindow*> windows;
+    for (auto* widget : QApplication::topLevelWidgets()) {
+        if (auto* window = as_if<BrowserWindow>(widget))
+            windows.append(window);
+    }
+    quick_sort(windows, [](auto const* a, auto const* b) { return a->extension_window_id() < b->extension_window_id(); });
+
+    Vector<WebView::ExtensionTab> tabs;
+    for (auto* window : windows) {
+        for (int index = 0; index < window->tab_count(); ++index) {
+            auto* tab = window->tab_at(index);
+            if (!tab)
+                continue;
+            tabs.append({
+                .id = tab->extension_tab_id(),
+                .window_id = window->extension_window_id(),
+                .index = index,
+                .active = tab == window->current_tab(),
+                .pinned = tab->is_pinned(),
+                .is_private = window->is_private(),
+                .view_id = tab->is_loaded() ? Optional<u64> { tab->view().view_id() } : Optional<u64> {},
+                .url = tab->url(),
+                .title = ak_string_from_qstring(tab->title()),
+                .loading = tab->is_loading(),
+                .in_popup_window = window->is_popup_window(),
+            });
+        }
+    }
+    return tabs;
+}
+
+void Application::set_active_window(BrowserWindow& window)
+{
+    m_active_window = &window;
+    m_extension_window_focus_order.remove_all_matching([&](auto id) { return id == window.extension_window_id(); });
+    m_extension_window_focus_order.prepend(window.extension_window_id());
 }
 
 Vector<WebView::BookmarkItem::Bookmark> Application::bookmarks_for_all_tabs_in_current_window() const

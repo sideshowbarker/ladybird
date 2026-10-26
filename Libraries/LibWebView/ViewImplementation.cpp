@@ -32,6 +32,7 @@
 #include <LibWebView/BookmarkStore.h>
 #include <LibWebView/CrashReportReview.h>
 #include <LibWebView/ErrorHTML.h>
+#include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/FaviconStore.h>
 #include <LibWebView/HelperProcess.h>
 #include <LibWebView/HistoryDebug.h>
@@ -452,6 +453,14 @@ void ViewImplementation::set_window_size(Gfx::IntSize size)
     traversable().for_each_hosting_page([&](WebContentPage& page) {
         page.async_set_window_size(size.to_type<Web::DevicePixels>());
     });
+}
+
+void ViewImplementation::mark_as_extension_tab()
+{
+    if (m_extension_tab_id.has_value())
+        return;
+    m_extension_tab_id = allocate_extension_tab_id();
+    m_extension_window_id = allocate_extension_window_id();
 }
 
 void ViewImplementation::set_system_visibility_state(Web::HTML::VisibilityState visibility_state)
