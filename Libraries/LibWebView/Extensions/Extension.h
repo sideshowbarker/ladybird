@@ -27,6 +27,7 @@ public:
     static ErrorOr<NonnullRefPtr<Extension>, String> load_unpacked(ByteString directory, String id, Optional<Vector<String>> granted_permissions = {}, String locale = {});
 
     void renew_instance();
+    void apply_permission_grants(Vector<String> const&);
 
     String const& id() const { return m_id; }
     ByteString const& directory() const { return m_directory; }

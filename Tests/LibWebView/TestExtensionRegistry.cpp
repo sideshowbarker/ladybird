@@ -57,6 +57,18 @@ struct TemporaryDirectory {
     static inline int s_counter = 0;
 };
 
+struct TestRegistryObserver final : WebView::ExtensionRegistryObserver {
+    AK_ALLOC_WITH_KMALLOC;
+
+    TestRegistryObserver(ExtensionRegistry& registry, Function<void()> callback)
+        : ExtensionRegistryObserver(registry)
+        , callback(move(callback))
+    {
+    }
+    virtual void extensions_changed() override { callback(); }
+    Function<void()> callback;
+};
+
 }
 
 static constexpr auto minimal_manifest = R"({ "manifest_version": 3, "name": "Minimal", "version": "1" })"sv;
@@ -142,7 +154,7 @@ TEST_CASE(load_unpacked_assigns_a_uuid_and_persists)
     EXPECT_EQ(reloaded_settings.installed_extensions()[0].id, first_id);
 }
 
-TEST_CASE(restore_from_settings_reloads_enabled_extensions_and_skips_missing_directories)
+TEST_CASE(restore_keeps_failed_entries)
 {
     TemporaryDirectory directory;
     auto present = directory.extension("present"sv, minimal_manifest);
@@ -169,7 +181,9 @@ TEST_CASE(restore_from_settings_reloads_enabled_extensions_and_skips_missing_dir
     EXPECT_EQ(registry.enabled_descriptors().size(), 1u);
     EXPECT_EQ(registry.enabled_descriptors()[0].id, present_id);
     EXPECT(registry.enabled_descriptors(WebView::IsPrivate::Yes).is_empty());
-    EXPECT_EQ(settings.installed_extensions().size(), 2u);
+    EXPECT_EQ(settings.installed_extensions().size(), 3u);
+    EXPECT_EQ(registry.failed_extensions().size(), 1u);
+    EXPECT(!registry.failed_extensions()[0].error.is_empty());
 }
 
 TEST_CASE(set_enabled_false_drops_the_descriptor)
@@ -195,13 +209,13 @@ TEST_CASE(set_enabled_false_drops_the_descriptor)
     EXPECT(settings.installed_extensions().is_empty());
 }
 
-TEST_CASE(on_changed_fires_on_load_remove_and_toggle)
+TEST_CASE(observers_hear_every_change)
 {
     TemporaryDirectory directory;
     auto settings = WebView::Settings::create(directory.settings_path());
     ExtensionRegistry registry { settings };
     int changes = 0;
-    registry.on_changed = [&] { ++changes; };
+    TestRegistryObserver observer(registry, [&] { ++changes; });
 
     auto id = TRY_OR_FAIL(registry.load_unpacked(directory.extension("one"sv, minimal_manifest)))->id();
     EXPECT_EQ(changes, 1);
@@ -209,11 +223,15 @@ TEST_CASE(on_changed_fires_on_load_remove_and_toggle)
     EXPECT_EQ(changes, 2);
     registry.set_enabled(id, false);
     EXPECT_EQ(changes, 2);
-    registry.remove(id);
+    registry.set_allowed_in_private(id, true);
     EXPECT_EQ(changes, 3);
+    (void)TRY_OR_FAIL(registry.reload(id));
+    EXPECT_EQ(changes, 4);
+    registry.remove(id);
+    EXPECT_EQ(changes, 5);
 
     EXPECT(registry.load_unpacked(LexicalPath::join(directory.path, "missing"sv).string()).is_error());
-    EXPECT_EQ(changes, 3);
+    EXPECT_EQ(changes, 5);
 }
 
 TEST_CASE(reloading_and_reenabling_changes_the_extension_instance)
@@ -372,7 +390,7 @@ TEST_CASE(normalizing_an_installed_path_preserves_disabled_state)
     EXPECT(!registry.is_enabled(id));
 }
 
-TEST_CASE(permission_grants_persist_and_reload_never_expands_them)
+TEST_CASE(command_line_reload_keeps_the_grant)
 {
     TemporaryDirectory directory;
     auto settings = WebView::Settings::create(directory.settings_path());
@@ -450,7 +468,7 @@ TEST_CASE(private_opt_in_filters_descriptors_and_notifies)
     EXPECT(!registry.may_create_context(id, own, true, false, WebView::IsPrivate::Yes));
     EXPECT(!registry.may_access_resource(id, "/manifest.json"sv, own, WebView::IsPrivate::Yes));
     size_t notifications = 0;
-    registry.on_changed = [&] { ++notifications; };
+    TestRegistryObserver observer(registry, [&] { ++notifications; });
     registry.set_allowed_in_private(id, true);
     EXPECT_EQ(notifications, 1u);
     EXPECT_EQ(registry.enabled_descriptors(WebView::IsPrivate::Yes).size(), 1u);
@@ -493,7 +511,7 @@ TEST_CASE(disable_keeps_storage_and_remove_deletes_after_revocation)
     loop.spin_until([&] { return read; });
     registry.set_enabled(id, true);
     bool revoked = false;
-    registry.on_changed = [&] { revoked = !registry.find(id) && !registry.is_enabled(id); };
+    TestRegistryObserver observer(registry, [&] { revoked = !registry.find(id) && !registry.is_enabled(id); });
     items.set("key"sv, 2);
     store.set(id, move(items), false, [](auto result) { EXPECT(!result.is_error()); });
     registry.remove(id);
@@ -502,4 +520,154 @@ TEST_CASE(disable_keeps_storage_and_remove_deletes_after_revocation)
     store.get(id, {}, [&](auto result) { EXPECT(!result.is_error()); if (!result.is_error()) EXPECT(result.value().is_empty()); read = true; });
     loop.spin_until([&] { return read; });
     EXPECT(!FileSystem::exists(LexicalPath(file).dirname()));
+}
+
+TEST_CASE(prepared_install_persists_nothing)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry(settings);
+    auto path = directory.extension("prepared"sv, minimal_manifest);
+    auto before = settings.serialize_json().serialized();
+    auto pending = TRY_OR_FAIL(registry.prepare_unpacked(path));
+    EXPECT(!pending.is_reload);
+    EXPECT(registry.extensions().is_empty());
+    EXPECT_EQ(settings.serialize_json().serialized(), before);
+    auto persisted = WebView::Settings::create(directory.settings_path());
+    EXPECT(persisted.installed_extensions().is_empty());
+}
+
+TEST_CASE(first_install_grants_the_declared_permissions)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry(settings);
+    auto pending = TRY_OR_FAIL(registry.prepare_unpacked(directory.extension("permissions"sv, R"({
+        "manifest_version": 3, "name": "Permissions", "version": "1",
+        "permissions": ["tabs", "storage", "unknown", "storage"]
+    })"sv)));
+    EXPECT_EQ(pending.newly_declared_permissions, (Vector { "storage"_string, "tabs"_string }));
+    auto extension = registry.install(move(pending));
+    EXPECT_EQ(extension->descriptor().api_permissions, (Vector { "storage"_string, "tabs"_string }));
+    auto persisted = WebView::Settings::create(directory.settings_path());
+    EXPECT_EQ(persisted.installed_extensions()[0].granted_permissions, (Vector { "storage"_string, "tabs"_string }));
+}
+
+TEST_CASE(prepare_of_installed_directory_is_a_reload)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry(settings);
+    auto path = directory.extension("permissions"sv, R"({
+        "manifest_version": 3, "name": "Permissions", "version": "1", "permissions": ["storage"]
+    })"sv);
+    auto original = TRY_OR_FAIL(registry.load_unpacked(path));
+    registry.set_enabled(original->id(), false);
+    registry.set_allowed_in_private(original->id(), true);
+    directory.extension("permissions"sv, R"({
+        "manifest_version": 3, "name": "Permissions", "version": "2", "permissions": ["tabs"]
+    })"sv);
+    auto pending = TRY_OR_FAIL(registry.prepare_unpacked(ByteString::formatted("{}/../permissions", path)));
+    EXPECT(pending.is_reload);
+    EXPECT_EQ(pending.extension->id(), original->id());
+    EXPECT_EQ(pending.newly_declared_permissions, (Vector { "tabs"_string }));
+    EXPECT_EQ(registry.find(original->id())->descriptor().version, "1"sv);
+    auto installed = registry.install(move(pending));
+    EXPECT_EQ(installed->descriptor().api_permissions, (Vector { "tabs"_string }));
+    EXPECT(!registry.is_enabled(installed->id()));
+    EXPECT(registry.is_allowed_in_private(installed->id()));
+    auto persisted = WebView::Settings::create(directory.settings_path());
+    EXPECT_EQ(persisted.installed_extensions()[0].granted_permissions, (Vector { "storage"_string, "tabs"_string }));
+}
+
+TEST_CASE(failed_reload_unloads_and_records_the_error)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry(settings);
+    auto path = directory.extension("broken"sv, minimal_manifest);
+    auto original = TRY_OR_FAIL(registry.load_unpacked(path));
+    directory.extension("broken"sv, "{}"sv);
+    auto result = registry.reload(original->id());
+    EXPECT(result.is_error());
+    EXPECT(!registry.find(original->id()));
+    EXPECT(registry.enabled_descriptors().is_empty());
+    EXPECT_EQ(settings.installed_extensions().size(), 1u);
+    EXPECT_EQ(registry.failed_extensions().size(), 1u);
+    EXPECT_EQ(registry.failed_extensions()[0].id, original->id());
+    EXPECT_EQ(registry.failed_extensions()[0].directory, path);
+    EXPECT_EQ(registry.failed_extensions()[0].error, result.error());
+    auto own = URL::Parser::basic_parse(MUST(String::formatted("ladybird-extension://{}/page.html", original->id()))).release_value();
+    EXPECT(!registry.may_create_context(original->id(), own, true));
+    EXPECT(!registry.may_access_resource(original->id(), "/manifest.json"sv, own));
+}
+
+TEST_CASE(reload_of_a_fixed_entry_loads_it)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    auto path = LexicalPath::join(directory.path, "repaired"sv).string();
+    auto id = settings.add_installed_extension(path);
+    ExtensionRegistry registry(settings);
+    registry.restore_from_settings();
+    EXPECT_EQ(registry.failed_extensions().size(), 1u);
+    directory.extension("repaired"sv, minimal_manifest);
+    auto extension = TRY_OR_FAIL(registry.reload(id));
+    EXPECT_EQ(extension->id(), id);
+    EXPECT_EQ(registry.enabled_descriptors().size(), 1u);
+    EXPECT(registry.failed_extensions().is_empty());
+    EXPECT_EQ(settings.installed_extensions().size(), 1u);
+}
+
+TEST_CASE(remove_of_a_failed_entry_deletes_its_storage)
+{
+    Core::EventLoop loop;
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    auto id = settings.add_installed_extension(LexicalPath::join(directory.path, "missing"sv).string());
+    WebView::ExtensionStorageStore store(directory.path);
+    ExtensionRegistry registry(settings);
+    registry.set_storage_store(store);
+    registry.restore_from_settings();
+    JsonObject items;
+    items.set("key"sv, 1);
+    bool finished = false;
+    store.set(id, items, false, [&](auto result) { EXPECT(!result.is_error()); finished = true; });
+    loop.spin_until([&] { return finished; });
+    auto storage = LexicalPath::join(directory.path, "extensions"sv, id, "storage-local.json"sv).string();
+    EXPECT(FileSystem::exists(storage));
+    registry.remove(id);
+    EXPECT(settings.installed_extensions().is_empty());
+    EXPECT(registry.failed_extensions().is_empty());
+    finished = false;
+    store.get(id, {}, [&](auto result) { EXPECT(!result.is_error()); if (!result.is_error()) EXPECT(result.value().is_empty()); finished = true; });
+    loop.spin_until([&] { return finished; });
+    EXPECT(!FileSystem::exists(storage));
+}
+
+TEST_CASE(removed_observer_hears_nothing)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry(settings);
+    int changes = 0;
+    {
+        TestRegistryObserver observer(registry, [&] { ++changes; });
+        registry.restore_from_settings();
+        EXPECT_EQ(changes, 1);
+    }
+    (void)TRY_OR_FAIL(registry.load_unpacked(directory.extension("one"sv, minimal_manifest)));
+    EXPECT_EQ(changes, 1);
+}
+
+TEST_CASE(observer_can_outlive_registry)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    OwnPtr<TestRegistryObserver> observer;
+    {
+        ExtensionRegistry registry(settings);
+        observer = make<TestRegistryObserver>(registry, [] { });
+    }
+    observer.clear();
 }
