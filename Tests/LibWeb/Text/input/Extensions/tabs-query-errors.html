@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // A malformed query throws the schema's error; a bad URL pattern, or a filter that isn't supported, rejects.
+    asyncTest(async done => {
+        await contentScriptReady();
+        for (const query of [null, { foo: 1 }, { active: "yes" }, { index: 1.5 }, { index: 1e100 }, { status: "done" }, { url: 5 }, { url: "bad" }, { audible: true }])
+            println(JSON.stringify(await askBackground(query)));
+        done();
+    });
+</script>
+</body>

@@ -529,6 +529,18 @@ TEST_CASE(storage_request_from_detached_or_forged_context_is_dropped)
     EXPECT(!FileSystem::exists(LexicalPath::join(f.root, "extensions"sv).string()));
 }
 
+TEST_CASE(current_contexts_say_whether_they_are_extension_documents)
+{
+    ExtensionMessageBroker broker;
+    FakeEndpoint page, content;
+    content.content_script = true;
+    auto id = MUST(String::from_utf8(x));
+    broker.context_created(page, id, 1, { 1, 1 }, 1);
+    broker.context_created(content, id, 1, { 1, 1 }, 1);
+    EXPECT(broker.current_context(page, 1)->is_extension_document);
+    EXPECT(!broker.current_context(content, 1)->is_extension_document);
+}
+
 TEST_CASE(storage_changes_include_writer_and_only_same_extension)
 {
     StorageFixture f;

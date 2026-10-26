@@ -46,6 +46,18 @@ void ExtensionMessageBroker::broadcast_storage_changes(String const& extension_i
     }
 }
 
+Optional<ExtensionMessageBroker::CurrentContext> ExtensionMessageBroker::current_context(Endpoint& endpoint, u64 context_id) const
+{
+    auto registered = m_contexts.get(&endpoint);
+    auto context = registered.has_value() ? registered->get(context_id) : Optional<Context const&> {};
+    if (!context.has_value() || !storage_context_is_current(&endpoint, context_id, *context))
+        return {};
+    auto sender = endpoint.extension_message_sender(context->extension_id, context->document_id);
+    auto url = sender.has_value() && sender->url.has_value() ? URL::Parser::basic_parse(*sender->url) : Optional<URL::URL> {};
+    auto is_extension_document = url.has_value() && url->scheme() == "ladybird-extension"sv && url->serialized_host() == context->extension_id;
+    return CurrentContext { context->extension_id, context->document_id, is_extension_document };
+}
+
 void ExtensionMessageBroker::request_storage(Endpoint& source, u64 context_id, u64 request_id, StorageRequest const& request, ExtensionStorageStore& store)
 {
     auto registered = m_contexts.get(&source);

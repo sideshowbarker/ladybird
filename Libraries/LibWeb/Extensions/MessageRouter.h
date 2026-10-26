@@ -49,6 +49,9 @@ public:
     void dispatch(Page&, String const& extension_id, u64 dispatch_id, MessageSender const&, String const& message_json, u64 context_id);
 
     GC::Ref<JS::PromiseCapability> request_storage(MessagingContext&, StorageRequest const&, Optional<JsonObject> defaults = {});
+
+    // tabs.query(): the UI process answers with the matching tabs, through complete().
+    GC::Ref<JS::PromiseCapability> query_tabs(MessagingContext&, String const& query_json);
     void complete_storage(Page&, u64, StorageResult const&);
     void dispatch_storage_changed(Page&, String const&, String const&);
 

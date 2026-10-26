@@ -1,0 +1,5 @@
+matching: 1
+url is this page: true
+active: true, index: 0, pinned: false, incognito: false
+integer ids: true
+revealed: 1

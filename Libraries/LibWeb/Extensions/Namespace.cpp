@@ -9,6 +9,7 @@
 #include <LibWeb/Extensions/API/I18n.h>
 #include <LibWeb/Extensions/API/Runtime.h>
 #include <LibWeb/Extensions/API/Storage.h>
+#include <LibWeb/Extensions/API/Tabs.h>
 #include <LibWeb/Extensions/MessagingContext.h>
 #include <LibWeb/Extensions/Namespace.h>
 
@@ -25,6 +26,10 @@ GC::Ref<JS::Object> install_namespace(JS::Realm& realm, MessagingContext& messag
 
     if (messaging_context.descriptor().has_permission("storage"sv))
         namespace_object->define_direct_property("storage"_utf16_fly_string, create_storage(realm, messaging_context), attributes);
+
+    // Content scripts act on the page they're in, so only the extension's own documents get tabs.
+    if (context == NamespaceContext::ExtensionDocument)
+        namespace_object->define_direct_property("tabs"_utf16_fly_string, create_tabs(realm, messaging_context), attributes);
 
     // Both names refer to the same object, so an extension written against either works.
     auto& global = realm.global_object();

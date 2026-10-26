@@ -1,0 +1,10 @@
+self: 1
+active: 1, inactive: 0
+highlighted: 1, pinned: 0
+index 0: 1, index 1: 0
+own window: 1, another: 0
+unloaded: 0, discarded: 0
+current window, from the background: 0
+title: 1, other title: 0
+normal window: 1, popup: 0
+url list: 1
