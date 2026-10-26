@@ -1,0 +1,24 @@
+{
+    "manifest_version": 3,
+    "name": "Tab Messaging Fixture",
+    "version": "1.0",
+    "description": "A background page that answers its content scripts with tabs.sendMessage(), in a tab's top frame and its subframes.",
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/tabs-send-message-*.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end",
+            "all_frames": true,
+            "match_about_blank": true
+        }
+    ]
+}

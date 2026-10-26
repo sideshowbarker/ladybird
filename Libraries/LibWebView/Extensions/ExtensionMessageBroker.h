@@ -42,6 +42,11 @@ public:
         virtual void dispatch_extension_storage_changed(String const&, String const&) { }
         virtual Optional<u64> extension_revision(String const& extension_id) const = 0;
         virtual Optional<Web::Extensions::MessageSender> extension_message_sender(String const& extension_id, Web::HTML::CrossProcessId document_id) const = 0;
+        // The view of the tab this endpoint's page is part of, and a document's frame id within that tab.
+        virtual Optional<u64> extension_view_id() const { return {}; }
+        virtual Optional<i64> extension_frame_id(Web::HTML::CrossProcessId) const { return {}; }
+        // Adds the sending document's tab and frame to the sender a receiver sees.
+        virtual void annotate_extension_sender(Web::Extensions::MessageSender&, Web::HTML::CrossProcessId) const { }
         virtual void dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Web::Extensions::MessageSender const&, String const& message_json, u64 context_id) = 0;
         virtual void complete_extension_runtime_message(u64 request_id, Web::Extensions::MessageResult const& reply_json) = 0;
     };
@@ -54,6 +59,8 @@ public:
     void background_finished(String const& extension_id, u64 revision, bool success);
 
     void send(Endpoint& source, String const& extension_id, u64 request_id, Web::Extensions::MessageSender const&, String const& message_json, u64 context_id);
+    // tabs.sendMessage(): reaches the extension's content scripts in the tab that view_id shows, or in just one frame of it.
+    void send_to_tab(Endpoint& source, String const& extension_id, u64 request_id, u64 context_id, u64 view_id, Optional<i64> frame_id, String const& message_json);
     void reply(Endpoint& target, u64 dispatch_id, Web::Extensions::MessageResult const& reply_json);
 
     void request_storage(Endpoint&, u64 context_id, u64 request_id, Web::Extensions::StorageRequest const&, ExtensionStorageStore&);
@@ -101,6 +108,7 @@ private:
         Endpoint* endpoint;
         u64 context_id;
     };
+    void dispatch_to_targets(Endpoint& source, String const& extension_id, u64 request_id, u64 context_id, Web::Extensions::MessageSender const&, String const& message_json, Vector<Target> const&);
     struct PortEndpoint {
         Endpoint* endpoint;
         u64 context_id;

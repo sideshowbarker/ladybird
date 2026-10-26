@@ -1,0 +1,5 @@
+sender: tab id is a number, index 0, url revealed: false, frameId 0
+promise: {"reply":"top, from the background: true"}
+callback: {"reply":"top, from the background: true"}
+frameId -1: {"reply":"top, from the background: true"}
+huge tab id: {"thrown":"TypeError: Error in invocation of tabs.sendMessage(integer tabId, any message, optional object options, optional function callback): Error at parameter 'tabId': Invalid type: expected integer, found number."}

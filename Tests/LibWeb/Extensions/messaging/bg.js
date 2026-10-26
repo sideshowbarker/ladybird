@@ -9,9 +9,17 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     else if (message.type === "who")
         sendResponse({ id: browser.runtime.id === sender.id, background: location.pathname });
     else if (message.type === "helloFromBackground")
-        browser.runtime.sendMessage({ type: "from-background" }).then(
-            reply => sendResponse(`content said ${reply}`),
-            error => sendResponse(`runtime rejected: ${error.message}`)
-        );
+        browser.runtime
+            .sendMessage({ type: "from-background" })
+            .then(
+                reply => `runtime: content said ${reply}`,
+                error => `runtime rejected: ${error.message}`
+            )
+            .then(runtime =>
+                browser.tabs.sendMessage(sender.tab.id, { type: "from-background" }).then(
+                    reply => sendResponse(`${runtime}; tabs: content said ${reply}`),
+                    error => sendResponse(`${runtime}; tabs rejected: ${error.message}`)
+                )
+            );
     if (message.type === "helloFromBackground") return true;
 });

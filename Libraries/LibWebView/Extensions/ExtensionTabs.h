@@ -15,6 +15,7 @@
 #include <AK/Types.h>
 #include <LibURL/URL.h>
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
+#include <LibWebCommon/HTML/CrossProcessId.h>
 #include <LibWebView/BrowsingSession.h>
 #include <LibWebView/Export.h>
 
@@ -39,6 +40,10 @@ struct ExtensionTab {
 
 WEBVIEW_API i64 allocate_extension_tab_id();
 WEBVIEW_API i64 allocate_extension_window_id();
+
+// The frame id extensions see for a navigable that isn't its tab's top-level one: positive, kept for as long as the
+// browser runs, and never reused.
+WEBVIEW_API i64 extension_frame_id_for(Web::HTML::CrossProcessId navigable_id);
 
 // The extension asking about tabs, and where it's asking from: the window of the tab its page is in, if it's in one, and
 // the window the user last used.

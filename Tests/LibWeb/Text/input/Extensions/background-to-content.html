@@ -3,7 +3,7 @@
 <script src="support-messaging.js"></script>
 <body>
 <script>
-    // Runtime messages from the background page exclude content scripts.
+    // Runtime messages from the background page exclude content scripts, which it reaches through tabs.sendMessage().
     asyncTest(async done => {
         await contentScriptReady();
         println(`background heard: ${await askBackground("helloFromBackground")}`);

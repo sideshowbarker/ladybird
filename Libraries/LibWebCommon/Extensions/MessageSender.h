@@ -20,6 +20,9 @@ struct WEBCOMMON_API MessageSender {
     String extension_id;
     Optional<String> url;
     bool from_background { false };
+    // The tab the sending document is in, as extensions see it, and its frame there: 0 for the tab's top-level document.
+    Optional<String> tab_json {};
+    Optional<i64> frame_id {};
 
     bool operator==(MessageSender const&) const = default;
 };
