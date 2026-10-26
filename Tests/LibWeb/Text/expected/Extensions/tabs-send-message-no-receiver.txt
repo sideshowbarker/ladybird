@@ -1,0 +1,3 @@
+no such tab: {"rejected":"Could not establish connection. Receiving end does not exist."}
+no such frame: {"rejected":"Could not establish connection. Receiving end does not exist."}
+callback: {"lastError":"Could not establish connection. Receiving end does not exist."}

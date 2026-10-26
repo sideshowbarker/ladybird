@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <AK/HashMap.h>
+#include <AK/NeverDestroyed.h>
 #include <AK/Utf8View.h>
 #include <LibWebCommon/Extensions/MatchPattern.h>
 #include <LibWebCommon/Extensions/Scheme.h>
@@ -22,6 +24,13 @@ i64 allocate_extension_tab_id()
 i64 allocate_extension_window_id()
 {
     return s_next_extension_window_id++;
+}
+
+i64 extension_frame_id_for(Web::HTML::CrossProcessId navigable_id)
+{
+    static NeverDestroyed<HashMap<Web::HTML::CrossProcessId, i64>> frame_ids;
+    static i64 next_frame_id { 1 };
+    return frame_ids->ensure(navigable_id, [] { return next_frame_id++; });
 }
 
 bool may_see_tab(ExtensionTabViewer const& viewer, ExtensionTab const& tab)

@@ -105,6 +105,17 @@ struct FakeEndpoint final : public ExtensionMessageBroker::Endpoint {
         return authorized ? Optional<u64> { revision } : OptionalNone {};
     }
 
+    Optional<u64> view_id;
+    Optional<i64> frame_id;
+    Optional<String> tab_json;
+    virtual Optional<u64> extension_view_id() const override { return view_id; }
+    virtual Optional<i64> extension_frame_id(Web::HTML::CrossProcessId) const override { return frame_id; }
+    virtual void annotate_extension_sender(MessageSender& sender, Web::HTML::CrossProcessId) const override
+    {
+        sender.tab_json = tab_json;
+        sender.frame_id = frame_id;
+    }
+
     virtual Optional<MessageSender> extension_message_sender(String const& extension_id, Web::HTML::CrossProcessId document_id) const override
     {
         if (!authorized || document_id != Web::HTML::CrossProcessId { 1, 1 })
@@ -820,4 +831,114 @@ TEST_CASE(ports_wait_for_background_startup_and_handle_failure_or_detachment)
     f.broker.background_finished(f.id, 1, true);
     EXPECT_EQ(f.first.connects.size(), 1u);
     EXPECT(!f.broker.has_open_channels(f.id));
+}
+
+TEST_CASE(tab_messages_reach_only_that_tabs_content_scripts)
+{
+    ExtensionMessageBroker broker;
+    FakeEndpoint background, in_tab, elsewhere, page_in_tab;
+    in_tab.content_script = true;
+    in_tab.view_id = 7;
+    elsewhere.content_script = true;
+    elsewhere.view_id = 8;
+    page_in_tab.view_id = 7;
+    auto id = MUST(String::from_utf8(x));
+    for (auto* endpoint : { &background, &in_tab, &elsewhere, &page_in_tab })
+        broker.context_created(*endpoint, id, 1, { 1, 1 }, 1);
+    broker.send_to_tab(background, id, 1, 1, 7, {}, "1"_string);
+    EXPECT_EQ(in_tab.dispatches.size(), 1u);
+    EXPECT(elsewhere.dispatches.is_empty());
+    EXPECT(page_in_tab.dispatches.is_empty());
+    broker.reply(in_tab, in_tab.dispatches[0].dispatch_id, Web::Extensions::MessageResult::Reply { "2"_string });
+    EXPECT_EQ(background.completions.size(), 1u);
+    EXPECT_EQ(background.completions[0].json, "2"_string);
+}
+
+TEST_CASE(tab_messages_can_target_one_frame)
+{
+    ExtensionMessageBroker broker;
+    FakeEndpoint background, top, subframe;
+    top.content_script = true;
+    top.view_id = 7;
+    top.frame_id = 0;
+    subframe.content_script = true;
+    subframe.view_id = 7;
+    subframe.frame_id = 5;
+    auto id = MUST(String::from_utf8(x));
+    for (auto* endpoint : { &background, &top, &subframe })
+        broker.context_created(*endpoint, id, 1, { 1, 1 }, 1);
+    broker.send_to_tab(background, id, 1, 1, 7, 5, "1"_string);
+    EXPECT(top.dispatches.is_empty());
+    EXPECT_EQ(subframe.dispatches.size(), 1u);
+    broker.send_to_tab(background, id, 2, 1, 7, {}, "1"_string);
+    EXPECT_EQ(top.dispatches.size(), 1u);
+    EXPECT_EQ(subframe.dispatches.size(), 2u);
+}
+
+TEST_CASE(tab_messages_with_no_receiver_reject)
+{
+    ExtensionMessageBroker broker;
+    FakeEndpoint background, other_extension;
+    other_extension.content_script = true;
+    other_extension.view_id = 7;
+    auto id = MUST(String::from_utf8(x));
+    broker.context_created(background, id, 1, { 1, 1 }, 1);
+    broker.context_created(other_extension, MUST(String::from_utf8(y)), 1, { 1, 1 }, 1);
+    broker.send_to_tab(background, id, 1, 1, 7, {}, "1"_string);
+    broker.send_to_tab(background, id, 2, 1, 9, {}, "1"_string);
+    EXPECT(other_extension.dispatches.is_empty());
+    EXPECT_EQ(background.completions.size(), 2u);
+    for (auto const& completion : background.completions)
+        EXPECT_EQ(completion.result, Web::Extensions::MessageResult::no_receiver());
+}
+
+TEST_CASE(senders_carry_their_tab_and_frame)
+{
+    ExtensionMessageBroker broker;
+    FakeEndpoint background, content;
+    content.content_script = true;
+    content.view_id = 7;
+    content.frame_id = 0;
+    content.tab_json = "{\"id\":3}"_string;
+    auto id = MUST(String::from_utf8(x));
+    broker.context_created(background, id, 1, { 1, 1 }, 1);
+    broker.context_created(content, id, 1, { 1, 1 }, 1);
+    broker.send(content, id, 1, sender_for(x), "1"_string, 1);
+    VERIFY(background.dispatches.size() == 1);
+    EXPECT_EQ(background.dispatches[0].sender.tab_json, "{\"id\":3}"_string);
+    EXPECT_EQ(background.dispatches[0].sender.frame_id, 0);
+    broker.send_to_tab(background, id, 1, 1, 7, {}, "1"_string);
+    VERIFY(content.dispatches.size() == 1);
+    EXPECT(!content.dispatches[0].sender.tab_json.has_value());
+}
+
+TEST_CASE(content_scripts_cannot_send_tab_messages)
+{
+    ExtensionMessageBroker broker;
+    FakeEndpoint content, other_content;
+    content.content_script = true;
+    content.view_id = 7;
+    other_content.content_script = true;
+    other_content.view_id = 8;
+    auto id = MUST(String::from_utf8(x));
+    broker.context_created(content, id, 1, { 1, 1 }, 1);
+    broker.context_created(other_content, id, 1, { 1, 1 }, 1);
+    broker.send_to_tab(content, id, 1, 1, 8, {}, "1"_string);
+    EXPECT(other_content.dispatches.is_empty());
+    VERIFY(content.completions.size() == 1);
+    EXPECT(content.completions[0].result.value.has<Web::Extensions::MessageResult::Error>());
+}
+
+TEST_CASE(a_negative_frame_id_means_every_frame)
+{
+    ExtensionMessageBroker broker;
+    FakeEndpoint background, top;
+    top.content_script = true;
+    top.view_id = 7;
+    top.frame_id = 0;
+    auto id = MUST(String::from_utf8(x));
+    broker.context_created(background, id, 1, { 1, 1 }, 1);
+    broker.context_created(top, id, 1, { 1, 1 }, 1);
+    broker.send_to_tab(background, id, 1, 1, 7, -1, "1"_string);
+    EXPECT_EQ(top.dispatches.size(), 1u);
 }

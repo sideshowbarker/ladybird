@@ -7,7 +7,7 @@ The mechanism follows Ladybird’s process model: the UI process reads extension
 This document is for two audiences. The first part is for people who want to use or write an extension; the rest is for maintainers reviewing or extending the implementation.
 
 > [!NOTE]
-> What’s described here is extensions support for content scripts, extension pages and resources, runtime messaging, background pages, and local storage. There’s no toolbar button, popup, or `tabs` API yet. The _Future work_ section at the end lists what’s planned.
+> What’s described here is extensions support for content scripts, extension pages and resources, runtime messaging, background pages, local storage, and the basics of `tabs`. There’s no toolbar button or popup yet. The _Future work_ section at the end lists what’s planned.
 
 ## Using extensions
 
@@ -141,9 +141,20 @@ The UI process keeps `<profile data>/extensions/<id>/storage-local.json`, contai
 
 Disabling an extension keeps its storage. Removing it through the registry first revokes its contexts, then queues deletion after outstanding writes. Deletion failures are logged. Editing an extension out of Settings directly doesn’t run that removal operation. Private windows require the extension’s opt-in and share its normal-profile storage. The Remove confirmation on `about:extensions` explains that stored data will be deleted.
 
+### The `tabs` API
+
+An extension’s own documents (its background page and its other pages) get `browser.tabs`; content scripts don’t, since they act on the page they’re in. No permission is needed for either method.
+
+- `tabs.query(queryInfo)` resolves with the browser’s tabs that match, in window order and then tab order. It filters on `active`, `highlighted`, `pinned`, `discarded`, `currentWindow`, `lastFocusedWindow`, `windowId` (`-2` is the current window), `index`, `status` (`"loading"`, `"complete"`, or `"unloaded"` for a restored tab that hasn’t loaded yet), `groupId`, `windowType`, `url` (a match pattern or a list of them), and `title` (with `*` and `?` wildcards). An unknown key or a wrongly typed value throws; `audible`, `muted`, `autoDiscardable`, `frozen`, and `splitViewId` aren’t supported yet, and reject.
+- Each tab has `id`, `index`, `windowId`, `status`, `active`, `selected`, `highlighted`, `pinned`, `discarded`, `groupId` (always `-1`), and `incognito`. Its `url` and `title` are only there for an extension with the `tabs` permission, a host permission that matches the URL, or a tab showing one of the extension’s own pages — and a `url` or `title` filter never matches a tab whose URL or title the extension can’t see. A `url` pattern may name the extension scheme, to find the extension’s own pages.
+- `tabs.sendMessage(tabId, message, options?)` reaches the extension’s content scripts in that tab, in every frame, or only in `options.frameId` (a negative one stands for every frame). Only the extension’s own documents can send one. Replies work as for `runtime.sendMessage()`, and a tab, frame, or content script that isn’t there rejects with the same no-receiver error. `documentId` isn’t supported, since nothing hands out document ids yet.
+- A message or port from a document in a tab carries `sender.tab`, redacted the same way, and `sender.frameId`, which is `0` for the tab’s top-level document.
+
+Tab and window ids are positive integers that last while the browser runs: A tab keeps its id across navigations, process swaps, and moves to another window, and no id is reused. The current window is the one holding the tab an extension page is in; for the background page, it’s the window the user last used among those the extension can see. A tab of a private window exists for an extension only if it’s allowed in private windows. Background pages and other hidden views are never tabs.
+
 ### What isn’t there yet
 
-- No `storage.sync` or `storage.session`; no `tabs`, `scripting`, `action`, `webNavigation`, `webRequest`, or `declarativeNetRequest`.
+- No `storage.sync` or `storage.session`; no `tabs` events or methods other than `query()` and `sendMessage()`; no `windows`, `scripting`, `action`, `webNavigation`, `webRequest`, or `declarativeNetRequest`.
 - No toolbar button, popup, or options page.
 - No packaged extensions (`.xpi`, `.crx`, `.zip`): only unpacked directories.
 - A manifest version 3 `service_worker` runs as a script of the generated background page, not as a worker, so `self`, `importScripts()`, and worker-only APIs aren’t there, while `window` and `document` are. An extension that only uses the `runtime` API won’t notice.
@@ -372,6 +383,8 @@ The IPC-encodable types live in `LibWebCommon/Extensions/`, which both sides lin
 
 Storage transport adds `did_request_extension_storage(page_id, context_id, request_id, request)` from WebContent to UI, plus `extension_storage_reply(page_id, request_id, result)` and `dispatch_extension_storage_changed(page_id, extension_id, changes_json)` in the other direction.
 
+The `tabs` API adds `did_request_extension_tabs_query(page_id, context_id, request_id, query_json)` and `did_send_extension_tab_message(page_id, extension_id, request_id, context_id, tab_id, frame_id, message_json)` from WebContent to UI; both are answered through `extension_runtime_message_reply()`.
+
 ## Security model
 
 - **A WebContent process never reads the extension directory.** It receives script sources in the descriptor and asks the UI process for everything else by id and path. The UI process opens the file through a handle on the extension’s directory, and refuses anything outside it, symlinks included.
@@ -397,6 +410,8 @@ Known gaps: The UI process can’t yet tell which document of a WebContent proce
 | `Tests/LibWeb/TestExtensionWorld.cpp`             | Parsing in a foreign realm, world isolation, the namespace, `sendMessage` serialization, listener reply semantics, detach                     |
 
 `TestExtensionStorageStore` covers exact quota accounting, atomic writes, unchanged values, operation order, reopening, corrupt files, write failure, and deletion. Registry and broker tests cover removal ordering, permissions, stale contexts, and change delivery.
+
+`TestExtensionTabs` covers tab and window ids, which views count as tabs, every `tabs.query()` filter, URL and title redaction, and private windows; the broker tests cover tab-targeted messages, frame targeting, and the sender’s tab.
 
 ### Text tests (`Tests/LibWeb/Text/input/Extensions/`)
 
@@ -425,9 +440,11 @@ Build/release/bin/test-web --test-path Tests/LibWeb -f 'Extensions/*'
 | `css-file-origins`                    | `css-files`           | Each CSS file is an author sheet of its own: manifest order, its own namespaces, its own base URL |
 | `about-blank-trusted-ancestry`        | `trusted-ancestry`    | An `about:blank` frame matches by its creator’s URL, never by a base URL the page set             |
 | `world-values`                        | `world-values`        | Event payloads cross worlds as clones, and uncaught errors stay in their world                    |
-| `background-to-content`               | `messaging`           | A content script never receives a runtime message                                                 |
+| `background-to-content`               | `messaging`           | A content script never receives a runtime message, but gets the same one through `tabs.sendMessage()` |
 
 The `storage-*` text tests cover selection forms and defaults, prototype-named keys, both change events across content and background contexts, callbacks and scoped errors, permission gating, and isolation between extensions. Each independent test has its own fixture identity so parallel runs don’t share mutable storage.
+
+The `tabs-*` text tests cover `tabs.query()` filters, its schema errors, redaction with and without a matching host permission, and the namespace’s absence from content scripts, then `tabs.sendMessage()` in both reply forms, to one frame by its id, and with no receiver. Test pages run in parallel tabs, so each test filters on its own URL, and redaction has a fixture of its own.
 
 ## File guide
 
@@ -448,8 +465,9 @@ The `storage-*` text tests cover selection forms and defaults, prototype-named k
 - `ExtensionMessageBroker.{h,cpp}`: Cross-page message routing and storage authorization.
 - `ExtensionStorageStore.{h,cpp}`: Serialized file operations, quota checks, and changed values.
 - `ExtensionBackgroundHost.{h,cpp}`: The hidden views for background pages.
+- `ExtensionTabs.{h,cpp}`: Tab and window ids, `tabs.query()` filtering, and the tab objects extensions see.
 
-Elsewhere in LibWebView: `Settings.{h,cpp}` (the `extensions` key and `InstalledExtension`), `Application.{h,cpp}` (`--load-extension`, owning the registry, broker, and host, pushing descriptors), `WebContentPage.{h,cpp}` (the IPC handlers, and the `Endpoint` implementation).
+Elsewhere in LibWebView: `Settings.{h,cpp}` (the `extensions` key and `InstalledExtension`), `Application.{h,cpp}` (`--load-extension`, owning the registry, broker, and host, pushing descriptors, and `extension_tabs()`, which a frontend with tabs of its own answers), `WebContentPage.{h,cpp}` (the IPC handlers, and the `Endpoint` implementation).
 
 ### `Libraries/LibWeb/Extensions/`
 
@@ -459,7 +477,7 @@ Elsewhere in LibWebView: `Settings.{h,cpp}` (the `extensions` key and `Installed
 - `MessagingContext.h`: What the router needs from either.
 - `ContentScriptInjector.{h,cpp}`: Matching and the three `run_at` points.
 - `MessageRouter.{h,cpp}`: `sendMessage` and `onMessage` dispatch within a process.
-- `Namespace.{h,cpp}`, `API/Runtime.{h,cpp}`, `API/Event.{h,cpp}`, `API/Storage.{h,cpp}`, `API/Completion.{h,cpp}`: The `browser`/`chrome` object.
+- `Namespace.{h,cpp}`, `API/Runtime.{h,cpp}`, `API/Event.{h,cpp}`, `API/Storage.{h,cpp}`, `API/Tabs.{h,cpp}`, `API/Completion.{h,cpp}`: The `browser`/`chrome` object.
 
 Hooks elsewhere in LibWeb: `DOM/Document.{h,cpp}` (worlds, run_at bookkeeping, the idle timer, extension style sheets, the document context, `url_for_extension_matching()`), `HTML/Parser/HTMLParser.cpp` (`document_end`), `HTML/LocalNavigable.cpp` (the initial `about:blank`), `HTML/Scripting/ClassicScript.{h,cpp}` (`create_in_realm()`, and the realm errors are reported to), `Bindings/WorldSafeValue.{h,cpp}` and the `[CloneAcrossWorlds]` and `[FilterErrorEventByWorld]` IDL extended attributes in `Meta/Generators/libweb_bindings/` (cloning event payloads, and hiding error events, across worlds), `DOM/EventDispatcher.cpp`, `WebIDL/AbstractOperations.cpp`, `Bindings/MainThreadVM.cpp`, and `HTML/WindowOrWorkerGlobalScope.cpp` (skipping a detached world’s listeners, callbacks, jobs, and timers), `Fetch/Fetching/Fetching.cpp` (the access check and the scheme branch), `Fetch/Infrastructure/URL.h` (`FETCH_SCHEMES`), `Loader/ResourceLoader.{h,cpp}` (serving the scheme), `Page/Page.{h,cpp}` (the client hooks), `Internals/Internals.{idl,h,cpp}` (`extensionId()`), and `LibURL/Rust/src/origin.rs` (the origin).
 
@@ -471,7 +489,6 @@ Hooks elsewhere in LibWeb: `DOM/Document.{h,cpp}` (worlds, run_at bookkeeping, t
 
 Planned next, roughly in order:
 
-- `tabs.query()` and `tabs.sendMessage()` basics.
 - Event-page idle unload for background pages.
 - A toolbar button with a popup, `scripting.executeScript()`, `declarativeNetRequest` on the content blocker, `webNavigation`, observe-only `webRequest`, and a real background service worker.
 

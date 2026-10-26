@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // A content script's message tells the background page its tab, and the background page answers it there with
+    // tabs.sendMessage(), in both reply forms.
+    asyncTest(async done => {
+        await contentScriptReady();
+        const { tabId, tabIndex, tabUrl, frameId } = await sendToBackground({ type: "describe-sender" });
+        println(`sender: tab id is a ${tabId}, index ${tabIndex}, url revealed: ${tabUrl}, frameId ${frameId}`);
+        println(`promise: ${JSON.stringify(await sendToBackground({ type: "ask" }))}`);
+        println(`callback: ${JSON.stringify(await sendToBackground({ type: "ask-with-callback" }))}`);
+        println(`frameId -1: ${JSON.stringify(await sendToBackground({ type: "ask", frame: "negative" }))}`);
+        println(`huge tab id: ${JSON.stringify(await sendToBackground({ type: "ask", tab: "huge" }))}`);
+        done();
+    });
+</script>
+</body>

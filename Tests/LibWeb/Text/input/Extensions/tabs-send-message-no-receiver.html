@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // A tab that doesn't exist, or a frame of the tab that doesn't, has no receiving end.
+    asyncTest(async done => {
+        await contentScriptReady();
+        println(`no such tab: ${JSON.stringify(await sendToBackground({ type: "ask", tab: "missing" }))}`);
+        println(`no such frame: ${JSON.stringify(await sendToBackground({ type: "ask", frame: "missing" }))}`);
+        println(`callback: ${JSON.stringify(await sendToBackground({ type: "ask-with-callback", tab: "missing" }))}`);
+        done();
+    });
+</script>
+</body>
