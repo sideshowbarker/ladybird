@@ -61,9 +61,9 @@ ALLOWED_REALM_MENTIONS = {
         "the C++ glue of the Rust CustomEvent creates it in a given realm",
     ),
     "Extensions": (
-        18,
-        29,
-        "extension worlds create and own the realms content scripts run in, the browser namespace materializes its JS objects there, and API completions, storage values, runtime messages, and Port objects and events materialize results in a context's realm",
+        20,
+        32,
+        "extension worlds create and own the realms content scripts run in, the browser namespace materializes its JS objects there, and API completions, storage values, runtime messages, i18n functions, and Port objects and events materialize results in a context's realm",
     ),
     "Fetch": (
         22,

@@ -1,0 +1,39 @@
+{
+    "manifest_version": 3,
+    "name": "__MSG_title__",
+    "description": "__MSG_description__",
+    "version": "1",
+    "default_locale": "en",
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/i18n-get-message.html",
+                "file:///*/Extensions/i18n-ui-language.html",
+                "file:///*/Extensions/i18n-manifest.html",
+                "file:///*/Extensions/i18n-css-served.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "page.html",
+                "page.js",
+                "style.css",
+                "import.css"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ]
+}

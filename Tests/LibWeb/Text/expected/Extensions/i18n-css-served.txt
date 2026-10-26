@@ -1,0 +1,5 @@
+linked CSS after unknown token: true
+imported CSS: true
+single substitution: true
+HTML stays literal: true
+extension page API: true

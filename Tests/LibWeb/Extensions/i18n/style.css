@@ -1,0 +1,6 @@
+@import url("ladybird-extension://__MSG_@@extension_id__/import.css");
+/* __MSG_missing__ */
+#target {
+    color: __MSG_color__;
+    --literal: "__MSG_literal__";
+}
