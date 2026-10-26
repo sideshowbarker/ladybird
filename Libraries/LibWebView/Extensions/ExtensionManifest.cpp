@@ -253,8 +253,9 @@ String ExtensionManifest::generated_background_document_html() const
     if (script_paths.is_empty())
         return {};
 
+    // The scripts go in the body, so that it exists while they run.
     StringBuilder html;
-    html.append("<!DOCTYPE html><html><head><meta charset=\"utf-8\">"sv);
+    html.append("<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body>"sv);
     for (auto const& path : script_paths) {
         html.append("<script "sv);
         if (background->is_module)
@@ -263,7 +264,7 @@ String ExtensionManifest::generated_background_document_html() const
         html.append(path.bytes_as_string_view().trim("/"sv, TrimMode::Left));
         html.append("\"></script>"sv);
     }
-    html.append("</head><body></body></html>"sv);
+    html.append("</body></html>"sv);
     return MUST(html.to_string());
 }
 
