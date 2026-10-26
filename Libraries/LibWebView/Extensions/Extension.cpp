@@ -210,6 +210,20 @@ static ErrorOr<HashMap<String, String>, String> load_localization(Core::Director
     return messages;
 }
 
+void Extension::apply_permission_grants(Vector<String> const& grants)
+{
+    m_descriptor.api_permissions.clear();
+    for (auto const& permission : m_manifest.permissions) {
+        if (!grants.contains_slow(permission)) {
+            dbgln("Extension {} requests an ungranted permission: {}", m_id, permission);
+            continue;
+        }
+        if (!m_descriptor.api_permissions.contains_slow(permission))
+            m_descriptor.api_permissions.append(permission);
+    }
+    quick_sort(m_descriptor.api_permissions);
+}
+
 ErrorOr<NonnullRefPtr<Extension>, String> Extension::load_unpacked(ByteString directory, String id, Optional<Vector<String>> granted_permissions, String locale)
 {
     auto resource_directory = Core::Directory::create(directory, Core::Directory::CreateDirectories::No);
@@ -238,15 +252,6 @@ ErrorOr<NonnullRefPtr<Extension>, String> Extension::load_unpacked(ByteString di
     descriptor.manifest_json = move(localized_manifest);
     descriptor.messages = move(messages);
     descriptor.ui_locale = move(locale);
-    for (auto const& permission : manifest.permissions) {
-        if (granted_permissions.has_value() && !granted_permissions->contains_slow(permission)) {
-            dbgln("Extension {} requests an ungranted permission: {}", id, permission);
-            continue;
-        }
-        if (!descriptor.api_permissions.contains_slow(permission))
-            descriptor.api_permissions.append(permission);
-    }
-    quick_sort(descriptor.api_permissions);
     for (auto const& host : manifest.host_permissions) {
         auto pattern = Web::Extensions::MatchPattern::parse(host);
         if (pattern.is_error())
@@ -275,7 +280,9 @@ ErrorOr<NonnullRefPtr<Extension>, String> Extension::load_unpacked(ByteString di
         descriptor.content_scripts.append(move(with_sources));
     }
 
-    return adopt_ref(*new Extension(move(directory), resource_directory.release_value(), move(id), move(manifest), move(descriptor)));
+    auto extension = adopt_ref(*new Extension(move(directory), resource_directory.release_value(), move(id), move(manifest), move(descriptor)));
+    extension->apply_permission_grants(granted_permissions.value_or(extension->manifest().permissions));
+    return extension;
 }
 
 Extension::Extension(ByteString directory, Core::Directory resource_directory, String id, ExtensionManifest manifest, Web::Extensions::ExtensionDescriptor descriptor)

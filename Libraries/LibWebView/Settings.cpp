@@ -1505,11 +1505,10 @@ String Settings::add_installed_extension(ByteString path, Optional<String> id, V
     for (auto& extension : m_installed_extensions) {
         if (extension.path != path && (!id.has_value() || extension.id != *id))
             continue;
-        if (extension.path != path) {
+        if (extension.path != path || extension.granted_permissions != granted_permissions) {
             extension.path = move(path);
+            extension.granted_permissions = move(granted_permissions);
             persist_settings();
-            for (auto& observer : m_observers)
-                observer.extensions_changed();
         }
         return extension.id;
     }
@@ -1519,8 +1518,6 @@ String Settings::add_installed_extension(ByteString path, Optional<String> id, V
     m_installed_extensions.append({ *id, move(path), true, move(granted_permissions) });
     persist_settings();
 
-    for (auto& observer : m_observers)
-        observer.extensions_changed();
     return *id;
 }
 
@@ -1531,9 +1528,6 @@ void Settings::set_installed_extension_enabled(StringView id, bool enabled)
             continue;
         extension.enabled = enabled;
         persist_settings();
-
-        for (auto& observer : m_observers)
-            observer.extensions_changed();
         return;
     }
 }
@@ -1545,9 +1539,6 @@ void Settings::set_installed_extension_allowed_in_private(StringView id, bool al
             continue;
         extension.allowed_in_private = allowed;
         persist_settings();
-
-        for (auto& observer : m_observers)
-            observer.extensions_changed();
         return;
     }
 }
@@ -1558,9 +1549,6 @@ void Settings::remove_installed_extension(StringView id)
     if (!removed)
         return;
     persist_settings();
-
-    for (auto& observer : m_observers)
-        observer.extensions_changed();
 }
 
 void Settings::set_global_privacy_control(GlobalPrivacyControl global_privacy_control)
