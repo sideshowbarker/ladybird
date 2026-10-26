@@ -30,6 +30,7 @@
 #include <LibWeb/Page/Page.h>
 #include <LibWeb/Platform/EventLoopPlugin.h>
 #include <LibWeb/Platform/Timer.h>
+#include <LibWebCommon/Extensions/Localization.h>
 #include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebCommon/Loader/UserAgent.h>
 
@@ -455,8 +456,11 @@ void ResourceLoader::handle_extension_load_request(LoadRequest& request, FileHan
             on_error(ByteString::formatted("No extension with id {}", extension_id));
             return;
         }
+        Optional<ByteString> localized_css;
+        if (Core::guess_mime_type_based_on_filename(path) == "text/css"sv)
+            localized_css = MUST(Extensions::substitute_message_tokens(StringView { maybe_data.value().bytes() }, extension->messages, Extensions::UnknownMessage::Keep));
         FileLoadResult load_result {
-            .data = maybe_data.value().bytes(),
+            .data = localized_css.has_value() ? localized_css->bytes() : maybe_data.value().bytes(),
             .response_headers = response_headers_for_extension_resource(path, *extension),
         };
         on_file(load_result);

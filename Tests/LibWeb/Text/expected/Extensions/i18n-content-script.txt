@@ -1,0 +1,4 @@
+content script id: true
+CSS id URL: true
+CSS direction: true
+CSS edge: true

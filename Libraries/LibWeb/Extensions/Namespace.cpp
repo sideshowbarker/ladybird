@@ -6,6 +6,7 @@
 
 #include <LibJS/Runtime/Object.h>
 #include <LibJS/Runtime/Realm.h>
+#include <LibWeb/Extensions/API/I18n.h>
 #include <LibWeb/Extensions/API/Runtime.h>
 #include <LibWeb/Extensions/API/Storage.h>
 #include <LibWeb/Extensions/MessagingContext.h>
@@ -19,6 +20,8 @@ GC::Ref<JS::Object> install_namespace(JS::Realm& realm, MessagingContext& messag
 
     auto namespace_object = JS::Object::create(realm, realm.intrinsics().object_prototype());
     namespace_object->define_direct_property("runtime"_utf16_fly_string, create_runtime(realm, messaging_context, context), attributes);
+
+    namespace_object->define_direct_property("i18n"_utf16_fly_string, create_i18n(realm, messaging_context), attributes);
 
     if (messaging_context.descriptor().has_permission("storage"sv))
         namespace_object->define_direct_property("storage"_utf16_fly_string, create_storage(realm, messaging_context), attributes);

@@ -74,7 +74,7 @@ Both manifest versions are supported, and both will stay supported — an exten
 | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `manifest_version`                                                                                                   | Required; 2 or 3.                                                                                                                                                                        |
 | `name`, `version`                                                                                                    | Required.                                                                                                                                                                                |
-| `description`, `default_locale`                                                                                      | Read, not yet used.                                                                                                                                                                      |
+| `description`, `default_locale`                                                                                      | `default_locale` names the fallback locale, and `description` is localized: see [Localization](#localization).                                                                           |
 | `content_scripts[]`: `matches`, `exclude_matches`, `js`, `css`, `run_at`, `all_frames`, `match_about_blank`, `world` | `matches` is required and non-empty. `run_at` defaults to `document_idle`, `world` to `ISOLATED`.                                                                                        |
 | `web_accessible_resources`                                                                                           | Version 2’s list of path globs (every page may load them), or version 3’s list of `{ "resources": [...], "matches": [...] }` objects.                                                    |
 | `background`: `scripts`, `page`, `service_worker`, `type`                                                            | `scripts` and `service_worker` are wrapped in a generated page; `page` is loaded as is; `"type": "module"` makes the generated script tags modules.                                      |
@@ -139,7 +139,7 @@ Disabling an extension keeps its storage. Removing it through the registry first
 
 ### What isn’t there yet
 
-- No `storage.sync` or `storage.session`; no `tabs`, `i18n`, `scripting`, `action`, `webNavigation`, `webRequest`, or `declarativeNetRequest`.
+- No `storage.sync` or `storage.session`; no `tabs`, `scripting`, `action`, `webNavigation`, `webRequest`, or `declarativeNetRequest`.
 - No toolbar button, popup, options page, or `about:extensions`.
 - No packaged extensions (`.xpi`, `.crx`, `.zip`): only unpacked directories.
 - A manifest version 3 `service_worker` runs as a script of the generated background page, not as a worker, so `self`, `importScripts()`, and worker-only APIs aren’t there, while `window` and `document` are. An extension that only uses the `runtime` API won’t notice.
@@ -465,7 +465,56 @@ Hooks elsewhere in LibWeb: `DOM/Document.{h,cpp}` (worlds, run_at bookkeeping, t
 
 Planned next, roughly in order:
 
-- `i18n.getMessage()` with `_locales`, and `tabs.query()` and `tabs.sendMessage()` basics.
+- `tabs.query()` and `tabs.sendMessage()` basics.
 - An `about:extensions` page: list, enable and disable, remove, load unpacked.
 - Event-page idle unload for background pages.
 - A toolbar button with a popup, `scripting.executeScript()`, `declarativeNetRequest` on the content blocker, `webNavigation`, observe-only `webRequest`, and a real background service worker.
+
+## Localization
+
+Every extension context has `browser.i18n` (also `chrome.i18n`), including
+content scripts and background pages. It needs no permission.
+
+- `getMessage(name, substitutions?, options?)` returns a message or an empty
+  string for a missing name. Names and named placeholders are case-insensitive.
+  A string supplies one substitution; an array supplies up to nine. An array
+  longer than nine returns `undefined`, and elements whose string conversion
+  throws are skipped. Other substitution values are ignored.
+- Named `$placeholder$` values resolve when a catalog loads. At each API call,
+  `$1` through `$9` insert positional substitutions, or an empty string for a
+  missing position. A run of dollar signs loses its first dollar sign; any
+  other dollar sequence loses the dollar sign and its following character.
+  A trailing dollar sign is dropped.
+- `{ escapeLt: true }` replaces less-than signs in the message with `&lt;`
+  before positional substitution. It doesn’t escape the inserted values.
+- `getUILanguage()` returns the configured language in BCP 47 form.
+
+Catalogs live in `_locales/<locale>/messages.json`, with `default_locale` in
+manifest.json. Each catalog maps message names to objects with a `message`
+string and optional `placeholders` objects whose entries have a `content`
+string. Every valid locale directory must have a valid catalog. Message and
+placeholder names allow ASCII letters, digits, underscores, and `@`.
+
+The first configured language selects the locale, falling back through its
+parent tags and then `default_locale`, per message. Directory names use
+underscores; matching ignores case and treats hyphens as underscores.
+Language changes take effect when the extension reloads or the browser
+restarts. A loaded extension keeps the same language throughout its contexts.
+
+`__MSG_name__` tokens are replaced in the manifest’s `name`, `short_name`,
+`description`, and `default_title` inside `action`, `browser_action`, and
+`page_action`. `runtime.getManifest()` returns that localized manifest.
+Undefined messages in those fields fail loading. Other manifest fields,
+HTML, and JavaScript aren’t localized.
+
+Declared content-script CSS and extension-scheme CSS, including imported
+stylesheets, also replace these tokens. Unknown CSS tokens remain unchanged,
+with a diagnostic, and replacement continues through the stylesheet. Inserted
+text isn’t scanned again.
+
+The built-in messages `@@extension_id`, `@@ui_locale`, `@@bidi_dir`,
+`@@bidi_reversed_dir`, `@@bidi_start_edge`, and `@@bidi_end_edge` work even
+without catalogs, including in CSS. `@@ui_locale` uses underscores, and the
+bidirectional messages follow that locale’s writing direction. Catalogs
+can’t redefine these names. `getAcceptLanguages()` and `detectLanguage()`
+aren’t implemented.

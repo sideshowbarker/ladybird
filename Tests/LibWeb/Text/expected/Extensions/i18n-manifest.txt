@@ -1,0 +1,3 @@
+localized name: true
+localized description: true
+no current_locale: true
