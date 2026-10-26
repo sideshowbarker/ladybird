@@ -231,6 +231,39 @@ Application::Application(Optional<ByteString> ladybird_binary_path)
     platform_init(move(ladybird_binary_path));
 }
 
+class Application::ExtensionsObserver final : public ExtensionRegistryObserver {
+    AK_ALLOC_WITH_KMALLOC;
+
+public:
+    explicit ExtensionsObserver(Application& application)
+        : ExtensionRegistryObserver(*application.m_extension_registry)
+        , m_application(application)
+    {
+    }
+
+    virtual void extensions_changed() override
+    {
+        auto& app = m_application;
+        app.m_extension_background_host->prepare(*app.m_extension_registry);
+        app.m_extension_message_broker->reconcile_contexts();
+        WebContentClient::for_each_client([&](WebContentClient& client) {
+            client.async_set_extensions(app.m_extension_registry->enabled_descriptors(client.is_private()));
+            return IterationDecision::Continue;
+        });
+        if (app.m_extension_background_pages_may_start) {
+            Core::deferred_invoke([weak_this = make_weak_ptr()] {
+                if (!weak_this)
+                    return;
+                auto& app = static_cast<ExtensionsObserver&>(*weak_this).m_application;
+                app.m_extension_background_host->sync(*app.m_extension_registry);
+            });
+        }
+    }
+
+private:
+    Application& m_application;
+};
+
 Application::~Application()
 {
 #if !defined(AK_OS_WINDOWS)
@@ -689,19 +722,7 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_extension_registry->set_message_broker(*m_extension_message_broker);
     m_extension_background_host = make<ExtensionBackgroundHost>();
     m_extension_background_host->prepare(*m_extension_registry);
-    m_extension_registry->on_changed = [this] {
-        m_extension_background_host->prepare(*m_extension_registry);
-        m_extension_message_broker->reconcile_contexts();
-        WebContentClient::for_each_client([&](WebContentClient& client) {
-            client.async_set_extensions(m_extension_registry->enabled_descriptors(client.is_private()));
-            return IterationDecision::Continue;
-        });
-        if (m_extension_background_pages_may_start) {
-            Core::deferred_invoke([this] {
-                m_extension_background_host->sync(*m_extension_registry);
-            });
-        }
-    };
+    m_extensions_observer = make<ExtensionsObserver>(*this);
 
     if (m_web_content_options.is_test_mode == IsTestMode::Yes) {
         TRY(m_settings->complete_first_run());

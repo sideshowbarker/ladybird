@@ -609,7 +609,9 @@ private:
 
     Optional<Profile> m_profile;
     OwnPtr<Settings> m_settings;
+    class ExtensionsObserver;
     OwnPtr<ExtensionRegistry> m_extension_registry;
+    OwnPtr<ExtensionsObserver> m_extensions_observer;
     OwnPtr<ExtensionStorageStore> m_extension_storage_store;
     OwnPtr<ExtensionMessageBroker> m_extension_message_broker;
     OwnPtr<ExtensionBackgroundHost> m_extension_background_host;

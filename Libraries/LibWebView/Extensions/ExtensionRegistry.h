@@ -8,11 +8,12 @@
 
 #include <AK/ByteString.h>
 #include <AK/Error.h>
-#include <AK/Function.h>
 #include <AK/NonnullRefPtr.h>
 #include <AK/RefPtr.h>
 #include <AK/String.h>
 #include <AK/Vector.h>
+#include <AK/WeakPtr.h>
+#include <AK/Weakable.h>
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
 #include <LibWebView/BrowsingSession.h>
 #include <LibWebView/Export.h>
@@ -21,9 +22,33 @@
 
 namespace WebView {
 
+class ExtensionRegistry;
+
+class WEBVIEW_API ExtensionRegistryObserver : public Weakable<ExtensionRegistryObserver> {
+public:
+    explicit ExtensionRegistryObserver(ExtensionRegistry&);
+    virtual ~ExtensionRegistryObserver();
+    virtual void extensions_changed() = 0;
+
+private:
+    WeakPtr<ExtensionRegistry> m_registry;
+};
+
+struct FailedExtension {
+    String id;
+    ByteString directory;
+    String error;
+};
+
+struct PendingExtensionInstall {
+    NonnullRefPtr<Extension> extension;
+    bool is_reload;
+    Vector<String> newly_declared_permissions;
+};
+
 // The extensions the user has loaded, in install order. Each one is persisted in Settings as its id, its
 // directory, and whether it is enabled; the registry reloads them from disk at startup.
-class WEBVIEW_API ExtensionRegistry {
+class WEBVIEW_API ExtensionRegistry : public Weakable<ExtensionRegistry> {
     AK_ALLOC_WITH_KMALLOC;
 
 public:
@@ -32,6 +57,13 @@ public:
     // Loads the extension in the directory, persisting it when it isn't installed yet. Loading an installed
     // directory again reloads it from disk and keeps its id.
     ErrorOr<NonnullRefPtr<Extension>, String> load_unpacked(ByteString directory);
+    // Loads the extension in the directory without changing Settings or what's running, so its permissions can be
+    // confirmed before install() persists them.
+    ErrorOr<PendingExtensionInstall, String> prepare_unpacked(ByteString directory);
+    // Adds the pending install's newly declared permissions to its saved grant, and replaces any loaded instance.
+    NonnullRefPtr<Extension> install(PendingExtensionInstall);
+    // Loads an installed extension from disk again, keeping its grant. On failure, it's unloaded and kept as failed.
+    ErrorOr<NonnullRefPtr<Extension>, String> reload(StringView id);
     void remove(StringView id);
     void set_message_broker(ExtensionMessageBroker& broker) { m_message_broker = &broker; }
     void set_storage_store(ExtensionStorageStore& store) { m_storage_store = &store; }
@@ -39,7 +71,7 @@ public:
     void set_allowed_in_private(StringView id, bool);
     bool is_allowed_in_private(StringView id) const;
 
-    // Loads every extension in Settings, dropping the ones whose directory no longer loads.
+    // Loads every extension in Settings, keeping failures for display and retry.
     void restore_from_settings();
 
     RefPtr<Extension> find(StringView id) const;
@@ -49,16 +81,20 @@ public:
     Vector<NonnullRefPtr<Extension>> const& extensions() const { return m_extensions; }
     Vector<Web::Extensions::ExtensionDescriptor> enabled_descriptors(IsPrivate = IsPrivate::No) const;
 
-    // Called after every change to the set of loaded or enabled extensions.
-    Function<void()> on_changed;
+    // The installed extensions whose directories didn't load, in install order.
+    Vector<FailedExtension> const& failed_extensions() const { return m_failed_extensions; }
 
 private:
+    friend class ExtensionRegistryObserver;
     void notify_changed();
+    void record_failure(String id, ByteString directory, String error);
 
     Settings& m_settings;
     ExtensionMessageBroker* m_message_broker { nullptr };
     ExtensionStorageStore* m_storage_store { nullptr };
     Vector<NonnullRefPtr<Extension>> m_extensions;
+    Vector<FailedExtension> m_failed_extensions;
+    Vector<WeakPtr<ExtensionRegistryObserver>> m_observers;
 };
 
 }

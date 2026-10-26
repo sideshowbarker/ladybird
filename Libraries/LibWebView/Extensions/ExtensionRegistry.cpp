@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <AK/QuickSort.h>
 #include <AK/Random.h>
 #include <LibFileSystem/FileSystem.h>
 #include <LibURL/URL.h>
@@ -17,6 +18,18 @@
 
 namespace WebView {
 
+ExtensionRegistryObserver::ExtensionRegistryObserver(ExtensionRegistry& registry)
+    : m_registry(registry)
+{
+    registry.m_observers.append(make_weak_ptr());
+}
+
+ExtensionRegistryObserver::~ExtensionRegistryObserver()
+{
+    if (m_registry)
+        m_registry->m_observers.remove_all_matching([&](auto const& observer) { return observer.ptr() == this; });
+}
+
 ExtensionRegistry::ExtensionRegistry(Settings& settings)
     : m_settings(settings)
 {
@@ -29,34 +42,101 @@ static String extension_locale(Settings const& settings)
     return languages.is_empty() ? Web::default_preferred_languages().first() : languages.first();
 }
 
-ErrorOr<NonnullRefPtr<Extension>, String> ExtensionRegistry::load_unpacked(ByteString directory)
+ErrorOr<PendingExtensionInstall, String> ExtensionRegistry::prepare_unpacked(ByteString directory)
 {
     auto canonical_directory = FileSystem::real_path(directory);
     if (canonical_directory.is_error())
         return MUST(String::formatted("Can't resolve extension directory: {}", canonical_directory.error()));
     directory = canonical_directory.release_value();
     Optional<String> existing_id;
-    Optional<Vector<String>> granted_permissions;
+    Vector<String> granted_permissions;
     for (auto const& installed : m_settings.installed_extensions()) {
         auto installed_directory = FileSystem::real_path(installed.path);
-        if (!installed_directory.is_error() && installed_directory.value() == directory) {
+        if (installed.path == directory || (!installed_directory.is_error() && installed_directory.value() == directory)) {
             existing_id = installed.id;
             granted_permissions = installed.granted_permissions;
+            break;
         }
     }
 
-    // Load before persisting, so a directory that doesn't hold a valid extension is never installed.
     auto id = existing_id.value_or_lazy_evaluated([&] { return AK::generate_random_uuid(); });
-    auto extension = TRY(Extension::load_unpacked(directory, id, move(granted_permissions), extension_locale(m_settings)));
+    auto extension = TRY(Extension::load_unpacked(directory, id, {}, extension_locale(m_settings)));
+    Vector<String> newly_declared_permissions;
+    for (auto const& permission : extension->descriptor().api_permissions) {
+        if (!granted_permissions.contains_slow(permission))
+            newly_declared_permissions.append(permission);
+    }
+    return PendingExtensionInstall { move(extension), existing_id.has_value(), move(newly_declared_permissions) };
+}
 
-    if (existing_id.has_value() && m_message_broker)
-        m_message_broker->close_channels_for(*existing_id);
-    m_settings.add_installed_extension(directory, id, extension->descriptor().api_permissions);
-
-    m_extensions.remove_all_matching([&](auto const& loaded) { return loaded->id() == extension->id(); });
-    m_extensions.append(extension);
+NonnullRefPtr<Extension> ExtensionRegistry::install(PendingExtensionInstall pending)
+{
+    auto extension = move(pending.extension);
+    Vector<String> grants;
+    for (auto const& installed : m_settings.installed_extensions()) {
+        if (installed.id == extension->id()) {
+            grants = installed.granted_permissions;
+            break;
+        }
+    }
+    for (auto const& permission : pending.newly_declared_permissions) {
+        if (!grants.contains_slow(permission))
+            grants.append(permission);
+    }
+    quick_sort(grants);
+    extension->apply_permission_grants(grants);
+    if (m_message_broker)
+        m_message_broker->close_channels_for(extension->id());
+    m_settings.add_installed_extension(extension->directory(), extension->id(), move(grants));
+    m_failed_extensions.remove_all_matching([&](auto const& failed) { return failed.id == extension->id(); });
+    bool replaced = false;
+    for (auto& loaded : m_extensions) {
+        if (loaded->id() == extension->id()) {
+            loaded = extension;
+            replaced = true;
+            break;
+        }
+    }
+    if (!replaced)
+        m_extensions.append(extension);
     notify_changed();
     return extension;
+}
+
+ErrorOr<NonnullRefPtr<Extension>, String> ExtensionRegistry::load_unpacked(ByteString directory)
+{
+    auto pending = TRY(prepare_unpacked(move(directory)));
+    if (pending.is_reload)
+        pending.newly_declared_permissions.clear();
+    return install(move(pending));
+}
+
+void ExtensionRegistry::record_failure(String id, ByteString directory, String error)
+{
+    if (m_message_broker)
+        m_message_broker->close_channels_for(id);
+    m_extensions.remove_all_matching([&](auto const& extension) { return extension->id() == id; });
+    m_failed_extensions.remove_all_matching([&](auto const& failed) { return failed.id == id; });
+    m_failed_extensions.append({ move(id), move(directory), move(error) });
+}
+
+ErrorOr<NonnullRefPtr<Extension>, String> ExtensionRegistry::reload(StringView id)
+{
+    for (auto const& installed : m_settings.installed_extensions()) {
+        if (installed.id != id)
+            continue;
+        auto result = prepare_unpacked(installed.path);
+        if (result.is_error()) {
+            auto error = result.release_error();
+            record_failure(installed.id, installed.path, error);
+            notify_changed();
+            return error;
+        }
+        auto pending = result.release_value();
+        pending.newly_declared_permissions.clear();
+        return install(move(pending));
+    }
+    return "extension isn't installed"_string;
 }
 
 void ExtensionRegistry::remove(StringView id)
@@ -72,10 +152,10 @@ void ExtensionRegistry::remove(StringView id)
         return;
     if (m_message_broker)
         m_message_broker->close_channels_for(*installed_id);
-    auto removed = m_extensions.remove_all_matching([&](auto const& extension) { return extension->id() == *installed_id; });
+    m_extensions.remove_all_matching([&](auto const& extension) { return extension->id() == *installed_id; });
+    m_failed_extensions.remove_all_matching([&](auto const& failed) { return failed.id == *installed_id; });
     m_settings.remove_installed_extension(*installed_id);
-    if (removed)
-        notify_changed();
+    notify_changed();
     if (m_storage_store) {
         m_storage_store->delete_storage(*installed_id, [id = *installed_id](ErrorOr<void> result) {
             if (result.is_error())
@@ -115,18 +195,16 @@ void ExtensionRegistry::set_allowed_in_private(StringView id, bool allowed)
 
 void ExtensionRegistry::restore_from_settings()
 {
-    Vector<String> ids_to_forget;
+    m_extensions.clear();
+    m_failed_extensions.clear();
     for (auto const& installed : m_settings.installed_extensions()) {
         auto extension = Extension::load_unpacked(installed.path, installed.id, installed.granted_permissions, extension_locale(m_settings));
         if (extension.is_error()) {
-            dbgln("Not restoring extension {} from {}: {}", installed.id, installed.path, extension.error());
-            ids_to_forget.append(installed.id);
+            record_failure(installed.id, installed.path, extension.release_error());
             continue;
         }
         m_extensions.append(extension.release_value());
     }
-    for (auto const& id : ids_to_forget)
-        m_settings.remove_installed_extension(id);
     notify_changed();
 }
 
@@ -188,8 +266,11 @@ bool ExtensionRegistry::may_create_context(StringView id, URL::URL const& docume
 
 void ExtensionRegistry::notify_changed()
 {
-    if (on_changed)
-        on_changed();
+    auto observers = m_observers;
+    for (auto& observer : observers) {
+        if (observer)
+            observer->extensions_changed();
+    }
 }
 
 }
