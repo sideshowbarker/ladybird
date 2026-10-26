@@ -79,6 +79,7 @@ set(TEST_SOURCES
     TestCrashReportDiagnostics.cpp
     TestDownloadSegmentation.cpp
     TestDownloadStore.cpp
+    TestExtensionLocales.cpp
     TestExtensionManifest.cpp
     TestExtensionMessageBroker.cpp
     TestExtensionRegistry.cpp

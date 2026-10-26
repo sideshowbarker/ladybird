@@ -4,12 +4,17 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <AK/CharacterTypes.h>
+#include <AK/JsonObject.h>
+#include <AK/JsonValue.h>
 #include <AK/LexicalPath.h>
 #include <AK/QuickSort.h>
 #include <AK/Utf16View.h>
 #include <LibCore/File.h>
 #include <LibCore/System.h>
+#include <LibWebCommon/Extensions/Localization.h>
 #include <LibWebCommon/Extensions/ResourcePath.h>
+#include <LibWebCommon/Loader/UserAgent.h>
 #include <LibWebView/Extensions/Extension.h>
 #include <limits.h>
 
@@ -95,7 +100,117 @@ static String read_error(StringView relative_path, Error const& error)
     return MUST(String::formatted("Can't read \"{}\": {}", relative_path, error));
 }
 
-ErrorOr<NonnullRefPtr<Extension>, String> Extension::load_unpacked(ByteString directory, String id, Optional<Vector<String>> granted_permissions)
+static bool is_locale_directory(StringView name)
+{
+    auto parts = name.split_view('_', SplitBehavior::KeepEmpty);
+    if (parts.is_empty() || parts[0].length() < 2 || parts[0].length() > 3)
+        return false;
+    if (!all_of(parts[0], [](auto ch) { return is_ascii_alpha(ch); }))
+        return false;
+    for (size_t i = 1; i < parts.size(); ++i) {
+        if (parts[i].length() < 2 || parts[i].length() > 8 || !all_of(parts[i], [](auto ch) { return is_ascii_alphanumeric(ch); }))
+            return false;
+    }
+    return true;
+}
+
+static String normalized_locale(String const& locale)
+{
+    return MUST(locale.replace("-"sv, "_"sv, ReplaceMode::All)).to_ascii_lowercase();
+}
+
+static ErrorOr<void, String> localize_manifest_field(JsonObject& object, StringView key, HashMap<String, String> const& messages)
+{
+    auto value = object.get_string(key);
+    if (!value.has_value())
+        return {};
+    auto localized = Web::Extensions::substitute_message_tokens(*value, messages, Web::Extensions::UnknownMessage::Fail);
+    if (localized.is_error())
+        return MUST(String::formatted("manifest.json: {}", localized.error()));
+    object.set(key, MUST(String::from_byte_string(localized.release_value())));
+    return {};
+}
+
+static ErrorOr<HashMap<String, String>, String> load_localization(Core::Directory const& directory, JsonObject& manifest, String const& id, String const& locale)
+{
+    auto messages = Web::Extensions::built_in_messages(id, MUST(locale.replace("-"sv, "_"sv, ReplaceMode::All)));
+    auto default_value = manifest.get("default_locale"sv);
+    if (default_value.has_value() && !default_value->is_string())
+        return "manifest.json: \"default_locale\" must be a string"_string;
+    auto default_locale = normalized_locale(manifest.get_string("default_locale"sv).value_or({}));
+    auto locales_stat = directory.stat("_locales"sv);
+    if (locales_stat.is_error() || !S_ISDIR(locales_stat.value().st_mode)) {
+        if (!default_locale.is_empty())
+            return "manifest.json: \"default_locale\" is set, but there's no _locales directory"_string;
+        return messages;
+    }
+    HashMap<String, String> directories;
+    Core::DirIterator entries(LexicalPath::join(directory.path().string(), "_locales"sv).string(), Core::DirIterator::SkipDots);
+    Vector<ByteString> names;
+    while (entries.has_next())
+        names.append(entries.next_path());
+    if (entries.has_error())
+        return read_error("_locales"sv, entries.error());
+    quick_sort(names);
+    for (auto const& name : names) {
+        if (!is_locale_directory(name))
+            continue;
+        auto stat = directory.stat(ByteString::formatted("_locales/{}", name));
+        if (stat.is_error() || !S_ISDIR(stat.value().st_mode))
+            continue;
+        auto spelling = MUST(String::from_utf8(name.view()));
+        auto normalized = normalized_locale(spelling);
+        if (auto other = directories.get(normalized); other.has_value())
+            return MUST(String::formatted("_locales/{} and _locales/{} are the same locale", *other, name));
+        directories.set(move(normalized), move(spelling));
+    }
+    if (default_locale.is_empty() || !directories.contains(default_locale))
+        return "manifest.json: \"default_locale\" must name a locale in _locales"_string;
+
+    Vector<String> fallback;
+    auto candidate = normalized_locale(locale);
+    while (!candidate.is_empty()) {
+        if (!fallback.contains_slow(candidate))
+            fallback.append(candidate);
+        auto separator = candidate.bytes_as_string_view().find_last('_');
+        if (!separator.has_value())
+            break;
+        candidate = MUST(candidate.substring_from_byte_offset(0, *separator));
+    }
+    if (!fallback.contains_slow(default_locale))
+        fallback.append(default_locale);
+
+    HashMap<String, HashMap<String, String>> catalogs;
+    for (auto const& entry : directories) {
+        auto path = MUST(String::formatted("_locales/{}/messages.json", entry.value));
+        auto source = read_file_as_utf8(directory, path);
+        if (source.is_error())
+            return read_error(path, source.error());
+        auto parsed = Web::Extensions::parse_message_catalog(source.value());
+        if (parsed.is_error())
+            return MUST(String::formatted("{}: {}", path, parsed.error()));
+        if (fallback.contains_slow(entry.key))
+            catalogs.set(entry.key, parsed.release_value());
+    }
+    for (auto const& tag : fallback) {
+        auto catalog = catalogs.find(tag);
+        if (catalog == catalogs.end())
+            continue;
+        for (auto& entry : catalog->value) {
+            if (!messages.contains(entry.key))
+                messages.set(entry.key, move(entry.value));
+        }
+    }
+    for (auto key : { "name"sv, "short_name"sv, "description"sv })
+        TRY(localize_manifest_field(manifest, key, messages));
+    for (auto key : { "action"sv, "browser_action"sv, "page_action"sv }) {
+        if (auto action = manifest.get_object(key); action.has_value())
+            TRY(localize_manifest_field(*action, "default_title"sv, messages));
+    }
+    return messages;
+}
+
+ErrorOr<NonnullRefPtr<Extension>, String> Extension::load_unpacked(ByteString directory, String id, Optional<Vector<String>> granted_permissions, String locale)
 {
     auto resource_directory = Core::Directory::create(directory, Core::Directory::CreateDirectories::No);
     if (resource_directory.is_error())
@@ -103,14 +218,26 @@ ErrorOr<NonnullRefPtr<Extension>, String> Extension::load_unpacked(ByteString di
     auto manifest_json = read_file_as_utf8(resource_directory.value(), "manifest.json"sv);
     if (manifest_json.is_error())
         return read_error("manifest.json"sv, manifest_json.error());
-    auto manifest = TRY(ExtensionManifest::parse(manifest_json.value()));
+    auto json = JsonValue::from_string(manifest_json.value());
+    if (json.is_error())
+        return "manifest.json: not valid JSON"_string;
+    if (!json.value().is_object())
+        return "manifest.json: the top level must be an object"_string;
+    if (locale.is_empty())
+        locale = Web::default_preferred_languages().first();
+    locale = MUST(locale.replace("_"sv, "-"sv, ReplaceMode::All));
+    auto messages = TRY(load_localization(resource_directory.value(), json.value().as_object(), id, locale));
+    auto localized_manifest = json.value().serialized();
+    auto manifest = TRY(ExtensionManifest::parse(localized_manifest));
 
     Web::Extensions::ExtensionDescriptor descriptor;
     descriptor.id = id;
     descriptor.name = manifest.name;
     descriptor.version = manifest.version;
     descriptor.manifest_version = manifest.manifest_version;
-    descriptor.manifest_json = manifest_json.release_value();
+    descriptor.manifest_json = move(localized_manifest);
+    descriptor.messages = move(messages);
+    descriptor.ui_locale = move(locale);
     for (auto const& permission : manifest.permissions) {
         if (granted_permissions.has_value() && !granted_permissions->contains_slow(permission)) {
             dbgln("Extension {} requests an ungranted permission: {}", id, permission);
@@ -143,7 +270,7 @@ ErrorOr<NonnullRefPtr<Extension>, String> Extension::load_unpacked(ByteString di
             auto source = read_file_as_utf8(resource_directory.value(), path);
             if (source.is_error())
                 return read_error(path, source.error());
-            with_sources.css_sources.append(source.release_value());
+            with_sources.css_sources.append(MUST(String::from_byte_string(MUST(Web::Extensions::substitute_message_tokens(source.value(), descriptor.messages, Web::Extensions::UnknownMessage::Keep)))));
         }
         descriptor.content_scripts.append(move(with_sources));
     }

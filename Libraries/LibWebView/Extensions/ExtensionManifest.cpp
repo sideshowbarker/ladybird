@@ -203,6 +203,8 @@ ErrorOr<ExtensionManifest, String> ExtensionManifest::parse(StringView manifest_
     manifest.version = *version;
 
     manifest.description = object.get_string("description"sv).value_or({});
+    if (object.has("default_locale"sv) && !object.has_string("default_locale"sv))
+        return error_for("default_locale"sv, "must be a string"sv);
     manifest.default_locale = object.get_string("default_locale"sv).value_or({});
 
     if (auto scripts = object.get_array("content_scripts"sv); scripts.has_value()) {

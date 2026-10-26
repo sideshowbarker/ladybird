@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <AK/HashMap.h>
 #include <AK/String.h>
 #include <AK/Types.h>
 #include <AK/Vector.h>
@@ -63,6 +64,8 @@ struct WEBCOMMON_API ExtensionDescriptor {
     String version;
     u8 manifest_version { 3 };
     String manifest_json;
+    HashMap<String, String> messages {};
+    String ui_locale {};
     Vector<String> api_permissions {};
     Vector<MatchPattern> host_permissions {};
     String extension_pages_csp;
