@@ -3230,6 +3230,12 @@ void ConnectionFromClient::dispatch_extension_storage_changed(Web::PageId page_i
         page->page().dispatch_extension_storage_changed(extension_id, changes_json);
 }
 
+void ConnectionFromClient::dispatch_extension_suspend(Web::PageId page_id, String extension_id, u64 context_id, bool canceled)
+{
+    if (auto page = this->page(page_id); page.has_value())
+        page->page().dispatch_extension_suspend(extension_id, context_id, canceled);
+}
+
 void ConnectionFromClient::extension_runtime_message_reply(Web::PageId page_id, u64 request_id, Web::Extensions::MessageResult reply_json)
 {
     if (auto page = this->page(page_id); page.has_value())

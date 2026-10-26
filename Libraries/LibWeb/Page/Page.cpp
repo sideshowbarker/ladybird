@@ -1946,6 +1946,12 @@ void Page::dispatch_extension_storage_changed(String const& extension_id, String
         on_extension_storage_changed(extension_id, changes_json);
 }
 
+void Page::dispatch_extension_suspend(String const& extension_id, u64 context_id, bool canceled)
+{
+    if (on_extension_suspend)
+        on_extension_suspend(extension_id, context_id, canceled);
+}
+
 void Page::complete_extension_runtime_message(u64 request_id, Web::Extensions::MessageResult const& reply_json)
 {
     Extensions::MessageRouter::the().complete(*this, request_id, reply_json);

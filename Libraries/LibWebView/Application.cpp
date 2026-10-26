@@ -727,9 +727,9 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
         if (m_extension_background_host)
             m_extension_background_host->wake(id);
     };
-    m_extension_message_broker->on_activity = [this](String const& id) {
+    m_extension_message_broker->on_activity = [this](String const& id, bool from_background) {
         if (m_extension_background_host)
-            m_extension_background_host->activity(id);
+            m_extension_background_host->activity(id, from_background ? ExtensionBackgroundLifetime::FromPage::Yes : ExtensionBackgroundLifetime::FromPage::No);
     };
     m_extension_background_host->prepare(*m_extension_registry);
     m_extensions_observer = make<ExtensionsObserver>(*this);

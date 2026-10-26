@@ -440,8 +440,10 @@ public:
     void dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Extensions::MessageSender const&, String const& message_json, u64 context_id);
     void complete_extension_storage(u64 request_id, Extensions::StorageResult const&);
     void dispatch_extension_storage_changed(String const& extension_id, String const& changes_json);
+    void dispatch_extension_suspend(String const& extension_id, u64 context_id, bool canceled);
     Function<void(u64, Extensions::StorageResult const&)> on_extension_storage_reply;
     Function<void(String const&, String const&)> on_extension_storage_changed;
+    Function<void(String const&, u64, bool)> on_extension_suspend;
     void complete_extension_runtime_message(u64 request_id, Web::Extensions::MessageResult const& reply_json);
     void invalidate_user_style();
     void invalidate_style_for_preference_change();
@@ -924,6 +926,7 @@ public:
     virtual void page_did_finish_test([[maybe_unused]] Utf16String const& text) { }
     virtual void page_did_set_test_timeout([[maybe_unused]] double milliseconds) { }
     virtual void page_did_set_extension_idle_timeout([[maybe_unused]] String const& extension_id, [[maybe_unused]] double milliseconds) { }
+    virtual void page_did_finish_extension_suspend([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id) { }
     virtual void page_did_receive_reference_test_metadata(JsonValue) { }
 
     virtual void page_did_set_browser_zoom([[maybe_unused]] double factor) { }

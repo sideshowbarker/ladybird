@@ -265,6 +265,7 @@ endpoint WebContentServer routed by Web::PageId page_id
     dispatch_extension_runtime_message(Web::PageId page_id, String extension_id, u64 dispatch_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id) =|
     extension_storage_reply(Web::PageId page_id, u64 request_id, Web::Extensions::StorageResult result) =|
     dispatch_extension_storage_changed(Web::PageId page_id, String extension_id, String changes_json) =|
+    dispatch_extension_suspend(Web::PageId page_id, String extension_id, u64 context_id, bool canceled) =|
     extension_runtime_message_reply(Web::PageId page_id, u64 request_id, Web::Extensions::MessageResult reply_json) =|
 
     set_autoplay_settings(Web::PageId page_id, Web::HTML::AutoplayPolicy policy, Vector<Utf16String> allowlist) =|

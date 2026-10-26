@@ -38,7 +38,7 @@ static JS::ThrowCompletionOr<bool> valid_message_options(JS::Value value)
     return true;
 }
 
-GC::Ref<JS::Object> create_runtime(JS::Realm& realm, MessagingContext& context, NamespaceContext)
+GC::Ref<JS::Object> create_runtime(JS::Realm& realm, MessagingContext& context, NamespaceContext namespace_context)
 {
     auto const& descriptor = context.descriptor();
     auto runtime = JS::Object::create(realm, realm.intrinsics().object_prototype());
@@ -75,6 +75,15 @@ GC::Ref<JS::Object> create_runtime(JS::Realm& realm, MessagingContext& context, 
             return JS::JSONObject::parse_json(vm, Utf16String::from_utf8(manifest_json));
         },
         0, attributes);
+
+    // Only a background page is ever suspended, but every extension document has the events, as elsewhere.
+    if (namespace_context == NamespaceContext::ExtensionDocument) {
+        auto suspend_listeners = realm.heap().allocate<EventListenerList>();
+        auto suspend_canceled_listeners = realm.heap().allocate<EventListenerList>();
+        context.set_suspend_listeners(suspend_listeners, suspend_canceled_listeners);
+        runtime->define_direct_property("onSuspend"_utf16_fly_string, create_event(realm, suspend_listeners), attributes);
+        runtime->define_direct_property("onSuspendCanceled"_utf16_fly_string, create_event(realm, suspend_canceled_listeners), attributes);
+    }
 
     auto connect_listeners = realm.heap().allocate<EventListenerList>();
     context.set_connect_listeners(connect_listeners);

@@ -1185,6 +1185,11 @@ void PageClient::page_did_set_test_timeout(double milliseconds)
         test_connection->async_did_set_test_timeout(m_id, milliseconds);
 }
 
+void PageClient::page_did_finish_extension_suspend(String const& extension_id, u64 context_id)
+{
+    client().async_did_finish_extension_suspend(m_id, extension_id, context_id);
+}
+
 void PageClient::page_did_set_extension_idle_timeout(String const& extension_id, double milliseconds)
 {
     if (auto* test_connection = client().test_connection())

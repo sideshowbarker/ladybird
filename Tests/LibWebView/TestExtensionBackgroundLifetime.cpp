@@ -182,3 +182,15 @@ TEST_CASE(a_failed_load_stops_and_a_forced_stop_disarms)
     EXPECT_EQ(host.lifetime.state(), State::Stopped);
     EXPECT(!host.idle_timer_armed);
 }
+
+TEST_CASE(the_pages_own_activity_doesnt_cancel_its_suspension)
+{
+    Host host(ExtensionBackgroundLifetime::Kind::EventPage);
+    host.run_until_running();
+    host.lifetime.idle_timer_fired();
+    host.lifetime.activity(ExtensionBackgroundLifetime::FromPage::Yes);
+    EXPECT_EQ(host.lifetime.state(), State::Suspending);
+    EXPECT_EQ(host.cancels, 0);
+    host.lifetime.suspend_acknowledged();
+    EXPECT_EQ(host.lifetime.state(), State::Stopped);
+}

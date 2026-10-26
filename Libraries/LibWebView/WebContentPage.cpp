@@ -3453,6 +3453,19 @@ void WebContentPage::did_finish_test(String text)
         view().on_test_finish(text);
 }
 
+void WebContentPage::dispatch_extension_suspend(String const& extension_id, u64 context_id, bool canceled)
+{
+    async_dispatch_extension_suspend(extension_id, context_id, canceled);
+}
+
+void WebContentPage::did_finish_extension_suspend(String extension_id, u64 context_id)
+{
+    // Only the page the host suspended can end its suspension.
+    auto& host = Application::extension_background_host();
+    if (host.hosts_page(extension_id, *this))
+        host.suspend_acknowledged(extension_id, context_id);
+}
+
 void WebContentPage::did_set_extension_idle_timeout(String extension_id, double milliseconds)
 {
     Application::extension_background_host().set_idle_timeout(extension_id, AK::Duration::from_milliseconds(static_cast<i64>(milliseconds)));

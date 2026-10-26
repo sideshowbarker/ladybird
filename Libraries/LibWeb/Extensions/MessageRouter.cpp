@@ -126,6 +126,7 @@ void MessageRouter::register_context(MessagingContext& context)
     auto& page = context.page();
     page.on_extension_storage_reply = [this, &page](u64 request_id, StorageResult const& result) { complete_storage(page, request_id, result); };
     page.on_extension_storage_changed = [this, &page](String const& id, String const& changes) { dispatch_storage_changed(page, id, changes); };
+    page.on_extension_suspend = [this, &page](String const& id, u64 context_id, bool canceled) { dispatch_suspend(page, id, context_id, canceled); };
     context.page().client().page_did_create_extension_context(context.extension_id(), context.context_id(), context.document().id(), context.descriptor().revision);
 }
 
@@ -274,6 +275,28 @@ void MessageRouter::complete_storage(Page& page, u64 request_id, StorageResult c
         }
     }
     WebIDL::resolve_promise(realm, *pending->sender.promise, value);
+}
+
+void MessageRouter::dispatch_suspend(Page& page, String const& extension_id, u64 context_id, bool canceled)
+{
+    auto* context = context_for(page, context_id);
+    if (context && context->extension_id() == extension_id && !context->is_detached()) {
+        if (auto list = context->suspend_listeners(canceled)) {
+            auto& realm = context->realm();
+            HTML::TemporaryExecutionContext execution_context { realm, HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };
+            auto listeners = list->listeners();
+            for (auto listener : listeners) {
+                if (context->is_detached())
+                    break;
+                auto result = JS::call(realm.vm(), JS::Value { listener }, JS::js_undefined());
+                if (result.is_error())
+                    HTML::report_exception(result, realm);
+            }
+        }
+    }
+    // The page unloads once its listeners have run, whatever they started.
+    if (!canceled)
+        page.client().page_did_finish_extension_suspend(extension_id, context_id);
 }
 
 void MessageRouter::dispatch_storage_changed(Page& page, String const& id, String const& json)

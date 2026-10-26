@@ -184,6 +184,7 @@ private:
     virtual Optional<u64> extension_view_id() const override;
     virtual Optional<i64> extension_frame_id(Web::HTML::CrossProcessId document_id) const override;
     virtual void annotate_extension_sender(Web::Extensions::MessageSender&, Web::HTML::CrossProcessId document_id) const override;
+    virtual void dispatch_extension_suspend(String const& extension_id, u64 context_id, bool canceled) override;
     void for_each_extension_document(Function<IterationDecision(CanonicalNavigable const&, CanonicalDocument const&, URL::URL const&)> const&) const;
     void relay_finished_input_event(WebContentPage const& reporting_page, u64 event_id, Web::EventResult);
     Optional<CanonicalNavigable&> population_worker_navigable(Web::HTML::CrossProcessId navigable_id) const;
@@ -413,6 +414,7 @@ private:
     virtual void did_finish_test(String text) override;
     virtual void did_set_test_timeout(double milliseconds) override;
     virtual void did_set_extension_idle_timeout(String extension_id, double milliseconds) override;
+    virtual void did_finish_extension_suspend(String extension_id, u64 context_id) override;
     virtual void did_receive_reference_test_metadata(JsonValue) override;
     virtual void did_simulate_worker_request_server_connection_loss() override;
     Messages::WebContentTestClient::DidRequestUiProcessSessionHistoryForTestingResponse did_request_ui_process_session_history_for_testing();
