@@ -91,6 +91,7 @@ set(SOURCES
     WebUI.cpp
     WebUI/BookmarksUI.cpp
     WebUI/DownloadsUI.cpp
+    WebUI/ExtensionsUI.cpp
     WebUI/HistoryUI.cpp
     WebUI/SettingsUI.cpp
     WebUI/VersionUI.cpp

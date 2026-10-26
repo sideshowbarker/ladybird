@@ -1417,6 +1417,16 @@ void Application::open_navigation_in_new_window(Web::HTML::PreparedNavigationDes
     new_window({ move(url) }, configuration_for_new_window(), BrowserWindow::IsPopupWindow::No, is_private, nullptr, {}, ShowWindow::Yes, move(navigation));
 }
 
+void Application::ask_user_for_extension_directory(Function<void(Optional<ByteString>)> callback) const
+{
+    auto path = QFileDialog::getExistingDirectory(nullptr, "Choose an extension directory");
+    if (path.isEmpty()) {
+        callback({});
+        return;
+    }
+    callback(ak_byte_string_from_qstring(path));
+}
+
 Optional<ByteString> Application::ask_user_for_download_path(ByteString const& file) const
 {
     auto default_path = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);

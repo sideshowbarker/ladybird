@@ -205,6 +205,7 @@ TEST_CASE(all_web_ui_pages_are_suggested)
         "about:blocking"sv,
         "about:bookmarks"sv,
         "about:downloads"sv,
+        "about:extensions"sv,
         "about:history"sv,
         "about:newtab"sv,
         "about:settings"sv,

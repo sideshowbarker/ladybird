@@ -11,6 +11,7 @@
 #include <LibWebView/WebUI.h>
 #include <LibWebView/WebUI/BookmarksUI.h>
 #include <LibWebView/WebUI/DownloadsUI.h>
+#include <LibWebView/WebUI/ExtensionsUI.h>
 #include <LibWebView/WebUI/HistoryUI.h>
 #include <LibWebView/WebUI/SettingsUI.h>
 #include <LibWebView/WebUI/VersionUI.h>
@@ -22,6 +23,7 @@ static constexpr auto s_pages = to_array<WebUI::Page>({
     { "blocking"sv, "Blocking"sv, WebUI::PageType::Static },
     { "bookmarks"sv, "Bookmarks"sv, WebUI::PageType::Dynamic },
     { "downloads"sv, "Downloads"sv, WebUI::PageType::Dynamic },
+    { "extensions"sv, "Extensions"sv, WebUI::PageType::Dynamic },
     { "history"sv, "History"sv, WebUI::PageType::Dynamic },
     { "newtab"sv, "New Tab"sv, WebUI::PageType::Static },
     { "settings"sv, "Settings"sv, WebUI::PageType::Dynamic },
@@ -70,6 +72,8 @@ ErrorOr<RefPtr<WebUI>> WebUI::create(WebContentClient& client, Web::PageId page_
         web_ui = TRY(create_web_ui<BookmarksUI>(client, page_id, move(host)));
     else if (page->host == "downloads"sv)
         web_ui = TRY(create_web_ui<DownloadsUI>(client, page_id, move(host)));
+    else if (page->host == "extensions"sv)
+        web_ui = TRY(create_web_ui<ExtensionsUI>(client, page_id, move(host)));
     else if (page->host == "history"sv)
         web_ui = TRY(create_web_ui<HistoryUI>(client, page_id, move(host)));
     else if (page->host.is_one_of("settings"sv, "welcome"sv))

@@ -109,6 +109,12 @@ if (BUILD_TESTING AND NOT WIN32)
     set_tests_properties(TestWebDriverSearchEngineSettings PROPERTIES TIMEOUT 120)
 
     add_test(
+        NAME TestWebDriverAboutExtensions
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test-webdriver-about-extensions.py $<TARGET_FILE:WebDriver>
+    )
+    set_tests_properties(TestWebDriverAboutExtensions PROPERTIES TIMEOUT 120)
+
+    add_test(
         NAME TestWebDriverSettingsChanges
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test-webdriver-settings-changes.py $<TARGET_FILE:WebDriver>
     )
@@ -174,6 +180,7 @@ set(TEST_SOURCES
     TestExtensionMessageBroker.cpp
     TestExtensionRegistry.cpp
     TestExtensionStorageStore.cpp
+    TestExtensionsUI.cpp
     TestExternalURLHandler.cpp
     TestFaviconStore.cpp
     TestHelperProcessEnvironment.cpp
@@ -238,6 +245,7 @@ if (NOT WIN32)
         TestCompositorInputRouting.cpp
         TestCrashOverlay.cpp
         TestCrashReportSubmission.cpp
+        TestExtensionsUserActivation.cpp
         TestFavicon.cpp
         TestFileDownloader.cpp
         TestGamepadExposure.cpp

@@ -40,6 +40,7 @@ set(ABOUT_PAGES
     blocking.html
     bookmarks.html
     downloads.html
+    extensions.html
     history.html
     newtab.html
     settings.html
