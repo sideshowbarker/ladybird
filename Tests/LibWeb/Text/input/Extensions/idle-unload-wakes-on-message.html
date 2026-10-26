@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // A manifest version 3 background page unloads when idle, and a message starts it again, with its globals gone.
+    asyncTest(async done => {
+        await contentScriptReady();
+        const id = internals.extensionId("Idle Fixture");
+        println(`first: ${await sendToBackground({ type: "count" })}`);
+        internals.setExtensionIdleTimeout(id, 50);
+        println(`second: ${await sendToBackground({ type: "count" })}`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        println(`after idling: ${await sendToBackground({ type: "count" })}`);
+        internals.setExtensionIdleTimeout(id, 30000);
+        done();
+    });
+</script>
+</body>

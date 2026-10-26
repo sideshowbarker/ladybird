@@ -152,6 +152,12 @@ An extension’s own documents (its background page and its other pages) get `br
 
 Tab and window ids are positive integers that last while the browser runs: A tab keeps its id across navigations, process swaps, and moves to another window, and no id is reused. The current window is the one holding the tab an extension page is in; for the background page, it’s the window the user last used among those the extension can see. A tab of a private window exists for an extension only if it’s allowed in private windows. Background pages and other hidden views are never tabs.
 
+### Background page lifetime
+
+A manifest version 2 background page is persistent unless `background.persistent` is `false`: It runs for as long as its extension is enabled. Any other background page — a version 2 event page, or any version 3 page — starts once when its extension is enabled or the browser starts, so it can register its listeners, and then unloads after 30 seconds with nothing to do. A runtime message, a port, or a `storage.local` change for the extension starts it again, and waits for it to load; the page’s globals are gone by then.
+
+Any message, reply, port message, or storage request for the extension counts as activity. A message to the page that hasn’t been answered keeps it loaded (on version 3, for at most five minutes), and so does an open port to a version 2 event page; on version 3, an idle open port doesn’t. A persistent page whose process crashes starts again at once; any other starts again when something next needs it.
+
 ### What isn’t there yet
 
 - No `storage.sync` or `storage.session`; no `tabs` events or methods other than `query()` and `sendMessage()`; no `windows`, `scripting`, `action`, `webNavigation`, `webRequest`, or `declarativeNetRequest`.
@@ -489,7 +495,6 @@ Hooks elsewhere in LibWeb: `DOM/Document.{h,cpp}` (worlds, run_at bookkeeping, t
 
 Planned next, roughly in order:
 
-- Event-page idle unload for background pages.
 - A toolbar button with a popup, `scripting.executeScript()`, `declarativeNetRequest` on the content blocker, `webNavigation`, observe-only `webRequest`, and a real background service worker.
 
 ## Localization

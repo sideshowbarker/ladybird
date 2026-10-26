@@ -30,6 +30,7 @@ interface Internals {
 
     // The id of the loaded extension with the given manifest name, or the empty string.
     DOMString extensionId(DOMString name);
+    undefined setExtensionIdleTimeout(DOMString extensionId, double milliseconds);
 
     undefined gc();
     [CreatesPromise] Promise<undefined> gcAsync();

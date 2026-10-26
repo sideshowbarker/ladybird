@@ -47,87 +47,183 @@ ErrorOr<Core::AnonymousBuffer> ExtensionBackgroundHost::theme()
     return *m_theme;
 }
 
+static ExtensionBackgroundLifetime::Kind lifetime_kind(Extension const& extension)
+{
+    if (extension.manifest().background.has_value() && extension.manifest().background->persistent)
+        return ExtensionBackgroundLifetime::Kind::Persistent;
+    return extension.manifest().manifest_version == 2 ? ExtensionBackgroundLifetime::Kind::EventPage : ExtensionBackgroundLifetime::Kind::NonPersistentPage;
+}
+
+NonnullOwnPtr<ExtensionBackgroundHost::Background> ExtensionBackgroundHost::create_background(Extension const& extension)
+{
+    auto background = make<Background>();
+    background->id = extension.id();
+    background->revision = extension.descriptor().revision;
+    background->url = background_page_url(extension);
+    auto& record = *background;
+    auto timer = [](Function<void()> fired) { return Core::Timer::create_single_shot(AK::Duration::zero(), move(fired)); };
+    record.idle_timer = timer([&record] { record.lifetime->idle_timer_fired(); });
+    record.suspend_timer = timer([&record] { record.lifetime->suspend_timer_fired(); });
+    record.startup_timer = timer([this, &record] {
+        Application::extension_message_broker().background_finished(record.id, record.revision, false);
+        record.lifetime->loaded(false);
+        destroy_view(record);
+    });
+    auto kind = lifetime_kind(extension);
+    ExtensionBackgroundLifetime::Callbacks callbacks;
+    callbacks.start = [this, &record] {
+        Application::extension_message_broker().background_starting(record.id, record.revision);
+        if (m_views_may_start)
+            start_view(record);
+    };
+    // FIXME: Dispatch runtime.onSuspend to the page, and wait for its listeners to have run.
+    callbacks.suspend = [&record] { record.lifetime->suspend_acknowledged(); };
+    callbacks.stop = [this, &record] { destroy_view(record); };
+    callbacks.suspend_canceled = [] { };
+    callbacks.arm_idle_timer = [&record](AK::Duration timeout) { record.idle_timer->restart(timeout); };
+    callbacks.disarm_idle_timer = [&record] { record.idle_timer->stop(); };
+    callbacks.arm_suspend_timer = [&record](AK::Duration timeout) { record.suspend_timer->restart(timeout); };
+    callbacks.disarm_suspend_timer = [&record] { record.suspend_timer->stop(); };
+    // An event page stays for as long as a message to it goes unanswered, or a port to it is open; a manifest version 3
+    // page stays for at most max_keepalive per unanswered message, however much else happens meanwhile.
+    callbacks.keepalive = [&record, kind] {
+        auto& broker = Application::extension_message_broker();
+        if (kind == ExtensionBackgroundLifetime::Kind::EventPage)
+            return broker.has_unanswered_dispatches(record.id) || broker.has_open_channels(record.id);
+        return broker.has_unanswered_dispatches(record.id, ExtensionBackgroundLifetime::max_keepalive);
+    };
+    record.lifetime = make<ExtensionBackgroundLifetime>(kind, move(callbacks));
+    return background;
+}
+
 void ExtensionBackgroundHost::prepare(ExtensionRegistry const& registry)
 {
     Vector<String> removed;
-    for (auto const& [id, revision] : m_instances) {
+    for (auto const& [id, background] : m_backgrounds) {
         auto extension = registry.find(id);
-        if (!extension || !registry.is_enabled(id) || !extension->descriptor().has_background || extension->descriptor().revision != revision) {
-            Application::extension_message_broker().background_finished(id, revision, false);
+        if (!extension || !registry.is_enabled(id) || !extension->descriptor().has_background || extension->descriptor().revision != background->revision)
             removed.append(id);
-        }
     }
     for (auto const& id : removed)
-        m_instances.remove(id);
+        forget(id);
     for (auto const& extension : registry.extensions()) {
-        if (registry.is_enabled(extension->id()) && extension->descriptor().has_background && !m_instances.contains(extension->id())) {
-            m_instances.set(extension->id(), extension->descriptor().revision);
-            Application::extension_message_broker().background_starting(extension->id(), extension->descriptor().revision);
-        }
+        if (!registry.is_enabled(extension->id()) || !extension->descriptor().has_background || m_backgrounds.contains(extension->id()))
+            continue;
+        auto background = create_background(*extension);
+        auto& record = *background;
+        m_backgrounds.set(extension->id(), move(background));
+        // Every page starts once, so that it can register its listeners.
+        record.lifetime->wake();
     }
 }
 
 void ExtensionBackgroundHost::sync(ExtensionRegistry const& registry)
 {
     prepare(registry);
-    Vector<String> ids_to_stop;
-    for (auto const& entry : m_views) {
-        auto extension = registry.find(entry.key);
-        if (!extension || !registry.is_enabled(entry.key) || !extension->descriptor().has_background || extension->descriptor().revision != entry.value.revision)
-            ids_to_stop.append(entry.key);
-    }
-    for (auto const& id : ids_to_stop)
-        stop(id);
-
-    for (auto const& extension : registry.extensions()) {
-        if (registry.is_enabled(extension->id()) && extension->descriptor().has_background && !m_views.contains(extension->id()))
-            start(*extension);
+    m_views_may_start = true;
+    for (auto& [id, background] : m_backgrounds) {
+        if (background->lifetime->state() == ExtensionBackgroundLifetime::State::Starting && !background->view)
+            start_view(*background);
     }
 }
 
-void ExtensionBackgroundHost::start(Extension const& extension)
+bool ExtensionBackgroundHost::wake(StringView extension_id)
+{
+    auto background = m_backgrounds.get(extension_id);
+    if (!background.has_value())
+        return false;
+    (*background)->lifetime->wake();
+    return (*background)->lifetime->state() == ExtensionBackgroundLifetime::State::Starting;
+}
+
+void ExtensionBackgroundHost::activity(StringView extension_id)
+{
+    if (auto background = m_backgrounds.get(extension_id); background.has_value())
+        (*background)->lifetime->activity();
+}
+
+void ExtensionBackgroundHost::set_idle_timeout(StringView extension_id, AK::Duration timeout)
+{
+    if (auto background = m_backgrounds.get(extension_id); background.has_value())
+        (*background)->lifetime->set_idle_timeout(timeout);
+}
+
+void ExtensionBackgroundHost::start_view(Background& record)
 {
     auto theme = this->theme();
     if (theme.is_error()) {
-        dbgln("Not starting the background page of extension {}: {}", extension.id(), theme.error());
-        Application::extension_message_broker().background_finished(extension.id(), extension.descriptor().revision, false);
+        dbgln("Not starting the background page of extension {}: {}", record.id, theme.error());
+        Application::extension_message_broker().background_finished(record.id, record.revision, false);
+        record.lifetime->loaded(false);
         return;
     }
 
-    auto view = HeadlessWebView::create(theme.release_value(), { 800, 600 });
-    auto url = background_page_url(extension);
-    auto id = extension.id();
-    auto revision = extension.descriptor().revision;
-    auto startup_timer = Core::Timer::create_single_shot(AK::Duration::from_seconds(30), [id, revision] {
-        Application::extension_message_broker().background_finished(id, revision, false);
-    });
-    view->on_load_finish = [id, revision, url, startup_timer](auto const& loaded_url) {
-        startup_timer->stop();
-        Application::extension_message_broker().background_finished(id, revision, loaded_url == url);
+    record.view = HeadlessWebView::create(theme.release_value(), { 800, 600 });
+    auto generation = ++record.view_generation;
+    // The view's own callbacks can't destroy it, so they leave that to a task, which checks that the view it was
+    // meant for is still the record's.
+    auto destroy_later = [this, id = record.id, revision = record.revision, generation](bool restart) {
+        Core::deferred_invoke([this, id, revision, generation, restart] {
+            auto background = m_backgrounds.get(id);
+            if (!background.has_value() || (*background)->revision != revision || (*background)->view_generation != generation)
+                return;
+            destroy_view(**background);
+            if (restart)
+                (*background)->lifetime->wake();
+        });
     };
-    view->on_web_content_crashed = [view = view.ptr(), id, revision, url, startup_timer](auto) {
-        auto& broker = Application::extension_message_broker();
-        broker.background_finished(id, revision, false);
-        broker.background_starting(id, revision);
-        startup_timer->restart();
-        view->load(url);
+    // A page that changes its own fragment while it loads has still loaded the page the record names.
+    record.view->on_load_finish = [&record, destroy_later](auto const& loaded_url) {
+        if (record.lifetime->state() != ExtensionBackgroundLifetime::State::Starting)
+            return;
+        record.startup_timer->stop();
+        auto success = loaded_url.equals(record.url, URL::ExcludeFragment::Yes);
+        Application::extension_message_broker().background_finished(record.id, record.revision, success);
+        record.lifetime->loaded(success);
+        if (!success)
+            destroy_later(false);
     };
-    startup_timer->start();
-    view->load(url);
-    m_views.set(id, Background { move(view), revision, move(startup_timer) });
+    // A crashed page starts again at once if it's persistent, and otherwise when something next wakes it.
+    record.view->on_web_content_crashed = [&record, destroy_later](auto) {
+        Application::extension_message_broker().background_finished(record.id, record.revision, false);
+        auto persistent = record.lifetime->kind() == ExtensionBackgroundLifetime::Kind::Persistent;
+        record.lifetime->stopped();
+        destroy_later(persistent);
+    };
+    record.startup_timer->restart(AK::Duration::from_seconds(30));
+    record.view->load(record.url);
 }
 
-void ExtensionBackgroundHost::stop(StringView extension_id)
+// Never called from one of the view's own callbacks: A crash reaches it through a deferred task instead.
+void ExtensionBackgroundHost::destroy_view(Background& record)
 {
-    if (auto view = m_views.get(extension_id); view.has_value())
-        Application::extension_message_broker().background_finished(MUST(String::from_utf8(extension_id)), view->revision, false);
-    m_views.remove(extension_id);
+    record.startup_timer->stop();
+    // The page's contexts go with the view, so that nothing waits on them.
+    if (record.view)
+        Application::extension_message_broker().endpoint_gone(record.view->page());
+    record.view = nullptr;
+}
+
+void ExtensionBackgroundHost::forget(String const& extension_id)
+{
+    auto background = m_backgrounds.take(extension_id);
+    if (!background.has_value())
+        return;
+    Application::extension_message_broker().background_finished(extension_id, (*background)->revision, false);
+    (*background)->lifetime->stopped();
+    destroy_view(**background);
+}
+
+bool ExtensionBackgroundHost::is_hosting(StringView extension_id) const
+{
+    auto background = m_backgrounds.get(extension_id);
+    return background.has_value() && (*background)->view;
 }
 
 bool ExtensionBackgroundHost::hosts_page(StringView extension_id, WebContentPage const& page) const
 {
-    auto view = m_views.get(extension_id);
-    return view.has_value() && &view->view->page() == &page;
+    auto background = m_backgrounds.get(extension_id);
+    return background.has_value() && (*background)->view && &(*background)->view->page() == &page;
 }
 
 }

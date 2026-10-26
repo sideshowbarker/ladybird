@@ -212,6 +212,7 @@ public:
     void resize_window(i32 width, i32 height);
 
     Utf16String extension_id(Utf16String const& name);
+    void set_extension_idle_timeout(Utf16String const& extension_id, double milliseconds);
     bool headless();
     bool screen_wake_lock_active();
     Utf16String picture_in_picture_window_state();

@@ -723,6 +723,14 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_extension_message_broker = make<ExtensionMessageBroker>();
     m_extension_registry->set_message_broker(*m_extension_message_broker);
     m_extension_background_host = make<ExtensionBackgroundHost>();
+    m_extension_message_broker->wake_background = [this](String const& id) {
+        if (m_extension_background_host)
+            m_extension_background_host->wake(id);
+    };
+    m_extension_message_broker->on_activity = [this](String const& id) {
+        if (m_extension_background_host)
+            m_extension_background_host->activity(id);
+    };
     m_extension_background_host->prepare(*m_extension_registry);
     m_extensions_observer = make<ExtensionsObserver>(*this);
 

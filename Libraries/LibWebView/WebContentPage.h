@@ -412,6 +412,7 @@ private:
     // Test-only handlers, reached over the separate test transport (see WebContentTestClient).
     virtual void did_finish_test(String text) override;
     virtual void did_set_test_timeout(double milliseconds) override;
+    virtual void did_set_extension_idle_timeout(String extension_id, double milliseconds) override;
     virtual void did_receive_reference_test_metadata(JsonValue) override;
     virtual void did_simulate_worker_request_server_connection_loss() override;
     Messages::WebContentTestClient::DidRequestUiProcessSessionHistoryForTestingResponse did_request_ui_process_session_history_for_testing();

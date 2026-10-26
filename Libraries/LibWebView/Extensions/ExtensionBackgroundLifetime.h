@@ -16,6 +16,8 @@ namespace WebView {
 // page unloads once it has had nothing to do for the idle timeout, and starts again when something needs it. The host
 // owns the page and the timers, and tells the lifetime what happens to them.
 class WEBVIEW_API ExtensionBackgroundLifetime {
+    AK_ALLOC_WITH_KMALLOC;
+
 public:
     enum class Kind : u8 {
         Persistent,

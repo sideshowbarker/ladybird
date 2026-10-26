@@ -9,6 +9,7 @@
 #include <AK/HashMap.h>
 #include <AK/Optional.h>
 #include <AK/String.h>
+#include <AK/Time.h>
 #include <AK/Types.h>
 #include <AK/Vector.h>
 #include <AK/Weakable.h>
@@ -80,6 +81,14 @@ public:
     void port_disconnect(Endpoint&, u64 context_id, u64 channel_id, u64 port_id);
     void close_channels_for(String const& extension_id);
     bool has_open_channels(String const& extension_id) const;
+    // Whether a message to the extension's background page is still waiting for its answer, and, with a maximum age,
+    // has waited for less than that.
+    bool has_unanswered_dispatches(String const& extension_id, Optional<AK::Duration> max_age = {}) const;
+
+    // The background host's hooks: wake_background starts an extension's stopped background page, so that what's sent
+    // to it waits for it to load, and on_activity hears of every message, reply, port message, and storage request.
+    Function<void(String const& extension_id)> wake_background;
+    Function<void(String const& extension_id)> on_activity;
 
 private:
     struct Context;
@@ -144,6 +153,19 @@ private:
     // Each dispatch id maps to the pending request it belongs to and the endpoint it went to.
     HashMap<u64, u64> m_dispatch_to_pending;
     HashMap<u64, Target> m_dispatch_to_endpoint;
+    HashMap<u64, MonotonicTime> m_dispatch_started;
+    void report_activity(String const& extension_id);
+    bool is_background_endpoint(Endpoint&, String const& extension_id, Web::HTML::CrossProcessId document_id) const;
+    void deliver_storage_changes(Endpoint&, u64 context_id, String const& extension_id, u64 revision, String const& changes);
+
+    // Storage changes for a background page that's starting, delivered once it has loaded.
+    struct QueuedStorageChanges {
+        String extension_id;
+        u64 revision;
+        String changes;
+    };
+    Vector<QueuedStorageChanges> m_queued_storage_changes;
+
     struct QueuedMessage {
         Endpoint* source;
         String extension_id;

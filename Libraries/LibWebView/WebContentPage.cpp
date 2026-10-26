@@ -1682,6 +1682,9 @@ void WebContentPage::did_request_extension_resource(String extension_id, String 
 
 void WebContentPage::for_each_extension_document(Function<IterationDecision(CanonicalNavigable const&, CanonicalDocument const&, URL::URL const&)> const& callback) const
 {
+    // A page outlives the view that showed it, and once that's gone, it hosts no documents.
+    if (!m_traversable)
+        return;
     traversable().for_each_in_inclusive_subtree([&](CanonicalNavigable const& navigable) {
         auto decision = IterationDecision::Continue;
         if (traversable().hosts(navigable, *this))
@@ -3448,6 +3451,11 @@ void WebContentPage::did_finish_test(String text)
 {
     if (displays_tab() && view().on_test_finish)
         view().on_test_finish(text);
+}
+
+void WebContentPage::did_set_extension_idle_timeout(String extension_id, double milliseconds)
+{
+    Application::extension_background_host().set_idle_timeout(extension_id, AK::Duration::from_milliseconds(static_cast<i64>(milliseconds)));
 }
 
 void WebContentPage::did_set_test_timeout(double milliseconds)

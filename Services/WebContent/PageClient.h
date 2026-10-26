@@ -373,6 +373,7 @@ private:
     virtual Optional<Web::Permissions::PermissionSnapshot> page_did_advance_permission_clock_for_testing(u64 milliseconds) override;
     virtual void page_did_finish_test(Utf16String const& text) override;
     virtual void page_did_set_test_timeout(double milliseconds) override;
+    virtual void page_did_set_extension_idle_timeout(String const& extension_id, double milliseconds) override;
     virtual void page_did_receive_reference_test_metadata(JsonValue) override;
     virtual void page_did_set_browser_zoom(double factor) override;
     virtual void page_did_set_device_pixel_ratio_for_testing(double ratio) override;

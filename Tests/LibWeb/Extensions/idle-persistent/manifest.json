@@ -1,0 +1,22 @@
+{
+    "manifest_version": 2,
+    "name": "Persistent Idle Fixture",
+    "version": "1.0",
+    "description": "A persistent manifest version 2 background page, which never unloads.",
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/idle-unload-persistent.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

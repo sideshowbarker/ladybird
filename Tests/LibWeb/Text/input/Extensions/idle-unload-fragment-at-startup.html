@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // A background page that changes its URL fragment while it starts still finishes starting, so the message that
+    // woke it gets its answer.
+    asyncTest(async done => {
+        await contentScriptReady();
+        const id = internals.extensionId("Fragment Idle Fixture");
+        println(`before idling: ${JSON.stringify(await sendToBackground({ type: "hello" }))}`);
+        internals.setExtensionIdleTimeout(id, 50);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        println(`after waking: ${JSON.stringify(await sendToBackground({ type: "hello" }))}`);
+        internals.setExtensionIdleTimeout(id, 30000);
+        done();
+    });
+</script>
+</body>

@@ -1185,6 +1185,12 @@ void PageClient::page_did_set_test_timeout(double milliseconds)
         test_connection->async_did_set_test_timeout(m_id, milliseconds);
 }
 
+void PageClient::page_did_set_extension_idle_timeout(String const& extension_id, double milliseconds)
+{
+    if (auto* test_connection = client().test_connection())
+        test_connection->async_did_set_extension_idle_timeout(m_id, extension_id, milliseconds);
+}
+
 void PageClient::page_did_receive_reference_test_metadata(JsonValue metadata)
 {
     if (auto* test_connection = client().test_connection())
