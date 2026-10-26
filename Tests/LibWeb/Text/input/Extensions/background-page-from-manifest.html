@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // A background page the manifest names loads, and answers messages.
+    asyncTest(async done => {
+        await contentScriptReady();
+        println(JSON.stringify(await sendToBackground({ type: "x" })));
+        done();
+    });
+</script>
+</body>

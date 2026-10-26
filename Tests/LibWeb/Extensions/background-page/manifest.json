@@ -1,0 +1,20 @@
+{
+    "manifest_version": 2,
+    "name": "Background Page Fixture",
+    "version": "1.0",
+    "description": "A background page that the manifest names, rather than one generated from background scripts.",
+    "background": {
+        "page": "bg.html"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/background-page-from-manifest.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}
