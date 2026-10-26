@@ -25,6 +25,8 @@ struct WEBVIEW_API ExtensionManifest {
         Optional<String> page;
         Optional<String> service_worker;
         bool is_module { false };
+        // A persistent page runs for as long as its extension is enabled; any other unloads when it has nothing to do.
+        bool persistent { false };
     };
 
     // Returns a user-facing error naming the offending key when the manifest is invalid.
