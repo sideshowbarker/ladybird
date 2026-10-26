@@ -1,0 +1,23 @@
+{
+    "manifest_version": 2,
+    "name": "Event Page Idle Fixture",
+    "version": "1.0",
+    "description": "A manifest version 2 event page, which an open port keeps loaded.",
+    "background": {
+        "scripts": [
+            "bg.js"
+        ],
+        "persistent": false
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/idle-unload-mv2-port-keeps.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

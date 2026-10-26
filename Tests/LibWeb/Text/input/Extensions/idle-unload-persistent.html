@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // A persistent background page never unloads.
+    asyncTest(async done => {
+        await contentScriptReady();
+        const id = internals.extensionId("Persistent Idle Fixture");
+        println(`first: ${await sendToBackground({ type: "count" })}`);
+        internals.setExtensionIdleTimeout(id, 50);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        println(`after idling: ${await sendToBackground({ type: "count" })}`);
+        internals.setExtensionIdleTimeout(id, 30000);
+        done();
+    });
+</script>
+</body>

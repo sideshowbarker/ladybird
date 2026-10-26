@@ -1,0 +1,2 @@
+before idling: "hello from #started"
+after waking: "hello from #started"

@@ -25,25 +25,65 @@ bool ExtensionMessageBroker::storage_context_is_current(Endpoint* endpoint, u64 
         && endpoint->extension_message_sender(expected.extension_id, expected.document_id).has_value();
 }
 
+void ExtensionMessageBroker::report_activity(String const& extension_id)
+{
+    if (on_activity)
+        on_activity(extension_id);
+}
+
+bool ExtensionMessageBroker::is_background_endpoint(Endpoint& endpoint, String const& extension_id, Web::HTML::CrossProcessId document_id) const
+{
+    auto sender = endpoint.extension_message_sender(extension_id, document_id);
+    return sender.has_value() && sender->from_background;
+}
+
+void ExtensionMessageBroker::deliver_storage_changes(Endpoint& endpoint, u64 context_id, String const& extension_id, u64 revision, String const& changes)
+{
+    auto registered = m_contexts.get(&endpoint);
+    auto context = registered.has_value() ? registered->get(context_id) : Optional<Context&> {};
+    if (context.has_value() && context->extension_id == extension_id && context->revision == revision
+        && storage_context_is_current(&endpoint, context_id, *context)
+        && endpoint.extension_has_permission(extension_id, "storage"sv))
+        endpoint.dispatch_extension_storage_changed(extension_id, changes);
+}
+
 void ExtensionMessageBroker::broadcast_storage_changes(String const& extension_id, u64 revision, String const& changes)
 {
+    // A change wakes a background page that has unloaded, and waits for one that's starting, since its listeners
+    // aren't there yet.
+    if (wake_background)
+        wake_background(extension_id);
+    auto background_is_starting = m_starting_backgrounds.get(extension_id) == revision;
+    if (background_is_starting)
+        m_queued_storage_changes.append({ extension_id, revision, changes });
+
     Vector<Target> targets;
     for (auto const& [endpoint, contexts] : m_contexts) {
         for (auto const& [id, context] : contexts) {
             if (context.extension_id == extension_id && context.revision == revision && storage_context_is_current(endpoint, id, context)) {
-                targets.append({ endpoint, id });
+                if (!background_is_starting || !is_background_endpoint(*endpoint, extension_id, context.document_id))
+                    targets.append({ endpoint, id });
                 break;
             }
         }
     }
-    for (auto const& target : targets) {
+    for (auto const& target : targets)
+        deliver_storage_changes(*target.endpoint, target.context_id, extension_id, revision, changes);
+}
+
+bool ExtensionMessageBroker::has_unanswered_dispatches(String const& extension_id, Optional<AK::Duration> max_age) const
+{
+    auto now = MonotonicTime::now();
+    for (auto const& [dispatch_id, target] : m_dispatch_to_endpoint) {
         auto registered = m_contexts.get(target.endpoint);
-        auto context = registered.has_value() ? registered->get(target.context_id) : Optional<Context&> {};
-        if (context.has_value() && context->extension_id == extension_id && context->revision == revision
-            && storage_context_is_current(target.endpoint, target.context_id, *context)
-            && target.endpoint->extension_has_permission(extension_id, "storage"sv))
-            target.endpoint->dispatch_extension_storage_changed(extension_id, changes);
+        auto context = registered.has_value() ? registered->get(target.context_id) : Optional<Context const&> {};
+        if (!context.has_value() || context->extension_id != extension_id || !is_background_endpoint(*target.endpoint, extension_id, context->document_id))
+            continue;
+        auto started = m_dispatch_started.get(dispatch_id);
+        if (!max_age.has_value() || (started.has_value() && now - *started < *max_age))
+            return true;
     }
+    return false;
 }
 
 Optional<ExtensionMessageBroker::CurrentContext> ExtensionMessageBroker::current_context(Endpoint& endpoint, u64 context_id) const
@@ -66,6 +106,7 @@ void ExtensionMessageBroker::request_storage(Endpoint& source, u64 context_id, u
         return;
     auto identity = *context;
     auto const& id = identity.extension_id;
+    report_activity(id);
     if (!source.extension_has_permission(id, "storage"sv)) {
         source.complete_extension_storage(request_id, { StorageResult::Type::Error, "Missing the storage permission"_string });
         return;
@@ -212,6 +253,28 @@ void ExtensionMessageBroker::background_finished(String const& extension_id, u64
     if (m_starting_backgrounds.get(extension_id) != revision)
         return;
     m_starting_backgrounds.remove(extension_id);
+    Vector<QueuedStorageChanges> storage_changes;
+    m_queued_storage_changes.remove_all_matching([&](auto const& queued) {
+        if (queued.extension_id != extension_id || queued.revision != revision)
+            return false;
+        storage_changes.append(queued);
+        return true;
+    });
+    if (success) {
+        Vector<Target> backgrounds;
+        for (auto const& [endpoint, contexts] : m_contexts) {
+            for (auto const& [id, context] : contexts) {
+                if (context.extension_id == extension_id && context.revision == revision && is_background_endpoint(*endpoint, extension_id, context.document_id)) {
+                    backgrounds.append({ endpoint, id });
+                    break;
+                }
+            }
+        }
+        for (auto const& queued : storage_changes) {
+            for (auto const& target : backgrounds)
+                deliver_storage_changes(*target.endpoint, target.context_id, extension_id, revision, queued.changes);
+        }
+    }
     Vector<QueuedMessage> messages;
     m_queued_messages.remove_all_matching([&](auto const& message) {
         if (message.extension_id != extension_id || message.revision != revision)
@@ -253,6 +316,10 @@ void ExtensionMessageBroker::send(Endpoint& source, String const& extension_id, 
         source.complete_extension_runtime_message(request_id, MessageResult::no_receiver());
         return;
     }
+    report_activity(extension_id);
+    // A background page that has unloaded starts again, and the message waits for it.
+    if (!sender->from_background && wake_background)
+        wake_background(extension_id);
     if (m_starting_backgrounds.get(extension_id) == context->revision) {
         m_queued_messages.append({ &source, extension_id, request_id, context_id, context->revision, message_json });
         return;
@@ -291,6 +358,7 @@ void ExtensionMessageBroker::send_to_tab(Endpoint& source, String const& extensi
         source.complete_extension_runtime_message(request_id, MessageResult::Error { "Content scripts can't send tab messages"_string });
         return;
     }
+    report_activity(extension_id);
     source.annotate_extension_sender(*sender, context->document_id);
     // A negative frame id stands for every frame.
     if (frame_id.has_value() && *frame_id < 0)
@@ -332,6 +400,7 @@ void ExtensionMessageBroker::dispatch_to_targets(Endpoint& source, String const&
         auto dispatch_id = m_next_dispatch_id++;
         m_dispatch_to_pending.set(dispatch_id, pending_id);
         m_dispatch_to_endpoint.set(dispatch_id, target);
+        m_dispatch_started.set(dispatch_id, MonotonicTime::now());
         dispatch_ids.append(dispatch_id);
     }
     for (size_t i = 0; i < targets.size(); ++i) {
@@ -346,8 +415,13 @@ void ExtensionMessageBroker::reply(Endpoint& target, u64 dispatch_id, Web::Exten
     auto endpoint = m_dispatch_to_endpoint.get(dispatch_id);
     if (!pending_id.has_value() || !endpoint.has_value() || endpoint->endpoint != &target)
         return;
+    if (auto registered = m_contexts.get(&target); registered.has_value()) {
+        if (auto context = registered->get(endpoint->context_id); context.has_value())
+            report_activity(context->extension_id);
+    }
     m_dispatch_to_pending.remove(dispatch_id);
     m_dispatch_to_endpoint.remove(dispatch_id);
+    m_dispatch_started.remove(dispatch_id);
 
     if (reply_json.value.has<MessageResult::Reply>() || reply_json.value.has<MessageResult::Error>()) {
         settle(*pending_id, reply_json);
@@ -371,6 +445,7 @@ void ExtensionMessageBroker::drop_request(u64 pending_id)
     for (auto id : dispatches) {
         m_dispatch_to_pending.remove(id);
         m_dispatch_to_endpoint.remove(id);
+        m_dispatch_started.remove(id);
     }
 }
 
@@ -418,6 +493,9 @@ void ExtensionMessageBroker::connect(Endpoint& source, u64 context_id, u64 port_
     }
     auto sender = source.extension_message_sender(context->extension_id, context->document_id).release_value();
     source.annotate_extension_sender(sender, context->document_id);
+    report_activity(context->extension_id);
+    if (!sender.from_background && wake_background)
+        wake_background(context->extension_id);
     auto channel_id = m_next_channel_id++;
     bool waiting = m_starting_backgrounds.get(context->extension_id) == context->revision;
     m_channels.set(channel_id, Channel { .extension_id = context->extension_id, .revision = context->revision, .name = move(name), .sender = sender, .opener = { &source, context_id, port_id, sender.from_background }, .receivers = {}, .queued_messages = {}, .waiting_for_background = waiting });
@@ -515,6 +593,7 @@ void ExtensionMessageBroker::port_post_message(Endpoint& endpoint, u64 context_i
     auto channel = m_channels.get(channel_id);
     if (!channel.has_value())
         return;
+    report_activity(channel->extension_id);
     auto opener = channel->opener;
     if (opener.endpoint != &endpoint || opener.context_id != context_id || opener.port_id != port_id) {
         opener.endpoint->dispatch_extension_port_message(opener.context_id, channel_id, opener.port_id, json);

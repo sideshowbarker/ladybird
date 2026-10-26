@@ -1,0 +1,4 @@
+through a port: 1
+with the port open: 2
+port: closed
+after idling: 1
