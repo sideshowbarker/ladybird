@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // A generated background page's scripts run in its body, so they can add to it.
+    asyncTest(async done => {
+        await contentScriptReady();
+        println(JSON.stringify(await sendToBackground({ type: "state" })));
+        done();
+    });
+</script>
+</body>

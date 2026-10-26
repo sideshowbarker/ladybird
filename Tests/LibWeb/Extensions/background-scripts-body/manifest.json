@@ -1,0 +1,22 @@
+{
+    "manifest_version": 3,
+    "name": "Background Scripts Body Fixture",
+    "version": "1.0",
+    "description": "Background scripts that use the generated page's body as they run.",
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/background-scripts-see-body.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}
