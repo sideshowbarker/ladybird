@@ -1664,11 +1664,15 @@ void WebContentPage::did_request_extension_resource(String extension_id, String 
         async_handle_file_return(ENOENT, {}, request_id);
         return;
     }
-    bool allowed = false;
-    for_each_extension_document([&](CanonicalNavigable const&, CanonicalDocument const&, URL::URL const& url) {
-        allowed = Application::extension_registry().may_access_resource(extension_id, path, url, client().is_private());
-        return allowed ? IterationDecision::Break : IterationDecision::Continue;
-    });
+    // The page the background host made for the extension loads the extension's own files, the manifest's
+    // "background.page" among them, though its first document is the initial about:blank one.
+    bool allowed = Application::extension_background_host().hosts_page(extension_id, *this);
+    if (!allowed) {
+        for_each_extension_document([&](CanonicalNavigable const&, CanonicalDocument const&, URL::URL const& url) {
+            allowed = Application::extension_registry().may_access_resource(extension_id, path, url, client().is_private());
+            return allowed ? IterationDecision::Break : IterationDecision::Continue;
+        });
+    }
     if (!allowed) {
         async_handle_file_return(EACCES, {}, request_id);
         return;
