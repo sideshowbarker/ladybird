@@ -175,6 +175,20 @@ TEST_CASE(background_variants)
     EXPECT(!none.background.has_value());
 }
 
+TEST_CASE(background_persistence)
+{
+    auto mv2 = parse(R"({ "manifest_version": 2, "name": "x", "version": "1", "background": { "scripts": ["a.js"] } })"sv);
+    EXPECT(mv2.background->persistent);
+    auto event_page = parse(R"({ "manifest_version": 2, "name": "x", "version": "1", "background": { "scripts": ["a.js"], "persistent": false } })"sv);
+    EXPECT(!event_page.background->persistent);
+    auto mv3 = parse(R"({ "manifest_version": 3, "name": "x", "version": "1", "background": { "scripts": ["a.js"] } })"sv);
+    EXPECT(!mv3.background->persistent);
+    // Manifest version 3 has no persistent pages, so the key is ignored there.
+    auto mv3_persistent = parse(R"({ "manifest_version": 3, "name": "x", "version": "1", "background": { "scripts": ["a.js"], "persistent": true } })"sv);
+    EXPECT(!mv3_persistent.background->persistent);
+    EXPECT(parse_error(R"({ "manifest_version": 2, "name": "x", "version": "1", "background": { "scripts": ["a.js"], "persistent": "no" } })"sv).contains("persistent"sv));
+}
+
 TEST_CASE(generated_background_page)
 {
     auto scripts = parse(R"({ "manifest_version": 2, "name": "x", "version": "1", "background": { "scripts": ["a.js", "sub/b.js"] } })"sv);

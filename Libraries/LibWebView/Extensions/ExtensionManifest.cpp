@@ -132,7 +132,7 @@ static ErrorOr<Vector<WebAccessibleResourceDescriptor>, String> parse_web_access
     return resources;
 }
 
-static ErrorOr<Optional<ExtensionManifest::Background>, String> parse_background(JsonObject const& manifest)
+static ErrorOr<Optional<ExtensionManifest::Background>, String> parse_background(JsonObject const& manifest, u8 manifest_version)
 {
     static constexpr auto key = "background"sv;
     auto object = manifest.get_object(key);
@@ -150,6 +150,16 @@ static ErrorOr<Optional<ExtensionManifest::Background>, String> parse_background
         background.service_worker = *service_worker;
     auto type = object->get_string("type"sv);
     background.is_module = type.has_value() && *type == "module"sv;
+
+    // Manifest version 2 pages are persistent unless "persistent" says otherwise. Version 3 has no persistent pages,
+    // so there the key is ignored.
+    auto persistent = object->get("persistent"sv);
+    if (persistent.has_value() && !persistent->is_bool())
+        return error_for("background.persistent"sv, "must be a boolean"sv);
+    if (manifest_version == 2)
+        background.persistent = persistent.has_value() ? persistent->as_bool() : true;
+    else if (persistent.has_value())
+        dbgln("manifest.json: \"background.persistent\" is ignored in manifest version 3");
     return background;
 }
 
@@ -227,7 +237,7 @@ ErrorOr<ExtensionManifest, String> ExtensionManifest::parse(StringView manifest_
 
     if (auto error = parse_content_security_policy(object, manifest.manifest_version, manifest.extension_pages_csp); error.has_value())
         return error.release_value();
-    manifest.background = TRY(parse_background(object));
+    manifest.background = TRY(parse_background(object, manifest.manifest_version));
 
     return manifest;
 }

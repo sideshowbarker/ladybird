@@ -66,6 +66,7 @@ set(TEST_SOURCES
     TestCrashReportDiagnostics.cpp
     TestDownloadSegmentation.cpp
     TestDownloadStore.cpp
+    TestExtensionBackgroundLifetime.cpp
     TestExtensionLocales.cpp
     TestExtensionManifest.cpp
     TestExtensionMessageBroker.cpp
