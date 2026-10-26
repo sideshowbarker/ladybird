@@ -200,6 +200,18 @@ void MessageRouter::complete(Page& page, u64 request_id, Web::Extensions::Messag
     WebIDL::resolve_promise(realm, *pending->promise, value);
 }
 
+GC::Ref<JS::PromiseCapability> MessageRouter::query_tabs(MessagingContext& context, String const& query_json)
+{
+    auto& realm = context.realm();
+    if (context.is_detached())
+        return WebIDL::create_rejected_promise(realm, JS::TypeError::create(realm, "The extension context is detached"_utf16));
+    auto promise = WebIDL::create_promise(realm);
+    auto request_id = m_next_request_id++;
+    m_pending_sends.set(request_id, PendingSend { GC::make_root(promise), GC::make_root(realm), &context.page(), &context });
+    context.page().client().page_did_request_extension_tabs_query(context.context_id(), request_id, query_json);
+    return promise;
+}
+
 GC::Ref<JS::PromiseCapability> MessageRouter::request_storage(MessagingContext& context, StorageRequest const& request, Optional<JsonObject> defaults)
 {
     auto& realm = context.realm();

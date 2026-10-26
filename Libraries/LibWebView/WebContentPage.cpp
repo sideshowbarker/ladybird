@@ -29,6 +29,7 @@
 #include <LibWebView/CookieJar.h>
 #include <LibWebView/Extensions/ExtensionBackgroundHost.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
+#include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/GamepadManager.h>
 #include <LibWebView/HistoryStore.h>
 #include <LibWebView/NavigationLoader.h>
@@ -1782,6 +1783,35 @@ bool WebContentPage::extension_has_permission(String const& id, StringView permi
 void WebContentPage::did_request_extension_storage(u64 context_id, u64 request_id, Web::Extensions::StorageRequest request)
 {
     Application::extension_message_broker().request_storage(*this, context_id, request_id, request, Application::extension_storage_store());
+}
+
+void WebContentPage::did_request_extension_tabs_query(u64 context_id, u64 request_id, String query_json)
+{
+    // Only the extension's own documents have tabs; a renderer that claims otherwise for a content script gets nothing.
+    auto context = Application::extension_message_broker().current_context(*this, context_id);
+    if (!context.has_value() || !context->is_extension_document)
+        return;
+    auto& registry = Application::extension_registry();
+    auto extension = registry.find(context->extension_id);
+    auto query = JsonValue::from_string(query_json);
+    if (!extension || query.is_error() || !query.value().is_object())
+        return;
+
+    auto tabs = Application::the().extension_tabs();
+    // A page in a tab, in any of its frames, asks from that tab's window, and a background page from no window at all.
+    Optional<i64> current_window_id;
+    if (auto view = traversable().view(); view.has_value()) {
+        if (auto tab = tabs.find_if([&](auto const& tab) { return tab.view_id == view->view_id(); }); tab != tabs.end())
+            current_window_id = tab->window_id;
+    }
+    auto allowed_in_private = registry.is_allowed_in_private(context->extension_id);
+    auto last_focused_window_id = last_focused_extension_window_for(Application::the().extension_window_focus_order(), tabs, allowed_in_private);
+    ExtensionTabViewer viewer { extension->descriptor(), allowed_in_private, current_window_id, last_focused_window_id };
+    auto result = query_extension_tabs(viewer, tabs, query.value().as_object());
+    if (result.is_error())
+        complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
+    else
+        complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });
 }
 
 void WebContentPage::complete_extension_storage(u64 request_id, Web::Extensions::StorageResult const& result)

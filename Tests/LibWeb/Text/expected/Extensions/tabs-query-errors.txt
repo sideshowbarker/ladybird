@@ -1,0 +1,9 @@
+{"thrown":"TypeError: Error in invocation of tabs.query(object queryInfo, optional function callback): No matching signature."}
+{"thrown":"TypeError: Error in invocation of tabs.query(object queryInfo, optional function callback): Error at parameter 'queryInfo': Unexpected property: 'foo'."}
+{"thrown":"TypeError: Error in invocation of tabs.query(object queryInfo, optional function callback): Error at parameter 'queryInfo': Error at property 'active': Invalid type: expected boolean, found string."}
+{"thrown":"TypeError: Error in invocation of tabs.query(object queryInfo, optional function callback): Error at parameter 'queryInfo': Error at property 'index': Invalid type: expected integer, found number."}
+{"thrown":"TypeError: Error in invocation of tabs.query(object queryInfo, optional function callback): Error at parameter 'queryInfo': Error at property 'index': Invalid type: expected integer, found number."}
+{"thrown":"TypeError: Error in invocation of tabs.query(object queryInfo, optional function callback): Error at parameter 'queryInfo': Error at property 'status': Value must be one of complete, loading, unloaded."}
+{"thrown":"TypeError: Error in invocation of tabs.query(object queryInfo, optional function callback): Error at parameter 'queryInfo': Error at property 'url': Value did not match any choice."}
+{"rejected":"Invalid url pattern 'bad'"}
+{"rejected":"tabs.query() doesn't support the \"audible\" filter"}

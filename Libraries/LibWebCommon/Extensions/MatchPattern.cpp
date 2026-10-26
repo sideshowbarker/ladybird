@@ -10,6 +10,7 @@
 #include <LibURL/Parser.h>
 #include <LibURL/URL.h>
 #include <LibWebCommon/Extensions/MatchPattern.h>
+#include <LibWebCommon/Extensions/Scheme.h>
 
 namespace Web::Extensions {
 
@@ -69,7 +70,7 @@ MatchPattern MatchPattern::all_urls()
     return pattern;
 }
 
-ErrorOr<MatchPattern> MatchPattern::parse(StringView pattern)
+ErrorOr<MatchPattern> MatchPattern::parse(StringView pattern, AllowExtensionScheme allow_extension_scheme)
 {
     if (pattern == all_urls_pattern)
         return all_urls();
@@ -79,7 +80,7 @@ ErrorOr<MatchPattern> MatchPattern::parse(StringView pattern)
         return Error::from_string_literal("A match pattern needs a scheme followed by \"://\"");
 
     auto scheme = pattern.substring_view(0, *scheme_end);
-    if (scheme != "*"sv && !is_supported_scheme(scheme))
+    if (scheme != "*"sv && !is_supported_scheme(scheme) && !(allow_extension_scheme == AllowExtensionScheme::Yes && scheme == Web::Extensions::scheme))
         return Error::from_string_literal("A match pattern's scheme must be *, http, https, ws, wss, file, or ftp");
 
     auto rest = pattern.substring_view(*scheme_end + 3);

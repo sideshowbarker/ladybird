@@ -296,11 +296,6 @@ public:
     virtual Vector<ExtensionTab> extension_tabs() const;
     // The ids of the windows the user has focused, most recent first.
     virtual Vector<i64> extension_window_focus_order() const { return {}; }
-    Optional<i64> last_focused_extension_window() const
-    {
-        auto order = extension_window_focus_order();
-        return order.is_empty() ? Optional<i64> {} : order.first();
-    }
     virtual Vector<ViewImplementation&> active_window_web_views() const { return {}; }
     virtual Optional<ViewImplementation&> activate_tab_with_url(URL::URL const&, URL::ExcludeFragment) const { return {}; }
 

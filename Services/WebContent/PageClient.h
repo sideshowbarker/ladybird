@@ -351,6 +351,7 @@ private:
     virtual void page_did_post_extension_port_message(u64 context_id, u64 channel_id, u64 port_id, String const& json) override;
     virtual void page_did_disconnect_extension_port(u64 context_id, u64 channel_id, u64 port_id) override;
     virtual void page_did_request_extension_storage(u64, u64, Web::Extensions::StorageRequest const&) override;
+    virtual void page_did_request_extension_tabs_query(u64 context_id, u64 request_id, String const& query_json) override;
     virtual void page_did_reply_to_extension_runtime_message(u64 dispatch_id, Web::Extensions::MessageResult const& reply_json) override;
     virtual URL::BlobURLEntry::Token page_did_add_blob_url_entry(Web::HTML::EnvironmentSettingsObject const&, Utf16String const& url, Web::FileAPI::SerializedBlobURLEntry const&) override;
     virtual void page_did_remove_blob_url_entries(Web::HTML::EnvironmentSettingsObject const&, Vector<Utf16String> const& urls) override;

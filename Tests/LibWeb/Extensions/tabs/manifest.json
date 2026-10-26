@@ -1,0 +1,23 @@
+{
+    "manifest_version": 3,
+    "name": "Tabs Fixture",
+    "version": "1.0",
+    "description": "A background page that runs tabs.query() for the pages its content script is in, with no permission to see their URLs.",
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/tabs-query-redaction.html",
+                "file:///*/Extensions/tabs-not-in-content-scripts.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

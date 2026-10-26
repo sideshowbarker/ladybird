@@ -25,7 +25,12 @@ WEBCOMMON_API bool glob_matches(StringView glob, StringView text);
 // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Match_patterns
 class WEBCOMMON_API MatchPattern {
 public:
-    static ErrorOr<MatchPattern> parse(StringView pattern);
+    // A pattern an extension uses to find tabs may also name the extension scheme, so it can find its own pages.
+    enum class AllowExtensionScheme : bool {
+        No,
+        Yes,
+    };
+    static ErrorOr<MatchPattern> parse(StringView pattern, AllowExtensionScheme = AllowExtensionScheme::No);
     static MatchPattern all_urls();
 
     [[nodiscard]] bool matches(URL::URL const&) const;

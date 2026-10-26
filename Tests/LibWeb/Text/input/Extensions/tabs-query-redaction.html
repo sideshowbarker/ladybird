@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // Without the tabs permission or a matching host permission, tabs come back without their URL or title, and a filter
+    // on either matches nothing.
+    asyncTest(async done => {
+        await contentScriptReady();
+        const all = await askBackground({});
+        println(`found tabs: ${all.tabs.length > 0}`);
+        println(`any url or title: ${all.tabs.some(tab => "url" in tab || "title" in tab)}`);
+        println(`url filter: ${(await askBackground({ url: "$self" })).tabs.length}`);
+        println(`title filter: ${(await askBackground({ title: "*" })).tabs.length}`);
+        done();
+    });
+</script>
+</body>

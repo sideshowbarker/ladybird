@@ -293,6 +293,7 @@ private:
     virtual void did_destroy_extension_context(String extension_id, u64 context_id) override;
     virtual void did_send_extension_runtime_message(String extension_id, u64 request_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id) override;
     virtual void did_request_extension_storage(u64 context_id, u64 request_id, Web::Extensions::StorageRequest) override;
+    virtual void did_request_extension_tabs_query(u64 context_id, u64 request_id, String query_json) override;
     virtual bool extension_has_permission(String const&, StringView) const override;
     virtual void complete_extension_storage(u64, Web::Extensions::StorageResult const&) override;
     virtual void dispatch_extension_storage_changed(String const&, String const&) override;

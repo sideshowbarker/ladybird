@@ -6,6 +6,8 @@
 
 #include <LibTest/TestCase.h>
 
+#include <AK/JsonArray.h>
+#include <AK/JsonObject.h>
 #include <AK/Random.h>
 #include <LibCore/Directory.h>
 #include <LibCore/Environment.h>
@@ -14,6 +16,8 @@
 #include <LibCore/ThreadEventQueue.h>
 #include <LibFileSystem/FileSystem.h>
 #include <LibGfx/SystemTheme.h>
+#include <LibURL/Parser.h>
+#include <LibWebCommon/Extensions/ExtensionDescriptor.h>
 #include <LibWebView/Application.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/HeadlessWebView.h>
@@ -148,4 +152,197 @@ TEST_CASE(unmarked_views_are_not_tabs)
     auto theme = TRY_OR_FAIL(load_test_theme());
     auto hidden = WebView::HeadlessWebView::create(theme, { 800, 600 });
     EXPECT(!tab_for_view(*hidden).has_value());
+}
+
+static WebView::ExtensionTab make_tab(i64 id, i64 window_id, i64 index, bool active, bool pinned, WebView::IsPrivate is_private, Optional<u64> view_id, StringView url, StringView title, bool loading, bool in_popup_window = false)
+{
+    return { id, window_id, index, active, pinned, is_private, view_id, URL::Parser::basic_parse(url).release_value(), MUST(String::from_utf8(title)), loading, in_popup_window };
+}
+
+static Vector<WebView::ExtensionTab> sample_tabs()
+{
+    using WebView::IsPrivate;
+    return {
+        make_tab(1, 1, 0, false, true, IsPrivate::No, 11, "https://a.example/one"sv, "One"sv, false),
+        make_tab(2, 1, 1, true, false, IsPrivate::No, 12, "https://b.example/two"sv, "Two"sv, true),
+        make_tab(3, 2, 0, true, false, IsPrivate::No, {}, "https://a.example/three"sv, "Three"sv, false),
+        make_tab(4, 3, 0, true, false, IsPrivate::Yes, 14, "https://a.example/private"sv, "Private"sv, false),
+    };
+}
+
+static WebView::ExtensionTabViewer viewer_for(Web::Extensions::ExtensionDescriptor const& extension, Optional<i64> current_window_id = {}, Optional<i64> last_focused_window_id = {}, bool allowed_in_private = false)
+{
+    return { extension, allowed_in_private, current_window_id, last_focused_window_id };
+}
+
+static Web::Extensions::ExtensionDescriptor descriptor_with(Vector<String> api_permissions, Vector<StringView> host_patterns = {})
+{
+    Web::Extensions::ExtensionDescriptor descriptor;
+    descriptor.id = "extension"_string;
+    descriptor.api_permissions = move(api_permissions);
+    for (auto pattern : host_patterns)
+        descriptor.host_permissions.append(MUST(Web::Extensions::MatchPattern::parse(pattern)));
+    return descriptor;
+}
+
+static Vector<i64> ids_of(JsonArray const& tabs)
+{
+    Vector<i64> ids;
+    tabs.for_each([&](JsonValue const& tab) { ids.append(tab.as_object().get_integer<i64>("id"sv).value()); });
+    return ids;
+}
+
+static JsonObject query_from(StringView json)
+{
+    return JsonValue::from_string(json).release_value().as_object();
+}
+
+TEST_CASE(query_filters_by_state)
+{
+    auto descriptor = descriptor_with({});
+    auto viewer = viewer_for(descriptor, {}, 2);
+    auto tabs = sample_tabs();
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(viewer, tabs, query_from("{}"sv)))), (Vector<i64> { 1, 2, 3 }));
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(viewer, tabs, query_from("{\"active\":true}"sv)))), (Vector<i64> { 2, 3 }));
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(viewer, tabs, query_from("{\"pinned\":true}"sv)))), (Vector<i64> { 1 }));
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(viewer, tabs, query_from("{\"windowId\":1,\"index\":1}"sv)))), (Vector<i64> { 2 }));
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(viewer, tabs, query_from("{\"status\":\"loading\"}"sv)))), (Vector<i64> { 2 }));
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(viewer, tabs, query_from("{\"status\":\"unloaded\"}"sv)))), (Vector<i64> { 3 }));
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(viewer, tabs, query_from("{\"lastFocusedWindow\":true}"sv)))), (Vector<i64> { 3 }));
+}
+
+TEST_CASE(current_window_is_the_callers_or_the_last_focused)
+{
+    auto descriptor = descriptor_with({});
+    auto tabs = sample_tabs();
+    auto in_a_tab = viewer_for(descriptor, 1, 2);
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(in_a_tab, tabs, query_from("{\"currentWindow\":true}"sv)))), (Vector<i64> { 1, 2 }));
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(in_a_tab, tabs, query_from("{\"windowId\":-2}"sv)))), (Vector<i64> { 1, 2 }));
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(in_a_tab, tabs, query_from("{\"currentWindow\":false}"sv)))), (Vector<i64> { 3 }));
+    auto in_the_background = viewer_for(descriptor, {}, 2);
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(in_the_background, tabs, query_from("{\"currentWindow\":true}"sv)))), (Vector<i64> { 3 }));
+    auto with_no_windows = viewer_for(descriptor);
+    EXPECT(TRY_OR_FAIL(WebView::query_extension_tabs(with_no_windows, tabs, query_from("{\"currentWindow\":true}"sv))).is_empty());
+}
+
+TEST_CASE(url_and_title_need_permission)
+{
+    auto tabs = sample_tabs();
+    auto without = descriptor_with({});
+    auto unprivileged = viewer_for(without);
+    auto results = TRY_OR_FAIL(WebView::query_extension_tabs(unprivileged, tabs, query_from("{}"sv)));
+    EXPECT(!results[0].as_object().has("url"sv));
+    EXPECT(!results[0].as_object().has("title"sv));
+    // A filter never matches what the caller can't see.
+    EXPECT(TRY_OR_FAIL(WebView::query_extension_tabs(unprivileged, tabs, query_from("{\"url\":\"https://a.example/*\"}"sv))).is_empty());
+    EXPECT(TRY_OR_FAIL(WebView::query_extension_tabs(unprivileged, tabs, query_from("{\"title\":\"One\"}"sv))).is_empty());
+
+    auto with_tabs = descriptor_with({ "tabs"_string });
+    auto privileged = viewer_for(with_tabs);
+    results = TRY_OR_FAIL(WebView::query_extension_tabs(privileged, tabs, query_from("{\"url\":[\"https://a.example/*\"]}"sv)));
+    EXPECT_EQ(ids_of(results), (Vector<i64> { 1, 3 }));
+    EXPECT_EQ(results[0].as_object().get_string("url"sv), "https://a.example/one"_string);
+    EXPECT_EQ(results[0].as_object().get_string("title"sv), "One"_string);
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(privileged, tabs, query_from("{\"title\":\"T*\"}"sv)))), (Vector<i64> { 2, 3 }));
+
+    auto with_host = descriptor_with({}, { "https://b.example/*"sv });
+    auto host_only = viewer_for(with_host);
+    results = TRY_OR_FAIL(WebView::query_extension_tabs(host_only, tabs, query_from("{}"sv)));
+    EXPECT(!results[0].as_object().has("url"sv));
+    EXPECT_EQ(results[1].as_object().get_string("url"sv), "https://b.example/two"_string);
+}
+
+TEST_CASE(private_tabs_follow_the_opt_in)
+{
+    auto descriptor = descriptor_with({});
+    auto tabs = sample_tabs();
+    auto not_allowed = viewer_for(descriptor);
+    EXPECT(!ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(not_allowed, tabs, query_from("{}"sv)))).contains_slow(4));
+    auto allowed = viewer_for(descriptor, {}, {}, true);
+    auto results = TRY_OR_FAIL(WebView::query_extension_tabs(allowed, tabs, query_from("{\"windowId\":3}"sv)));
+    EXPECT_EQ(ids_of(results), (Vector<i64> { 4 }));
+    EXPECT_EQ(results[0].as_object().get_bool("incognito"sv), true);
+}
+
+TEST_CASE(tab_shape)
+{
+    auto descriptor = descriptor_with({});
+    auto viewer = viewer_for(descriptor);
+    auto tab = WebView::serialize_extension_tab(viewer, sample_tabs()[1]);
+    EXPECT_EQ(tab.get_integer<i64>("id"sv), 2);
+    EXPECT_EQ(tab.get_integer<i64>("windowId"sv), 1);
+    EXPECT_EQ(tab.get_integer<i64>("index"sv), 1);
+    EXPECT_EQ(tab.get_bool("active"sv), true);
+    EXPECT_EQ(tab.get_bool("highlighted"sv), true);
+    EXPECT_EQ(tab.get_bool("selected"sv), true);
+    EXPECT_EQ(tab.get_bool("pinned"sv), false);
+    EXPECT_EQ(tab.get_bool("discarded"sv), false);
+    EXPECT_EQ(tab.get_bool("incognito"sv), false);
+    EXPECT_EQ(tab.get_string("status"sv), "loading"_string);
+    EXPECT_EQ(tab.get_integer<i64>("groupId"sv), -1);
+}
+
+TEST_CASE(bad_url_patterns_are_errors)
+{
+    auto descriptor = descriptor_with({ "tabs"_string });
+    auto viewer = viewer_for(descriptor);
+    auto result = WebView::query_extension_tabs(viewer, sample_tabs(), query_from("{\"url\":\"bad\"}"sv));
+    VERIFY(result.is_error());
+    EXPECT_EQ(result.error(), "Invalid url pattern 'bad'"sv);
+}
+
+TEST_CASE(malformed_url_filters_are_errors)
+{
+    auto descriptor = descriptor_with({ "tabs"_string });
+    auto viewer = viewer_for(descriptor);
+    EXPECT(WebView::query_extension_tabs(viewer, sample_tabs(), query_from("{\"url\":42}"sv)).is_error());
+    EXPECT(WebView::query_extension_tabs(viewer, sample_tabs(), query_from("{\"url\":[42]}"sv)).is_error());
+}
+
+TEST_CASE(empty_filters_and_negative_sentinels_restrict_nothing)
+{
+    auto descriptor = descriptor_with({ "tabs"_string });
+    auto viewer = viewer_for(descriptor);
+    auto tabs = sample_tabs();
+    for (auto query : { "{\"url\":[]}"sv, "{\"title\":\"\"}"sv, "{\"index\":-1}"sv, "{\"windowId\":-1}"sv })
+        EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(viewer, tabs, query_from(query)))), (Vector<i64> { 1, 2, 3 }));
+}
+
+TEST_CASE(window_type_tells_popups_apart)
+{
+    auto descriptor = descriptor_with({});
+    auto viewer = viewer_for(descriptor);
+    auto tabs = sample_tabs();
+    tabs.append(make_tab(5, 4, 0, true, false, WebView::IsPrivate::No, 15, "https://c.example/"sv, "Popup"sv, false, true));
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(viewer, tabs, query_from("{\"windowType\":\"popup\"}"sv)))), (Vector<i64> { 5 }));
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(viewer, tabs, query_from("{\"windowType\":\"normal\"}"sv)))), (Vector<i64> { 1, 2, 3 }));
+}
+
+TEST_CASE(an_extension_sees_its_own_pages)
+{
+    auto descriptor = descriptor_with({});
+    auto viewer = viewer_for(descriptor);
+    auto tabs = sample_tabs();
+    tabs.append(make_tab(5, 1, 2, false, false, WebView::IsPrivate::No, 15, "ladybird-extension://extension/options.html"sv, "Options"sv, false));
+    auto results = TRY_OR_FAIL(WebView::query_extension_tabs(viewer, tabs, query_from("{\"url\":\"ladybird-extension://extension/*\"}"sv)));
+    EXPECT_EQ(ids_of(results), (Vector<i64> { 5 }));
+    EXPECT_EQ(results[0].as_object().get_string("title"sv), "Options"_string);
+}
+
+TEST_CASE(title_wildcards_match_characters)
+{
+    auto descriptor = descriptor_with({ "tabs"_string });
+    auto viewer = viewer_for(descriptor);
+    Vector<WebView::ExtensionTab> tabs { make_tab(1, 1, 0, true, false, WebView::IsPrivate::No, 11, "https://a.example/"sv, "\xe7\x8c\xab"sv, false), make_tab(2, 1, 1, false, false, WebView::IsPrivate::No, 12, "https://b.example/"sv, "ab"sv, false) };
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(viewer, tabs, query_from("{\"title\":\"?\"}"sv)))), (Vector<i64> { 1 }));
+    EXPECT_EQ(ids_of(TRY_OR_FAIL(WebView::query_extension_tabs(viewer, tabs, query_from("{\"title\":\"a?b\"}"sv)))), (Vector<i64> { 2 }));
+}
+
+TEST_CASE(last_focused_window_skips_windows_the_extension_cant_see)
+{
+    auto tabs = sample_tabs();
+    Vector<i64> focus_order { 3, 2, 1 };
+    EXPECT_EQ(WebView::last_focused_extension_window_for(focus_order, tabs, false), 2);
+    EXPECT_EQ(WebView::last_focused_extension_window_for(focus_order, tabs, true), 3);
+    EXPECT(!WebView::last_focused_extension_window_for({}, tabs, true).has_value());
 }
