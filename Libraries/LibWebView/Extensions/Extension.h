@@ -24,7 +24,7 @@ namespace WebView {
 class WEBVIEW_API Extension : public RefCounted<Extension> {
 public:
     // Returns a user-facing error when the manifest is invalid or a file it names can't be read.
-    static ErrorOr<NonnullRefPtr<Extension>, String> load_unpacked(ByteString directory, String id, Optional<Vector<String>> granted_permissions = {});
+    static ErrorOr<NonnullRefPtr<Extension>, String> load_unpacked(ByteString directory, String id, Optional<Vector<String>> granted_permissions = {}, String locale = {});
 
     void renew_instance();
 
