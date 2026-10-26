@@ -1,0 +1,22 @@
+{
+    "manifest_version": 3,
+    "name": "Fragment Idle Fixture",
+    "version": "1.0",
+    "description": "A background page that changes its URL fragment while it starts.",
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/idle-unload-fragment-at-startup.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

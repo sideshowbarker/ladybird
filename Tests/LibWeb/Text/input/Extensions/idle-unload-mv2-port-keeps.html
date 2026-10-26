@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // An open port keeps a manifest version 2 event page loaded, and once it closes, the page unloads when idle.
+    asyncTest(async done => {
+        await contentScriptReady();
+        const id = internals.extensionId("Event Page Idle Fixture");
+        println(`through a port: ${await sendToBackground({ type: "open-port" })}`);
+        internals.setExtensionIdleTimeout(id, 50);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        println(`with the port open: ${await sendToBackground({ type: "count" })}`);
+        println(`port: ${await sendToBackground({ type: "close-port" })}`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        println(`after idling: ${await sendToBackground({ type: "count" })}`);
+        internals.setExtensionIdleTimeout(id, 30000);
+        done();
+    });
+</script>
+</body>

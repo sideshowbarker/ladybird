@@ -942,3 +942,75 @@ TEST_CASE(a_negative_frame_id_means_every_frame)
     broker.send_to_tab(background, id, 1, 1, 7, -1, "1"_string);
     EXPECT_EQ(top.dispatches.size(), 1u);
 }
+
+TEST_CASE(messages_wake_a_stopped_background_but_its_own_dont)
+{
+    ExtensionMessageBroker broker;
+    Vector<String> woken;
+    broker.wake_background = [&](String const& id) { woken.append(id); };
+    FakeEndpoint content, background;
+    content.content_script = true;
+    background.background = true;
+    auto id = MUST(String::from_utf8(x));
+    broker.context_created(content, id, 1, { 1, 1 }, 1);
+    broker.context_created(background, id, 1, { 1, 1 }, 1);
+    broker.send(content, id, 1, sender_for(x), "1"_string, 1);
+    EXPECT_EQ(woken, (Vector { id }));
+    broker.send(background, id, 2, sender_for(x), "1"_string, 1);
+    EXPECT_EQ(woken.size(), 1u);
+}
+
+TEST_CASE(activity_is_reported_for_messages_replies_and_storage)
+{
+    ExtensionMessageBroker broker;
+    Vector<String> activity;
+    broker.on_activity = [&](String const& id) { activity.append(id); };
+    FakeEndpoint content, page;
+    content.content_script = true;
+    auto id = MUST(String::from_utf8(x));
+    broker.context_created(content, id, 1, { 1, 1 }, 1);
+    broker.context_created(page, id, 1, { 1, 1 }, 1);
+    broker.send(content, id, 1, sender_for(x), "1"_string, 1);
+    EXPECT_EQ(activity.size(), 1u);
+    broker.reply(page, page.dispatches[0].dispatch_id, Web::Extensions::MessageResult::Reply { "2"_string });
+    EXPECT_EQ(activity.size(), 2u);
+    for (auto const& extension_id : activity)
+        EXPECT_EQ(extension_id, id);
+}
+
+TEST_CASE(only_unanswered_messages_to_the_background_keep_it)
+{
+    ExtensionMessageBroker broker;
+    FakeEndpoint page, content, background;
+    content.content_script = true;
+    content.view_id = 7;
+    background.background = true;
+    auto id = MUST(String::from_utf8(x));
+    broker.context_created(page, id, 1, { 1, 1 }, 1);
+    broker.context_created(content, id, 1, { 1, 1 }, 1);
+    broker.context_created(background, id, 1, { 1, 1 }, 1);
+    broker.send_to_tab(page, id, 1, 1, 7, {}, "1"_string);
+    EXPECT_EQ(content.dispatches.size(), 1u);
+    EXPECT(!broker.has_unanswered_dispatches(id));
+    broker.send(content, id, 2, sender_for(x), "1"_string, 1);
+    EXPECT(broker.has_unanswered_dispatches(id));
+    // An age limit counts each message from when it was sent, whatever else happens.
+    EXPECT(!broker.has_unanswered_dispatches(id, AK::Duration::zero()));
+    EXPECT(broker.has_unanswered_dispatches(id, AK::Duration::from_seconds(60)));
+    broker.reply(background, background.dispatches[0].dispatch_id, Web::Extensions::MessageResult::Reply { "2"_string });
+    EXPECT(!broker.has_unanswered_dispatches(id));
+}
+
+TEST_CASE(storage_changes_wait_for_a_starting_background)
+{
+    StorageFixture f;
+    f.b.background = true;
+    f.broker.background_starting(f.id, 1);
+    f.set(f.a);
+    f.drain();
+    EXPECT_EQ(f.a.storage_events.size(), 1u);
+    EXPECT(f.b.storage_events.is_empty());
+    f.broker.background_finished(f.id, 1, true);
+    EXPECT_EQ(f.b.storage_events.size(), 1u);
+    EXPECT_EQ(f.a.storage_events.size(), 1u);
+}
