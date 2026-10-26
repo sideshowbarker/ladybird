@@ -196,6 +196,11 @@ TEST_CASE(generated_background_page)
     EXPECT(html.contains("<script src=\"/a.js\"></script>"sv));
     EXPECT(html.contains("<script src=\"/sub/b.js\"></script>"sv));
     EXPECT(html.starts_with_bytes("<!DOCTYPE html>"sv));
+    // The scripts run in the body, so that it exists while they run.
+    auto body = html.find_byte_offset("<body>"sv);
+    auto first_script = html.find_byte_offset("<script"sv);
+    VERIFY(body.has_value() && first_script.has_value());
+    EXPECT(*first_script > *body);
 
     auto worker = parse(R"({ "manifest_version": 3, "name": "x", "version": "1", "background": { "service_worker": "sw.js", "type": "module" } })"sv);
     EXPECT(worker.generated_background_document_html().contains("<script type=\"module\" src=\"/sw.js\"></script>"sv));
