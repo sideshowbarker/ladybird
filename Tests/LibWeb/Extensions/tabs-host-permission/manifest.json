@@ -1,0 +1,25 @@
+{
+    "manifest_version": 3,
+    "name": "Host Permission Tabs Fixture",
+    "version": "1.0",
+    "description": "A background page that runs tabs.query() for the page its content script is in, with a host permission for that page only.",
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "host_permissions": [
+        "file:///*/Extensions/tabs-query-host-permission.html"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/tabs-query-host-permission.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

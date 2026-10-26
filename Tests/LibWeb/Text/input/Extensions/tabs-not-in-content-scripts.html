@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // Content scripts get no tabs namespace; the extension's background page does.
+    asyncTest(async done => {
+        await contentScriptReady();
+        println(`content script: ${document.documentElement.dataset.tabsInContentScript}`);
+        println(`background: ${Array.isArray((await askBackground({})).tabs)}`);
+        done();
+    });
+</script>
+</body>

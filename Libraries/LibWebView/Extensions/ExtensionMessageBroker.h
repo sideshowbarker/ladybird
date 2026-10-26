@@ -58,6 +58,15 @@ public:
 
     void request_storage(Endpoint&, u64 context_id, u64 request_id, Web::Extensions::StorageRequest const&, ExtensionStorageStore&);
 
+    // The extension and document of a context that's still current, for a request that only reads what the browser shows.
+    struct CurrentContext {
+        String extension_id;
+        Web::HTML::CrossProcessId document_id;
+        // One of the extension's own documents, rather than a content script's world.
+        bool is_extension_document { false };
+    };
+    Optional<CurrentContext> current_context(Endpoint&, u64 context_id) const;
+
     void connect(Endpoint&, u64 context_id, u64 port_id, Optional<String> target_extension_id, String name);
     void connect_ack(Endpoint&, u64 context_id, u64 channel_id, bool accepted);
     void port_post_message(Endpoint&, u64 context_id, u64 channel_id, u64 port_id, String json);

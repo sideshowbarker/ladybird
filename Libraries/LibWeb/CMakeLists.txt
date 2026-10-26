@@ -278,6 +278,7 @@ set(SOURCES
     Extensions/API/Port.cpp
     Extensions/API/Runtime.cpp
     Extensions/API/Storage.cpp
+    Extensions/API/Tabs.cpp
     Extensions/ContentScriptInjector.cpp
     Extensions/ExtensionDocumentContext.cpp
     Extensions/ExtensionSet.cpp

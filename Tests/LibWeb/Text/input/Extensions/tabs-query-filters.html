@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<title>Tabs filters</title>
+<body>
+<script>
+    // Each filter of tabs.query(), applied to the tab this test runs in.
+    asyncTest(async done => {
+        await contentScriptReady();
+        const count = async query => (await askBackground({ url: "$self", ...query })).tabs.length;
+        println(`self: ${await count({})}`);
+        println(`active: ${await count({ active: true })}, inactive: ${await count({ active: false })}`);
+        println(`highlighted: ${await count({ highlighted: true })}, pinned: ${await count({ pinned: true })}`);
+        println(`index 0: ${await count({ index: 0 })}, index 1: ${await count({ index: 1 })}`);
+        const [tab] = (await askBackground({ url: "$self" })).tabs;
+        println(`own window: ${await count({ windowId: tab.windowId })}, another: ${await count({ windowId: tab.windowId + 1000000 })}`);
+        println(`unloaded: ${await count({ status: "unloaded" })}, discarded: ${await count({ discarded: true })}`);
+        println(`current window, from the background: ${await count({ currentWindow: true })}`);
+        println(`title: ${await count({ title: "Tabs*" })}, other title: ${await count({ title: "Nothing*" })}`);
+        println(`normal window: ${await count({ windowType: "normal" })}, popup: ${await count({ windowType: "popup" })}`);
+        println(`url list: ${(await askBackground({ url: ["$self"] })).tabs.length}`);
+        done();
+    });
+</script>
+</body>

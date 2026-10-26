@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // A host permission that matches a tab's URL reveals that tab's URL and title, and only that tab's.
+    asyncTest(async done => {
+        await contentScriptReady();
+        const own = await askBackground({ url: "$self" });
+        println(`matching: ${own.tabs.length}`);
+        const [tab] = own.tabs;
+        println(`url is this page: ${tab.url === location.href}`);
+        println(`active: ${tab.active}, index: ${tab.index}, pinned: ${tab.pinned}, incognito: ${tab.incognito}`);
+        println(`integer ids: ${Number.isInteger(tab.id) && Number.isInteger(tab.windowId)}`);
+        const all = await askBackground({});
+        println(`revealed: ${all.tabs.filter(tab => "url" in tab).length}`);
+        done();
+    });
+</script>
+</body>
