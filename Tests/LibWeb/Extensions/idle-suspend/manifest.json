@@ -1,0 +1,25 @@
+{
+    "manifest_version": 3,
+    "name": "Suspend Fixture",
+    "version": "1.0",
+    "description": "A background page whose runtime.onSuspend listener records how far it got.",
+    "permissions": [
+        "storage"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/idle-unload-on-suspend.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

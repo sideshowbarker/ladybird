@@ -76,10 +76,23 @@ NonnullOwnPtr<ExtensionBackgroundHost::Background> ExtensionBackgroundHost::crea
         if (m_views_may_start)
             start_view(record);
     };
-    // FIXME: Dispatch runtime.onSuspend to the page, and wait for its listeners to have run.
-    callbacks.suspend = [&record] { record.lifetime->suspend_acknowledged(); };
-    callbacks.stop = [this, &record] { destroy_view(record); };
-    callbacks.suspend_canceled = [] { };
+    // A page that never registered has no listeners to wait for, so it stops at once.
+    // The page stops once every context of it has acknowledged; one that never registered has none to wait for.
+    callbacks.suspend = [&record] {
+        record.pending_suspend_acknowledgments.clear();
+        for (auto context_id : Application::extension_message_broker().dispatch_suspend(record.id, false))
+            record.pending_suspend_acknowledgments.set(context_id);
+        if (record.pending_suspend_acknowledgments.is_empty())
+            record.lifetime->suspend_acknowledged();
+    };
+    callbacks.stop = [this, &record] {
+        record.pending_suspend_acknowledgments.clear();
+        destroy_view(record);
+    };
+    callbacks.suspend_canceled = [&record] {
+        record.pending_suspend_acknowledgments.clear();
+        (void)Application::extension_message_broker().dispatch_suspend(record.id, true);
+    };
     callbacks.arm_idle_timer = [&record](AK::Duration timeout) { record.idle_timer->restart(timeout); };
     callbacks.disarm_idle_timer = [&record] { record.idle_timer->stop(); };
     callbacks.arm_suspend_timer = [&record](AK::Duration timeout) { record.suspend_timer->restart(timeout); };
@@ -136,10 +149,19 @@ bool ExtensionBackgroundHost::wake(StringView extension_id)
     return (*background)->lifetime->state() == ExtensionBackgroundLifetime::State::Starting;
 }
 
-void ExtensionBackgroundHost::activity(StringView extension_id)
+void ExtensionBackgroundHost::activity(StringView extension_id, ExtensionBackgroundLifetime::FromPage from_page)
 {
     if (auto background = m_backgrounds.get(extension_id); background.has_value())
-        (*background)->lifetime->activity();
+        (*background)->lifetime->activity(from_page);
+}
+
+void ExtensionBackgroundHost::suspend_acknowledged(StringView extension_id, u64 context_id)
+{
+    auto background = m_backgrounds.get(extension_id);
+    if (!background.has_value() || !(*background)->pending_suspend_acknowledgments.remove(context_id))
+        return;
+    if ((*background)->pending_suspend_acknowledgments.is_empty())
+        (*background)->lifetime->suspend_acknowledged();
 }
 
 void ExtensionBackgroundHost::set_idle_timeout(StringView extension_id, AK::Duration timeout)

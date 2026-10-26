@@ -49,6 +49,12 @@ public:
         Function<bool()> keepalive;
     };
 
+    // Whether activity is the background page's own: What the page does while it's suspending doesn't keep it.
+    enum class FromPage : bool {
+        No,
+        Yes,
+    };
+
     static constexpr AK::Duration default_idle_timeout = AK::Duration::from_seconds(30);
     static constexpr AK::Duration suspend_timeout = AK::Duration::from_seconds(1);
     static constexpr AK::Duration max_keepalive = AK::Duration::from_seconds(300);
@@ -63,7 +69,7 @@ public:
     // goes back to running.
     bool wake();
     void loaded(bool success);
-    void activity();
+    void activity(FromPage = FromPage::No);
     void idle_timer_fired();
     void suspend_acknowledged();
     void suspend_timer_fired();

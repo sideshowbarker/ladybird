@@ -158,6 +158,8 @@ A manifest version 2 background page is persistent unless `background.persistent
 
 Any message, reply, port message, or storage request for the extension counts as activity. A message to the page that hasn’t been answered keeps it loaded (on version 3, for at most five minutes), and so does an open port to a version 2 event page; on version 3, an idle open port doesn’t. A persistent page whose process crashes starts again at once; any other starts again when something next needs it.
 
+Before a page unloads, its `runtime.onSuspend` listeners run, and it unloads once they have, or after a second — work they start gets no more time than that. A message or port that arrives meanwhile keeps the page, and its `runtime.onSuspendCanceled` listeners run instead. What the page does itself while suspending (a `storage.local` write, e.g.) doesn’t keep it, and a storage change the page made itself doesn’t wake it again.
+
 ### What isn’t there yet
 
 - No `storage.sync` or `storage.session`; no `tabs` events or methods other than `query()` and `sendMessage()`; no `windows`, `scripting`, `action`, `webNavigation`, `webRequest`, or `declarativeNetRequest`.

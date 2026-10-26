@@ -50,9 +50,11 @@ void ExtensionBackgroundLifetime::loaded(bool success)
     arm_idle_timer();
 }
 
-void ExtensionBackgroundLifetime::activity()
+void ExtensionBackgroundLifetime::activity(FromPage from_page)
 {
     if (m_state == State::Suspending) {
+        if (from_page == FromPage::Yes)
+            return;
         cancel_suspension();
         return;
     }

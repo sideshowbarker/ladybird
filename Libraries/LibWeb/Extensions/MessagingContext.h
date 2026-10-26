@@ -47,6 +47,12 @@ public:
 
     void set_connect_listeners(GC::Ref<EventListenerList> listeners) { m_connect_listeners = listeners; }
     GC::Ptr<EventListenerList> connect_listeners() { return m_connect_listeners; }
+    void set_suspend_listeners(GC::Ref<EventListenerList> suspend, GC::Ref<EventListenerList> suspend_canceled)
+    {
+        m_suspend_listeners = suspend;
+        m_suspend_canceled_listeners = suspend_canceled;
+    }
+    GC::Ptr<EventListenerList> suspend_listeners(bool canceled) { return canceled ? m_suspend_canceled_listeners : m_suspend_listeners; }
     HashMap<u64, GC::Ref<Port>>& live_ports() { return m_live_ports; }
 
     u64 context_id() const { return m_context_id; }
@@ -67,6 +73,8 @@ protected:
     {
         Base::visit_edges(visitor);
         visitor.visit(m_connect_listeners);
+        visitor.visit(m_suspend_listeners);
+        visitor.visit(m_suspend_canceled_listeners);
         for (auto const& [id, port] : m_live_ports)
             visitor.visit(port);
         visitor.visit(m_last_error);
@@ -83,6 +91,8 @@ private:
     inline static u64 s_next_context_id { 0 };
     u64 m_context_id;
     GC::Ptr<EventListenerList> m_connect_listeners;
+    GC::Ptr<EventListenerList> m_suspend_listeners;
+    GC::Ptr<EventListenerList> m_suspend_canceled_listeners;
     HashMap<u64, GC::Ref<Port>> m_live_ports;
     GC::Ptr<EventListenerList> m_storage_listeners;
     GC::Ptr<EventListenerList> m_local_storage_listeners;
