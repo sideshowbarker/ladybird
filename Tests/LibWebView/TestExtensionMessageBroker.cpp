@@ -86,6 +86,9 @@ struct FakeEndpoint final : public ExtensionMessageBroker::Endpoint {
         disconnected.append({ context, port, error });
     }
 
+    Vector<bool> suspends;
+    virtual void dispatch_extension_suspend(String const&, u64, bool canceled) override { suspends.append(canceled); }
+
     bool storage_permission { true };
     Vector<Web::Extensions::StorageResult> storage_replies;
     Vector<String> storage_events;
@@ -964,7 +967,7 @@ TEST_CASE(activity_is_reported_for_messages_replies_and_storage)
 {
     ExtensionMessageBroker broker;
     Vector<String> activity;
-    broker.on_activity = [&](String const& id) { activity.append(id); };
+    broker.on_activity = [&](String const& id, bool) { activity.append(id); };
     FakeEndpoint content, page;
     content.content_script = true;
     auto id = MUST(String::from_utf8(x));
@@ -1013,4 +1016,34 @@ TEST_CASE(storage_changes_wait_for_a_starting_background)
     f.broker.background_finished(f.id, 1, true);
     EXPECT_EQ(f.b.storage_events.size(), 1u);
     EXPECT_EQ(f.a.storage_events.size(), 1u);
+}
+
+TEST_CASE(suspend_events_reach_only_the_background)
+{
+    ExtensionMessageBroker broker;
+    FakeEndpoint page, background;
+    background.background = true;
+    auto id = MUST(String::from_utf8(x));
+    broker.context_created(page, id, 1, { 1, 1 }, 1);
+    EXPECT(broker.dispatch_suspend(id, false).is_empty());
+    broker.context_created(background, id, 1, { 1, 1 }, 1);
+    broker.context_created(background, id, 2, { 1, 1 }, 1);
+    EXPECT_EQ(broker.dispatch_suspend(id, false).size(), 2u);
+    EXPECT_EQ(broker.dispatch_suspend(id, true).size(), 2u);
+    EXPECT_EQ(background.suspends, (Vector { false, false, true, true }));
+    EXPECT(page.suspends.is_empty());
+}
+
+TEST_CASE(a_background_pages_own_storage_writes_dont_wake_it)
+{
+    StorageFixture f;
+    f.b.background = true;
+    Vector<String> woken;
+    f.broker.wake_background = [&](String const& id) { woken.append(id); };
+    f.set(f.b, 2);
+    f.drain();
+    EXPECT(woken.is_empty());
+    f.broker.request_storage(f.a, 1, 2, { .operation = Web::Extensions::StorageRequest::Operation::Set, .keys = {}, .items_json = R"({"key":2})"_string }, f.store);
+    f.drain();
+    EXPECT_EQ(woken.size(), 1u);
 }

@@ -48,6 +48,7 @@ public:
         virtual Optional<i64> extension_frame_id(Web::HTML::CrossProcessId) const { return {}; }
         // Adds the sending document's tab and frame to the sender a receiver sees.
         virtual void annotate_extension_sender(Web::Extensions::MessageSender&, Web::HTML::CrossProcessId) const { }
+        virtual void dispatch_extension_suspend(String const&, u64, bool) { }
         virtual void dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Web::Extensions::MessageSender const&, String const& message_json, u64 context_id) = 0;
         virtual void complete_extension_runtime_message(u64 request_id, Web::Extensions::MessageResult const& reply_json) = 0;
     };
@@ -84,11 +85,15 @@ public:
     // Whether a message to the extension's background page is still waiting for its answer, and, with a maximum age,
     // has waited for less than that.
     bool has_unanswered_dispatches(String const& extension_id, Optional<AK::Duration> max_age = {}) const;
+    // Dispatches runtime.onSuspend, or onSuspendCanceled, to every context of the extension's background page, and
+    // returns the contexts it reached.
+    Vector<u64> dispatch_suspend(String const& extension_id, bool canceled);
 
     // The background host's hooks: wake_background starts an extension's stopped background page, so that what's sent
-    // to it waits for it to load, and on_activity hears of every message, reply, port message, and storage request.
+    // to it waits for it to load, and on_activity hears of every message, reply, port message, and storage request, and
+    // whether the background page itself made it.
     Function<void(String const& extension_id)> wake_background;
-    Function<void(String const& extension_id)> on_activity;
+    Function<void(String const& extension_id, bool from_background)> on_activity;
 
 private:
     struct Context;
@@ -101,7 +106,7 @@ private:
     };
 
     bool storage_context_is_current(Endpoint*, u64 context_id, Context const&) const;
-    void broadcast_storage_changes(String const&, u64 revision, String const&);
+    void broadcast_storage_changes(String const&, u64 revision, String const&, bool written_by_background);
     void settle(u64 pending_id, Web::Extensions::MessageResult const& reply_json);
     void decline(u64 pending_id);
 
@@ -154,7 +159,7 @@ private:
     HashMap<u64, u64> m_dispatch_to_pending;
     HashMap<u64, Target> m_dispatch_to_endpoint;
     HashMap<u64, MonotonicTime> m_dispatch_started;
-    void report_activity(String const& extension_id);
+    void report_activity(String const& extension_id, bool from_background);
     bool is_background_endpoint(Endpoint&, String const& extension_id, Web::HTML::CrossProcessId document_id) const;
     void deliver_storage_changes(Endpoint&, u64 context_id, String const& extension_id, u64 revision, String const& changes);
 

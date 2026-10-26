@@ -56,6 +56,8 @@ public:
     GC::Ref<JS::PromiseCapability> send_to_tab(MessagingContext&, i64 tab_id, Optional<i64> frame_id, JS::Value message);
     void complete_storage(Page&, u64, StorageResult const&);
     void dispatch_storage_changed(Page&, String const&, String const&);
+    // runtime.onSuspend, which acknowledges once its listeners have run, or runtime.onSuspendCanceled.
+    void dispatch_suspend(Page&, String const& extension_id, u64 context_id, bool canceled);
 
     GC::Ref<JS::Object> connect(MessagingContext&, Optional<String> target_extension_id, String const& name);
     void dispatch_connect(Page&, u64 context_id, u64 channel_id, u64 port_id, String const& name, MessageSender const&);

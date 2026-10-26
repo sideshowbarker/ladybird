@@ -7,6 +7,7 @@
 #pragma once
 
 #include <AK/HashMap.h>
+#include <AK/HashTable.h>
 #include <AK/NonnullOwnPtr.h>
 #include <AK/OwnPtr.h>
 #include <AK/String.h>
@@ -39,7 +40,8 @@ public:
 
     // Starts a stopped page, or keeps a suspending one; returns whether the page is starting now.
     bool wake(StringView extension_id);
-    void activity(StringView extension_id);
+    void activity(StringView extension_id, ExtensionBackgroundLifetime::FromPage);
+    void suspend_acknowledged(StringView extension_id, u64 context_id);
     // For tests: how long one extension's page may sit idle.
     void set_idle_timeout(StringView extension_id, AK::Duration);
 
@@ -60,6 +62,8 @@ private:
         RefPtr<Core::Timer> suspend_timer;
         // Counts the views made for the page, so that a task bound to one view never acts on its replacement.
         u64 view_generation { 0 };
+        // The page's contexts that haven't yet acknowledged that their runtime.onSuspend listeners have run.
+        HashTable<u64> pending_suspend_acknowledgments;
     };
 
     NonnullOwnPtr<Background> create_background(Extension const&);

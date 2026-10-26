@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // runtime.onSuspend runs before an idle page unloads, and the next page started sees what its listener stored.
+    asyncTest(async done => {
+        await contentScriptReady();
+        const id = internals.extensionId("Suspend Fixture");
+        println(`before: ${await sendToBackground({ type: "count" })}, ${await sendToBackground({ type: "count" })}`);
+        internals.setExtensionIdleTimeout(id, 50);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        println(`stored while suspending: ${await sendToBackground({ type: "read" })}`);
+        println(`after: ${await sendToBackground({ type: "count" })}`);
+        internals.setExtensionIdleTimeout(id, 30000);
+        done();
+    });
+</script>
+</body>
