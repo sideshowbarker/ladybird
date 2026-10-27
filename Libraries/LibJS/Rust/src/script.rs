@@ -540,7 +540,10 @@ impl Script {
         vm: &Vm,
         global_environment: Gc<GlobalEnvironment>,
     ) -> ThrowCompletionOr<()> {
-        let realm = vm.current_realm();
+        // NB: ScriptEvaluation runs this before pushing the script's execution context, so the running context's realm
+        //     can be another one: an extension's content script runs in its world's realm, from the page's settings.
+        //     The spec's current realm here is the script's.
+        let realm = self.realm();
 
         // 1. Let lexNames be the LexicallyDeclaredNames of script.
         // 2. Let varNames be the VarDeclaredNames of script.
@@ -677,7 +680,7 @@ impl Script {
             // b. Let fo be InstantiateFunctionObject of f with arguments env and privateEnv.
             let function = EcmascriptFunctionObject::create_from_function_data(
                 vm,
-                realm.expect("GlobalDeclarationInstantiation runs in an execution context with a realm"),
+                realm,
                 self.functions_to_initialize[function_index].shared_data,
                 Some(global_environment.upcast()),
                 private_environment,

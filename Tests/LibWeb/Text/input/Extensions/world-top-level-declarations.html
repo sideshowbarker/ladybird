@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<body>
+<script>
+    var pageGlobal = "the page's";
+
+    // A content script's top-level declarations bind in its own world: The script uses them, and the page sees none.
+    asyncTest(async done => {
+        if (!document.documentElement.dataset.declarations)
+            await new Promise(resolve => document.addEventListener("declarations-reported", resolve, { once: true }));
+        for (const [name, value] of Object.entries(JSON.parse(document.documentElement.dataset.declarations)))
+            println(`content script: ${name}: ${value}`);
+        println(`page: window.declared: ${typeof window.declared}`);
+        println(`page: window.declaredVar: ${typeof window.declaredVar}`);
+        done();
+    });
+</script>
+</body>
