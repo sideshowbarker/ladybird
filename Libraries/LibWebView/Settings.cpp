@@ -91,6 +91,7 @@ static constexpr auto EXTENSION_PATH_KEY = "path"sv;
 static constexpr auto EXTENSION_ENABLED_KEY = "enabled"sv;
 static constexpr auto EXTENSION_ALLOWED_IN_PRIVATE_KEY = "allowed_in_private"sv;
 static constexpr auto EXTENSION_GRANTED_PERMISSIONS_KEY = "granted_permissions"sv;
+static constexpr auto EXTENSION_LAST_SEEN_VERSION_KEY = "last_seen_version"sv;
 
 static constexpr auto GLOBAL_PRIVACY_CONTROL_KEY = "globalPrivacyControl"sv;
 static constexpr auto CRASH_REPORT_SENDING_KEY = "crashReportSending"sv;
@@ -800,7 +801,10 @@ Settings Settings::create(ByteString settings_path, Vector<String> platform_lang
                         granted_permissions.append(permission.as_string());
                 }
             }
-            settings.m_installed_extensions.append({ *id, path->to_byte_string(), value.as_object().get_bool(EXTENSION_ENABLED_KEY).value_or(true), move(granted_permissions), value.as_object().get_bool(EXTENSION_ALLOWED_IN_PRIVATE_KEY).value_or(false) });
+            Optional<String> last_seen_version;
+            if (auto version = value.as_object().get_string(EXTENSION_LAST_SEEN_VERSION_KEY); version.has_value())
+                last_seen_version = *version;
+            settings.m_installed_extensions.append({ *id, path->to_byte_string(), value.as_object().get_bool(EXTENSION_ENABLED_KEY).value_or(true), move(granted_permissions), value.as_object().get_bool(EXTENSION_ALLOWED_IN_PRIVATE_KEY).value_or(false), move(last_seen_version) });
         }
     }
 
@@ -986,6 +990,8 @@ JsonValue Settings::serialize_json() const
         object.set(EXTENSION_PATH_KEY, MUST(String::from_byte_string(extension.path)));
         object.set(EXTENSION_ENABLED_KEY, extension.enabled);
         object.set(EXTENSION_ALLOWED_IN_PRIVATE_KEY, extension.allowed_in_private);
+        if (extension.last_seen_version.has_value())
+            object.set(EXTENSION_LAST_SEEN_VERSION_KEY, *extension.last_seen_version);
         JsonArray permissions;
         for (auto const& permission : extension.granted_permissions)
             permissions.must_append(permission);
@@ -1614,6 +1620,17 @@ void Settings::set_installed_extension_allowed_in_private(StringView id, bool al
         if (extension.id != id || extension.allowed_in_private == allowed)
             continue;
         extension.allowed_in_private = allowed;
+        persist_settings();
+        return;
+    }
+}
+
+void Settings::set_installed_extension_last_seen_version(StringView id, String version)
+{
+    for (auto& extension : m_installed_extensions) {
+        if (extension.id != id || extension.last_seen_version == version)
+            continue;
+        extension.last_seen_version = move(version);
         persist_settings();
         return;
     }

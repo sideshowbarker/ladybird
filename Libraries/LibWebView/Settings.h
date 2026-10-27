@@ -154,6 +154,8 @@ struct InstalledExtension {
     bool enabled { true };
     Vector<String> granted_permissions {};
     bool allowed_in_private { false };
+    // The version runtime.onInstalled last saw, so a new one reports an update.
+    Optional<String> last_seen_version {};
 };
 
 struct ContentBlockerList {
@@ -367,6 +369,7 @@ public:
     String add_installed_extension(ByteString path, Optional<String> id = {}, Vector<String> granted_permissions = {});
     void set_installed_extension_enabled(StringView id, bool enabled);
     void set_installed_extension_allowed_in_private(StringView id, bool);
+    void set_installed_extension_last_seen_version(StringView id, String version);
     void remove_installed_extension(StringView id);
 
     GlobalPrivacyControl global_privacy_control() const { return m_global_privacy_control; }

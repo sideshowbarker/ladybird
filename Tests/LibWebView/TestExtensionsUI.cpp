@@ -82,3 +82,13 @@ TEST_CASE(extensions_page_is_dynamic)
         EXPECT_EQ(page->title, "Extensions"sv);
     }
 }
+
+TEST_CASE(the_last_seen_version_persists)
+{
+    InstallFixture fixture;
+    auto id = fixture.settings.add_installed_extension(fixture.directory);
+    EXPECT(!fixture.settings.installed_extensions()[0].last_seen_version.has_value());
+    fixture.settings.set_installed_extension_last_seen_version(id, "1.2"_string);
+    auto persisted = WebView::Settings::create(LexicalPath::join(fixture.directory, "Settings.json"sv).string());
+    EXPECT_EQ(persisted.installed_extensions()[0].last_seen_version, "1.2"sv);
+}
