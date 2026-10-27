@@ -51,6 +51,7 @@
 #include <LibWebView/BrowsingSession.h>
 #include <LibWebView/DownloadStore.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
+#include <LibWebView/Extensions/ExtensionTabsAPI.h>
 #include <LibWebView/ExternalURLHandler.h>
 #include <LibWebView/FileDownloader.h>
 #include <LibWebView/Forward.h>
@@ -298,6 +299,11 @@ public:
     // The browser's tabs, for extensions, in window and then tab order. A frontend with tabs of its own reports them, and
     // the default reports each view marked as a tab, as the active tab of a window of its own.
     virtual Vector<ExtensionTab> extension_tabs() const;
+    // tabs.create() and tabs.update(), whose arguments the caller has already checked, and whose window, when it names
+    // one, exists. Each resolves with the tab as it is now, with its new URL. By default, a new tab is a headless view
+    // that's a window of its own, so it can't join another window, and none can be pinned.
+    virtual ErrorOr<ExtensionTab, String> create_extension_tab(ExtensionTabCreation const&);
+    virtual ErrorOr<ExtensionTab, String> update_extension_tab(i64 tab_id, ExtensionTabUpdate const&);
     // A tab that activates another document drops what extensions set for it alone, and an activeTab grant ends when
     // the document is of another origin; one that closes drops all of it.
     void extension_tab_activated_document(i64 tab_id, URL::URL const&);
@@ -654,6 +660,7 @@ private:
     OwnPtr<ExtensionPopupFrontend> m_extension_popup_frontend;
     OwnPtr<ExtensionPopupHost> m_extension_popup_host;
     HashMap<i64, OwnPtr<HeadlessWebView>> m_headless_extension_popups;
+    Vector<OwnPtr<HeadlessWebView>> m_headless_extension_tabs;
     HashMap<String, u64> m_extension_action_revisions;
     HashTable<String> m_extension_actions_allowed_in_private;
     HashMap<String, ExtensionActiveTabGrants> m_extension_active_tab_grants;

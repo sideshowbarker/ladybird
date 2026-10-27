@@ -64,6 +64,7 @@ class ExtensionBackgroundHost;
 class ExtensionMessageBroker;
 class ExtensionRegistry;
 struct ExtensionTab;
+struct ExtensionTabViewer;
 class ExtensionStorageStore;
 class Settings;
 class SettingsUI;

@@ -1378,7 +1378,7 @@ WebView::ViewImplementation* Application::extension_popup_view(i64 window_id) co
     return nullptr;
 }
 
-Vector<WebView::ExtensionTab> Application::extension_tabs() const
+static Vector<BrowserWindow*> browser_windows()
 {
     Vector<BrowserWindow*> windows;
     for (auto* widget : QApplication::topLevelWidgets()) {
@@ -1386,29 +1386,107 @@ Vector<WebView::ExtensionTab> Application::extension_tabs() const
             windows.append(window);
     }
     quick_sort(windows, [](auto const* a, auto const* b) { return a->extension_window_id() < b->extension_window_id(); });
+    return windows;
+}
 
+static WebView::ExtensionTab extension_tab_for(BrowserWindow& window, Tab& tab)
+{
+    return {
+        .id = tab.extension_tab_id(),
+        .window_id = window.extension_window_id(),
+        .index = window.tab_index(&tab),
+        .active = &tab == window.current_tab(),
+        .pinned = tab.is_pinned(),
+        .is_private = window.is_private(),
+        .view_id = tab.is_loaded() ? Optional<u64> { tab.view().view_id() } : Optional<u64> {},
+        .url = tab.url(),
+        .title = ak_string_from_qstring(tab.title()),
+        .loading = tab.is_loading(),
+        .in_popup_window = window.is_popup_window(),
+    };
+}
+
+Vector<WebView::ExtensionTab> Application::extension_tabs() const
+{
     Vector<WebView::ExtensionTab> tabs;
-    for (auto* window : windows) {
+    for (auto* window : browser_windows()) {
         for (int index = 0; index < window->tab_count(); ++index) {
-            auto* tab = window->tab_at(index);
-            if (!tab)
-                continue;
-            tabs.append({
-                .id = tab->extension_tab_id(),
-                .window_id = window->extension_window_id(),
-                .index = index,
-                .active = tab == window->current_tab(),
-                .pinned = tab->is_pinned(),
-                .is_private = window->is_private(),
-                .view_id = tab->is_loaded() ? Optional<u64> { tab->view().view_id() } : Optional<u64> {},
-                .url = tab->url(),
-                .title = ak_string_from_qstring(tab->title()),
-                .loading = tab->is_loading(),
-                .in_popup_window = window->is_popup_window(),
-            });
+            if (auto* tab = window->tab_at(index))
+                tabs.append(extension_tab_for(*window, *tab));
         }
     }
     return tabs;
+}
+
+ErrorOr<WebView::ExtensionTab, String> Application::create_extension_tab(WebView::ExtensionTabCreation const& creation)
+{
+    auto url = creation.url.value_or(WebView::Application::settings().new_tab_page_url());
+    BrowserWindow* window = nullptr;
+    for (auto* candidate : browser_windows()) {
+        if (creation.window_id == candidate->extension_window_id())
+            window = candidate;
+    }
+    if (!window && m_active_window && (active_window().is_private() == WebView::IsPrivate::No || creation.may_open_in_private_window))
+        window = &active_window();
+    if (!window) {
+        for (auto* candidate : browser_windows()) {
+            if (candidate->is_private() == WebView::IsPrivate::No && !candidate->is_popup_window())
+                window = candidate;
+        }
+    }
+
+    Tab* tab = nullptr;
+    if (window) {
+        auto location = BrowserWindow::TabLocation::end();
+        if (creation.index.has_value())
+            location = BrowserWindow::TabLocation::at_index(static_cast<int>(clamp(*creation.index, 0, window->tab_count())));
+        tab = &window->create_new_tab(creation.active ? Web::HTML::ActivateTab::Yes : Web::HTML::ActivateTab::No, location);
+        tab->view().load_extension_page(url);
+    } else {
+        // With no window the tab may open in, it comes in a new one.
+        window = &new_window({});
+        tab = window->current_tab();
+        if (!tab)
+            return "The tab couldn't be opened"_string;
+        tab->view().load_extension_page(url);
+    }
+    if (creation.pinned)
+        window->pin_tab(*tab);
+    auto result = extension_tab_for(*window, *tab);
+    result.url = url;
+    // The tab will show the new page, so it has none of the old one's title.
+    result.title = {};
+    return result;
+}
+
+ErrorOr<WebView::ExtensionTab, String> Application::update_extension_tab(i64 tab_id, WebView::ExtensionTabUpdate const& update)
+{
+    for (auto* window : browser_windows()) {
+        for (int index = 0; index < window->tab_count(); ++index) {
+            auto* tab = window->tab_at(index);
+            if (!tab || tab->extension_tab_id() != tab_id)
+                continue;
+            if (update.url.has_value()) {
+                tab->ensure_loaded();
+                tab->view().load_extension_page(*update.url);
+            }
+            if (update.active == true)
+                window->activate_tab(index);
+            if (update.pinned.has_value() && *update.pinned != tab->is_pinned()) {
+                if (*update.pinned)
+                    window->pin_tab(*tab);
+                else
+                    window->unpin_tab(*tab);
+            }
+            auto result = extension_tab_for(*window, *tab);
+            if (update.url.has_value()) {
+                result.url = *update.url;
+                result.title = {};
+            }
+            return result;
+        }
+    }
+    return MUST(String::formatted("No tab with id: {}.", tab_id));
 }
 
 void Application::set_active_window(BrowserWindow& window)

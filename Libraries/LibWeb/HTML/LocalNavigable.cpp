@@ -106,6 +106,7 @@
 #include <LibWeb/WebIDL/Promise.h>
 #include <LibWeb/XHR/FormData.h>
 #include <LibWebCommon/CSS/SystemColor.h>
+#include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebCommon/Fetch/Infrastructure/URL.h>
 #include <LibWebCommon/HTML/CrossOrigin/OpenerPolicyEnforcement.h>
 #include <LibWebCommon/HTML/HistoryHandlingBehavior.h>
@@ -880,6 +881,11 @@ bool LocalNavigable::is_script_closable()
     // AD-HOC: A traversable the UI process marked, such as an extension's popup, is closable by its own scripts
     //         whatever its history holds; HTML has no notion of one.
     if (page().client().top_level_traversable_is_closable_by_script())
+        return true;
+
+    // AD-HOC: An extension's own page closes its tab with window.close() whatever its history holds, as extensions
+    //         expect; HTML has no notion of a page with that privilege.
+    if (auto document = active_document(); document && document->url().scheme() == Extensions::scheme)
         return true;
 
     return as<LocalTraversableNavigable>(this)->is_created_by_web_content()

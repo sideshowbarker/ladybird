@@ -428,6 +428,10 @@ private:
     Messages::WebContentTestClient::DidRequestSiteIsolationProcessTreeForTestingResponse did_request_site_isolation_process_tree_for_testing();
     Messages::WebContentTestClient::DidRequestExtensionPopupStateForTestingResponse did_request_extension_popup_state_for_testing(String const& extension_id);
     Messages::WebContentTestClient::DidRequestExtensionBackgroundStateForTestingResponse did_request_extension_background_state_for_testing(String const& extension_id);
+
+    // How the extension sees the tabs from this page: from the window of its tab or popup, if it's in one.
+    ExtensionTabViewer extension_tab_viewer(String const& extension_id, Web::Extensions::ExtensionDescriptor const&, ReadonlySpan<ExtensionTab>);
+    ErrorOr<JsonValue, String> call_extension_tabs_api(String const& extension_id, Web::Extensions::ExtensionDescriptor const&, StringView method, JsonArray const& arguments);
     Messages::WebContentTestClient::DidRequestTabIsPlayingAudioForTestingResponse did_request_tab_is_playing_audio_for_testing();
     Messages::WebContentTestClient::DidRequestTabAudibilityChangeCountForTestingResponse did_request_tab_audibility_change_count_for_testing();
     virtual void did_request_crash_of_remote_frame_processes_for_testing() override;

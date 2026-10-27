@@ -329,8 +329,10 @@ Application::~Application()
         m_cpu_profiler_control_socket.clear();
     }
 
-    // The background pages are views, and a view's destructor reaches back into the Application, so they go first.
+    // The background pages, popups, and tabs extensions opened are views, and a view's destructor reaches back into the
+    // Application, so they go first.
     m_headless_extension_popups.clear();
+    m_headless_extension_tabs.clear();
     m_extension_background_host = nullptr;
     m_spare_web_content_process = nullptr;
 
@@ -3721,29 +3723,83 @@ void Application::activate_extension_action(String const& extension_id, i64 tab_
     m_extension_message_broker->dispatch_background_event(extension_id, move(event_name), arguments.serialized());
 }
 
+// A view marked as a tab, as the active tab of a window of its own.
+static ExtensionTab extension_tab_for(ViewImplementation& view)
+{
+    return {
+        .id = *view.extension_tab_id(),
+        .window_id = *view.extension_window_id(),
+        .index = 0,
+        .active = true,
+        .pinned = false,
+        .is_private = view.is_private(),
+        .view_id = view.view_id(),
+        .url = view.url(),
+        .title = view.title().to_utf8(),
+        .loading = view.is_loading(),
+        .in_popup_window = false,
+    };
+}
+
 Vector<ExtensionTab> Application::extension_tabs() const
 {
     Vector<ExtensionTab> tabs;
     ViewImplementation::for_each_view([&](ViewImplementation& view) {
-        if (!view.extension_tab_id().has_value())
-            return IterationDecision::Continue;
-        tabs.append({
-            .id = *view.extension_tab_id(),
-            .window_id = *view.extension_window_id(),
-            .index = 0,
-            .active = true,
-            .pinned = false,
-            .is_private = view.is_private(),
-            .view_id = view.view_id(),
-            .url = view.url(),
-            .title = view.title().to_utf8(),
-            .loading = view.is_loading(),
-            .in_popup_window = false,
-        });
+        if (view.extension_tab_id().has_value())
+            tabs.append(extension_tab_for(view));
         return IterationDecision::Continue;
     });
     quick_sort(tabs, [](auto const& a, auto const& b) { return a.window_id < b.window_id; });
     return tabs;
+}
+
+ErrorOr<ExtensionTab, String> Application::create_extension_tab(ExtensionTabCreation const& creation)
+{
+    if (creation.pinned)
+        return "Pinned tabs aren't supported here"_string;
+    auto theme = m_extension_background_host->theme();
+    if (theme.is_error())
+        return "The tab couldn't be opened"_string;
+    auto view = HeadlessWebView::create(theme.release_value(), { m_browser_options.window_width, m_browser_options.window_height });
+    view->mark_as_extension_tab();
+    // A tab can close from one of its view's own callbacks, so the view goes once that has returned.
+    view->on_close = [view = view.ptr()] {
+        Core::deferred_invoke([view] {
+            if (is_initialized())
+                the().m_headless_extension_tabs.remove_first_matching([&](auto const& tab) { return tab.ptr() == view; });
+        });
+    };
+    auto url = creation.url.value_or(settings().new_tab_page_url());
+    view->load_extension_page(url);
+    auto tab = extension_tab_for(*view);
+    tab.url = url;
+    // The tab will show the new page, so it has none of the old one's title.
+    tab.title = {};
+    m_headless_extension_tabs.append(move(view));
+    return tab;
+}
+
+ErrorOr<ExtensionTab, String> Application::update_extension_tab(i64 tab_id, ExtensionTabUpdate const& update)
+{
+    ViewImplementation* target = nullptr;
+    ViewImplementation::for_each_view([&](ViewImplementation& view) {
+        if (view.extension_tab_id() != tab_id)
+            return IterationDecision::Continue;
+        target = &view;
+        return IterationDecision::Break;
+    });
+    if (!target)
+        return MUST(String::formatted("No tab with id: {}.", tab_id));
+    if (update.pinned == true)
+        return "Pinned tabs aren't supported here"_string;
+    if (update.url.has_value())
+        target->load_extension_page(*update.url);
+    auto tab = extension_tab_for(*target);
+    if (update.url.has_value()) {
+        tab.url = *update.url;
+        tab.title = {};
+    }
+    return tab;
 }
 
 Vector<DevTools::TabDescription> Application::tab_list() const

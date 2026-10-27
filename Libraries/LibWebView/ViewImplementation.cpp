@@ -22,6 +22,7 @@
 #include <LibGfx/SharedImageBuffer.h>
 #include <LibURL/Parser.h>
 #include <LibWebCommon/CSS/SystemColor.h>
+#include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebCommon/Geolocation/GeolocationPositionErrorCode.h>
 #include <LibWebCommon/Infra/Strings.h>
 #include <LibWebCommon/Loader/ContentBlocking.h>
@@ -328,12 +329,29 @@ void ViewImplementation::did_change_ongoing_navigation(Badge<CanonicalNavigable>
     update_displayed_url();
 }
 
+void ViewImplementation::load_extension_page(URL::URL const& url)
+{
+    m_allowed_extension_page.clear();
+    if (url.scheme() == Web::Extensions::scheme)
+        m_allowed_extension_page = url;
+    load(url);
+}
+
+bool ViewImplementation::take_extension_page_load(StringView extension_id, StringView path)
+{
+    if (!m_allowed_extension_page.has_value() || m_allowed_extension_page->serialized_host() != extension_id || m_allowed_extension_page->serialize_path() != path)
+        return false;
+    m_allowed_extension_page.clear();
+    return true;
+}
+
 void ViewImplementation::did_change_active_document(Badge<CanonicalTraversable>)
 {
     // A prompt the document that asked has left behind goes unanswered: the user ignored it.
     ignore_pending_permission_prompts();
     report_permission_presence();
     m_permissions_requested_by_page.clear();
+    m_allowed_extension_page.clear();
     // A tab that loads another document drops what extensions set for it alone.
     if (m_extension_tab_id.has_value())
         Application::the().extension_tab_activated_document(*m_extension_tab_id, url());

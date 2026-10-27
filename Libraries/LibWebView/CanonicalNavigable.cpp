@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebView/CanonicalNavigable.h>
 
 #include <AK/AnyOf.h>
@@ -1424,6 +1425,9 @@ bool CanonicalNavigable::is_script_closable() const
     // AD-HOC: An extension's popup closes itself with window.close() whatever its history holds, as extensions expect;
     //         HTML has no notion of a browser-created traversable that its own scripts may close.
     if (auto view = traversable.view(); view.has_value() && view->is_closable_by_script())
+        return true;
+    // AD-HOC: So does an extension's own page in a tab, whatever its history holds.
+    if (traversable.active_document().creation_url().scheme() == Web::Extensions::scheme)
         return true;
     return traversable.is_created_by_web_content()
         || traversable.session_history().size() == 1;

@@ -274,6 +274,11 @@ public:
     void set_reports_content_size(Optional<Gfx::IntSize> measured_at);
     // A view whose page may close it with window.close() whatever its history holds, as an extension's popup may.
     void set_is_closable_by_script(bool);
+    // Loads an extension's own page that the extension asked to show in this view (with tabs.create() or tabs.update()):
+    // Until the view's next document becomes active, its pages may load that one file, whatever document they show.
+    void load_extension_page(URL::URL const&);
+    // Whether the view may load that file, which it then may not load again.
+    bool take_extension_page_load(StringView extension_id, StringView path);
     bool is_closable_by_script() const { return m_is_closable_by_script; }
 
     struct ScreenRects {
@@ -898,6 +903,7 @@ protected:
     bool m_frame_rate_capped { false };
     Optional<Gfx::IntSize> m_content_size_measured_at;
     bool m_is_closable_by_script { false };
+    Optional<URL::URL> m_allowed_extension_page;
     bool m_scales_frames_to_fit { false };
 
     RefPtr<Menu> m_page_context_menu;

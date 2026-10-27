@@ -1674,6 +1674,14 @@ void WebContentPage::did_request_extension_resource(String extension_id, String 
     // "background.page" among them, though its first document is the initial about:blank one.
     bool allowed = Application::extension_background_host().hosts_page(extension_id, *this)
         || Application::extension_popup_host().hosts_page(extension_id, *this);
+    // So does a tab the extension navigated to one of its pages, for that page alone and once. The page holding the
+    // tab's top-level navigable fetches it, whatever it shows until then, but no other page in the tab may: not a
+    // frame's in another process.
+    if (!allowed && m_traversable && traversable().view().has_value() && traversable().page_hosting(traversable()) == this) {
+        auto& registry = Application::extension_registry();
+        allowed = registry.is_enabled(extension_id) && (client().is_private() == IsPrivate::No || registry.is_allowed_in_private(extension_id))
+            && traversable().view()->take_extension_page_load(extension_id, path);
+    }
     if (!allowed) {
         for_each_extension_document([&](CanonicalNavigable const&, CanonicalDocument const&, URL::URL const& url) {
             allowed = Application::extension_registry().may_access_resource(extension_id, path, url, client().is_private());
@@ -1871,23 +1879,69 @@ void WebContentPage::did_request_extension_tabs_query(u64 context_id, u64 reques
         return;
 
     auto tabs = Application::the().extension_tabs();
-    // A page in a tab, in any of its frames, asks from that tab's window, and a background page from no window at all.
-    Optional<i64> current_window_id;
-    if (auto view = traversable().view(); view.has_value()) {
-        if (auto tab = tabs.find_if([&](auto const& tab) { return tab.view_id == view->view_id(); }); tab != tabs.end())
-            current_window_id = tab->window_id;
-    }
-    // A popup isn't a tab; its current window is the one whose button opened it.
-    if (!current_window_id.has_value())
-        current_window_id = Application::extension_popup_host().window_for_page(*this);
-    auto allowed_in_private = registry.is_allowed_in_private(context->extension_id);
-    auto last_focused_window_id = last_focused_extension_window_for(Application::the().extension_window_focus_order(), tabs, allowed_in_private);
-    ExtensionTabViewer viewer { extension->descriptor(), allowed_in_private, current_window_id, last_focused_window_id, Application::the().extension_active_tab_grants(context->extension_id) };
+    auto viewer = extension_tab_viewer(context->extension_id, extension->descriptor(), tabs);
     auto result = query_extension_tabs(viewer, tabs, query.value().as_object());
     if (result.is_error())
         complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
     else
         complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });
+}
+
+ExtensionTabViewer WebContentPage::extension_tab_viewer(String const& extension_id, Web::Extensions::ExtensionDescriptor const& extension, ReadonlySpan<ExtensionTab> tabs)
+{
+    // A page in a tab, in any of its frames, asks from that tab's window, and a background page from no window at all.
+    Optional<i64> current_window_id;
+    if (auto view = traversable().view(); view.has_value()) {
+        for (auto const& tab : tabs) {
+            if (tab.view_id == view->view_id()) {
+                current_window_id = tab.window_id;
+                break;
+            }
+        }
+    }
+    // A popup isn't a tab; its current window is the one whose button opened it.
+    if (!current_window_id.has_value())
+        current_window_id = Application::extension_popup_host().window_for_page(*this);
+    auto allowed_in_private = Application::extension_registry().is_allowed_in_private(extension_id);
+    auto last_focused_window_id = last_focused_extension_window_for(Application::the().extension_window_focus_order(), tabs, allowed_in_private);
+    return { extension, allowed_in_private, current_window_id, last_focused_window_id, Application::the().extension_active_tab_grants(extension_id) };
+}
+
+ErrorOr<JsonValue, String> WebContentPage::call_extension_tabs_api(String const& extension_id, Web::Extensions::ExtensionDescriptor const& extension, StringView method, JsonArray const& arguments)
+{
+    auto tabs = Application::the().extension_tabs();
+    auto viewer = extension_tab_viewer(extension_id, extension, tabs);
+    auto is_visible_tab = [&](i64 tab_id) {
+        return any_of(tabs, [&](auto const& tab) { return tab.id == tab_id && may_see_tab(viewer, tab); });
+    };
+    // A call that names no window or tab acts in the caller's window, or for a background page, the one last focused.
+    auto default_window_id = viewer.current_window_id.has_value() ? viewer.current_window_id : viewer.last_focused_window_id;
+    // Extensions compare these errors' wording.
+    if (method == "create"sv && arguments.size() == 1 && arguments.at(0).is_object()) {
+        auto creation = TRY(parse_extension_tab_creation(extension, arguments.at(0).as_object()));
+        creation.may_open_in_private_window = viewer.allowed_in_private;
+        if (creation.window_id.has_value()) {
+            if (!any_of(tabs, [&](auto const& tab) { return tab.window_id == *creation.window_id && may_see_tab(viewer, tab); }))
+                return MUST(String::formatted("No window with id: {}.", *creation.window_id));
+        } else {
+            creation.window_id = default_window_id;
+        }
+        return serialize_extension_tab(viewer, TRY(Application::the().create_extension_tab(creation)));
+    }
+    if (method == "update"sv && arguments.size() == 2 && arguments.at(1).is_object()) {
+        auto update = TRY(parse_extension_tab_update(extension, arguments.at(1).as_object()));
+        auto tab_id = arguments.at(0).get_integer<i64>();
+        if (tab_id.has_value() && !is_visible_tab(*tab_id))
+            return MUST(String::formatted("No tab with id: {}.", *tab_id));
+        if (!tab_id.has_value()) {
+            auto active = tabs.find_if([&](auto const& tab) { return tab.window_id == default_window_id && tab.active && may_see_tab(viewer, tab); });
+            if (active == tabs.end())
+                return "No selected tab"_string;
+            tab_id = active->id;
+        }
+        return serialize_extension_tab(viewer, TRY(Application::the().update_extension_tab(*tab_id, update)));
+    }
+    return MUST(String::formatted("tabs.{}() isn't supported", method));
 }
 
 void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, String method, String arguments_json)
@@ -1906,11 +1960,24 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
         return;
     auto api_namespace = method.bytes_as_string_view().substring_view(0, *separator);
     auto name = method.bytes_as_string_view().substring_view(*separator + 1);
+    auto const& call_arguments = arguments.value().as_array();
+
+    // Only the extension's own documents have tabs.
+    if (api_namespace == "tabs"sv) {
+        if (!context->is_extension_document)
+            return;
+        auto result = call_extension_tabs_api(context->extension_id, extension->descriptor(), name, call_arguments);
+        if (result.is_error())
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
+        else
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });
+        return;
+    }
+
     if (!may_call_extension_action_api(context->is_extension_document, api_namespace, extension->descriptor()))
         return;
 
     // A tab the call names has to be one the extension can see; extensions compare this error's wording.
-    auto const& call_arguments = arguments.value().as_array();
     if (!call_arguments.is_empty()) {
         if (auto tab_id = call_arguments.at(0).get_integer<i64>(); tab_id.has_value()) {
             auto& registry = Application::extension_registry();

@@ -20,6 +20,7 @@
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
 #include <LibWebView/Application.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
+#include <LibWebView/Extensions/ExtensionTabsAPI.h>
 #include <LibWebView/HeadlessWebView.h>
 #include <LibWebView/Utilities.h>
 
@@ -363,4 +364,21 @@ TEST_CASE(active_tab_grant_ends_at_another_origin)
     grants.grant(1, page);
     grants.tab_closed(1);
     EXPECT(!grants.contains(1));
+}
+
+TEST_CASE(tab_urls_resolve_against_the_extension_and_reject_what_extensions_cannot_open)
+{
+    auto extension = descriptor_with({});
+    auto resolve = [&](StringView url) { return WebView::resolve_extension_tab_url(extension, url); };
+
+    EXPECT_EQ(MUST(resolve("popup.html"sv)).serialize(), "ladybird-extension://extension/popup.html"sv);
+    EXPECT_EQ(MUST(resolve("/a/b.html?x"sv)).serialize(), "ladybird-extension://extension/a/b.html?x"sv);
+    EXPECT_EQ(MUST(resolve("https://example.com/"sv)).serialize(), "https://example.com/"sv);
+    EXPECT_EQ(MUST(resolve("data:text/plain,x"sv)).serialize(), "data:text/plain,x"sv);
+    EXPECT_EQ(MUST(resolve("ladybird-extension://extension/page.html"sv)).serialize(), "ladybird-extension://extension/page.html"sv);
+
+    EXPECT_EQ(resolve("javascript:1"sv).error(), "JavaScript URLs are not allowed in API based extension navigations. Use chrome.scripting.executeScript instead."sv);
+    EXPECT_EQ(resolve("file:///etc/hosts"sv).error(), "Cannot navigate to a file URL without local file access."sv);
+    EXPECT_EQ(resolve("ladybird-extension://other/page.html"sv).error(), "Cannot navigate to another extension's page."sv);
+    EXPECT_EQ(resolve("http://[::1"sv).error(), "Invalid url: \"http://[::1\"."sv);
 }

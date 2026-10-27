@@ -203,6 +203,121 @@ static JS::ThrowCompletionOr<SendMessageOptions> parse_send_message_options(JS::
     return options;
 }
 
+// One property tabs.create() or tabs.update() knows, and whether Ladybird supports it yet.
+struct TabProperty {
+    StringView name;
+    QueryValueType type;
+    bool supported;
+};
+
+static constexpr TabProperty create_properties[] = {
+    { "active"sv, QueryValueType::Boolean, true },
+    { "index"sv, QueryValueType::Integer, true },
+    { "openerTabId"sv, QueryValueType::Integer, false },
+    { "pinned"sv, QueryValueType::Boolean, true },
+    { "selected"sv, QueryValueType::Boolean, false },
+    { "url"sv, QueryValueType::String, true },
+    { "windowId"sv, QueryValueType::Integer, true },
+};
+
+static constexpr TabProperty update_properties[] = {
+    { "active"sv, QueryValueType::Boolean, true },
+    { "autoDiscardable"sv, QueryValueType::Boolean, false },
+    { "highlighted"sv, QueryValueType::Boolean, false },
+    { "muted"sv, QueryValueType::Boolean, false },
+    { "openerTabId"sv, QueryValueType::Integer, false },
+    { "pinned"sv, QueryValueType::Boolean, true },
+    { "selected"sv, QueryValueType::Boolean, false },
+    { "url"sv, QueryValueType::String, true },
+};
+
+// The method a tabs.create() or tabs.update() error names, with the signature it quotes.
+struct TabMethod {
+    StringView name;
+    StringView signature;
+    StringView parameter;
+    ReadonlySpan<TabProperty> properties;
+};
+
+static constexpr TabMethod create_method { "create"sv, "object createProperties, optional function callback"sv, "createProperties"sv, create_properties };
+static constexpr TabMethod update_method { "update"sv, "optional integer tabId, object updateProperties, optional function callback"sv, "updateProperties"sv, update_properties };
+
+// Extensions compare these messages, so their wording is fixed.
+static JS::ThrowCompletionOr<void> throw_tab_method_error(JS::VM& vm, TabMethod const& method, StringView detail)
+{
+    return vm.throw_completion<JS::TypeError>(Utf16String::formatted("Error in invocation of tabs.{}({}): {}", method.name, method.signature, detail));
+}
+
+struct ParsedTabProperties {
+    JsonObject properties;
+    Optional<String> unsupported_key;
+};
+
+static JS::ThrowCompletionOr<ParsedTabProperties> parse_tab_properties(JS::VM& vm, TabMethod const& method, JS::Value argument)
+{
+    if (!argument.is_object() || argument.is_function() || is<JS::Array>(argument.as_object())) {
+        TRY(throw_tab_method_error(vm, method, MUST(String::formatted("Error at parameter '{}': Invalid type: expected object, found {}.", method.parameter, api_type_name(argument)))));
+        VERIFY_NOT_REACHED();
+    }
+    ParsedTabProperties parsed;
+    auto& object = argument.as_object();
+    for (auto const& property_key : TRY(object.internal_own_property_keys())) {
+        auto key = TRY(JS::PropertyKey::from_value(vm, property_key));
+        if (key.is_symbol())
+            continue;
+        auto descriptor = TRY(object.internal_get_own_property(key));
+        if (!descriptor.has_value() || !*descriptor->enumerable)
+            continue;
+        auto name = key.is_string() ? key.as_string().to_utf16_string().to_utf8() : String::number(key.as_number());
+        auto known = find_if(method.properties.begin(), method.properties.end(), [&](auto const& property) { return property.name == name; });
+        if (known == method.properties.end())
+            TRY(throw_tab_method_error(vm, method, MUST(String::formatted("Error at parameter '{}': Unexpected property: '{}'.", method.parameter, name))));
+        auto value = TRY(object.get(key));
+        if (value.is_undefined())
+            continue;
+        auto type_error = [&](StringView expected) {
+            return throw_tab_method_error(vm, method, MUST(String::formatted("Error at parameter '{}': Error at property '{}': Invalid type: expected {}, found {}.", method.parameter, name, expected, api_type_name(value))));
+        };
+        switch (known->type) {
+        case QueryValueType::Boolean:
+            if (!value.is_boolean())
+                TRY(type_error("boolean"sv));
+            parsed.properties.set(name, value.as_bool());
+            break;
+        case QueryValueType::Integer:
+            if (!is_api_integer(value))
+                TRY(type_error("integer"sv));
+            parsed.properties.set(name, static_cast<i64>(value.as_double()));
+            break;
+        case QueryValueType::String:
+            if (!value.is_string())
+                TRY(type_error("string"sv));
+            parsed.properties.set(name, value.as_string().utf16_string().to_utf8());
+            break;
+        case QueryValueType::Patterns:
+            VERIFY_NOT_REACHED();
+        }
+        if (!known->supported && !parsed.unsupported_key.has_value())
+            parsed.unsupported_key = name;
+    }
+    return parsed;
+}
+
+// Rejects a call that names a property Ladybird doesn't support yet, or else hands it to the UI process.
+static JS::Value call_tab_method(MessagingContext& context, GC::Ptr<JS::FunctionObject> callback, TabMethod const& method, ParsedTabProperties parsed, Optional<JsonValue> tab_id = {})
+{
+    auto& realm = context.realm();
+    if (parsed.unsupported_key.has_value()) {
+        auto message = MUST(String::formatted("tabs.{}() doesn't support the \"{}\" property", method.name, *parsed.unsupported_key));
+        return settle_api_call(context, callback, WebIDL::create_rejected_promise(realm, JS::Error::create(realm, Utf16String::from_utf8(message))));
+    }
+    JsonArray arguments;
+    if (tab_id.has_value())
+        arguments.must_append(tab_id.release_value());
+    arguments.must_append(move(parsed.properties));
+    return settle_api_call(context, callback, MessageRouter::the().call_api(context, MUST(String::formatted("tabs.{}", method.name)), arguments));
+}
+
 GC::Ref<JS::Object> create_tabs(JS::Realm& realm, MessagingContext& context)
 {
     auto tabs = JS::Object::create(realm, realm.intrinsics().object_prototype());
@@ -240,6 +355,39 @@ GC::Ref<JS::Object> create_tabs(JS::Realm& realm, MessagingContext& context)
             return settle_api_call(*context, callback, WebIDL::create_rejected_promise(operation_realm, JS::Error::create(operation_realm, "tabs.sendMessage() doesn't support documentId"_utf16)));
         auto tab_id = static_cast<i64>(vm.argument(0).as_double());
         return settle_api_call(*context, callback, MessageRouter::the().send_to_tab(*context, tab_id, options.frame_id, vm.argument(1))); }, 2, attributes);
+    tabs->define_native_function(realm, "create"_utf16_fly_string, [context = GC::Ref { context }](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        if (context->is_detached())
+            return vm.throw_completion<JS::TypeError>("The extension context is gone"sv);
+        auto count = vm.argument_count();
+        GC::Ptr<JS::FunctionObject> callback;
+        if (count > 1 && vm.argument(count - 1).is_function())
+            callback = vm.argument(--count).as_function();
+        if (count > 1)
+            TRY(throw_tab_method_error(vm, create_method, "No matching signature."sv));
+        auto parsed = TRY(parse_tab_properties(vm, create_method, vm.argument(0)));
+        return call_tab_method(*context, callback, create_method, move(parsed)); }, 1, attributes);
+    tabs->define_native_function(realm, "update"_utf16_fly_string, [context = GC::Ref { context }](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        if (context->is_detached())
+            return vm.throw_completion<JS::TypeError>("The extension context is gone"sv);
+        auto count = vm.argument_count();
+        GC::Ptr<JS::FunctionObject> callback;
+        if (count > 1 && vm.argument(count - 1).is_function())
+            callback = vm.argument(--count).as_function();
+        if (count > 2)
+            TRY(throw_tab_method_error(vm, update_method, "No matching signature."sv));
+        // The tab id is optional, so a single argument is the properties.
+        JsonValue tab_id;
+        auto properties = vm.argument(0);
+        if (count == 2) {
+            if (!vm.argument(0).is_nullish()) {
+                if (!is_api_integer(vm.argument(0)))
+                    TRY(throw_tab_method_error(vm, update_method, MUST(String::formatted("Error at parameter 'tabId': Invalid type: expected integer, found {}.", api_type_name(vm.argument(0))))));
+                tab_id = static_cast<i64>(vm.argument(0).as_double());
+            }
+            properties = vm.argument(1);
+        }
+        auto parsed = TRY(parse_tab_properties(vm, update_method, properties));
+        return call_tab_method(*context, callback, update_method, move(parsed), move(tab_id)); }, 1, attributes);
     return tabs;
 }
 
