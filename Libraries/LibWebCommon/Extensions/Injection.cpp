@@ -18,6 +18,10 @@ ErrorOr<void> encode(Encoder& encoder, Web::Extensions::ExtensionInjection const
     TRY(encoder.encode(injection.function_source));
     TRY(encoder.encode(injection.arguments_json));
     TRY(encoder.encode(to_underlying(injection.world)));
+    TRY(encoder.encode(injection.css_sources));
+    TRY(encoder.encode(injection.css_keys));
+    TRY(encoder.encode(injection.css_user_origin));
+    TRY(encoder.encode(injection.remove_css));
     return encoder.encode(injection.run_at);
 }
 
@@ -33,8 +37,12 @@ ErrorOr<Web::Extensions::ExtensionInjection> decode(Decoder& decoder)
     if (world > to_underlying(Web::Extensions::ExecutionWorld::Main))
         return Error::from_string_literal("Invalid extension injection world");
     injection.world = static_cast<Web::Extensions::ExecutionWorld>(world);
+    injection.css_sources = TRY(decoder.decode<Vector<String>>());
+    injection.css_keys = TRY(decoder.decode<Vector<String>>());
+    injection.css_user_origin = TRY(decoder.decode<bool>());
+    injection.remove_css = TRY(decoder.decode<bool>());
     injection.run_at = TRY(decoder.decode<Optional<Web::Extensions::RunAt>>());
-    if (injection.js_paths.size() != injection.js_sources.size())
+    if (injection.js_paths.size() != injection.js_sources.size() || injection.css_keys.size() != injection.css_sources.size())
         return Error::from_string_literal("Mismatched extension injection sources");
     return injection;
 }

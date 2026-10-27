@@ -18,16 +18,21 @@
 
 namespace WebView {
 
-// Which frames of a tab an injection is for: the given frames, every frame, or else the top one. An about:blank or
-// about:srcdoc frame counts as its creator's URL when match_about_blank is set, and is passed over otherwise.
+// Which frames of a tab an injection is for: the given frames, every frame (or with a root frame, every frame of its
+// subtree), or else the top one. An about:blank or about:srcdoc frame counts as its creator's URL when
+// match_about_blank is set, and is passed over otherwise. In manifest version 2, an error in the root (or top) frame
+// rejects the whole call.
 struct ExtensionInjectionTarget {
     i64 tab_id { 0 };
     Optional<Vector<i64>> frame_ids;
+    Optional<i64> root_frame_id;
     bool all_frames { false };
     bool match_about_blank { true };
+    bool root_error_rejects { false };
 };
 
-// A scripting.executeScript() call, its files read from the extension.
+// A scripting.executeScript(), insertCSS(), or removeCSS() call, or a tabs.executeScript() or insertCSS() one, its
+// files read from the extension.
 struct ExtensionInjectionRequest {
     ExtensionInjectionTarget target;
     Web::Extensions::ExtensionInjection injection;
@@ -35,6 +40,19 @@ struct ExtensionInjectionRequest {
 
 // Checks and reads the details object the renderer sent; extensions compare these errors' wording.
 WEBVIEW_API ErrorOr<ExtensionInjectionRequest, String> parse_extension_injection(Extension const&, JsonObject const& details);
+enum class ExtensionCSSInjection {
+    Insert,
+    Remove,
+};
+WEBVIEW_API ErrorOr<ExtensionInjectionRequest, String> parse_extension_css_injection(Extension const&, JsonObject const& details, ExtensionCSSInjection);
+
+// Manifest version 2's tabs.executeScript() and tabs.insertCSS(): code or a file, in a tab's top frame, the frame
+// named by frameId, or all of its frames.
+enum class ExtensionTabsInjection {
+    Script,
+    CSS,
+};
+WEBVIEW_API ErrorOr<ExtensionInjectionRequest, String> parse_extension_tabs_injection(Extension const&, i64 tab_id, JsonObject const& details, ExtensionTabsInjection);
 
 // Why an extension may not inject into a document at the URL, as the error extensions compare: another extension's
 // page, or a host it has no access to (with the URL only when it may see the tab's URL).

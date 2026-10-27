@@ -1,0 +1,60 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <style>
+        #user {
+            color: rgb(10, 10, 10) !important;
+        }
+    </style>
+    <div id="box"></div>
+    <div id="declared"></div>
+    <div id="user"></div>
+    <script>
+        // scripting.insertCSS() adds CSS or files to the page, and removeCSS() takes the same CSS away again.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const box = document.getElementById("box");
+            const style = () => `${getComputedStyle(box).color} / ${getComputedStyle(box).backgroundColor}`;
+            const css = "#box { color: rgb(1, 2, 3); }";
+            println(`before: ${style()}`);
+            println(
+                `insertCSS: ${JSON.stringify(await sendToBackground({ type: "insertCSS", details: { css } }))} ${style()}`
+            );
+            await sendToBackground({ type: "insertCSS", details: { files: ["style.css"] } });
+            println(`a file: ${style()}`);
+            await sendToBackground({ type: "removeCSS", details: { css } });
+            println(`removeCSS: ${style()}`);
+            await sendToBackground({ type: "removeCSS", details: { files: ["style.css"] } });
+            println(`the file removed: ${style()}`);
+            println(`neither: ${(await sendToBackground({ type: "insertCSS", details: {} })).failed}`);
+            println(
+                `no tabs.executeScript in manifest version 3: ${await sendToBackground({ type: "no-tabs-executeScript" })}`
+            );
+
+            // removeCSS() takes away only what an insertCSS() call of the extension's added with the same CSS or
+            // file, and the same origin; a USER sheet's !important rule beats the page's.
+            const color = id => getComputedStyle(document.getElementById(id)).color;
+            await sendToBackground({
+                type: "removeCSS",
+                details: { css: "#declared {\n    color: rgb(9, 9, 9);\n}\n" },
+            });
+            println(`a content script's sheet stays: ${color("declared")}`);
+            await sendToBackground({ type: "insertCSS", details: { files: ["style.css"] } });
+            await sendToBackground({
+                type: "removeCSS",
+                details: { css: "#box {\n    background-color: rgb(4, 5, 6);\n}\n" },
+            });
+            println(`a file's sheet stays after removing the same text: ${style()}`);
+            await sendToBackground({ type: "removeCSS", details: { files: ["style.css"] } });
+            const user = "#user { color: rgb(20, 20, 20) !important; }";
+            await sendToBackground({ type: "insertCSS", details: { css: user, origin: "USER" } });
+            println(`a USER sheet: ${color("user")}`);
+            await sendToBackground({ type: "removeCSS", details: { css: user } });
+            println(`removed as AUTHOR: ${color("user")}`);
+            await sendToBackground({ type: "removeCSS", details: { css: user, origin: "USER" } });
+            println(`removed as USER: ${color("user")}`);
+            done();
+        });
+    </script>
+</body>

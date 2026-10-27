@@ -1,0 +1,35 @@
+{
+    "manifest_version": 2,
+    "name": "Tabs Execute MV2 Fixture",
+    "version": "1.0",
+    "description": "A manifest version 2 background page that injects code, files, and CSS into the test page's tab and its frames.",
+    "permissions": [
+        "file:///*"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/tabs-execute-script-mv2.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        },
+        {
+            "matches": [
+                "file:///*/data/extension-frame-with-child.html"
+            ],
+            "js": [
+                "frame.js"
+            ],
+            "run_at": "document_end",
+            "all_frames": true
+        }
+    ]
+}

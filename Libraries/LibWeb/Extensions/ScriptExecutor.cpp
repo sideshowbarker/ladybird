@@ -85,6 +85,17 @@ static void run_injection(DOM::Document& document, ExtensionDescriptor const& ex
         reply->settle({}, {}, FrameRemoved::Yes);
         return;
     }
+    for (size_t i = 0; i < injection.css_sources.size(); ++i) {
+        DOM::ExtensionStyleSheetOwner owner { extension.id, injection.css_keys[i], injection.css_user_origin };
+        if (injection.remove_css)
+            document.remove_extension_style_sheet(owner);
+        else
+            document.add_extension_style_sheet(Utf16String::from_utf8(injection.css_sources[i]), document.url(), move(owner));
+    }
+    if (injection.js_sources.is_empty() && !injection.function_source.has_value()) {
+        reply->settle({}, {});
+        return;
+    }
 
     // A function runs as an expression called with its arguments, which are a JSON array.
     Vector<String> names = injection.js_paths;

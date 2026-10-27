@@ -12653,6 +12653,14 @@ Extensions::ExtensionWorld& Document::ensure_extension_world(Extensions::Extensi
     return *world;
 }
 
+Vector<Utf16String> Document::extension_user_style_sources() const
+{
+    Vector<Utf16String> sources;
+    for (auto const& sheet : m_extension_user_style_sheets)
+        sources.append(sheet.source);
+    return sources;
+}
+
 void Document::detach_extension_worlds()
 {
     Extensions::cancel_pending_injections(*this);
@@ -12690,11 +12698,18 @@ void Document::schedule_content_script_idle_point()
     m_content_script_idle_timer->start();
 }
 
-void Document::add_extension_style_sheet(Utf16String const& source, URL::URL const& url)
+void Document::add_extension_style_sheet(Utf16String const& source, URL::URL const& url, ExtensionStyleSheetOwner owner)
 {
+    if (owner.user_origin) {
+        m_extension_user_style_sheets.append({ move(owner), source });
+        style_scope().invalidate_user_style_sheet();
+        record_style_environment_change();
+        return;
+    }
     auto sheet = parse_css_stylesheet(CSS::Parser::ParsingParams { *this }, source.utf16_view(), url);
     sheet->add_owning_document_or_shadow_root(*this);
     m_extension_style_sheets.append(sheet);
+    m_extension_style_sheet_owners.append(move(owner));
     sheet->load_pending_image_resources(*this);
     sheet->evaluate_media_queries(*this);
 
@@ -12708,6 +12723,31 @@ void Document::add_extension_style_sheet(Utf16String const& source, URL::URL con
     });
     CSS::record_stylesheet_attached(*sheet, *this, following);
     CSS::record_stylesheet_conditions(*sheet, *this, sheet->native_media_list().matches());
+    CSS::invalidate_rule_cache_after_style_sheet_change(*this, *sheet);
+    fonts()->synchronize_css_connected_font_order();
+    record_style_environment_change();
+}
+
+void Document::remove_extension_style_sheet(ExtensionStyleSheetOwner const& owner)
+{
+    if (!owner.injection_key.has_value())
+        return;
+    if (owner.user_origin) {
+        auto index = m_extension_user_style_sheets.find_first_index_if([&](auto const& sheet) { return sheet.owner == owner; });
+        if (!index.has_value())
+            return;
+        m_extension_user_style_sheets.remove(*index);
+        style_scope().invalidate_user_style_sheet();
+        record_style_environment_change();
+        return;
+    }
+    auto index = m_extension_style_sheet_owners.find_first_index(owner);
+    if (!index.has_value())
+        return;
+    auto sheet = m_extension_style_sheets.take(*index);
+    m_extension_style_sheet_owners.remove(*index);
+    CSS::record_stylesheet_detached(*sheet, *this);
+    sheet->remove_owning_document_or_shadow_root(*this);
     CSS::invalidate_rule_cache_after_style_sheet_change(*this, *sheet);
     fonts()->synchronize_css_connected_font_order();
     record_style_environment_change();

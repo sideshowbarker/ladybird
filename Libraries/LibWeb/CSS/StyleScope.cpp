@@ -288,7 +288,8 @@ void StyleScope::build_user_style_sheet_if_needed()
 
     auto user_style_source = document().page().user_style();
     auto const& content_blocker_style_source = document().content_blocker_style_sheet();
-    if (!user_style_source.has_value() && content_blocker_style_source.is_empty())
+    auto extension_sources = document().extension_user_style_sources();
+    if (!user_style_source.has_value() && content_blocker_style_source.is_empty() && extension_sources.is_empty())
         return;
 
     Utf16StringBuilder source;
@@ -298,6 +299,11 @@ void StyleScope::build_user_style_sheet_if_needed()
         if (!source.is_empty())
             source.append_ascii('\n');
         source.append(content_blocker_style_source.utf16_view());
+    }
+    for (auto const& extension_source : extension_sources) {
+        if (!source.is_empty())
+            source.append_ascii('\n');
+        source.append(extension_source.utf16_view());
     }
 
     m_user_style_sheet = parse_css_stylesheet(CSS::Parser::ParsingParams(document()), source.view());

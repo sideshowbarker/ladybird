@@ -1952,18 +1952,83 @@ void WebContentPage::call_extension_scripting_api(String const& extension_id, u6
         else
             page->complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });
     };
-    if (method != "executeScript"sv || arguments.size() != 1 || !arguments.at(0).is_object()) {
+    auto is_css = method == "insertCSS"sv || method == "removeCSS"sv;
+    if ((method != "executeScript"sv && !is_css) || arguments.size() != 1 || !arguments.at(0).is_object()) {
         complete(MUST(String::formatted("scripting.{}() isn't supported", method)));
         return;
     }
-    auto request = parse_extension_injection(*extension, arguments.at(0).as_object());
+    auto const& details = arguments.at(0).as_object();
+    auto request = is_css
+        ? parse_extension_css_injection(*extension, details, method == "insertCSS"sv ? ExtensionCSSInjection::Insert : ExtensionCSSInjection::Remove)
+        : parse_extension_injection(*extension, details);
     if (request.is_error()) {
         complete(request.release_error());
         return;
     }
     auto tabs = Application::the().extension_tabs();
     auto viewer = extension_tab_viewer(extension_id, extension->descriptor(), tabs);
-    Application::the().run_extension_injection(*extension, viewer, request.release_value(), move(complete));
+    if (!is_css) {
+        Application::the().run_extension_injection(*extension, viewer, request.release_value(), move(complete));
+        return;
+    }
+    // insertCSS() and removeCSS() resolve with nothing.
+    Application::the().run_extension_injection(*extension, viewer, request.release_value(), [page = NonnullRefPtr { *this }, request_id](ErrorOr<JsonValue, String> result) {
+        if (result.is_error())
+            page->complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
+        else
+            page->complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::NoReply {});
+    });
+}
+
+void WebContentPage::call_extension_tabs_injection_api(String const& extension_id, u64 request_id, StringView method, JsonArray const& arguments)
+{
+    auto extension = Application::extension_registry().find(extension_id);
+    if (!extension)
+        return;
+    auto fail = [&](String error) {
+        complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { move(error) });
+    };
+    if (arguments.size() != 2 || !arguments.at(1).is_object()) {
+        fail(MUST(String::formatted("tabs.{}() isn't supported", method)));
+        return;
+    }
+    auto tabs = Application::the().extension_tabs();
+    auto viewer = extension_tab_viewer(extension_id, extension->descriptor(), tabs);
+    // With no tab id, the call is for the active tab of the caller's window, or for a background page, the one last
+    // focused.
+    auto tab_id = arguments.at(0).get_integer<i64>();
+    if (!tab_id.has_value()) {
+        auto window_id = viewer.current_window_id.has_value() ? viewer.current_window_id : viewer.last_focused_window_id;
+        auto active = tabs.find_if([&](auto const& tab) { return tab.window_id == window_id && tab.active && may_see_tab(viewer, tab); });
+        if (active == tabs.end()) {
+            fail("No selected tab"_string);
+            return;
+        }
+        tab_id = active->id;
+    }
+    auto is_css = method == "insertCSS"sv;
+    auto request = parse_extension_tabs_injection(*extension, *tab_id, arguments.at(1).as_object(), is_css ? ExtensionTabsInjection::CSS : ExtensionTabsInjection::Script);
+    if (request.is_error()) {
+        fail(request.release_error());
+        return;
+    }
+    // executeScript() resolves with each frame's value alone; insertCSS() with nothing.
+    Application::the().run_extension_injection(*extension, viewer, request.release_value(), [page = NonnullRefPtr { *this }, request_id, is_css](ErrorOr<JsonValue, String> result) {
+        if (result.is_error()) {
+            page->complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
+            return;
+        }
+        if (is_css) {
+            page->complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::NoReply {});
+            return;
+        }
+        JsonArray values;
+        result.value().as_array().for_each([&](JsonValue const& frame) {
+            auto value = frame.as_object().get("result"sv);
+            values.must_append(value.has_value() ? *value : JsonValue {});
+        });
+        page->complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { values.serialized() });
+    });
 }
 
 void WebContentPage::extension_injection_target_gone()
@@ -2133,6 +2198,13 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
     if (api_namespace == "tabs"sv) {
         if (!context->is_extension_document)
             return;
+        // Manifest version 2 injects with tabs; version 3 has scripting instead. These complete later.
+        if (name == "executeScript"sv || name == "insertCSS"sv) {
+            if (extension->descriptor().manifest_version >= 3)
+                return;
+            call_extension_tabs_injection_api(context->extension_id, request_id, name, call_arguments);
+            return;
+        }
         auto result = call_extension_tabs_api(context->extension_id, extension->descriptor(), name, call_arguments);
         if (result.is_error())
             complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });

@@ -3737,9 +3737,10 @@ void Application::run_extension_injection(Extension const& extension, ExtensionT
         return;
     }
 
-    // The frames the call names, or the top one, or with allFrames, every frame of the tab.
+    // The frames the call names, or the top one, or with allFrames, every frame of the tab or of the root's subtree.
     // Only frames the call names explicitly refuse it; any other frame the extension can't reach is passed over.
-    i64 primary_frame_id = 0;
+    // Manifest version 2 names a root frame: the one its frameId names, which with allFrames heads the subtree.
+    auto primary_frame_id = target.root_frame_id.value_or(target.root_error_rejects && target.frame_ids.has_value() && !target.frame_ids->is_empty() ? target.frame_ids->first() : 0);
     struct Selected {
         Candidate frame;
         bool named;
@@ -3803,7 +3804,7 @@ void Application::run_extension_injection(Extension const& extension, ExtensionT
     }
 
     auto injection_id = m_next_extension_injection_id++;
-    PendingExtensionInjection pending { move(callback), {}, reachable.size(), primary_frame_id };
+    PendingExtensionInjection pending { move(callback), {}, reachable.size(), primary_frame_id, target.root_error_rejects };
     for (auto const& frame : reachable)
         pending.frames.append({ frame.frame_id, {}, {} });
     m_pending_extension_injections.set(injection_id, move(pending));
@@ -3860,9 +3861,15 @@ void Application::extension_injection_page_gone(WebContentPage const& page)
 void Application::finish_extension_injection(u64 injection_id)
 {
     auto done = m_pending_extension_injections.take(injection_id).release_value();
-    // A single frame's error rejects the call; with more, a frame that failed is left out.
+    // A single frame's error rejects the call, and in manifest version 2, so does the root (or top) frame's; otherwise a
+    // frame that failed is left out.
+    auto primary = done.frames.find_if([&](auto const& frame) { return frame.frame_id == done.primary_frame_id; });
     if (done.frames.size() == 1 && done.frames[0].error.has_value()) {
         done.callback(done.frames[0].error.release_value());
+        return;
+    }
+    if (done.primary_error_rejects && primary != done.frames.end() && primary->error.has_value()) {
+        done.callback(primary->error.release_value());
         return;
     }
     quick_sort(done.frames, [&](auto const& a, auto const& b) { return a.frame_id == done.primary_frame_id && b.frame_id != done.primary_frame_id; });

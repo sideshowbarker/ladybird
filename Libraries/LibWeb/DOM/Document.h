@@ -283,6 +283,15 @@ struct PendingFullscreenEvent {
     Fullscreen::RequestType request_type;
 };
 
+// Whose an extension style sheet is: the extension's, and for one an insertCSS() call added, the key removeCSS()
+// matches it by (its file's or its code's), and whether it's a user sheet rather than an author one.
+struct ExtensionStyleSheetOwner {
+    String extension_id;
+    Optional<String> injection_key {};
+    bool user_origin { false };
+    bool operator==(ExtensionStyleSheetOwner const&) const = default;
+};
+
 class WEB_API Document
     : public ParentNode
     , public HTML::GlobalEventHandlers {
@@ -1770,7 +1779,11 @@ public:
     void set_content_scripts_ran_at(Extensions::RunAt run_at) { m_content_scripts_ran_at |= (1 << to_underlying(run_at)); }
     void run_content_scripts_for_newly_active_document();
     void schedule_content_script_idle_point();
-    void add_extension_style_sheet(Utf16String const&, URL::URL const&);
+    void add_extension_style_sheet(Utf16String const&, URL::URL const&, ExtensionStyleSheetOwner);
+    // Takes away the first sheet an insertCSS() call added with that owner, as removeCSS() does.
+    void remove_extension_style_sheet(ExtensionStyleSheetOwner const&);
+    // The user sheets extensions added, which join the document's user style sheet.
+    Vector<Utf16String> extension_user_style_sources() const;
 
     // Set when this is one of a loaded extension's own documents: the context its scripts message through.
     GC::Ptr<Extensions::ExtensionDocumentContext> extension_document_context() const { return m_extension_document_context; }
@@ -2401,6 +2414,12 @@ private:
     u8 m_content_scripts_ran_at { 0 };
     RefPtr<Core::Timer> m_content_script_idle_timer;
     Vector<NonnullRefPtr<CSS::StyleSheetState>> m_extension_style_sheets;
+    Vector<ExtensionStyleSheetOwner> m_extension_style_sheet_owners;
+    struct ExtensionUserStyleSheet {
+        ExtensionStyleSheetOwner owner;
+        Utf16String source;
+    };
+    Vector<ExtensionUserStyleSheet> m_extension_user_style_sheets;
     // Class/id tokens already covered by the cached content blocker stylesheet.
     HashTable<Utf16FlyString> m_content_blocker_style_sheet_checked_classes;
     HashTable<Utf16FlyString> m_content_blocker_style_sheet_checked_ids;

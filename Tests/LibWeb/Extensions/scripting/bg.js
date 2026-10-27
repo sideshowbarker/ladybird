@@ -49,6 +49,14 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     if (message.type === "files")
         return settle(browser.scripting.executeScript({ target, files: ["inject.js"] }), sendResponse);
+    if (message.type === "insertCSS")
+        return settle(browser.scripting.insertCSS({ target, ...message.details }), sendResponse);
+    if (message.type === "removeCSS")
+        return settle(browser.scripting.removeCSS({ target, ...message.details }), sendResponse);
+    if (message.type === "no-tabs-executeScript") {
+        sendResponse(typeof browser.tabs.executeScript);
+        return;
+    }
     if (message.type === "neither") return settle(browser.scripting.executeScript({ target }), sendResponse);
     if (message.type === "other-tab") {
         browser.tabs.create({ url: "data:text/html,unreachable", active: false }).then(async tab => {

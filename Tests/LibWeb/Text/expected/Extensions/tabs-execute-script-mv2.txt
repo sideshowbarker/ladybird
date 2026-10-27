@@ -1,0 +1,6 @@
+code: {"value":["MV2 page"]}
+file: {"value":[8]}
+css: rgb(7, 8, 9)
+a frame's subtree: {"value":["file:","about:"]}
+without matchAboutBlank: {"value":["file:","file:"]}
+the top frame throws: {"failed":"Error: top boom"}

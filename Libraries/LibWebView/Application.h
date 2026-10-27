@@ -698,6 +698,7 @@ private:
         Vector<ExtensionInjectionFrame> frames;
         size_t outstanding { 0 };
         i64 primary_frame_id { 0 };
+        bool primary_error_rejects { false };
     };
     void finish_extension_injection(u64 injection_id);
     HashMap<String, HashTable<Web::HTML::CrossProcessId>> m_extension_injected_documents;

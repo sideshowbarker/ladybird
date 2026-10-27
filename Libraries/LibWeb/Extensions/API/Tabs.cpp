@@ -319,6 +319,78 @@ static JS::Value call_tab_method(MessagingContext& context, GC::Ptr<JS::Function
     return settle_api_call(context, callback, MessageRouter::the().call_api(context, MUST(String::formatted("tabs.{}", method.name)), arguments));
 }
 
+// Manifest version 2's injection details: code or a file, allFrames, frameId, matchAboutBlank, runAt, and for CSS,
+// cssOrigin.
+static JS::ThrowCompletionOr<JsonObject> parse_inject_details(JS::VM& vm, StringView method, JS::Value value)
+{
+    auto fail = [&](StringView detail) {
+        return vm.throw_completion<JS::TypeError>(Utf16String::formatted("Error in invocation of tabs.{}(optional integer tabId, extensionTypes.InjectDetails details, optional function callback): {}", method, detail));
+    };
+    if (!value.is_object() || value.is_function() || is<JS::Array>(value.as_object()))
+        return fail(MUST(String::formatted("Error at parameter 'details': Invalid type: expected extensionTypes.InjectDetails, found {}.", api_type_name(value))));
+    auto& object = value.as_object();
+    JsonObject details;
+    for (auto key : { "code"sv, "file"sv }) {
+        auto property = TRY(object.get(Utf16FlyString::from_utf8(key)));
+        if (property.is_undefined())
+            continue;
+        if (!property.is_string())
+            return fail(MUST(String::formatted("Error at parameter 'details': Error at property '{}': Invalid type: expected string, found {}.", key, api_type_name(property))));
+        details.set(key, property.as_string().utf16_string().to_utf8());
+    }
+    for (auto key : { "allFrames"sv, "matchAboutBlank"sv }) {
+        if (auto value = TRY(object.get(Utf16FlyString::from_utf8(key))); value.is_boolean())
+            details.set(key, value.as_bool());
+    }
+    struct Choice {
+        StringView key;
+        Array<StringView, 3> values;
+        StringView listed;
+    };
+    for (auto const& choice : { Choice { "runAt"sv, { "document_start"sv, "document_end"sv, "document_idle"sv }, "document_start, document_end, document_idle"sv }, Choice { "cssOrigin"sv, { "author"sv, "user"sv, ""sv }, "author, user"sv } }) {
+        auto value = TRY(object.get(Utf16FlyString::from_utf8(choice.key)));
+        if (value.is_undefined())
+            continue;
+        auto name = value.is_string() ? value.as_string().utf16_string().to_utf8() : String {};
+        if (name.is_empty() || !choice.values.span().contains_slow(name.bytes_as_string_view()))
+            return fail(MUST(String::formatted("Error at parameter 'details': Error at property '{}': Value must be one of {}.", choice.key, choice.listed)));
+        details.set(choice.key, name);
+    }
+    if (auto frame_id = TRY(object.get("frameId"_utf16_fly_string)); !frame_id.is_undefined()) {
+        if (!is_api_integer(frame_id))
+            return fail(MUST(String::formatted("Error at parameter 'details': Error at property 'frameId': Invalid type: expected integer, found {}.", api_type_name(frame_id))));
+        details.set("frameId"sv, static_cast<i64>(frame_id.as_double()));
+    }
+    return details;
+}
+
+static void define_inject_method(JS::Realm& realm, JS::Object& tabs, MessagingContext& context, StringView method)
+{
+    auto attributes = JS::Attribute::Writable | JS::Attribute::Configurable;
+    tabs.define_native_function(realm, Utf16FlyString::from_utf8(method), [context = GC::Ref { context }, method](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        if (context->is_detached())
+            return vm.throw_completion<JS::TypeError>("The extension context is gone"sv);
+        auto count = vm.argument_count();
+        GC::Ptr<JS::FunctionObject> callback;
+        if (count > 1 && vm.argument(count - 1).is_function())
+            callback = vm.argument(--count).as_function();
+        // The tab id is optional, so a single argument is the details.
+        JsonValue tab_id;
+        auto details = vm.argument(0);
+        if (count >= 2) {
+            if (!vm.argument(0).is_nullish()) {
+                if (!is_api_integer(vm.argument(0)))
+                    return vm.throw_completion<JS::TypeError>(Utf16String::formatted("Error in invocation of tabs.{}(optional integer tabId, extensionTypes.InjectDetails details, optional function callback): Error at parameter 'tabId': Invalid type: expected integer, found {}.", method, api_type_name(vm.argument(0))));
+                tab_id = static_cast<i64>(vm.argument(0).as_double());
+            }
+            details = vm.argument(1);
+        }
+        JsonArray arguments;
+        arguments.must_append(move(tab_id));
+        arguments.must_append(TRY(parse_inject_details(vm, method, details)));
+        return settle_api_call(*context, callback, MessageRouter::the().call_api(*context, MUST(String::formatted("tabs.{}", method)), arguments)); }, 1, attributes);
+}
+
 GC::Ref<JS::Object> create_tabs(JS::Realm& realm, MessagingContext& context)
 {
     auto tabs = JS::Object::create(realm, realm.intrinsics().object_prototype());
@@ -391,6 +463,11 @@ GC::Ref<JS::Object> create_tabs(JS::Realm& realm, MessagingContext& context)
         }
         auto parsed = TRY(parse_tab_properties(vm, update_method, properties));
         return call_tab_method(*context, callback, update_method, move(parsed), move(tab_id)); }, 1, attributes);
+    // Manifest version 3 injects with scripting instead.
+    if (context.descriptor().manifest_version < 3) {
+        define_inject_method(realm, tabs, context, "executeScript"sv);
+        define_inject_method(realm, tabs, context, "insertCSS"sv);
+    }
     return tabs;
 }
 
