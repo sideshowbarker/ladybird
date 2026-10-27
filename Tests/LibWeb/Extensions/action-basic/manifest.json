@@ -22,10 +22,21 @@
                 "file:///*/Extensions/action-set-get.html",
                 "file:///*/Extensions/action-colors.html",
                 "file:///*/Extensions/action-namespaces.html",
-                "file:///*/Extensions/action-icon.html"
+                "file:///*/Extensions/action-icon.html",
+                "file:///*/Extensions/action-per-tab-reset.html",
+                "file:///*/Extensions/action-closed-window-tab-message.html"
             ],
             "js": [
                 "cs.js"
+            ],
+            "run_at": "document_end"
+        },
+        {
+            "matches": [
+                "file:///*/Text/data/extension-child-window.html*"
+            ],
+            "js": [
+                "child-cs.js"
             ],
             "run_at": "document_end"
         }

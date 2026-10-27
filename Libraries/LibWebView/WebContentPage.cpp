@@ -661,6 +661,9 @@ void WebContentPage::close()
     }
     m_needs_beforeunload_check = true;
     m_history_recorded_url_for_current_load.clear();
+    // A closed page hosts no documents, so none of its extension contexts can receive anything.
+    if (Application::is_initialized() && Application::the().has_extension_message_broker())
+        Application::extension_message_broker().endpoint_gone(*this);
     if (m_client) {
         m_client->update_audio_capture_permission();
         if (auto* bidi = WebDriverBiDi::the())
