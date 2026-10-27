@@ -10,7 +10,8 @@
         println(`first: ${await sendToBackground({ type: "count" })}`);
         internals.setExtensionIdleTimeout(id, 50);
         println(`second: ${await sendToBackground({ type: "count" })}`);
-        await new Promise(resolve => setTimeout(resolve, 500));
+        while (internals.extensionBackgroundState(id) !== "stopped")
+            await new Promise(resolve => setTimeout(resolve, 20));
         println(`after idling: ${await sendToBackground({ type: "count" })}`);
         internals.setExtensionIdleTimeout(id, 30000);
         done();

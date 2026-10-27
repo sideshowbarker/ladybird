@@ -11,7 +11,8 @@
         await sendToBackground({ type: "frame-loaded" });
         println(`before: ${await sendToBackground({ type: "count" })}, ${await sendToBackground({ type: "count" })}`);
         internals.setExtensionIdleTimeout(id, 50);
-        await new Promise(resolve => setTimeout(resolve, 500));
+        while (internals.extensionBackgroundState(id) !== "stopped")
+            await new Promise(resolve => setTimeout(resolve, 20));
         const stored = await sendToBackground({ type: "read" });
         println(`stored while suspending: ${stored.suspendedAfter}, frame: ${stored.frameSuspended}`);
         println(`after: ${await sendToBackground({ type: "count" })}`);

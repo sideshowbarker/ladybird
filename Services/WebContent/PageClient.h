@@ -246,6 +246,7 @@ private:
     virtual void page_did_destroy_child_frame(Web::HTML::CrossProcessId frame_id) override;
     virtual String dump_site_isolation_process_tree_for_testing() override;
     virtual String extension_popup_state_for_testing(String const& extension_id) override;
+    virtual String extension_background_state_for_testing(String const& extension_id) override;
     virtual void crash_remote_frame_processes_for_testing() override;
     virtual void close_tab_for_testing() override;
     virtual void page_did_spoof_document_origin_for_testing(Web::HTML::EnvironmentSettingsObject const&, URL::Origin const&) override;
@@ -432,6 +433,7 @@ private:
     virtual void page_did_set_extension_idle_timeout(String const& extension_id, double milliseconds) override;
     virtual void page_did_click_extension_action(String const& extension_id) override;
     virtual void page_did_finish_extension_suspend(String const& extension_id, u64 context_id) override;
+    virtual void page_did_change_extension_event_listeners(String const& extension_id, u64 context_id, Vector<String> event_names) override;
     virtual void page_did_receive_reference_test_metadata(JsonValue) override;
     virtual void page_did_set_browser_zoom(double factor) override;
     virtual void page_did_set_device_pixel_ratio_for_testing(double ratio) override;
