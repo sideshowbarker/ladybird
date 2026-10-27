@@ -274,6 +274,7 @@ set(SOURCES
     EntriesAPI/FileSystemEntry.cpp
     EventTiming/EventTiming.cpp
     Extensions/API/Action.cpp
+    Extensions/API/Alarms.cpp
     Extensions/API/Arguments.cpp
     Extensions/API/Completion.cpp
     Extensions/API/Event.cpp

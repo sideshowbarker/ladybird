@@ -1,0 +1,46 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // alarms.create(), get(), getAll(), clear(), and clearAll(), and an alarm that wakes the event page it belongs to.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const id = internals.extensionId("Alarms Fixture");
+            const ask = message => sendToBackground(message);
+            const before = Date.now();
+            await ask({ type: "create", name: "later", info: { delayInMinutes: 10 } });
+            const later = (await ask({ type: "get", name: "later" })).value;
+            println(
+                `get: ${later.name} ${later.periodInMinutes} ${Math.abs(later.scheduledTime - (before + 600000)) < 5000}`
+            );
+            await ask({ type: "create", name: "often", info: { periodInMinutes: 5 } });
+            println(`periodic: ${(await ask({ type: "get", name: "often" })).value.periodInMinutes}`);
+            println(`getAll: ${(await ask({ type: "getAll" })).value.map(alarm => alarm.name).join(", ")}`);
+            println(`missing: ${JSON.stringify(await ask({ type: "get", name: "missing" }))}`);
+            println(
+                `clear: ${(await ask({ type: "clear", name: "often" })).value} ${(await ask({ type: "clear", name: "often" })).value}`
+            );
+            println(
+                `clearAll: ${(await ask({ type: "clearAll" })).value} ${(await ask({ type: "getAll" })).value.length}`
+            );
+            println(
+                `both times: ${(await ask({ type: "create", name: "x", info: { when: Date.now(), delayInMinutes: 1 } })).failed}`
+            );
+
+            println(`callbacks: ${JSON.stringify(await ask({ type: "callbacks" }))}`);
+
+            // A one-second alarm comes due after the page unloads, and wakes it.
+            internals.setExtensionIdleTimeout(id, 50);
+            await ask({ type: "create", name: "wake", info: { delayInMinutes: 1 / 60 } });
+            while (internals.extensionBackgroundState(id) !== "stopped")
+                await new Promise(resolve => setTimeout(resolve, 20));
+            while (internals.extensionBackgroundState(id) !== "running")
+                await new Promise(resolve => setTimeout(resolve, 20));
+            internals.setExtensionIdleTimeout(id, 30000);
+            const heard = await ask({ type: "heard" });
+            println(`woke for: ${heard.map(alarm => alarm.name).join(", ")}`);
+            done();
+        });
+    </script>
+</body>
