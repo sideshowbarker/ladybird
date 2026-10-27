@@ -391,6 +391,86 @@ static void define_inject_method(JS::Realm& realm, JS::Object& tabs, MessagingCo
         return settle_api_call(*context, callback, MessageRouter::the().call_api(*context, MUST(String::formatted("tabs.{}", method)), arguments)); }, 1, attributes);
 }
 
+// tabs.get(), tabs.remove(), and tabs.reload() take tab ids alone (and reload() its bypassCache), which the UI process
+// checks against the tabs the extension can see.
+static JS::ThrowCompletionOr<void> throw_tab_call_error(JS::VM& vm, StringView method, StringView signature, StringView detail)
+{
+    return vm.throw_completion<JS::TypeError>(Utf16String::formatted("Error in invocation of tabs.{}({}): {}", method, signature, detail));
+}
+
+static void define_tab_id_methods(JS::Realm& realm, JS::Object& tabs, MessagingContext& context)
+{
+    auto attributes = JS::Attribute::Writable | JS::Attribute::Configurable;
+    tabs.define_native_function(realm, "get"_utf16_fly_string, [context = GC::Ref { context }](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        if (context->is_detached())
+            return vm.throw_completion<JS::TypeError>("The extension context is gone"sv);
+        static constexpr auto signature = "integer tabId, optional function callback"sv;
+        GC::Ptr<JS::FunctionObject> callback;
+        if (vm.argument(1).is_function())
+            callback = vm.argument(1).as_function();
+        if (!is_api_integer(vm.argument(0)))
+            TRY(throw_tab_call_error(vm, "get"sv, signature, MUST(String::formatted("Error at parameter 'tabId': Invalid type: expected integer, found {}.", api_type_name(vm.argument(0))))));
+        JsonArray arguments;
+        arguments.must_append(static_cast<i64>(vm.argument(0).as_double()));
+        return settle_api_call(*context, callback, MessageRouter::the().call_api(*context, "tabs.get"sv, arguments)); }, 1, attributes);
+    tabs.define_native_function(realm, "remove"_utf16_fly_string, [context = GC::Ref { context }](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        if (context->is_detached())
+            return vm.throw_completion<JS::TypeError>("The extension context is gone"sv);
+        static constexpr auto signature = "[integer|array] tabIds, optional function callback"sv;
+        GC::Ptr<JS::FunctionObject> callback;
+        if (vm.argument(1).is_function())
+            callback = vm.argument(1).as_function();
+        JsonArray ids;
+        auto value = vm.argument(0);
+        if (is_api_integer(value)) {
+            ids.must_append(static_cast<i64>(value.as_double()));
+        } else if (value.is_object() && is<JS::Array>(value.as_object())) {
+            auto length = TRY(JS::length_of_array_like(vm, value.as_object()));
+            for (size_t i = 0; i < length; ++i) {
+                auto id = TRY(value.as_object().get(JS::PropertyKey { i }));
+                if (!is_api_integer(id))
+                    TRY(throw_tab_call_error(vm, "remove"sv, signature, "Error at parameter 'tabIds': Value did not match any choice."sv));
+                ids.must_append(static_cast<i64>(id.as_double()));
+            }
+        } else {
+            TRY(throw_tab_call_error(vm, "remove"sv, signature, "Error at parameter 'tabIds': Value did not match any choice."sv));
+        }
+        JsonArray arguments;
+        arguments.must_append(move(ids));
+        return settle_api_call(*context, callback, MessageRouter::the().call_api(*context, "tabs.remove"sv, arguments)); }, 1, attributes);
+    tabs.define_native_function(realm, "reload"_utf16_fly_string, [context = GC::Ref { context }](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        if (context->is_detached())
+            return vm.throw_completion<JS::TypeError>("The extension context is gone"sv);
+        static constexpr auto signature = "optional integer tabId, optional object reloadProperties, optional function callback"sv;
+        auto count = vm.argument_count();
+        GC::Ptr<JS::FunctionObject> callback;
+        if (count > 0 && vm.argument(count - 1).is_function())
+            callback = vm.argument(--count).as_function();
+        // The tab id is optional, so an object alone is the properties.
+        JsonValue tab_id;
+        size_t next = 0;
+        if (count > 0 && !vm.argument(0).is_object()) {
+            if (!vm.argument(0).is_nullish()) {
+                if (!is_api_integer(vm.argument(0)))
+                    TRY(throw_tab_call_error(vm, "reload"sv, signature, MUST(String::formatted("Error at parameter 'tabId': Invalid type: expected integer, found {}.", api_type_name(vm.argument(0))))));
+                tab_id = static_cast<i64>(vm.argument(0).as_double());
+            }
+            next = 1;
+        }
+        JsonObject properties;
+        if (next < count && !vm.argument(next).is_nullish()) {
+            auto value = vm.argument(next);
+            if (!value.is_object() || value.is_function() || is<JS::Array>(value.as_object()))
+                TRY(throw_tab_call_error(vm, "reload"sv, signature, MUST(String::formatted("Error at parameter 'reloadProperties': Invalid type: expected object, found {}.", api_type_name(value)))));
+            if (auto bypass = TRY(value.as_object().get("bypassCache"_utf16_fly_string)); bypass.is_boolean())
+                properties.set("bypassCache"sv, bypass.as_bool());
+        }
+        JsonArray arguments;
+        arguments.must_append(move(tab_id));
+        arguments.must_append(move(properties));
+        return settle_api_call(*context, callback, MessageRouter::the().call_api(*context, "tabs.reload"sv, arguments)); }, 0, attributes);
+}
+
 GC::Ref<JS::Object> create_tabs(JS::Realm& realm, MessagingContext& context)
 {
     auto tabs = JS::Object::create(realm, realm.intrinsics().object_prototype());
@@ -463,6 +543,7 @@ GC::Ref<JS::Object> create_tabs(JS::Realm& realm, MessagingContext& context)
         }
         auto parsed = TRY(parse_tab_properties(vm, update_method, properties));
         return call_tab_method(*context, callback, update_method, move(parsed), move(tab_id)); }, 1, attributes);
+    define_tab_id_methods(realm, tabs, context);
     // Manifest version 3 injects with scripting instead.
     if (context.descriptor().manifest_version < 3) {
         define_inject_method(realm, tabs, context, "executeScript"sv);

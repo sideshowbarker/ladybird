@@ -157,6 +157,8 @@ private:
     virtual Vector<WebView::ExtensionTab> extension_tabs() const override;
     virtual ErrorOr<WebView::ExtensionTab, String> create_extension_tab(WebView::ExtensionTabCreation const&) override;
     virtual ErrorOr<WebView::ExtensionTab, String> update_extension_tab(i64 tab_id, WebView::ExtensionTabUpdate const&) override;
+    virtual ErrorOr<void, String> close_extension_tab(i64 tab_id) override;
+    virtual ErrorOr<void, String> reload_extension_tab(i64 tab_id, bool bypass_cache) override;
     virtual void extension_action_list_changed() override;
     virtual void extension_action_changed(String const& extension_id, Optional<i64> tab_id) override;
     virtual bool show_extension_popup(WebView::ExtensionPopupRequest const&) override;

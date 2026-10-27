@@ -44,8 +44,8 @@ ALLOWED_REALM_MENTIONS = {
     "DOM": (10, 33, "DOM abort plumbing and node helpers still have callback/materialization realm use"),
     "Extensions": (
         31,
-        51,
-        "extension worlds create and own the realms content scripts run in, the browser namespace materializes its JS objects there, and API completions, storage areas and values, runtime messages, i18n functions, tabs.query() results and the manifest version 2 tabs injection methods, action, alarms, permissions, and scripting API methods and results, injected scripts' results, and Port objects and events materialize results in a context's realm",
+        52,
+        "extension worlds create and own the realms content scripts run in, the browser namespace materializes its JS objects there, and API completions, storage areas and values, runtime messages, i18n functions, tabs.query() results and the tabs methods, action, alarms, permissions, and scripting API methods and results, injected scripts' results, and Port objects and events materialize results in a context's realm",
     ),
     "Fetch": (
         20,

@@ -1489,6 +1489,47 @@ ErrorOr<WebView::ExtensionTab, String> Application::update_extension_tab(i64 tab
     return MUST(String::formatted("No tab with id: {}.", tab_id));
 }
 
+ErrorOr<void, String> Application::close_extension_tab(i64 tab_id)
+{
+    for (auto* window : browser_windows()) {
+        for (int index = 0; index < window->tab_count(); ++index) {
+            auto* tab = window->tab_at(index);
+            if (!tab || tab->extension_tab_id() != tab_id)
+                continue;
+            // tabs.remove() closes as the user closing the tab would, so its page's beforeunload can ask first, and from a
+            // later event loop turn, since the tab's own page may be the one asking.
+            QPointer<BrowserWindow> target { window };
+            QTimer::singleShot(0, target, [target, tab_id] {
+                if (!target)
+                    return;
+                for (int index = 0; index < target->tab_count(); ++index) {
+                    if (auto* tab = target->tab_at(index); tab && tab->extension_tab_id() == tab_id) {
+                        target->request_to_close_tab(index);
+                        return;
+                    }
+                }
+            });
+            return {};
+        }
+    }
+    return WebView::Application::close_extension_tab(tab_id);
+}
+
+ErrorOr<void, String> Application::reload_extension_tab(i64 tab_id, bool bypass_cache)
+{
+    for (auto* window : browser_windows()) {
+        for (int index = 0; index < window->tab_count(); ++index) {
+            auto* tab = window->tab_at(index);
+            if (!tab || tab->extension_tab_id() != tab_id)
+                continue;
+            tab->ensure_loaded();
+            tab->view().reload(bypass_cache ? WebView::BypassCache::Yes : WebView::BypassCache::No);
+            return {};
+        }
+    }
+    return WebView::Application::reload_extension_tab(tab_id, bypass_cache);
+}
+
 void Application::set_active_window(BrowserWindow& window)
 {
     m_active_window = &window;

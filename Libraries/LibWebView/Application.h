@@ -313,6 +313,9 @@ public:
     // that's a window of its own, so it can't join another window, and none can be pinned.
     virtual ErrorOr<ExtensionTab, String> create_extension_tab(ExtensionTabCreation const&);
     virtual ErrorOr<ExtensionTab, String> update_extension_tab(i64 tab_id, ExtensionTabUpdate const&);
+    // Close and reload a tab for tabs.remove() and tabs.reload(); a tab can close from its own page's call.
+    virtual ErrorOr<void, String> close_extension_tab(i64 tab_id);
+    virtual ErrorOr<void, String> reload_extension_tab(i64 tab_id, bool bypass_cache);
     // A tab that activates another document drops what extensions set for it alone, and an activeTab grant ends when
     // the document is of another origin; one that closes drops all of it.
     void extension_tab_activated_document(i64 tab_id, URL::URL const&);

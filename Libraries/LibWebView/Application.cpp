@@ -4189,6 +4189,35 @@ ErrorOr<ExtensionTab, String> Application::update_extension_tab(i64 tab_id, Exte
     return tab;
 }
 
+ErrorOr<void, String> Application::close_extension_tab(i64 tab_id)
+{
+    // Only the tabs this process opened itself can close here; another view belongs to whoever made it.
+    auto tab = m_headless_extension_tabs.find_if([&](auto const& view) { return view->extension_tab_id() == tab_id; });
+    if (tab == m_headless_extension_tabs.end())
+        return MUST(String::formatted("No tab with id: {}.", tab_id));
+    auto* view = tab->ptr();
+    Core::deferred_invoke([view] {
+        if (is_initialized())
+            the().m_headless_extension_tabs.remove_first_matching([&](auto const& tab) { return tab.ptr() == view; });
+    });
+    return {};
+}
+
+ErrorOr<void, String> Application::reload_extension_tab(i64 tab_id, bool bypass_cache)
+{
+    ViewImplementation* target = nullptr;
+    ViewImplementation::for_each_view([&](ViewImplementation& view) {
+        if (view.extension_tab_id() != tab_id)
+            return IterationDecision::Continue;
+        target = &view;
+        return IterationDecision::Break;
+    });
+    if (!target)
+        return MUST(String::formatted("No tab with id: {}.", tab_id));
+    target->reload(bypass_cache ? BypassCache::Yes : BypassCache::No);
+    return {};
+}
+
 Vector<DevTools::TabDescription> Application::tab_list() const
 {
     Vector<DevTools::TabDescription> tabs;

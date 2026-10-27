@@ -1,0 +1,26 @@
+{
+    "manifest_version": 3,
+    "name": "Tabs Lifecycle Fixture",
+    "version": "1.0",
+    "description": "Gets, reloads, and removes tabs it opens, and records their onUpdated and onRemoved events.",
+    "permissions": [
+        "tabs"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/tabs-lifecycle.html",
+                "file:///*/Extensions/tabs-remove-own-tab.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

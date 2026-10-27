@@ -2202,6 +2202,40 @@ ErrorOr<JsonValue, String> WebContentPage::call_extension_tabs_api(String const&
         }
         return serialize_extension_tab(viewer, TRY(Application::the().update_extension_tab(*tab_id, update)));
     }
+    if (method == "get"sv && arguments.size() == 1) {
+        auto tab_id = arguments.at(0).get_integer<i64>().value_or(-1);
+        auto tab = tabs.find_if([&](auto const& tab) { return tab.id == tab_id && may_see_tab(viewer, tab); });
+        if (tab == tabs.end())
+            return MUST(String::formatted("No tab with id: {}.", tab_id));
+        return serialize_extension_tab(viewer, *tab);
+    }
+    // Every tab tabs.remove() names has to exist before any closes.
+    if (method == "remove"sv && arguments.size() == 1 && arguments.at(0).is_array()) {
+        Vector<i64> ids;
+        for (auto const& id : arguments.at(0).as_array().values()) {
+            auto tab_id = id.get_integer<i64>().value_or(-1);
+            if (!is_visible_tab(tab_id))
+                return MUST(String::formatted("No tab with id: {}.", tab_id));
+            if (!ids.contains_slow(tab_id))
+                ids.append(tab_id);
+        }
+        for (auto tab_id : ids)
+            TRY(Application::the().close_extension_tab(tab_id));
+        return JsonValue {};
+    }
+    if (method == "reload"sv && arguments.size() == 2 && arguments.at(1).is_object()) {
+        auto tab_id = arguments.at(0).get_integer<i64>();
+        if (tab_id.has_value() && !is_visible_tab(*tab_id))
+            return MUST(String::formatted("No tab with id: {}.", *tab_id));
+        if (!tab_id.has_value()) {
+            auto active = tabs.find_if([&](auto const& tab) { return tab.window_id == default_window_id && tab.active && may_see_tab(viewer, tab); });
+            if (active == tabs.end())
+                return "No selected tab"_string;
+            tab_id = active->id;
+        }
+        TRY(Application::the().reload_extension_tab(*tab_id, arguments.at(1).as_object().get_bool("bypassCache"sv).value_or(false)));
+        return JsonValue {};
+    }
     return MUST(String::formatted("tabs.{}() isn't supported", method));
 }
 
@@ -2281,6 +2315,8 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
         auto result = call_extension_tabs_api(context->extension_id, extension->descriptor(), name, call_arguments);
         if (result.is_error())
             complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
+        else if (result.value().is_null())
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::NoReply {});
         else
             complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });
         return;
