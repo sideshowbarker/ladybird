@@ -171,6 +171,7 @@ if (NOT WIN32)
         TestCompositorStartup.cpp
         TestCrashOverlay.cpp
         TestCrashReportSubmission.cpp
+        TestExtensionActionRegistry.cpp
         TestExtensionsUserActivation.cpp
         TestExtensionTabs.cpp
         TestFavicon.cpp
