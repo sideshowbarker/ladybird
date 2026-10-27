@@ -32,6 +32,7 @@ set(SOURCES
     DownloadStore.cpp
     Extensions/Extension.cpp
     Extensions/ExtensionActionAPI.cpp
+    Extensions/ExtensionArchive.cpp
     Extensions/ExtensionActionRegistry.cpp
     Extensions/ExtensionAlarmManager.cpp
     Extensions/ExtensionTabs.cpp
@@ -203,7 +204,7 @@ if (LADYBIRD_ENABLE_UPDATE_CHECK)
 endif()
 
 target_link_libraries(LibWebView PUBLIC LibCompositing LibPlatformFeatures LibSandbox LibWebCommon)
-target_link_libraries(LibWebView PRIVATE LibCore LibCrypto LibDatabase LibDevTools LibFileSystem LibGfx LibHTTP LibImageDecoderClient LibIPC LibRequests LibMedia LibMediaClient LibUnicode LibURL LibTextCodec LibThreading)
+target_link_libraries(LibWebView PRIVATE LibCompress LibCore LibCrypto LibDatabase LibDevTools LibFileSystem LibGfx LibHTTP LibImageDecoderClient LibIPC LibRequests LibMedia LibMediaClient LibUnicode LibURL LibTextCodec LibThreading)
 
 if (LINUX)
     # The connect broker asks the audio library where the daemon is before connecting a helper to it.
