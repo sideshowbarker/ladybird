@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-action.js"></script>
+<body>
+<script>
+    // setIcon takes a path or a size-to-path dictionary, but not image data yet.
+    asyncTest(async done => {
+        await contentScriptReady();
+        println(`path: ${JSON.stringify(await callAction("setIcon", { path: "icons/32.png" }))}`);
+        println(`dictionary: ${JSON.stringify(await callAction("setIcon", { path: { 16: "icons/16.png", 32: "icons/32.png" } }))}`);
+        println(`imageData: ${JSON.stringify(await callAction("setIcon", { imageData: {} }))}`);
+        println(`neither: ${JSON.stringify(await callAction("setIcon", {}))}`);
+        done();
+    });
+</script>
+</body>

@@ -273,6 +273,8 @@ set(SOURCES
     EncryptedMediaExtensions/MediaKeySystemAccess.cpp
     EntriesAPI/FileSystemEntry.cpp
     EventTiming/EventTiming.cpp
+    Extensions/API/Action.cpp
+    Extensions/API/Arguments.cpp
     Extensions/API/Completion.cpp
     Extensions/API/Event.cpp
     Extensions/API/I18n.cpp
@@ -285,6 +287,7 @@ set(SOURCES
     Extensions/ExtensionSet.cpp
     Extensions/ExtensionWorld.cpp
     Extensions/MessageRouter.cpp
+    Extensions/MessagingContext.cpp
     Extensions/Namespace.cpp
     Fetch/Body.cpp
     Fetch/BodyInit.cpp

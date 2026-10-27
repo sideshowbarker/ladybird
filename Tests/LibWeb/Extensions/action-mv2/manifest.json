@@ -1,0 +1,31 @@
+{
+    "manifest_version": 2,
+    "name": "Browser Action Fixture",
+    "version": "1.0",
+    "description": "An action whose state the action tests set and read.",
+    "browser_action": {
+        "default_title": "Fixture title",
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icons/16.png",
+            "32": "icons/32.png"
+        }
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ],
+        "persistent": true
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/action-namespaces.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

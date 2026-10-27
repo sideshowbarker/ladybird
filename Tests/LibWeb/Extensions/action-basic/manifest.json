@@ -1,0 +1,33 @@
+{
+    "manifest_version": 3,
+    "name": "Action Fixture",
+    "version": "1.0",
+    "description": "An action whose state the action tests set and read.",
+    "action": {
+        "default_title": "Fixture title",
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icons/16.png",
+            "32": "icons/32.png"
+        }
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/action-set-get.html",
+                "file:///*/Extensions/action-colors.html",
+                "file:///*/Extensions/action-namespaces.html",
+                "file:///*/Extensions/action-icon.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

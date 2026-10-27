@@ -8,6 +8,7 @@
 
 #include <AK/HashMap.h>
 #include <AK/HashTable.h>
+#include <AK/JsonArray.h>
 #include <AK/JsonObject.h>
 #include <AK/Optional.h>
 #include <AK/String.h>
@@ -52,12 +53,16 @@ public:
 
     // tabs.query(): the UI process answers with the matching tabs, through complete().
     GC::Ref<JS::PromiseCapability> query_tabs(MessagingContext&, String const& query_json);
+    // Calls an API method the UI process implements ("action.setTitle", e.g.), and settles with its answer.
+    GC::Ref<JS::PromiseCapability> call_api(MessagingContext&, StringView method, JsonArray const& arguments);
     // tabs.sendMessage(): like send(), but to the extension's content scripts in one tab.
     GC::Ref<JS::PromiseCapability> send_to_tab(MessagingContext&, i64 tab_id, Optional<i64> frame_id, JS::Value message);
     void complete_storage(Page&, u64, StorageResult const&);
     void dispatch_storage_changed(Page&, String const&, String const&);
     // runtime.onSuspend, which acknowledges once its listeners have run, or runtime.onSuspendCanceled.
     void dispatch_suspend(Page&, String const& extension_id, u64 context_id, bool canceled);
+    // Calls a context's listeners for a named API event with the arguments, a JSON array.
+    void dispatch_event(Page&, String const& extension_id, u64 context_id, String const& event_name, String const& arguments_json);
 
     GC::Ref<JS::Object> connect(MessagingContext&, Optional<String> target_extension_id, String const& name);
     void dispatch_connect(Page&, u64 context_id, u64 channel_id, u64 port_id, String const& name, MessageSender const&);

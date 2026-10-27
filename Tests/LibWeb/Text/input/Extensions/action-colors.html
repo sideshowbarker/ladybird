@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-action.js"></script>
+<body>
+<script>
+    // Badge colors take a CSS color or an [r, g, b, a] array, and read back as an array.
+    asyncTest(async done => {
+        await contentScriptReady();
+        println(`background default: ${JSON.stringify(await callAction("getBadgeBackgroundColor", {}))}`);
+        println(`text default: ${JSON.stringify(await callAction("getBadgeTextColor", {}))}`);
+        for (const color of ["#abc", "rgb(1, 2, 3)", [10, 20, 30, 128], "nonsense", [1, 2, 3], [1, 2, 3, 300]]) {
+            const set = await callAction("setBadgeBackgroundColor", { color });
+            const get = await callAction("getBadgeBackgroundColor", {});
+            println(`${JSON.stringify(color)}: set ${JSON.stringify(set)}, get ${JSON.stringify(get)}`);
+        }
+        await callAction("setBadgeBackgroundColor", { color: "yellow" });
+        println(`text on yellow: ${JSON.stringify(await callAction("getBadgeTextColor", {}))}`);
+        await callAction("setBadgeTextColor", { color: "blue" });
+        println(`text set to blue: ${JSON.stringify(await callAction("getBadgeTextColor", {}))}`);
+        println(`a color whose getter throws: ${await sendToBackground({ type: "throwing-color" })}`);
+        done();
+    });
+</script>
+</body>

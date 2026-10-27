@@ -7,6 +7,7 @@
 #include <LibTest/TestCase.h>
 
 #include <AK/JsonArray.h>
+#include <LibWebView/Extensions/ExtensionActionAPI.h>
 #include <LibWebView/Extensions/ExtensionActionRegistry.h>
 
 using namespace WebView;
@@ -147,4 +148,67 @@ TEST_CASE(reloading_keeps_the_extensions_order)
         registry.set_extension(MUST(String::from_utf8(id)), "Name"_string, {});
     registry.set_extension("a"_string, "Name"_string, {});
     EXPECT_EQ(registry.extensions_with_actions(), (Vector { "a"_string, "b"_string, "c"_string }));
+}
+
+static Web::Extensions::ExtensionDescriptor descriptor_with_action(u8 manifest_version)
+{
+    Web::Extensions::ExtensionDescriptor descriptor;
+    descriptor.id = "ext"_string;
+    descriptor.manifest_version = manifest_version;
+    descriptor.has_action = true;
+    return descriptor;
+}
+
+TEST_CASE(content_scripts_cannot_call_action)
+{
+    auto descriptor = descriptor_with_action(3);
+    EXPECT(may_call_extension_action_api(true, "action"sv, descriptor));
+    EXPECT(!may_call_extension_action_api(false, "action"sv, descriptor));
+    // Each manifest version has only its own namespace, and only with an action.
+    EXPECT(!may_call_extension_action_api(true, "browserAction"sv, descriptor));
+    EXPECT(may_call_extension_action_api(true, "browserAction"sv, descriptor_with_action(2)));
+    descriptor.has_action = false;
+    EXPECT(!may_call_extension_action_api(true, "action"sv, descriptor));
+
+    // A call that fails the check changes nothing, because the caller never reaches the handler; the handler itself
+    // still refuses methods the namespace doesn't have.
+    auto registry = registry_with_one_extension();
+    JsonArray arguments;
+    arguments.must_append(JsonValue {});
+    arguments.must_append(JsonValue { "x"sv });
+    EXPECT(call_extension_action_api(registry, descriptor_with_action(2), "setBadgeTextColor"sv, arguments).is_error());
+    EXPECT(call_extension_action_api(registry, descriptor_with_action(3), "noSuchMethod"sv, arguments).is_error());
+    EXPECT(!call_extension_action_api(registry, descriptor_with_action(3), "setBadgeText"sv, arguments).is_error());
+    EXPECT_EQ(registry.state("ext"sv, {}).badge_text, "x"sv);
+}
+
+TEST_CASE(popup_urls_resolve_against_the_extension)
+{
+    auto registry = registry_with_one_extension();
+    auto descriptor = descriptor_with_action(3);
+    JsonArray get;
+    get.must_append(JsonValue {});
+    EXPECT_EQ(call_extension_action_api(registry, descriptor, "getPopup"sv, get).value().as_string(), "ladybird-extension://ext/popup.html"sv);
+
+    JsonArray set;
+    set.must_append(JsonValue {});
+    set.must_append(JsonValue { "ladybird-extension://ext/sub/other.html"sv });
+    MUST(call_extension_action_api(registry, descriptor, "setPopup"sv, set));
+    EXPECT_EQ(registry.state("ext"sv, {}).popup, "sub/other.html"sv);
+
+    JsonArray clear;
+    clear.must_append(JsonValue {});
+    clear.must_append(JsonValue { ""sv });
+    MUST(call_extension_action_api(registry, descriptor, "setPopup"sv, clear));
+    EXPECT_EQ(call_extension_action_api(registry, descriptor, "getPopup"sv, get).value().as_string(), ""sv);
+}
+
+TEST_CASE(a_malformed_tab_argument_is_refused)
+{
+    auto registry = registry_with_one_extension();
+    JsonArray arguments;
+    arguments.must_append(JsonValue { "not a tab"sv });
+    arguments.must_append(JsonValue { "x"sv });
+    EXPECT(call_extension_action_api(registry, descriptor_with_action(3), "setBadgeText"sv, arguments).is_error());
+    EXPECT_EQ(registry.state("ext"sv, {}).badge_text, ""sv);
 }

@@ -50,6 +50,8 @@ WEBVIEW_API Gfx::Color default_badge_text_color(Gfx::Color background);
 // The state of every extension's action, in the UI process. Each property has a global value and a value per tab;
 // a tab's value wins over the global one, which wins over the manifest's default. Nothing here is persisted.
 class WEBVIEW_API ExtensionActionRegistry {
+    AK_ALLOC_WITH_KMALLOC;
+
 public:
     void set_extension(String id, String name, ExtensionManifest::Action);
     void remove_extension(StringView id);

@@ -1,0 +1,4 @@
+path: {"value":null}
+dictionary: {"value":null}
+imageData: {"error":"Error: imageData isn't supported yet"}
+neither: {"error":"Error: Either path or imageData must be specified"}
