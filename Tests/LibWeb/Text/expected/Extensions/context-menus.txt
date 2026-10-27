@@ -1,0 +1,11 @@
+create with an id: {"returned":"top","error":null}
+create without one: {"returned":1,"error":null} {"returned":2,"error":null}
+a child: {"returned":"child","error":null}
+a duplicate: {"returned":"top","error":"Cannot create item with duplicate id top"}
+update: {"value":null}
+update unknown: Cannot find menu item with id nope
+remove: {"value":null}
+the child went with it: Cannot find menu item with id child
+removeAll: {"value":null}
+after removeAll: {"returned":"top","error":null}
+shape: ["function",6,true]

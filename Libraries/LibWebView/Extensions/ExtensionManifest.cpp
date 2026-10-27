@@ -245,6 +245,44 @@ static Optional<String> parse_content_security_policy(JsonObject const& manifest
     return error_for(key, "must be a string or an object"sv);
 }
 
+static ErrorOr<Vector<ExtensionManifest::Command>, String> parse_commands(JsonObject const& object)
+{
+    Vector<ExtensionManifest::Command> commands;
+    if (!object.has("commands"sv))
+        return commands;
+    auto listed = object.get_object("commands"sv);
+    if (!listed.has_value())
+        return error_for("commands"sv, "must be an object"sv);
+#if defined(AK_OS_MACOS)
+    static constexpr auto platform = "mac"sv;
+#elif defined(AK_OS_WINDOWS)
+    static constexpr auto platform = "windows"sv;
+#else
+    static constexpr auto platform = "linux"sv;
+#endif
+    Optional<String> error;
+    listed->for_each_member([&](String const& name, JsonValue const& value) {
+        if (error.has_value())
+            return;
+        if (!value.is_object()) {
+            error = MUST(String::formatted("manifest.json: \"commands.{}\" must be an object", name));
+            return;
+        }
+        ExtensionManifest::Command command { name, value.as_object().get_string("description"sv).value_or({}), {} };
+        if (auto keys = value.as_object().get_object("suggested_key"sv); keys.has_value()) {
+            auto key = keys->get_string(platform);
+            if (!key.has_value())
+                key = keys->get_string("default"sv);
+            if (key.has_value())
+                command.shortcut = MUST(key->replace(" "sv, ""sv, ReplaceMode::All));
+        }
+        commands.append(move(command));
+    });
+    if (error.has_value())
+        return error.release_value();
+    return commands;
+}
+
 ErrorOr<ExtensionManifest, String> ExtensionManifest::parse(StringView manifest_json)
 {
     auto json = JsonValue::from_string(manifest_json);
@@ -288,7 +326,7 @@ ErrorOr<ExtensionManifest, String> ExtensionManifest::parse(StringView manifest_
     // Manifest version 2 mixes host patterns into "permissions" and "optional_permissions"; version 3 keeps them in
     // "host_permissions" and "optional_host_permissions".
     auto is_supported_api_permission = [](String const& permission) {
-        return permission == "storage"sv || permission == "unlimitedStorage"sv || permission == "tabs"sv || permission == "activeTab"sv || permission == "alarms"sv || permission == "scripting"sv;
+        return permission == "storage"sv || permission == "unlimitedStorage"sv || permission == "tabs"sv || permission == "activeTab"sv || permission == "alarms"sv || permission == "scripting"sv || permission == "contextMenus"sv || permission == "menus"sv;
     };
     auto sort_permissions = [&](Vector<String> const& listed, Vector<String>& api_permissions, Vector<String>& host_permissions) {
         for (auto const& permission : listed) {
@@ -307,6 +345,7 @@ ErrorOr<ExtensionManifest, String> ExtensionManifest::parse(StringView manifest_
         return error.release_value();
     manifest.background = TRY(parse_background(object, manifest.manifest_version));
     manifest.action = TRY(parse_action(object, manifest.manifest_version));
+    manifest.commands = TRY(parse_commands(object));
 
     return manifest;
 }

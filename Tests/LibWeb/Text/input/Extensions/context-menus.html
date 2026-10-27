@@ -1,0 +1,33 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // Menu items are recorded and shown nowhere: create() returns its id (or a new one), a duplicate or unknown id
+        // fails, and removeAll() lets the same ids be created again.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const create = async properties => (await sendToBackground({ type: "create", properties })).value;
+            println(
+                `create with an id: ${JSON.stringify(await create({ id: "top", title: "Top", contexts: ["action"] }))}`
+            );
+            println(
+                `create without one: ${JSON.stringify(await create({ title: "First" }))} ${JSON.stringify(await create({ title: "Second" }))}`
+            );
+            println(`a child: ${JSON.stringify(await create({ id: "child", parentId: "top", title: "Child" }))}`);
+            println(`a duplicate: ${JSON.stringify(await create({ id: "top", title: "Again" }))}`);
+            println(
+                `update: ${JSON.stringify(await sendToBackground({ type: "update", id: "top", properties: { title: "New" } }))}`
+            );
+            println(
+                `update unknown: ${(await sendToBackground({ type: "update", id: "nope", properties: {} })).failed}`
+            );
+            println(`remove: ${JSON.stringify(await sendToBackground({ type: "remove", id: "top" }))}`);
+            println(`the child went with it: ${(await sendToBackground({ type: "remove", id: "child" })).failed}`);
+            println(`removeAll: ${JSON.stringify(await sendToBackground({ type: "removeAll" }))}`);
+            println(`after removeAll: ${JSON.stringify(await create({ id: "top", title: "Top" }))}`);
+            println(`shape: ${JSON.stringify(await sendToBackground({ type: "shape" }))}`);
+            done();
+        });
+    </script>
+</body>

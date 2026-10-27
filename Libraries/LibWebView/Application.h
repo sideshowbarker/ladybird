@@ -51,6 +51,7 @@
 #include <LibWebView/BrowsingSession.h>
 #include <LibWebView/DownloadStore.h>
 #include <LibWebView/Extensions/ExtensionAlarmManager.h>
+#include <LibWebView/Extensions/ExtensionMenus.h>
 #include <LibWebView/Extensions/ExtensionPermissionsAPI.h>
 #include <LibWebView/Extensions/ExtensionRegisteredScripts.h>
 #include <LibWebView/Extensions/ExtensionScriptingAPI.h>
@@ -722,6 +723,8 @@ private:
     HashTable<i64> m_closing_extension_windows;
     // Tab ids are never reused, so a tab reported closed once stays closed.
     HashTable<i64> m_closed_extension_tabs;
+    ExtensionMenus m_extension_menus;
+    ExtensionCommands m_extension_commands;
     struct ExtensionInjectionFrame {
         i64 frame_id { 0 };
         Optional<String> result_json;
@@ -762,6 +765,8 @@ private:
 public:
     // Grants and takes away optional permissions, persists the result, and fires permissions.onAdded and onRemoved
     // with what actually changed.
+    ExtensionMenus& extension_menus() { return m_extension_menus; }
+    ExtensionCommands& extension_commands() { return m_extension_commands; }
     void change_extension_grants(String const& extension_id, ExtensionPermissionSet const& added, ExtensionPermissionSet const& removed);
 
     // Runs an injection in the frames of a tab it targets, after checking that the extension may reach each one, and

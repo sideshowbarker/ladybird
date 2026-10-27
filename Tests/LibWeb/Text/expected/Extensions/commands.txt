@@ -1,0 +1,4 @@
+getAll: [{"name":"toggle","description":"Toggle the thing","shortcut":"Alt+Shift+D"}]
+update: {"value":null} [{"name":"toggle","description":"Changed","shortcut":"Ctrl+Shift+K"}]
+an unknown command: Unknown command "nope"
+alias: [true,"function"]

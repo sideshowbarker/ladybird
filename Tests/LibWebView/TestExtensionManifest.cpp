@@ -465,3 +465,34 @@ TEST_CASE(optional_permissions_parse_in_both_manifest_versions)
     EXPECT_EQ(mv2.optional_permissions, (Vector { "tabs"_string }));
     EXPECT_EQ(mv2.optional_host_permissions, (Vector { "https://b.example/*"_string, "<all_urls>"_string }));
 }
+
+TEST_CASE(commands_parse)
+{
+    auto manifest = TRY_OR_FAIL(WebView::ExtensionManifest::parse(R"({
+        "manifest_version": 3, "name": "Commands", "version": "1",
+        "permissions": ["contextMenus", "menus"],
+        "commands": {
+            "toggle": { "description": "Toggle", "suggested_key": { "default": "Alt + Shift + D", "mac": "MacCtrl+Shift+D" } },
+            "_execute_action": { "suggested_key": { "default": "Ctrl+Shift+Y" } },
+            "quiet": { "description": "No shortcut" }
+        }
+    })"sv));
+    // Both menu permissions are known, and "menus" is Firefox's name for "contextMenus".
+    EXPECT_EQ(manifest.permissions, (Vector { "contextMenus"_string, "menus"_string }));
+    EXPECT_EQ(manifest.commands.size(), 3u);
+    auto const& toggle = manifest.commands[0];
+    EXPECT_EQ(toggle.name, "toggle"sv);
+    EXPECT_EQ(toggle.description, "Toggle"sv);
+    // The platform's suggested key, or else the default one, with its spaces taken out.
+#if defined(AK_OS_MACOS)
+    EXPECT_EQ(toggle.shortcut, "MacCtrl+Shift+D"sv);
+#else
+    EXPECT_EQ(toggle.shortcut, "Alt+Shift+D"sv);
+#endif
+    EXPECT_EQ(manifest.commands[1].name, "_execute_action"sv);
+    EXPECT_EQ(manifest.commands[1].shortcut, "Ctrl+Shift+Y"sv);
+    EXPECT(!manifest.commands[2].shortcut.has_value());
+
+    auto not_an_object = WebView::ExtensionManifest::parse(R"({ "manifest_version": 3, "name": "C", "version": "1", "commands": [] })"sv);
+    EXPECT(not_an_object.is_error());
+}

@@ -83,6 +83,7 @@ set(TEST_SOURCES
     TestExtensionBackgroundLifetime.cpp
     TestExtensionLocales.cpp
     TestExtensionManifest.cpp
+    TestExtensionMenus.cpp
     TestExtensionMessageBroker.cpp
     TestExtensionRegisteredScripts.cpp
     TestExtensionRegistry.cpp
