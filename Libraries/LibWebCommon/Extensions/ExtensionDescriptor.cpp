@@ -12,14 +12,15 @@
 
 namespace Web::Extensions {
 
-bool ExtensionDescriptor::differs_only_in_grants(ExtensionDescriptor const& other) const
+bool ExtensionDescriptor::differs_only_at_runtime(ExtensionDescriptor const& other) const
 {
-    auto without_grants = [](ExtensionDescriptor descriptor) {
+    auto as_installed = [](ExtensionDescriptor descriptor) {
         descriptor.api_permissions.clear();
         descriptor.granted_origins.clear();
+        descriptor.content_scripts.remove_all_matching([](auto const& script) { return script.id.has_value(); });
         return descriptor;
     };
-    return without_grants(*this) == without_grants(other);
+    return as_installed(*this) == as_installed(other);
 }
 
 bool ExtensionDescriptor::has_host_access(URL::URL const& url) const
@@ -58,6 +59,7 @@ namespace IPC {
 template<>
 ErrorOr<void> encode(Encoder& encoder, Web::Extensions::ContentScriptDescriptor const& script)
 {
+    TRY(encoder.encode(script.id));
     TRY(encoder.encode(script.matches));
     TRY(encoder.encode(script.exclude_matches));
     TRY(encoder.encode(script.js_paths));
@@ -75,6 +77,7 @@ template<>
 ErrorOr<Web::Extensions::ContentScriptDescriptor> decode(Decoder& decoder)
 {
     Web::Extensions::ContentScriptDescriptor script;
+    script.id = TRY(decoder.decode<Optional<String>>());
     script.matches = TRY(decoder.decode<Vector<Web::Extensions::MatchPattern>>());
     script.exclude_matches = TRY(decoder.decode<Vector<Web::Extensions::MatchPattern>>());
     script.js_paths = TRY(decoder.decode<Vector<String>>());

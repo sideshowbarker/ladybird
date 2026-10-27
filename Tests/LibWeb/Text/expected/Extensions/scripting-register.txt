@@ -1,0 +1,12 @@
+before registering: ran first: false, in about:blank: false
+register: {"value":null}
+registered: ran first: true, in about:blank: true
+a duplicate: Duplicate script ID 'dark'
+all: dark:true,other:false
+by id: other:false
+update: {"value":null}
+unregistered: ran first: false, in about:blank: false / other:false
+registered again: ran first: true, in about:blank: true
+remove the host: {"value":true}
+without the host: ran first: false, in about:blank: false
+unregister all: 

@@ -20,6 +20,9 @@ struct ExtensionStorageChange {
 };
 using StorageChanges = OrderedHashMap<String, ExtensionStorageChange>;
 
+// Replaces the file at the path with the contents in one step, creating its directory as needed.
+WEBVIEW_API ErrorOr<void> write_file_atomically(ByteString const& path, String const& contents);
+
 class WEBVIEW_API ExtensionStorageStore {
     AK_ALLOC_WITH_KMALLOC;
 

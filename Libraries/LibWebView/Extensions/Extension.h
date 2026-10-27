@@ -8,6 +8,7 @@
 
 #include <AK/ByteString.h>
 #include <AK/Error.h>
+#include <AK/JsonObject.h>
 #include <AK/NonnullRefPtr.h>
 #include <AK/RefCounted.h>
 #include <AK/String.h>
@@ -28,6 +29,10 @@ public:
 
     void renew_instance();
     void apply_permission_grants(Vector<String> const&);
+    // A script registered with scripting.registerContentScripts(), as the API describes it, with its files read.
+    ErrorOr<Web::Extensions::ContentScriptDescriptor, String> registered_content_script(JsonObject const&) const;
+    // Replaces the registered scripts in the descriptor, which keeps the manifest's own ahead of them.
+    void set_registered_content_scripts(Vector<Web::Extensions::ContentScriptDescriptor>);
 
     String const& id() const { return m_id; }
     ByteString const& directory() const { return m_directory; }
