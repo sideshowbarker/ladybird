@@ -24,7 +24,9 @@ struct StorageRequest {
         SetAccessLevel };
     enum class Area : u8 { Local,
         Session,
-        Sync };
+        Sync,
+        // An administrator's policy sets storage.managed, so extensions only read it, and here it holds nothing.
+        Managed };
     Operation operation { Operation::Get };
     Optional<Vector<String>> keys;
     String items_json;

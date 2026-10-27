@@ -1,0 +1,14 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // storage.managed holds what an administrator's policy sets, which is nothing here: It reads as empty, and refuses
+        // every write.
+        asyncTest(async done => {
+            await contentScriptReady();
+            for (const line of await sendToBackground({ type: "managed" })) println(line);
+            done();
+        });
+    </script>
+</body>
