@@ -1,0 +1,17 @@
+{
+    "manifest_version": 3,
+    "name": "Declarations Fixture",
+    "version": "1.0",
+    "description": "A content script whose top-level declarations it then uses.",
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/world-top-level-declarations.html"
+            ],
+            "js": [
+                "declarations.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}
