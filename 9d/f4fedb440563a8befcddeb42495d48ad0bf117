@@ -1,0 +1,18 @@
+Ladybird gives each browser tab and window an integer id from a
+per-process counter, kept on the frontend’s own tab and window objects,
+so a tab keeps its id across navigations, process swaps, and moves
+between windows, and no id is reused. Chromium does the same with
+SessionID: ExtensionTabUtil::GetTabId() returns
+SessionTabHelper::IdForTab(), a per-session id that stays with the
+WebContents. Gecko’s TabTracker::getId() hands out ids from its own
+_nextId counter, once per native tab, and keeps them when a tab moves to
+another window. WebKit leaves tabs and windows to the embedding
+application, which supplies them through its WebExtensionTab and
+WebExtensionWindow objects.
+
+Ladybird enumerates the frontend’s tabs when an extension asks, rather
+than keeping a registry the frontends feed, since a tab restored from a
+session has no view until it’s shown. Chromium and Gecko enumerate their
+live tabs on demand too: Chromium’s TabsQueryFunction::Run() walks each
+browser’s tab strip model, and Gecko’s TabManagerBase.query() walks the
+windows its window tracker knows.
