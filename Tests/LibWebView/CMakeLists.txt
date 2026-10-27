@@ -150,6 +150,7 @@ if (NOT WIN32)
         TestCrashOverlay.cpp
         TestCrashReportSubmission.cpp
         TestExtensionActionRegistry.cpp
+        TestExtensionPopupHost.cpp
         TestExtensionsUserActivation.cpp
         TestExtensionTabs.cpp
         TestFavicon.cpp

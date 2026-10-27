@@ -88,6 +88,8 @@ public:
     CanonicalTraversable& traversable() const;
     // NB: The tab of a page can go away before the page is closed.
     bool has_traversable() const { return !m_traversable.is_null(); }
+    // Null once the page's view, and its traversable with it, is gone.
+    CanonicalTraversable* traversable_if_alive() const { return m_traversable.ptr(); }
     ViewImplementation& view() const;
     bool displays_tab() const;
     String dump_process_tree() const;
