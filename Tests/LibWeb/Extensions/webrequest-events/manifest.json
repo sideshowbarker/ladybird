@@ -1,0 +1,27 @@
+{
+    "manifest_version": 2,
+    "name": "WebRequest Events Fixture",
+    "version": "1.0",
+    "description": "A background page that records the webRequest events of the requests whose URLs carry a token a test page names.",
+    "permissions": [
+        "webRequest",
+        "tabs",
+        "<all_urls>"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "http://*/*Extensions/webrequest-*.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

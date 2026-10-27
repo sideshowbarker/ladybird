@@ -1,0 +1,30 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-webrequest.js"></script>
+<body>
+    <script>
+        // onSendHeaders reports the headers as they went out, the page's cookie and referrer among them.
+        asyncTest(async done => {
+            await watchWebRequests();
+            document.cookie = `${webRequestToken}=1; path=/`;
+            const server = httpTestServer();
+            const url = await server.createEcho("GET", echoPath("headers.txt"), {
+                status: 200,
+                headers: { "Cache-Control": "no-store" },
+                body: "x",
+            });
+            await fetch(url);
+            const events = await webRequestEvents(events => events.some(e => e.event === "onCompleted"));
+            const sent = events.find(e => e.event === "onSendHeaders").requestHeaders;
+            const header = name => sent.find(h => h.name === name);
+            println(`Cookie: ${header("Cookie")?.value === `${webRequestToken}=1`}`);
+            println(`Referer is the page: ${header("Referer")?.value === location.href}`);
+            println(
+                `same headers before sending: ${JSON.stringify(events.find(e => e.event === "onBeforeSendHeaders").requestHeaders) === JSON.stringify(sent)}`
+            );
+            document.cookie = `${webRequestToken}=; path=/; max-age=0`;
+            done();
+        });
+    </script>
+</body>

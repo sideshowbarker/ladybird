@@ -1,0 +1,90 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-webrequest.js"></script>
+<body>
+    <script>
+        // What webRequest listeners hear about a page's requests: every event of a fetch in order, under one requestId,
+        // and where each request was made.
+        asyncTest(async done => {
+            const { tabId } = await watchWebRequests();
+            const server = httpTestServer();
+            const noStore = { "Cache-Control": "no-store" };
+            const ok = await server.createEcho("GET", echoPath("ok.txt"), {
+                status: 200,
+                headers: { "Content-Type": "text/plain", ...noStore },
+                body: "ok",
+            });
+            await fetch(ok);
+            const forOk = (await webRequestEvents(events => events.some(e => e.event === "onCompleted"))).filter(
+                e => e.url === ok
+            );
+            println(`fetch: ${eventNames(forOk)}`);
+            const first = forOk[0];
+            println(`one requestId: ${forOk.every(e => e.requestId === first.requestId)}`);
+            println(`type: ${first.type}`);
+            println(`tab is the page's: ${first.tabId === tabId}`);
+            println(`frameId: ${first.frameId}, parentFrameId: ${first.parentFrameId}`);
+            println(`documentUrl is the page: ${first.documentUrl === location.href}`);
+            println(`originUrl is the page: ${first.originUrl === location.href}`);
+            const completed = forOk.at(-1);
+            println(`statusCode: ${completed.statusCode}, statusLine: ${completed.statusLine}`);
+            println(`fromCache: ${completed.fromCache}`);
+            println(`request headers only where asked: ${forOk.map(e => "requestHeaders" in e).join(" ")}`);
+            println(`response headers only where asked: ${forOk.map(e => "responseHeaders" in e).join(" ")}`);
+
+            // An iframe's document is a sub_frame of the page, and its own requests are made in its frame.
+            const inner = server.echoURL(echoPath("inner.txt"));
+            await server.createEcho("GET", echoPath("inner.txt"), { status: 200, headers: noStore, body: "inner" });
+            const frameURL = await server.createEcho("GET", echoPath("frame.html"), {
+                status: 200,
+                headers: { "Content-Type": "text/html", ...noStore },
+                body: `<script>fetch("${inner}");<\/script>`,
+            });
+            const iframe = document.createElement("iframe");
+            iframe.src = frameURL;
+            document.body.appendChild(iframe);
+            const events = await webRequestEvents(events =>
+                events.some(e => e.url === inner && e.event === "onCompleted")
+            );
+            const frameDocument = events.find(e => e.url === frameURL && e.event === "onBeforeRequest");
+            println(
+                `iframe document: ${frameDocument.type}, documentUrl is the page: ${frameDocument.documentUrl === location.href}, frameId > 0: ${frameDocument.frameId > 0}, parentFrameId: ${frameDocument.parentFrameId}`
+            );
+            const innerFetch = events.find(e => e.url === inner && e.event === "onBeforeRequest");
+            println(
+                `iframe's fetch: same frame: ${innerFetch.frameId === frameDocument.frameId}, parentFrameId: ${innerFetch.parentFrameId}, documentUrl is the frame: ${innerFetch.documentUrl === frameURL}`
+            );
+
+            // A request that can't connect ends in onErrorOccurred.
+            const refused = `http://127.0.0.1:2/${webRequestToken}/refused`;
+            await fetch(refused, { mode: "no-cors" }).catch(() => {});
+            const forRefused = (
+                await webRequestEvents(events => events.some(e => e.url === refused && e.event === "onErrorOccurred"))
+            ).filter(e => e.url === refused);
+            println(
+                `refused: first ${forRefused[0].event}, last ${forRefused.at(-1).event} ${forRefused.at(-1).error}`
+            );
+
+            // A tab's own document is its main_frame, made in no document.
+            const pageURL = await server.createEcho("GET", echoPath("page.html"), {
+                status: 200,
+                headers: { "Content-Type": "text/html", ...noStore },
+                body: "<p>page</p>",
+            });
+            const opened = await sendToBackground({ type: "openTab", url: pageURL });
+            const mainFrame = (
+                await webRequestEvents(events => events.some(e => e.url === pageURL && e.event === "onCompleted"))
+            ).find(e => e.url === pageURL);
+            println(
+                `new tab: ${mainFrame.type}, documentUrl: ${mainFrame.documentUrl}, its tab: ${mainFrame.tabId === opened.tabId}, frameId: ${mainFrame.frameId}, parentFrameId: ${mainFrame.parentFrameId}`
+            );
+            await sendToBackground({ type: "closeTab", tabId: opened.tabId });
+
+            println(
+                `listener for another tab heard: ${await sendToBackground({ type: "heardForOtherTab", token: webRequestToken })}`
+            );
+            done();
+        });
+    </script>
+</body>
