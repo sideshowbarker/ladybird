@@ -14,6 +14,7 @@
 #include <LibWeb/Extensions/API/Scripting.h>
 #include <LibWeb/Extensions/API/Storage.h>
 #include <LibWeb/Extensions/API/Tabs.h>
+#include <LibWeb/Extensions/API/Windows.h>
 #include <LibWeb/Extensions/MessagingContext.h>
 #include <LibWeb/Extensions/Namespace.h>
 
@@ -46,6 +47,8 @@ GC::Ref<JS::Object> install_namespace(JS::Realm& realm, MessagingContext& messag
     // Content scripts act on the page they're in, so only the extension's own documents get tabs.
     if (context == NamespaceContext::ExtensionDocument)
         namespace_object->define_direct_property("tabs"_utf16_fly_string, create_tabs(realm, messaging_context), attributes);
+    if (context == NamespaceContext::ExtensionDocument)
+        namespace_object->define_direct_property("windows"_utf16_fly_string, create_windows(realm, messaging_context), attributes);
 
     // The toolbar button belongs to the extension's own documents too, and exists only when the manifest declares one.
     if (context == NamespaceContext::ExtensionDocument && messaging_context.descriptor().has_action) {
