@@ -689,6 +689,9 @@ private:
     HashMap<String, ExtensionActiveTabGrants> m_extension_active_tab_grants;
     void sync_extension_actions();
     void sync_extension_session_state();
+    // runtime.onStartup when the browser starts, and runtime.onInstalled whenever an extension is new or has a new
+    // version; each goes to the extension's background page once it has started.
+    void dispatch_extension_lifecycle_events(bool at_browser_start);
 
     bool m_extension_background_pages_may_start { false };
     OwnPtr<BrowserProcess> m_browser_process;

@@ -40,6 +40,7 @@ set(SOURCES
     Extensions/ExtensionTabsAPI.cpp
     Extensions/ExtensionBackgroundHost.cpp
     Extensions/ExtensionBackgroundLifetime.cpp
+    Extensions/ExtensionLifecycle.cpp
     Extensions/ExtensionManifest.cpp
     Extensions/ExtensionPopupHost.cpp
     Extensions/ExtensionMessageBroker.cpp

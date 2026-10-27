@@ -57,6 +57,7 @@
 #include <LibWebView/CrashReportStore.h>
 #include <LibWebView/Extensions/ExtensionActionRegistry.h>
 #include <LibWebView/Extensions/ExtensionBackgroundHost.h>
+#include <LibWebView/Extensions/ExtensionLifecycle.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionPopupHost.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
@@ -282,6 +283,7 @@ public:
                     return;
                 auto& app = static_cast<ExtensionsObserver&>(*weak_this).m_application;
                 app.m_extension_background_host->sync(*app.m_extension_registry);
+                app.dispatch_extension_lifecycle_events(false);
             });
         }
     }
@@ -829,6 +831,7 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     Core::deferred_invoke([this] {
         m_extension_background_pages_may_start = true;
         m_extension_background_host->sync(*m_extension_registry);
+        dispatch_extension_lifecycle_events(true);
     });
 
     if (m_browser_options.enable_content_blocker == EnableContentBlocker::Yes) {
@@ -3637,6 +3640,29 @@ void Application::sync_extension_session_state()
     }
     m_extension_session_revisions = move(revisions);
     schedule_extension_alarms();
+}
+
+void Application::dispatch_extension_lifecycle_events(bool at_browser_start)
+{
+    for (auto const& extension : m_extension_registry->extensions()) {
+        auto const& descriptor = extension->descriptor();
+        if (!m_extension_registry->is_enabled(descriptor.id))
+            continue;
+        auto installed = m_settings->installed_extensions().first_matching([&](auto const& installed) { return installed.id == descriptor.id; });
+        if (!installed.has_value())
+            continue;
+        auto last_seen_version = installed->last_seen_version;
+        if (descriptor.has_background) {
+            if (at_browser_start && extension_hears_browser_start(last_seen_version))
+                m_extension_message_broker->dispatch_background_event(descriptor.id, "runtime.onStartup"_string, "[]"_string);
+            if (auto details = extension_installed_details(last_seen_version, descriptor.version); details.has_value()) {
+                JsonArray arguments;
+                arguments.must_append(details.release_value());
+                m_extension_message_broker->dispatch_background_event(descriptor.id, "runtime.onInstalled"_string, arguments.serialized());
+            }
+        }
+        m_settings->set_installed_extension_last_seen_version(descriptor.id, descriptor.version);
+    }
 }
 
 void Application::schedule_extension_alarms()
