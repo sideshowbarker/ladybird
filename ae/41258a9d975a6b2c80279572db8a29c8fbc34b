@@ -1,0 +1,7 @@
+Ladybird sizes a popup by starting its view at 25×25 and growing it to
+the document’s scroll size, up to 800×600. Chromium bounds the page’s
+preferred size the same way, with ExtensionPopup::GetMinBounds() and
+GetMaxBounds() around its auto-resizing view, but measures the
+document’s preferred width rather than its scroll width at the smallest
+size. So a popup whose content sets no width comes out narrower here; a
+popup that sets its body’s width, as most do, comes out the same.
