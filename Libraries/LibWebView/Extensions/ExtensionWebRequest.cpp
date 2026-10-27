@@ -91,7 +91,7 @@ void ExtensionWebRequestRouter::settle_dispatch(u64 dispatch_id, Vector<String> 
         return;
     auto pending = m_pending_decisions.take(dispatch->decision_id).release_value();
     if (on_decision)
-        on_decision(pending.client_id, pending.request_id, merge_answers(pending.event, pending.answers));
+        on_decision(pending.client_id, pending.request_id, merge_answers(pending.event, pending.answers, pending.initiator));
 }
 
 static Optional<Vector<HTTP::Header>> headers_from_json(JsonValue const& value)
@@ -125,11 +125,28 @@ static Optional<Vector<HTTP::Header>> headers_from_json(JsonValue const& value)
     return headers;
 }
 
-Requests::WebRequestDecision ExtensionWebRequestRouter::merge_answers(Requests::WebRequestEvent event, Vector<ExtensionAnswer> const& answers) const
+// Where an extension may send a request: anywhere over HTTP(S), to a data: URL, or to one of its own web-accessible
+// resources. Anything else, a javascript: URL among them, counts as no answer.
+Optional<URL::URL> ExtensionWebRequestRouter::valid_redirect_target(String const& extension_id, StringView url_string, Optional<URL::URL> const& initiator) const
+{
+    auto url = URL::Parser::basic_parse(url_string);
+    if (!url.has_value())
+        return {};
+    if (first_is_one_of(url->scheme(), "http"sv, "https"sv, "data"sv))
+        return url;
+    if (url->scheme() != Web::Extensions::scheme || url->serialized_host() != extension_id)
+        return {};
+    auto const* descriptor = descriptor_for ? descriptor_for(extension_id) : nullptr;
+    if (!descriptor || !initiator.has_value() || !descriptor->is_web_accessible(url->serialize_path(), *initiator))
+        return {};
+    return url;
+}
+
+Requests::WebRequestDecision ExtensionWebRequestRouter::merge_answers(Requests::WebRequestEvent event, Vector<ExtensionAnswer> const& answers, Optional<URL::URL> const& initiator) const
 {
     using Requests::WebRequestEvent;
     bool may_cancel = first_is_one_of(event, WebRequestEvent::BeforeRequest, WebRequestEvent::BeforeSendHeaders, WebRequestEvent::HeadersReceived, WebRequestEvent::AuthRequired);
-    bool may_redirect = first_is_one_of(event, WebRequestEvent::BeforeRequest, WebRequestEvent::HeadersReceived);
+    bool may_redirect = event == WebRequestEvent::BeforeRequest;
 
     Requests::WebRequestDecision decision;
     if (may_cancel && any_of(answers, [](auto const& answer) { return answer.answer.as_object().get_bool("cancel"sv).value_or(false); })) {
@@ -148,7 +165,7 @@ Requests::WebRequestDecision ExtensionWebRequestRouter::merge_answers(Requests::
         auto const& object = answer->answer.as_object();
         if (may_redirect && !decision.redirect_url.has_value()) {
             if (auto url = object.get_string("redirectUrl"sv); url.has_value())
-                decision.redirect_url = URL::Parser::basic_parse(*url);
+                decision.redirect_url = valid_redirect_target(answer->extension_id, *url, initiator);
         }
         if (event == WebRequestEvent::BeforeSendHeaders && !decision.request_headers.has_value()) {
             if (auto headers = object.get("requestHeaders"sv); headers.has_value())
@@ -289,7 +306,7 @@ void ExtensionWebRequestRouter::report(int client_id, u64 request_id_in_client, 
     u64 decision_id = 0;
     if (waits) {
         decision_id = ++m_next_decision_id;
-        m_pending_decisions.set(decision_id, { client_id, request_id_in_client, details.event, 0, {} });
+        m_pending_decisions.set(decision_id, { client_id, request_id_in_client, details.event, 0, {}, document_url.has_value() ? document_url : context.origin_url });
     }
 
     JsonObject base;

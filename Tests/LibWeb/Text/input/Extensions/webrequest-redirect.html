@@ -1,0 +1,88 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-webrequest.js"></script>
+<body>
+    <script>
+        function load(element, url) {
+            return new Promise(resolve => {
+                element.onload = () => resolve("load");
+                element.onerror = () => resolve("error");
+                element.src = url;
+                document.body.appendChild(element);
+            });
+        }
+
+        // A blocking listener's redirectUrl sends a request to another URL over HTTP, to a data: URL, or to one of the
+        // extension's web-accessible resources; any other target leaves the request as it was.
+        asyncTest(async done => {
+            await watchWebRequests();
+            const server = httpTestServer();
+            const noStore = { "Cache-Control": "no-store" };
+            const script = async (name, body) =>
+                await server.createEcho("GET", echoPath(name), {
+                    status: 200,
+                    headers: { "Content-Type": "text/javascript", ...noStore },
+                    body,
+                });
+
+            const original = await script("redirect-to-echo.js", "window.originalRan = true;");
+            const redirected = await script("redirected.js", "window.redirectedRan = true;");
+            println(
+                `to another URL: ${await load(document.createElement("script"), original)}, ran: ${window.redirectedRan === true}, original ran: ${window.originalRan === true}`
+            );
+            const events = await webRequestEvents(events =>
+                events.some(e => e.url === redirected && e.event === "onCompleted")
+            );
+            const hops = events.filter(e => e.url === original || e.url === redirected);
+            const name = url => url.slice(url.lastIndexOf("/") + 1);
+            println(`events: ${hops.map(e => `${e.event}(${name(e.url)})`).join(" ")}`);
+            println(`one requestId: ${hops.every(e => e.requestId === hops[0].requestId)}`);
+            const redirect = hops.find(e => e.event === "onBeforeRedirect");
+            println(
+                `onBeforeRedirect: ${redirect.statusCode} ${redirect.statusLine}, to the new URL: ${redirect.redirectUrl === redirected}`
+            );
+
+            const resource = await script("redirect-to-resource.js", "window.resourceOriginalRan = true;");
+            println(
+                `to a web-accessible resource: ${await load(document.createElement("script"), resource)}, its script ran: ${window.resourceRan === true}`
+            );
+
+            const image = await server.createEcho("GET", echoPath("redirect-to-data.gif"), {
+                status: 404,
+                headers: noStore,
+            });
+            const img = document.createElement("img");
+            println(`to a data: URL: ${await load(img, image)}, naturalWidth: ${img.naturalWidth}`);
+
+            const notAccessible = await script("redirect-to-private.js", "window.privateOriginalRan = true;");
+            println(
+                `to a resource that isn't web-accessible: ${await load(document.createElement("script"), notAccessible)}, original ran: ${window.privateOriginalRan === true}, resource ran: ${window.privateRan === true}`
+            );
+            const javascriptTarget = await script("redirect-to-javascript.js", "window.javascriptOriginalRan = true;");
+            println(
+                `to a javascript: URL: ${await load(document.createElement("script"), javascriptTarget)}, original ran: ${window.javascriptOriginalRan === true}, target ran: ${window.javascriptRan === true}`
+            );
+
+            // A frame's navigation follows the redirect too.
+            const page = await server.createEcho("GET", echoPath("redirect-page.html"), {
+                status: 200,
+                headers: { "Content-Type": "text/html", ...noStore },
+                body: "<script>parent.postMessage('original page', '*');<\/script>",
+            });
+            await server.createEcho("GET", echoPath("redirected-page.html"), {
+                status: 200,
+                headers: { "Content-Type": "text/html", ...noStore },
+                body: "<script>parent.postMessage('redirected page', '*');<\/script>",
+            });
+            const message = new Promise(resolve =>
+                window.addEventListener("message", event => resolve(event.data), { once: true })
+            );
+            const iframe = document.createElement("iframe");
+            iframe.src = page;
+            document.body.appendChild(iframe);
+            println(`a frame's navigation: ${await message}`);
+            done();
+        });
+    </script>
+</body>

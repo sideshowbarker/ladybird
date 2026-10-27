@@ -10,6 +10,17 @@ browser.webRequest.onBeforeRequest.addListener(
             return new Promise(resolve => setTimeout(() => resolve({ cancel: true }), 200));
         if (named(details, "throws.js")) throw new Error("This listener gives no answer");
         if (named(details, "rejects.js")) return Promise.reject(new Error("Neither does this one"));
+        const redirects = {
+            "redirect-to-echo.js": details.url.replace("redirect-to-echo.js", "redirected.js"),
+            "redirect-page.html": details.url.replace("redirect-page.html", "redirected-page.html"),
+            "redirect-to-resource.js": browser.runtime.getURL("noop.js"),
+            "redirect-to-private.js": browser.runtime.getURL("private.js"),
+            "redirect-to-javascript.js": "javascript:window.javascriptRan = true",
+            "redirect-to-data.gif": "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
+        };
+        for (const [name, redirectUrl] of Object.entries(redirects)) {
+            if (named(details, name)) return { redirectUrl };
+        }
     },
     filter,
     ["blocking"]

@@ -65,7 +65,8 @@ public:
         JsonValue answer;
     };
     // Any cancel wins; otherwise the most recently installed extension's redirect, then its headers, count.
-    Requests::WebRequestDecision merge_answers(Requests::WebRequestEvent, Vector<ExtensionAnswer> const&) const;
+    // A redirect to an extension's own resource counts only if the page making the request may load it.
+    Requests::WebRequestDecision merge_answers(Requests::WebRequestEvent, Vector<ExtensionAnswer> const&, Optional<URL::URL> const& initiator = {}) const;
 
     void listeners_changed(Endpoint&, String const& extension_id, u64 context_id, Vector<Web::Extensions::WebRequestListener>);
     void context_destroyed(Endpoint&, u64 context_id);
@@ -95,6 +96,7 @@ private:
     };
     void notify_interest_changed();
     void settle_dispatch(u64 dispatch_id, Vector<String> answers_json);
+    Optional<URL::URL> valid_redirect_target(String const& extension_id, StringView url, Optional<URL::URL> const& initiator) const;
     void settle_dispatches_of(Function<bool(ContextKey const&)> const&);
     bool may_see(Web::Extensions::ExtensionDescriptor const&, URL::URL const& url, Optional<URL::URL> const& document_url, bool is_private) const;
 
@@ -107,6 +109,7 @@ private:
         Requests::WebRequestEvent event { Requests::WebRequestEvent::BeforeRequest };
         size_t outstanding { 0 };
         Vector<ExtensionAnswer> answers;
+        Optional<URL::URL> initiator;
     };
     struct PendingDispatch {
         u64 decision_id { 0 };
