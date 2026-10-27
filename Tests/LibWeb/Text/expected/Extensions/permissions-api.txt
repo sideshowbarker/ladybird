@@ -1,0 +1,13 @@
+getAll: ["storage"] ["file:///*/Extensions/permissions-api.html","https://required.example/*"]
+contains {"permissions":["storage"]}: true
+contains {"permissions":["tabs"]}: false
+contains {"origins":["https://required.example/a/*"]}: true
+contains {"origins":["https://optional.example/*"]}: false
+contains {"permissions":["cookies"]}: false
+request: false
+after a grant: [{"added":{"permissions":["tabs"],"origins":["https://optional.example/*"]}}] true
+remove an optional origin: true
+after removing it: [{"removed":{"permissions":[],"origins":["https://optional.example/*"]}}] false
+remove a required one: Error: You cannot remove required permissions.
+remove an undeclared one: Error: Only permissions specified in the manifest may be requested.
+malformed: TypeError

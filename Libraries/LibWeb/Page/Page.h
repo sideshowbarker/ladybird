@@ -824,6 +824,7 @@ public:
     virtual String extension_popup_state_for_testing(String const&) { return {}; }
     virtual String extension_background_state_for_testing(String const&) { return {}; }
     virtual void unload_extension_background_for_testing(String const&) { }
+    virtual void grant_extension_permissions_for_testing(String const&, Vector<String>, Vector<String>) { }
     virtual void crash_remote_frame_processes_for_testing() { }
     virtual void close_tab_for_testing() { }
     virtual void page_did_spoof_document_origin_for_testing(HTML::EnvironmentSettingsObject const&, URL::Origin const&) { }

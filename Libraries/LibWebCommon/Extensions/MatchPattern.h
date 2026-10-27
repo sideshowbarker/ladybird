@@ -35,6 +35,8 @@ public:
 
     [[nodiscard]] bool matches(URL::URL const&) const;
     [[nodiscard]] bool matches_all_urls() const { return m_matches_all_urls; }
+    // Whether every URL the other pattern matches, this one matches too.
+    [[nodiscard]] bool contains(MatchPattern const&) const;
 
     [[nodiscard]] String const& scheme() const { return m_scheme; }
     [[nodiscard]] String const& host() const { return m_host; }

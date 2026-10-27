@@ -20,6 +20,7 @@
 #include <LibWebView/CanonicalTraversable.h>
 #include <LibWebView/Extensions/ExtensionBackgroundHost.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
+#include <LibWebView/Extensions/ExtensionPermissionsAPI.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Extensions/ExtensionStorageStore.h>
 #include <LibWebView/Settings.h>
@@ -706,4 +707,34 @@ TEST_CASE(optional_permissions_start_ungranted_and_their_grants_persist)
     auto reloaded = TRY_OR_FAIL(registry.load_unpacked(path));
     EXPECT(reloaded->descriptor().has_permission("tabs"sv));
     EXPECT(reloaded->descriptor().has_host_access(optional));
+}
+
+TEST_CASE(removing_an_origin_a_required_one_overlaps_changes_nothing)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    auto extension = TRY_OR_FAIL(registry.load_unpacked(directory.extension("overlapping"sv, R"({
+        "manifest_version": 3, "name": "Overlapping", "version": "1",
+        "optional_permissions": ["tabs"],
+        "host_permissions": ["https://*.example.com/*"],
+        "optional_host_permissions": ["https://a.example.com/*", "https://scripted.example.org/*", "https://free.example.net/*"],
+        "content_scripts": [{ "matches": ["https://scripted.example.org/*"], "js": [] }]
+    })"sv)));
+    registry.set_granted(extension->id(), { "tabs"_string }, { "https://a.example.com/*"_string, "https://scripted.example.org/*"_string, "https://free.example.net/*"_string });
+    extension = *registry.find(extension->id());
+    auto remove = [&](Vector<String> permissions, Vector<String> origins) {
+        return WebView::extension_permissions_to_remove(*extension, { move(permissions), move(origins) });
+    };
+    auto refusal = [&](Vector<String> permissions, Vector<String> origins) -> String {
+        auto result = remove(move(permissions), move(origins));
+        return result.is_error() ? result.release_error() : "removed"_string;
+    };
+    // A required host pattern covers the optional one, so removing it (and anything with it) is refused.
+    EXPECT_EQ(refusal({ "tabs"_string }, { "https://a.example.com/*"_string }), "You cannot remove required permissions."sv);
+    // So does a manifest content script's match.
+    EXPECT_EQ(refusal({}, { "https://scripted.example.org/*"_string }), "You cannot remove required permissions."sv);
+    auto removed = TRY_OR_FAIL(remove({ "tabs"_string }, { "https://free.example.net/*"_string }));
+    EXPECT_EQ(removed.permissions, (Vector { "tabs"_string }));
+    EXPECT_EQ(removed.origins, (Vector { "https://free.example.net/*"_string }));
 }

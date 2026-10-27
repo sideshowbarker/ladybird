@@ -27,6 +27,7 @@ public:
     virtual DOM::Document& document() override { return *m_document; }
     virtual JS::Realm& realm() override;
     virtual ExtensionDescriptor const& descriptor() const override { return m_descriptor; }
+    virtual void set_descriptor(ExtensionDescriptor descriptor) override { m_descriptor = move(descriptor); }
     virtual EventListenerList& message_listeners() override { return *m_message_listeners; }
     virtual Page& page() override;
     virtual MessageSender sender() const override;
