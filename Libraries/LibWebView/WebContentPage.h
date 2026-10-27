@@ -305,7 +305,7 @@ private:
     virtual void did_call_extension_api(u64 context_id, u64 request_id, String method, String arguments_json) override;
     virtual bool extension_has_permission(String const&, StringView) const override;
     virtual void complete_extension_storage(u64, Web::Extensions::StorageResult const&) override;
-    virtual void dispatch_extension_storage_changed(String const&, String const&) override;
+    virtual void dispatch_extension_storage_changed(String const&, u64 context_id, String const&) override;
     virtual void did_reply_to_extension_runtime_message(u64 dispatch_id, Web::Extensions::MessageResult reply_json) override;
     virtual void dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Web::Extensions::MessageSender const&, String const& message_json, u64 context_id) override;
     virtual void complete_extension_runtime_message(u64 request_id, Web::Extensions::MessageResult const& reply_json) override;

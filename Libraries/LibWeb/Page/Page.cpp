@@ -1940,10 +1940,10 @@ void Page::complete_extension_storage(u64 request_id, Extensions::StorageResult 
         on_extension_storage_reply(request_id, result);
 }
 
-void Page::dispatch_extension_storage_changed(String const& extension_id, String const& changes_json)
+void Page::dispatch_extension_storage_changed(String const& extension_id, u64 context_id, String const& changes_json)
 {
     if (on_extension_storage_changed)
-        on_extension_storage_changed(extension_id, changes_json);
+        on_extension_storage_changed(extension_id, context_id, changes_json);
 }
 
 void Page::dispatch_extension_suspend(String const& extension_id, u64 context_id, bool canceled)

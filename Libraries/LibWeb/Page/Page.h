@@ -439,11 +439,11 @@ public:
     void dispatch_extension_port_disconnect(u64 context_id, u64 port_id, Optional<String> const& error);
     void dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Extensions::MessageSender const&, String const& message_json, u64 context_id);
     void complete_extension_storage(u64 request_id, Extensions::StorageResult const&);
-    void dispatch_extension_storage_changed(String const& extension_id, String const& changes_json);
+    void dispatch_extension_storage_changed(String const& extension_id, u64 context_id, String const& changes_json);
     void dispatch_extension_suspend(String const& extension_id, u64 context_id, bool canceled);
     void dispatch_extension_event(String const& extension_id, u64 context_id, String const& event_name, String const& arguments_json);
     Function<void(u64, Extensions::StorageResult const&)> on_extension_storage_reply;
-    Function<void(String const&, String const&)> on_extension_storage_changed;
+    Function<void(String const&, u64, String const&)> on_extension_storage_changed;
     Function<void(String const&, u64, bool)> on_extension_suspend;
     Function<void(String const&, u64, String const&, String const&)> on_extension_event;
     void complete_extension_runtime_message(u64 request_id, Web::Extensions::MessageResult const& reply_json);

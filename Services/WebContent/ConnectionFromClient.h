@@ -253,7 +253,7 @@ private:
     virtual void dispatch_extension_port_disconnect(Web::PageId page_id, u64 context_id, u64 port_id, Optional<String> error) override;
     virtual void dispatch_extension_runtime_message(Web::PageId page_id, String extension_id, u64 dispatch_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id) override;
     virtual void extension_storage_reply(Web::PageId, u64, Web::Extensions::StorageResult) override;
-    virtual void dispatch_extension_storage_changed(Web::PageId, String, String) override;
+    virtual void dispatch_extension_storage_changed(Web::PageId, String, u64, String) override;
     virtual void dispatch_extension_suspend(Web::PageId, String, u64, bool) override;
     virtual void dispatch_extension_event(Web::PageId, String, u64, String, String) override;
     virtual void extension_runtime_message_reply(Web::PageId page_id, u64 request_id, Web::Extensions::MessageResult reply_json) override;

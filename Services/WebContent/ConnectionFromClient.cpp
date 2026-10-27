@@ -3224,10 +3224,10 @@ void ConnectionFromClient::extension_storage_reply(Web::PageId page_id, u64 requ
         page->page().complete_extension_storage(request_id, result);
 }
 
-void ConnectionFromClient::dispatch_extension_storage_changed(Web::PageId page_id, String extension_id, String changes_json)
+void ConnectionFromClient::dispatch_extension_storage_changed(Web::PageId page_id, String extension_id, u64 context_id, String changes_json)
 {
     if (auto page = this->page(page_id); page.has_value())
-        page->page().dispatch_extension_storage_changed(extension_id, changes_json);
+        page->page().dispatch_extension_storage_changed(extension_id, context_id, changes_json);
 }
 
 void ConnectionFromClient::dispatch_extension_suspend(Web::PageId page_id, String extension_id, u64 context_id, bool canceled)

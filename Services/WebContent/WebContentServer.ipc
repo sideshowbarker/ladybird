@@ -264,7 +264,7 @@ endpoint WebContentServer routed by Web::PageId page_id
     dispatch_extension_port_disconnect(Web::PageId page_id, u64 context_id, u64 port_id, Optional<String> error) =|
     dispatch_extension_runtime_message(Web::PageId page_id, String extension_id, u64 dispatch_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id) =|
     extension_storage_reply(Web::PageId page_id, u64 request_id, Web::Extensions::StorageResult result) =|
-    dispatch_extension_storage_changed(Web::PageId page_id, String extension_id, String changes_json) =|
+    dispatch_extension_storage_changed(Web::PageId page_id, String extension_id, u64 context_id, String changes_json) =|
     dispatch_extension_suspend(Web::PageId page_id, String extension_id, u64 context_id, bool canceled) =|
     dispatch_extension_event(Web::PageId page_id, String extension_id, u64 context_id, String event_name, String arguments_json) =|
     extension_runtime_message_reply(Web::PageId page_id, u64 request_id, Web::Extensions::MessageResult reply_json) =|

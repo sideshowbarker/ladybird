@@ -61,15 +61,25 @@ struct PreparedStorageRequest {
     Optional<JsonObject> defaults;
 };
 
-static JS::ThrowCompletionOr<PreparedStorageRequest> prepare_request(JS::VM& vm, StorageRequest::Operation operation, size_t count)
+static JS::ThrowCompletionOr<PreparedStorageRequest> prepare_request(JS::VM& vm, StorageRequest::Area area, StorageRequest::Operation operation, size_t count)
 {
     using Operation = StorageRequest::Operation;
-    PreparedStorageRequest prepared { .request = { .operation = operation, .keys = {}, .items_json = {} }, .defaults = {} };
-    if (count > (operation == Operation::Clear ? 0u : 1u) || (!count && (operation == Operation::Set || operation == Operation::Remove)))
-        return vm.throw_completion<JS::TypeError>("Invalid storage.local arguments"sv);
+    PreparedStorageRequest prepared { .request = { .operation = operation, .keys = {}, .items_json = {}, .area = area }, .defaults = {} };
+    if (count > (operation == Operation::Clear ? 0u : 1u) || (!count && (operation == Operation::Set || operation == Operation::Remove || operation == Operation::SetAccessLevel)))
+        return vm.throw_completion<JS::TypeError>(area == StorageRequest::Area::Session ? "Invalid storage.session arguments"sv : "Invalid storage.local arguments"sv);
     if (operation == Operation::Clear)
         return prepared;
     auto value = count ? vm.argument(0) : JS::js_undefined();
+    // setAccessLevel({ accessLevel }) sends the level alone.
+    if (operation == Operation::SetAccessLevel) {
+        if (!value.is_object())
+            return vm.throw_completion<JS::TypeError>("Invalid storage.session arguments"sv);
+        auto level = TRY(value.as_object().get("accessLevel"_utf16_fly_string));
+        if (!level.is_string())
+            return vm.throw_completion<JS::TypeError>("Invalid storage.session arguments"sv);
+        prepared.request.items_json = level.as_string().utf16_string().to_utf8();
+        return prepared;
+    }
     if (operation == Operation::Set) {
         prepared.request.items_json = TRY(serialize_items(vm, value)).serialized();
         return prepared;
@@ -97,24 +107,22 @@ static JS::ThrowCompletionOr<PreparedStorageRequest> prepare_request(JS::VM& vm,
     return prepared;
 }
 
-GC::Ref<JS::Object> create_storage(JS::Realm& realm, MessagingContext& context)
+// One storage area's object, storage.local or storage.session, with its methods and its own onChanged.
+static GC::Ref<JS::Object> create_storage_area(JS::Realm& realm, MessagingContext& context, StorageRequest::Area area, EventListenerList& listeners)
 {
-    auto storage = JS::Object::create(realm, realm.intrinsics().object_prototype());
-    auto local = JS::Object::create(realm, realm.intrinsics().object_prototype());
+    auto object = JS::Object::create(realm, realm.intrinsics().object_prototype());
     auto attributes = JS::Attribute::Writable | JS::Attribute::Configurable;
-    auto global_listeners = realm.heap().allocate<EventListenerList>();
-    auto local_listeners = realm.heap().allocate<EventListenerList>();
-    context.set_storage_listeners(global_listeners, local_listeners);
-    storage->define_direct_property("onChanged"_utf16_fly_string, create_event(realm, global_listeners), attributes);
-    local->define_direct_property("onChanged"_utf16_fly_string, create_event(realm, local_listeners), attributes);
-    storage->define_direct_property("local"_utf16_fly_string, local, attributes);
-    local->define_direct_property("QUOTA_BYTES"_utf16_fly_string, JS::Value(10485760), 0);
+    object->define_direct_property("onChanged"_utf16_fly_string, create_event(realm, listeners), attributes);
+    object->define_direct_property("QUOTA_BYTES"_utf16_fly_string, JS::Value(10485760), 0);
     struct Method {
         Utf16FlyString name;
         StorageRequest::Operation operation;
     };
-    for (auto const& method : { Method { "get"_utf16_fly_string, StorageRequest::Operation::Get }, Method { "set"_utf16_fly_string, StorageRequest::Operation::Set }, Method { "remove"_utf16_fly_string, StorageRequest::Operation::Remove }, Method { "clear"_utf16_fly_string, StorageRequest::Operation::Clear }, Method { "getBytesInUse"_utf16_fly_string, StorageRequest::Operation::BytesInUse } }) {
-        local->define_native_function(realm, method.name, [context = GC::Ref { context }, operation = method.operation](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+    Vector<Method> methods { { "get"_utf16_fly_string, StorageRequest::Operation::Get }, { "set"_utf16_fly_string, StorageRequest::Operation::Set }, { "remove"_utf16_fly_string, StorageRequest::Operation::Remove }, { "clear"_utf16_fly_string, StorageRequest::Operation::Clear }, { "getBytesInUse"_utf16_fly_string, StorageRequest::Operation::BytesInUse } };
+    if (area == StorageRequest::Area::Session)
+        methods.append({ "setAccessLevel"_utf16_fly_string, StorageRequest::Operation::SetAccessLevel });
+    for (auto const& method : methods) {
+        object->define_native_function(realm, method.name, [context = GC::Ref { context }, area, operation = method.operation](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
             if (context->is_detached())
                 return vm.throw_completion<JS::TypeError>("The extension context is gone"sv);
             auto count = vm.argument_count();
@@ -122,7 +130,7 @@ GC::Ref<JS::Object> create_storage(JS::Realm& realm, MessagingContext& context)
             if (count && vm.argument(count - 1).is_function())
                 callback = vm.argument(--count).as_function();
             auto& operation_realm = context->realm();
-            auto prepared = prepare_request(vm, operation, count);
+            auto prepared = prepare_request(vm, area, operation, count);
             if (context->is_detached())
                 return settle_api_call(*context, callback, WebIDL::create_rejected_promise(operation_realm, JS::TypeError::create(operation_realm, "The extension context is detached"_utf16)));
             auto promise = prepared.is_error()
@@ -130,6 +138,21 @@ GC::Ref<JS::Object> create_storage(JS::Realm& realm, MessagingContext& context)
                 : MessageRouter::the().request_storage(*context, prepared.value().request, move(prepared.value().defaults));
             return settle_api_call(*context, callback, promise); }, method.operation == StorageRequest::Operation::Clear ? 0 : 1, attributes);
     }
+    return object;
+}
+
+GC::Ref<JS::Object> create_storage(JS::Realm& realm, MessagingContext& context)
+{
+    auto storage = JS::Object::create(realm, realm.intrinsics().object_prototype());
+    auto attributes = JS::Attribute::Writable | JS::Attribute::Configurable;
+    auto global_listeners = realm.heap().allocate<EventListenerList>();
+    auto local_listeners = realm.heap().allocate<EventListenerList>();
+    auto session_listeners = realm.heap().allocate<EventListenerList>();
+    context.set_storage_listeners(global_listeners, local_listeners, session_listeners);
+    storage->define_direct_property("onChanged"_utf16_fly_string, create_event(realm, global_listeners), attributes);
+    storage->define_direct_property("local"_utf16_fly_string, create_storage_area(realm, context, StorageRequest::Area::Local, local_listeners), attributes);
+    // A content script has storage.session too, but the UI process refuses its calls until the extension allows them.
+    storage->define_direct_property("session"_utf16_fly_string, create_storage_area(realm, context, StorageRequest::Area::Session, session_listeners), attributes);
     return storage;
 }
 

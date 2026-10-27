@@ -200,6 +200,10 @@ struct ExtensionStorageStore::Impl {
             return Error::from_string_literal("storage-local.json is corrupt or has an unsupported formatVersion");
         if (entry.items.has_value())
             return &entry;
+        if (in_memory) {
+            entry.items = JsonObject {};
+            return &entry;
+        }
         auto file = Core::File::open(path(id), Core::File::OpenMode::Read);
         if (file.is_error()) {
             if (!file.error().is_errno() || file.error().code() != ENOENT)
@@ -250,6 +254,8 @@ struct ExtensionStorageStore::Impl {
             if (values.new_value.has_value())
                 bytes_in_use += key.byte_count() + quota_json_size(*values.new_value);
         }
+        if (in_memory && bytes_in_use > ExtensionStorageStore::quota_bytes)
+            return Error::from_string_literal("storage.session QUOTA_BYTES quota exceeded");
         if (!unlimited && bytes_in_use > ExtensionStorageStore::quota_bytes)
             return Error::from_string_literal("storage.local QUOTA_BYTES quota exceeded");
         if (changes.is_empty())
@@ -265,7 +271,8 @@ struct ExtensionStorageStore::Impl {
         file.set("formatVersion"sv, 1);
         file.set("items"sv, candidate);
         auto contents = file.serialized();
-        TRY(writer(path(id), contents));
+        if (!in_memory)
+            TRY(writer(path(id), contents));
         entry->items = move(candidate);
         entry->bytes_in_use = bytes_in_use;
         return changes;
@@ -273,6 +280,7 @@ struct ExtensionStorageStore::Impl {
 
     ByteString root;
     Writer writer;
+    bool in_memory { false };
     Core::EventLoop* loop { nullptr };
     Mutex mutex;
     ConditionVariable condition { mutex };
@@ -287,6 +295,13 @@ ExtensionStorageStore::ExtensionStorageStore(ByteString root, Writer writer)
 {
 }
 ExtensionStorageStore::~ExtensionStorageStore() = default;
+
+NonnullOwnPtr<ExtensionStorageStore> ExtensionStorageStore::create_session_store()
+{
+    auto store = make<ExtensionStorageStore>(ByteString {});
+    store->m_impl->in_memory = true;
+    return store;
+}
 
 void ExtensionStorageStore::get(String const& id, Optional<Vector<String>> keys, Function<void(ErrorOr<JsonObject>)> callback)
 {
@@ -351,7 +366,7 @@ void ExtensionStorageStore::delete_storage(String const& id, Function<void(Error
         if (!valid_id(id))
             return Error::from_string_literal("Invalid extension storage id");
         auto directory = impl->directory(id);
-        if (FileSystem::exists(directory))
+        if (!impl->in_memory && FileSystem::exists(directory))
             TRY(FileSystem::remove(directory, FileSystem::RecursionMode::Allowed));
         impl->entries.remove(id);
         return {};

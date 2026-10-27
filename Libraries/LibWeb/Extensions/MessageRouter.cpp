@@ -127,7 +127,7 @@ void MessageRouter::register_context(MessagingContext& context)
     m_contexts_by_id.set(context.context_id(), &context);
     auto& page = context.page();
     page.on_extension_storage_reply = [this, &page](u64 request_id, StorageResult const& result) { complete_storage(page, request_id, result); };
-    page.on_extension_storage_changed = [this, &page](String const& id, String const& changes) { dispatch_storage_changed(page, id, changes); };
+    page.on_extension_storage_changed = [this, &page](String const& id, u64 context_id, String const& changes) { dispatch_storage_changed(page, id, context_id, changes); };
     page.on_extension_suspend = [this, &page](String const& id, u64 context_id, bool canceled) { dispatch_suspend(page, id, context_id, canceled); };
     page.on_extension_event = [this, &page](String const& id, u64 context_id, String const& name, String const& arguments) { dispatch_event(page, id, context_id, name, arguments); };
     context.page().client().page_did_create_extension_context(context.extension_id(), context.context_id(), context.document().id(), context.descriptor().revision);
@@ -343,14 +343,20 @@ void MessageRouter::dispatch_suspend(Page& page, String const& extension_id, u64
         page.client().page_did_finish_extension_suspend(extension_id, context_id);
 }
 
-void MessageRouter::dispatch_storage_changed(Page& page, String const& id, String const& json)
+void MessageRouter::dispatch_storage_changed(Page& page, String const& id, u64 context_id, String const& json)
 {
     auto parsed = JsonValue::from_string(json);
     if (parsed.is_error() || !parsed.value().is_object())
         return;
+    auto area_name = parsed.value().as_object().get_string("areaName"sv);
+    auto changed_items = parsed.value().as_object().get("changes"sv);
+    if (!area_name.has_value() || (*area_name != "local"sv && *area_name != "session"sv) || !changed_items.has_value() || !changed_items->is_object())
+        return;
+    auto is_session = *area_name == "session"sv;
     GC::RootVector<GC::Ref<MessagingContext>> targets;
     for (auto context : m_contexts) {
-        if (!context->is_detached() && &context->page() == &page && context->extension_id() == id && context->descriptor().has_permission("storage"sv))
+        // The UI process names each context that may hear of the change.
+        if (!context->is_detached() && &context->page() == &page && context->context_id() == context_id && context->extension_id() == id && context->descriptor().has_permission("storage"sv))
             targets.append(*context);
     }
     for (auto context : targets) {
@@ -358,17 +364,19 @@ void MessageRouter::dispatch_storage_changed(Page& page, String const& id, Strin
             continue;
         auto& realm = context->realm();
         HTML::TemporaryExecutionContext execution_context { realm, HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };
-        auto changes = storage_value_from_json(realm, parsed.value());
-        for (bool local : { false, true }) {
-            auto list = local ? context->local_storage_listeners() : context->storage_listeners();
+        auto changes = storage_value_from_json(realm, *changed_items);
+        // storage.onChanged also gets the area's name, and the area's own onChanged doesn't.
+        for (bool of_the_area : { false, true }) {
+            auto list = !of_the_area ? context->storage_listeners() : is_session ? context->session_storage_listeners()
+                                                                                 : context->local_storage_listeners();
             if (!list)
                 continue;
             auto listeners = list->listeners();
             for (auto listener : listeners) {
                 if (context->is_detached())
                     break;
-                Array<JS::Value, 2> arguments { changes, JS::PrimitiveString::create(realm.vm(), "local"_utf16) };
-                auto result = JS::call(realm.vm(), JS::Value { listener }, JS::js_undefined(), ReadonlySpan<JS::Value> { arguments }.slice(0, local ? 1 : 2));
+                Array<JS::Value, 2> arguments { changes, JS::PrimitiveString::create(realm.vm(), Utf16String::from_utf8(*area_name)) };
+                auto result = JS::call(realm.vm(), JS::Value { listener }, JS::js_undefined(), ReadonlySpan<JS::Value> { arguments }.slice(0, of_the_area ? 1 : 2));
                 if (result.is_error())
                     HTML::report_exception(result, realm);
             }

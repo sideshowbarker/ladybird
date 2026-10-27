@@ -1863,7 +1863,8 @@ bool WebContentPage::extension_has_permission(String const& id, StringView permi
 
 void WebContentPage::did_request_extension_storage(u64 context_id, u64 request_id, Web::Extensions::StorageRequest request)
 {
-    Application::extension_message_broker().request_storage(*this, context_id, request_id, request, Application::extension_storage_store());
+    auto& store = request.area == Web::Extensions::StorageRequest::Area::Session ? Application::extension_session_storage_store() : Application::extension_storage_store();
+    Application::extension_message_broker().request_storage(*this, context_id, request_id, request, store);
 }
 
 void WebContentPage::did_request_extension_tabs_query(u64 context_id, u64 request_id, String query_json)
@@ -2002,9 +2003,9 @@ void WebContentPage::complete_extension_storage(u64 request_id, Web::Extensions:
     async_extension_storage_reply(request_id, result);
 }
 
-void WebContentPage::dispatch_extension_storage_changed(String const& id, String const& changes)
+void WebContentPage::dispatch_extension_storage_changed(String const& id, u64 context_id, String const& changes)
 {
-    async_dispatch_extension_storage_changed(id, changes);
+    async_dispatch_extension_storage_changed(id, context_id, changes);
 }
 
 void WebContentPage::did_reply_to_extension_runtime_message(u64 dispatch_id, Web::Extensions::MessageResult reply_json)

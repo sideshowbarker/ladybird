@@ -271,6 +271,7 @@ public:
         app.m_extension_background_host->prepare(*app.m_extension_registry);
         app.m_extension_message_broker->reconcile_contexts();
         app.sync_extension_actions();
+        app.sync_extension_session_storage();
         WebContentClient::for_each_client([&](WebContentClient& client) {
             client.async_set_extensions(app.m_extension_registry->enabled_descriptors(client.is_private()));
             return IterationDecision::Continue;
@@ -745,6 +746,7 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_bookmark_store = make<BookmarkStore>(BookmarkStore::create(LexicalPath::join(profile().paths().config, "Bookmarks.json"sv).string()));
     m_extension_registry = make<ExtensionRegistry>(*m_settings);
     m_extension_storage_store = make<ExtensionStorageStore>(profile().paths().data);
+    m_extension_session_storage_store = ExtensionStorageStore::create_session_store();
     m_extension_registry->set_storage_store(*m_extension_storage_store);
     m_extension_message_broker = make<ExtensionMessageBroker>();
     m_extension_registry->set_message_broker(*m_extension_message_broker);
@@ -3616,6 +3618,23 @@ void Application::sync_extension_actions()
     m_extension_action_revisions = move(revisions);
     if (list_changed)
         extension_action_list_changed();
+}
+
+void Application::sync_extension_session_storage()
+{
+    // storage.session lasts only as long as the extension stays enabled and isn't reloaded.
+    HashMap<String, u64> revisions;
+    for (auto const& extension : m_extension_registry->extensions()) {
+        if (m_extension_registry->is_enabled(extension->id()))
+            revisions.set(extension->id(), extension->descriptor().revision);
+    }
+    for (auto const& [id, revision] : m_extension_session_revisions) {
+        if (revisions.get(id) == revision)
+            continue;
+        m_extension_session_storage_store->delete_storage(id, [](auto) { });
+        m_extension_message_broker->forget_session_storage_access(id);
+    }
+    m_extension_session_revisions = move(revisions);
 }
 
 void Application::extension_tab_activated_document(i64 tab_id, URL::URL const& url)
