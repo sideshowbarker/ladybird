@@ -63,6 +63,15 @@ struct WebRequestEventDetails {
     Optional<ByteString> error;
 };
 
+// What extensions' blocking listeners decided about one event of a request: to cancel it, to send it somewhere else, or
+// to replace the headers it sends or the ones its response has. Nothing set leaves the request as it is.
+struct WebRequestDecision {
+    bool cancel { false };
+    Optional<URL::URL> redirect_url;
+    Optional<Vector<HTTP::Header>> request_headers;
+    Optional<Vector<HTTP::Header>> response_headers;
+};
+
 // Extensions compare these names, so they're fixed.
 constexpr StringView web_request_error_name(NetworkError error)
 {
@@ -83,6 +92,8 @@ constexpr StringView web_request_error_name(NetworkError error)
         return "NS_ERROR_NET_INTERRUPT"sv;
     case NetworkError::InvalidContentEncoding:
         return "NS_ERROR_INVALID_CONTENT_ENCODING"sv;
+    case NetworkError::BlockedByExtension:
+        return "NS_ERROR_ABORT"sv;
     case NetworkError::SSLHandshakeFailed:
     case NetworkError::SSLVerificationFailed:
     case NetworkError::RequestServerDied:
@@ -105,6 +116,12 @@ ErrorOr<void> encode(Encoder&, Requests::WebRequestInterest const&);
 
 template<>
 ErrorOr<Requests::WebRequestInterest> decode(Decoder&);
+
+template<>
+ErrorOr<void> encode(Encoder&, Requests::WebRequestDecision const&);
+
+template<>
+ErrorOr<Requests::WebRequestDecision> decode(Decoder&);
 
 template<>
 ErrorOr<void> encode(Encoder&, Requests::WebRequestEventDetails const&);

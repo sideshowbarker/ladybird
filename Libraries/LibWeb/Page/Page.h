@@ -938,6 +938,7 @@ public:
     virtual void page_did_click_extension_action([[maybe_unused]] String const& extension_id) { }
     virtual void page_did_finish_extension_suspend([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id) { }
     virtual void page_did_change_extension_event_listeners([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id, [[maybe_unused]] Vector<String> event_names) { }
+    virtual void page_did_answer_extension_web_request_event([[maybe_unused]] u64 dispatch_id, [[maybe_unused]] Vector<String> answers_json) { }
     virtual void page_did_change_extension_web_request_listeners([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id, [[maybe_unused]] Vector<Extensions::WebRequestListener> listeners) { }
     virtual void page_did_receive_reference_test_metadata(JsonValue) { }
 

@@ -37,6 +37,8 @@ endpoint RequestServerControl
 
     // Which requests extensions' webRequest listeners want to hear about; RequestServer reports no others.
     set_web_request_interest(Vector<Requests::WebRequestInterest> interest) =|
+    // Lets a request that waits on its extensions' answer for one event go on.
+    web_request_decision(int client_id, u64 request_id, Requests::WebRequestDecision decision) =|
 
     retrieved_http_cookie(int client_id, u64 request_id, ::RequestServer::RequestType request_type, u64 cookie_request_id, String cookie) =|
     stored_response_cookies_and_hsts_policy(int client_id, u64 request_id, u64 store_request_id) =|

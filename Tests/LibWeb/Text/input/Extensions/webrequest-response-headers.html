@@ -1,0 +1,53 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-webrequest.js"></script>
+<body>
+    <script>
+        // A blocking onHeadersReceived listener replaces a response's headers before anything acts on them: a removed
+        // Set-Cookie stores nothing, and an added Content-Security-Policy applies to the document.
+        asyncTest(async done => {
+            await watchWebRequests();
+            const server = httpTestServer();
+            const strip = await server.createEcho("GET", echoPath("strip-cookie.txt"), {
+                status: 200,
+                headers: { "Cache-Control": "no-store", "Set-Cookie": `${webRequestToken}-set=1; Path=/` },
+                body: "x",
+            });
+            await fetch(strip);
+            println(`cookie stored: ${document.cookie.includes(`${webRequestToken}-set`)}`);
+            const keep = await server.createEcho("GET", echoPath("keep-cookie.txt"), {
+                status: 200,
+                headers: { "Cache-Control": "no-store", "Set-Cookie": `${webRequestToken}-kept=1; Path=/` },
+                body: "x",
+            });
+            await fetch(keep);
+            println(
+                `cookie stored without the listener's change: ${document.cookie.includes(`${webRequestToken}-kept`)}`
+            );
+            document.cookie = `${webRequestToken}-kept=; path=/; max-age=0`;
+
+            const frame = async name => {
+                const page = await server.createEcho("GET", echoPath(name), {
+                    status: 200,
+                    headers: { "Content-Type": "text/html", "Cache-Control": "no-store" },
+                    body: "<script>parent.postMessage('inline script ran', '*');<\/script>",
+                });
+                let message = "inline script didn't run";
+                const listener = event => (message = event.data);
+                window.addEventListener("message", listener);
+                const iframe = document.createElement("iframe");
+                const loaded = new Promise(resolve => (iframe.onload = resolve));
+                iframe.src = page;
+                document.body.appendChild(iframe);
+                await loaded;
+                await new Promise(resolve => setTimeout(resolve, 50));
+                window.removeEventListener("message", listener);
+                return message;
+            };
+            println(`with the added policy: ${await frame("add-csp.html")}`);
+            println(`without it: ${await frame("no-csp.html")}`);
+            done();
+        });
+    </script>
+</body>

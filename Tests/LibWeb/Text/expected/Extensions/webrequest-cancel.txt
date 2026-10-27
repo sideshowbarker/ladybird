@@ -1,0 +1,7 @@
+canceled: error, ran: false
+canceled events: onBeforeRequest onErrorOccurred, error: NS_ERROR_ABORT
+canceled through a promise: error, ran: false
+listener removed itself while answering: error, ran: false
+unmatched: load, ran: true
+listener threw: load, ran: true
+listener's promise rejected: load, ran: true

@@ -113,6 +113,7 @@ public:
     Optional<Requests::WebRequestContext> const& web_request_context() const { return m_web_request_context; }
     // Tells listeners the page stopped waiting for this request.
     void report_web_request_aborted() { report_web_request_error(Requests::web_request_aborted_error_name); }
+    void notify_web_request_decision(Badge<ControlConnectionFromClient>, Requests::WebRequestDecision);
     RequestType type() const { return m_type; }
     URL::URL const& url() const { return m_url; }
     bool is_complete() const { return m_state == State::Complete || m_state == State::Error; }
@@ -161,6 +162,7 @@ private:
         Fetch,             // Issue a network request to fetch the URL.
         WaitForAIA,        // Wait for an AIA intermediate-certificate fetch to complete, then retry the fetch.
         ReadImported,      // Read the response another RequestServer is streaming to this one.
+        WaitForWebRequest, // Wait for extensions' webRequest listeners to decide what happens to the request.
         Complete,          // Finalize the request with the client.
         Error,             // Any error occured during the request's lifetime.
     };
@@ -178,6 +180,8 @@ private:
             return "WaitForAIA"sv;
         case State::ReadImported:
             return "ReadImported"sv;
+        case State::WaitForWebRequest:
+            return "WaitForWebRequest"sv;
         case State::FailedCacheOnly:
             return "FailedCacheOnly"sv;
         case State::ServeSubstitution:
@@ -267,13 +271,21 @@ private:
 
     // What extensions' webRequest listeners hear about this request: each event at most once, and only while some
     // listener wants it.
-    void report_web_request_event(Requests::WebRequestEvent, Function<void(Requests::WebRequestEventDetails&)> fill = {});
-    void report_web_request_send_headers();
-    void report_web_request_headers_received();
+    // Returns whether the request now waits for the listeners' decision, which may_wait allows for an event they can
+    // change; on_decision then runs with it.
+    enum class MayWait : bool {
+        No,
+        Yes,
+    };
+    bool report_web_request_event(Requests::WebRequestEvent, Function<void(Requests::WebRequestEventDetails&)> fill = {}, MayWait = MayWait::No, Function<void(Requests::WebRequestDecision)> on_decision = {});
+    bool report_web_request_headers_received(MayWait = MayWait::No, Function<void(Requests::WebRequestDecision)> on_decision = {});
+    void fail_by_extension();
+    void send_cached_response();
     void report_web_request_response_started();
     void report_web_request_completed();
     void report_web_request_error(StringView error_name);
     ByteString web_request_status_line() const;
+    Optional<ByteString> web_request_ip();
 
     // The cookies and HSTS policy of a network response are stored by the UI process before the client learns about the
     // response, so that the client can never observe the response without its cookies. Returns true if the response has
@@ -346,6 +358,10 @@ private:
     u16 m_reported_web_request_events { 0 };
     bool m_web_request_redirected { false };
     bool m_web_request_ended { false };
+    Function<void(Requests::WebRequestDecision)> m_web_request_decision_handler;
+    Function<void()> m_web_request_headers_continuation;
+    Optional<ByteString> m_web_request_ip;
+    int m_web_request_client_id { -1 };
     bool m_informed_client_requires_network { false };
     bool m_informed_client_request_started { false };
     bool m_cache_entry_was_revalidated { false };

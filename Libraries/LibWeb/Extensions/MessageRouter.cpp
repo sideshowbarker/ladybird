@@ -5,7 +5,10 @@
  */
 
 #include <AK/JsonArray.h>
+#include <AK/RefCounted.h>
+#include <AK/ScopeGuard.h>
 #include <LibGC/CellAllocator.h>
+#include <LibGC/Root.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
@@ -548,8 +551,42 @@ void MessageRouter::complete_connect(Page& page, u64 context_id, u64 port_id, u6
         rooted_port->connected(channel_id);
 }
 
-void MessageRouter::dispatch_web_request_event(Page& page, u64 context_id, u64, Vector<u64> const& listener_ids, String const& details_json, bool)
+// The answers of a dispatch's blocking listeners, sent once every one has answered, thrown, or settled its promise.
+struct WebRequestAnswers : public RefCounted<WebRequestAnswers> {
+    GC::Root<Page> page;
+    u64 dispatch_id { 0 };
+    size_t outstanding { 1 };
+    Vector<String> answers;
+
+    void add(JS::VM& vm, JS::Value value)
+    {
+        if (value.is_object() && !value.is_function()) {
+            if (auto json = JS::JSONObject::stringify_impl(vm, value, JS::js_undefined(), JS::js_undefined()); !json.is_error() && json.value().has_value())
+                answers.append(json.value()->to_utf8());
+        }
+        settle();
+    }
+    void settle()
+    {
+        if (--outstanding == 0)
+            page->client().page_did_answer_extension_web_request_event(dispatch_id, move(answers));
+    }
+};
+
+void MessageRouter::dispatch_web_request_event(Page& page, u64 context_id, u64 dispatch_id, Vector<u64> const& listener_ids, String const& details_json, bool wants_answer)
 {
+    // The UI process waits for an answer, so one goes back even when no listener is left to give one.
+    RefPtr<WebRequestAnswers> answers;
+    if (wants_answer) {
+        answers = adopt_ref(*new WebRequestAnswers);
+        answers->page = GC::make_root(page);
+        answers->dispatch_id = dispatch_id;
+    }
+    ScopeGuard settle_dispatch = [&] {
+        if (answers)
+            answers->settle();
+    };
+
     auto* context = context_for(page, context_id);
     if (!context || context->is_detached())
         return;
@@ -564,9 +601,11 @@ void MessageRouter::dispatch_web_request_event(Page& page, u64 context_id, u64, 
         if (context->is_detached())
             break;
         auto callback = listeners->callback_for(listener_id);
-        auto const* record = listeners->record_for(listener_id);
-        if (!callback || !record)
+        auto const* found_record = listeners->record_for(listener_id);
+        if (!callback || !found_record)
             continue;
+        // The listener may remove itself or add others while it runs, so its record is copied before it's called.
+        auto record = *found_record;
         auto rooted_callback = GC::make_root(*callback);
         auto parsed = JS::JSONObject::parse_json(vm, details_utf16);
         if (parsed.is_error() || !parsed.value().is_object())
@@ -574,13 +613,36 @@ void MessageRouter::dispatch_web_request_event(Page& page, u64 context_id, u64, 
         auto details = parsed.release_value();
         auto& object = details.as_object();
         // Only a listener that asked for headers gets them.
-        if (!record->request_headers)
+        if (!record.request_headers)
             MUST(object.internal_delete("requestHeaders"_utf16_fly_string));
-        if (!record->response_headers)
+        if (!record.response_headers)
             MUST(object.internal_delete("responseHeaders"_utf16_fly_string));
         auto result = JS::call(vm, JS::Value { rooted_callback.ptr() }, JS::js_undefined(), details);
-        if (result.is_error())
+        if (result.is_error()) {
             HTML::report_exception(result, realm);
+            continue;
+        }
+        // Only a blocking listener's return value is an answer; a promise answers with what it resolves to, and none
+        // when it rejects.
+        if (!answers || !record.blocking)
+            continue;
+        auto value = result.value();
+        ++answers->outstanding;
+        if (!value.is_object() || !is<JS::Promise>(value.as_object())) {
+            answers->add(vm, value);
+            continue;
+        }
+        auto promise = WebIDL::create_resolved_promise(realm, value);
+        WebIDL::react_to_promise(
+            promise,
+            GC::create_function(vm.heap(), [answers, &vm](JS::Value resolved) -> WebIDL::ExceptionOr<JS::Value> {
+                answers->add(vm, resolved);
+                return JS::js_undefined();
+            }),
+            GC::create_function(vm.heap(), [answers](JS::Value) -> WebIDL::ExceptionOr<JS::Value> {
+                answers->settle();
+                return JS::js_undefined();
+            }));
     }
 }
 

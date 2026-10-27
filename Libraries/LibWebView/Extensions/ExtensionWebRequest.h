@@ -8,6 +8,7 @@
 
 #include <AK/Function.h>
 #include <AK/HashMap.h>
+#include <AK/JsonValue.h>
 #include <AK/String.h>
 #include <AK/Vector.h>
 #include <LibRequests/WebRequest.h>
@@ -27,6 +28,8 @@ struct WebRequestPlace {
     // The document a frame's navigation loads in, which the request's own process may not have.
     Optional<URL::URL> parent_document_url;
     bool is_private { false };
+    // False when the page or frame the request claims isn't one the UI process knows its process to have.
+    bool is_verified { true };
 };
 
 // The webRequest listeners of every extension context, by the page hosting the context, and the requests extensions
@@ -45,10 +48,24 @@ public:
     // The descriptor of an enabled extension, and whether it may see private browsing.
     Function<Web::Extensions::ExtensionDescriptor const*(StringView extension_id)> descriptor_for;
     Function<bool(StringView extension_id)> allowed_in_private;
+    // Where the extension comes in the order extensions were installed: a later one has a greater rank.
+    Function<size_t(StringView extension_id)> install_rank;
+    // The decision about a request that waits on its listeners' answers.
+    Function<void(int client_id, u64 request_id, Requests::WebRequestDecision)> on_decision;
 
     // Sends an event of a RequestServer client's request to every listener that hears it: one whose filter matches,
-    // of an extension with host access to the request's URL and to the document that made it.
-    void report(int client_id, Requests::WebRequestEventDetails const&, WebRequestPlace const&);
+    // of an extension with host access to the request's URL and to the document that made it. When the request waits,
+    // on_decision is called once every blocking listener has answered or its context has gone.
+    void report(int client_id, u64 request_id, Requests::WebRequestEventDetails const&, WebRequestPlace const&, bool wants_answer);
+    // The answers of a context's blocking listeners to a dispatch, as JSON; a listener that gave none is left out.
+    void answers_received(Endpoint&, u64 dispatch_id, Vector<String> answers_json);
+
+    struct ExtensionAnswer {
+        String extension_id;
+        JsonValue answer;
+    };
+    // Any cancel wins; otherwise the most recently installed extension's redirect, then its headers, count.
+    Requests::WebRequestDecision merge_answers(Requests::WebRequestEvent, Vector<ExtensionAnswer> const&) const;
 
     void listeners_changed(Endpoint&, String const& extension_id, u64 context_id, Vector<Web::Extensions::WebRequestListener>);
     void context_destroyed(Endpoint&, u64 context_id);
@@ -60,8 +77,7 @@ public:
 
     // The requestId extensions see for a RequestServer client's request: the same for every hop of a request that
     // redirects, and never reused.
-    String request_id_for(int client_id, u64 serial);
-    void forget_request(int client_id, u64 serial);
+    static String request_id_for(int client_id, u64 serial);
 
 private:
     struct ContextKey {
@@ -77,24 +93,31 @@ private:
         String extension_id;
         Vector<Web::Extensions::WebRequestListener> listeners;
     };
-    struct RequestKey {
-        int client_id { 0 };
-        u64 serial { 0 };
-
-        bool operator==(RequestKey const&) const = default;
-    };
-    struct RequestKeyTraits : public DefaultTraits<RequestKey> {
-        static unsigned hash(RequestKey const& key) { return pair_int_hash(u32_hash(static_cast<u32>(key.client_id)), u64_hash(key.serial)); }
-    };
-
     void notify_interest_changed();
+    void settle_dispatch(u64 dispatch_id, Vector<String> answers_json);
+    void settle_dispatches_of(Function<bool(ContextKey const&)> const&);
     bool may_see(Web::Extensions::ExtensionDescriptor const&, URL::URL const& url, Optional<URL::URL> const& document_url, bool is_private) const;
 
     u64 m_next_dispatch_id { 0 };
 
+    // A request waiting on its listeners, and the dispatches whose answers it waits for.
+    struct PendingDecision {
+        int client_id { 0 };
+        u64 request_id { 0 };
+        Requests::WebRequestEvent event { Requests::WebRequestEvent::BeforeRequest };
+        size_t outstanding { 0 };
+        Vector<ExtensionAnswer> answers;
+    };
+    struct PendingDispatch {
+        u64 decision_id { 0 };
+        ContextKey context;
+        String extension_id;
+    };
+    HashMap<u64, PendingDecision> m_pending_decisions;
+    HashMap<u64, PendingDispatch> m_pending_dispatches;
+    u64 m_next_decision_id { 0 };
+
     HashMap<ContextKey, ContextListeners, ContextKeyTraits> m_contexts;
-    HashMap<RequestKey, String, RequestKeyTraits> m_request_ids;
-    u64 m_next_request_id { 0 };
 };
 
 }

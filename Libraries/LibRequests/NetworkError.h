@@ -23,6 +23,7 @@ enum class NetworkError {
     InvalidContentEncoding,
     RequestServerDied,
     CacheReadFailed,
+    BlockedByExtension,
     Unknown,
 };
 
@@ -53,6 +54,8 @@ constexpr StringView network_error_to_string(NetworkError network_error)
         return "RequestServer is currently unavailable"sv;
     case NetworkError::CacheReadFailed:
         return "RequestServer encountered an error reading a cached HTTP response"sv;
+    case NetworkError::BlockedByExtension:
+        return "An extension blocked the request"sv;
     case NetworkError::Unknown:
         return "An unexpected network error occurred"sv;
     }

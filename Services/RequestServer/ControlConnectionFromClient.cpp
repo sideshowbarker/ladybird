@@ -188,6 +188,16 @@ void ControlConnectionFromClient::set_web_request_interest(Vector<Requests::WebR
     WebRequestInterestSet::the().set(move(interest));
 }
 
+void ControlConnectionFromClient::web_request_decision(int client_id, u64 request_id, Requests::WebRequestDecision decision)
+{
+    // The request may have ended while its listeners decided.
+    auto connection = m_connections.get(client_id);
+    if (!connection.has_value())
+        return;
+    if (auto request = (*connection)->m_active_requests.get(request_id); request.has_value())
+        (*request)->notify_web_request_decision({}, move(decision));
+}
+
 void ControlConnectionFromClient::set_performance_monitor_enabled(bool enabled)
 {
     Request::set_performance_monitor_enabled(enabled);

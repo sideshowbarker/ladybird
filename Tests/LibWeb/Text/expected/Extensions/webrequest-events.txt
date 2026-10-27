@@ -7,10 +7,14 @@ documentUrl is the page: true
 originUrl is the page: true
 statusCode: 200, statusLine: HTTP/1.0 200 OK
 fromCache: false
+ip on onResponseStarted and onCompleted: true
+initiator is the page's origin: true
 request headers only where asked: false true true false false false
 response headers only where asked: false false false true false false
 iframe document: sub_frame, documentUrl is the page: true, frameId > 0: true, parentFrameId: 0
 iframe's fetch: same frame: true, parentFrameId: 0, documentUrl is the frame: true
 refused: first onBeforeRequest, last onErrorOccurred NS_ERROR_CONNECTION_REFUSED
+new tab's events: onBeforeRequest onBeforeSendHeaders onSendHeaders onHeadersReceived onResponseStarted onCompleted
+one requestId and tab throughout: true
 new tab: main_frame, documentUrl: undefined, its tab: true, frameId: 0, parentFrameId: -1
 listener for another tab heard: 0

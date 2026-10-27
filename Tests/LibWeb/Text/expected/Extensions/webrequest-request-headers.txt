@@ -1,0 +1,3 @@
+Referer: https://www.google.com/
+page's cookie sent: false
+onSendHeaders sees the new Referer: https://www.google.com/

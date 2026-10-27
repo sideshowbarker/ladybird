@@ -777,6 +777,23 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
         return &extension->descriptor();
     };
     m_extension_web_request_router->allowed_in_private = [this](StringView id) { return m_extension_registry->is_allowed_in_private(id); };
+    // The registry keeps extensions in the order they were installed.
+    m_extension_web_request_router->install_rank = [this](StringView id) -> size_t {
+        auto const& extensions = m_extension_registry->extensions();
+        for (size_t i = 0; i < extensions.size(); ++i) {
+            if (extensions[i]->id() == id)
+                return i;
+        }
+        return 0;
+    };
+    m_extension_web_request_router->on_decision = [](int client_id, u64 request_id, Requests::WebRequestDecision decision) {
+        request_server_manager().for_each_instance([&](RequestServerInstance& instance) {
+            if (!instance.has_client(client_id))
+                return IterationDecision::Continue;
+            instance.control_client().async_web_request_decision(client_id, request_id, decision);
+            return IterationDecision::Break;
+        });
+    };
     m_extension_web_request_router->on_interest_changed = [this] {
         auto interest = m_extension_web_request_router->interest();
         request_server_manager().for_each_instance([&](RequestServerInstance& instance) {
@@ -2297,11 +2314,15 @@ void Application::configure_request_server_control_client(Requests::RequestContr
 
     TabPerformanceMonitor::configure(control_client);
 
-    control_client.on_web_request_event = [](int client_id, u64, Requests::WebRequestEventDetails details, bool) {
+    // The callback belongs to the control client, so the client outlives every call of it.
+    control_client.on_web_request_event = [control_client = &control_client](int client_id, u64 request_id, Requests::WebRequestEventDetails details, bool wants_answer) {
         auto& app = the();
-        if (!app.m_extension_web_request_router)
+        if (!app.m_extension_web_request_router) {
+            if (wants_answer)
+                control_client->async_web_request_decision(client_id, request_id, {});
             return;
-        app.m_extension_web_request_router->report(client_id, details, app.web_request_place(client_id, details.context));
+        }
+        app.m_extension_web_request_router->report(client_id, request_id, details, app.web_request_place(client_id, details.context), wants_answer);
     };
 
     // A RequestServer that starts after extensions began listening learns what they listen for.
@@ -2315,6 +2336,9 @@ void Application::configure_request_server_control_client(Requests::RequestContr
 WebRequestPlace Application::web_request_place(int client_id, Requests::WebRequestContext const& context) const
 {
     WebRequestPlace place;
+    // Whether the request is private is the client's session's to say, not the request's.
+    if (auto session = session_for_request_server_client(client_id))
+        place.is_private = session->is_private() == IsPrivate::Yes;
     WebContentPage* page = nullptr;
     WebContentClient::for_each_client([&](WebContentClient& client) {
         if (!client.request_server_site_bindings().has_client(client_id))
@@ -2322,17 +2346,23 @@ WebRequestPlace Application::web_request_place(int client_id, Requests::WebReque
         page = client.page(Web::PageId { context.page_id });
         return IterationDecision::Break;
     });
-    if (!page)
+    // A request that names a page must name one of its process's; only a request with no page, a worker's, may not.
+    if (!page) {
+        place.is_verified = context.page_id == 0 && !context.navigable.has_value();
         return place;
+    }
 
     if (context.navigable.has_value()) {
         Web::HTML::CrossProcessId id { context.navigable->namespace_id, context.navigable->local_id };
-        if (auto navigable = page->traversable().find(id); navigable.has_value()) {
-            if (auto const* parent = navigable->parent()) {
-                place.frame_id = extension_frame_id_for(navigable->id());
-                place.parent_frame_id = parent->parent() ? extension_frame_id_for(parent->id()) : 0;
-                place.parent_document_url = parent->active_document_url();
-            }
+        auto navigable = page->traversable().find(id);
+        if (!navigable.has_value()) {
+            place.is_verified = false;
+            return place;
+        }
+        if (auto const* parent = navigable->parent()) {
+            place.frame_id = extension_frame_id_for(navigable->id());
+            place.parent_frame_id = parent->parent() ? extension_frame_id_for(parent->id()) : 0;
+            place.parent_document_url = parent->active_document_url();
         }
     }
 
@@ -2345,7 +2375,7 @@ WebRequestPlace Application::web_request_place(int client_id, Requests::WebReque
             continue;
         place.tab_id = tab.id;
         place.window_id = tab.window_id;
-        place.is_private = tab.is_private == IsPrivate::Yes;
+        place.is_private |= tab.is_private == IsPrivate::Yes;
         break;
     }
     return place;

@@ -1,0 +1,32 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-webrequest.js"></script>
+<body>
+    <script>
+        // A blocking onBeforeSendHeaders listener replaces the headers that go out: here the referrer, and the cookie.
+        asyncTest(async done => {
+            await watchWebRequests();
+            document.cookie = `${webRequestToken}=1; path=/`;
+            const server = httpTestServer();
+            const url = await server.createEcho("GET", echoPath("rewrite-headers.txt"), {
+                status: 200,
+                headers: { "Cache-Control": "no-store" },
+                body: "x",
+            });
+            await fetch(url);
+            const received = await (await fetch(server.recordedRequestHeadersURL(url))).json();
+            const header = name =>
+                Object.entries(received)
+                    .filter(([key]) => key.toLowerCase() === name)
+                    .flatMap(([, values]) => values);
+            println(`Referer: ${header("referer").join(", ")}`);
+            println(`page's cookie sent: ${header("cookie").some(value => value.includes(webRequestToken))}`);
+            const events = await webRequestEvents(events => events.some(e => e.event === "onSendHeaders"));
+            const sent = events.find(e => e.event === "onSendHeaders").requestHeaders;
+            println(`onSendHeaders sees the new Referer: ${sent.find(h => h.name === "Referer")?.value}`);
+            document.cookie = `${webRequestToken}=; path=/; max-age=0`;
+            done();
+        });
+    </script>
+</body>

@@ -6,8 +6,11 @@
 
 #include <AK/JsonArray.h>
 #include <AK/JsonObject.h>
+#include <AK/QuickSort.h>
+#include <AK/StringBuilder.h>
 #include <AK/Time.h>
 #include <AK/Utf8View.h>
+#include <LibURL/Parser.h>
 #include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebView/Extensions/ExtensionWebRequest.h>
 
@@ -22,6 +25,12 @@ void ExtensionWebRequestRouter::notify_interest_changed()
 void ExtensionWebRequestRouter::listeners_changed(Endpoint& endpoint, String const& extension_id, u64 context_id, Vector<Web::Extensions::WebRequestListener> listeners)
 {
     ContextKey key { &endpoint, context_id };
+    // The renderer's word that a listener blocks counts only for an extension that may block.
+    auto const* descriptor = descriptor_for ? descriptor_for(extension_id) : nullptr;
+    if (!descriptor || !descriptor->has_permission("webRequestBlocking"sv)) {
+        for (auto& listener : listeners)
+            listener.blocking = false;
+    }
     if (listeners.is_empty()) {
         if (m_contexts.remove(key))
             notify_interest_changed();
@@ -33,14 +42,124 @@ void ExtensionWebRequestRouter::listeners_changed(Endpoint& endpoint, String con
 
 void ExtensionWebRequestRouter::context_destroyed(Endpoint& endpoint, u64 context_id)
 {
-    if (m_contexts.remove({ &endpoint, context_id }))
+    ContextKey key { &endpoint, context_id };
+    settle_dispatches_of([&](ContextKey const& context) { return context == key; });
+    if (m_contexts.remove(key))
         notify_interest_changed();
 }
 
 void ExtensionWebRequestRouter::endpoint_destroyed(Endpoint& endpoint)
 {
+    settle_dispatches_of([&](ContextKey const& context) { return context.endpoint == &endpoint; });
     if (m_contexts.remove_all_matching([&](auto const& key, auto const&) { return key.endpoint == &endpoint; }))
         notify_interest_changed();
+}
+
+// A context that's gone answers its outstanding dispatches with nothing, so no request waits on it.
+void ExtensionWebRequestRouter::settle_dispatches_of(Function<bool(ContextKey const&)> const& is_gone)
+{
+    Vector<u64> gone;
+    for (auto const& [dispatch_id, dispatch] : m_pending_dispatches) {
+        if (is_gone(dispatch.context))
+            gone.append(dispatch_id);
+    }
+    for (auto dispatch_id : gone)
+        settle_dispatch(dispatch_id, {});
+}
+
+void ExtensionWebRequestRouter::answers_received(Endpoint& endpoint, u64 dispatch_id, Vector<String> answers_json)
+{
+    auto dispatch = m_pending_dispatches.get(dispatch_id);
+    if (!dispatch.has_value() || dispatch->context.endpoint != &endpoint)
+        return;
+    settle_dispatch(dispatch_id, move(answers_json));
+}
+
+void ExtensionWebRequestRouter::settle_dispatch(u64 dispatch_id, Vector<String> answers_json)
+{
+    auto dispatch = m_pending_dispatches.take(dispatch_id);
+    if (!dispatch.has_value())
+        return;
+    auto decision = m_pending_decisions.get(dispatch->decision_id);
+    if (!decision.has_value())
+        return;
+    for (auto const& json : answers_json) {
+        if (auto answer = JsonValue::from_string(json); !answer.is_error() && answer.value().is_object())
+            decision->answers.append({ dispatch->extension_id, answer.release_value() });
+    }
+    if (--decision->outstanding > 0)
+        return;
+    auto pending = m_pending_decisions.take(dispatch->decision_id).release_value();
+    if (on_decision)
+        on_decision(pending.client_id, pending.request_id, merge_answers(pending.event, pending.answers));
+}
+
+static Optional<Vector<HTTP::Header>> headers_from_json(JsonValue const& value)
+{
+    if (!value.is_array())
+        return {};
+    Vector<HTTP::Header> headers;
+    for (auto const& entry : value.as_array().values()) {
+        if (!entry.is_object())
+            return {};
+        auto const& object = entry.as_object();
+        auto name = object.get_string("name"sv);
+        if (!name.has_value())
+            return {};
+        if (auto text = object.get_string("value"sv); text.has_value()) {
+            headers.append({ name->to_byte_string(), text->to_byte_string() });
+            continue;
+        }
+        auto bytes = object.get_array("binaryValue"sv);
+        if (!bytes.has_value())
+            return {};
+        StringBuilder value_bytes;
+        for (auto const& byte : bytes->values()) {
+            auto number = byte.get_u32();
+            if (!number.has_value() || *number > 255)
+                return {};
+            value_bytes.append(static_cast<char>(*number));
+        }
+        headers.append({ name->to_byte_string(), value_bytes.to_byte_string() });
+    }
+    return headers;
+}
+
+Requests::WebRequestDecision ExtensionWebRequestRouter::merge_answers(Requests::WebRequestEvent event, Vector<ExtensionAnswer> const& answers) const
+{
+    using Requests::WebRequestEvent;
+    bool may_cancel = first_is_one_of(event, WebRequestEvent::BeforeRequest, WebRequestEvent::BeforeSendHeaders, WebRequestEvent::HeadersReceived, WebRequestEvent::AuthRequired);
+    bool may_redirect = first_is_one_of(event, WebRequestEvent::BeforeRequest, WebRequestEvent::HeadersReceived);
+
+    Requests::WebRequestDecision decision;
+    if (may_cancel && any_of(answers, [](auto const& answer) { return answer.answer.as_object().get_bool("cancel"sv).value_or(false); })) {
+        decision.cancel = true;
+        return decision;
+    }
+
+    // The most recently installed extension's answer comes first.
+    Vector<ExtensionAnswer const*> ordered;
+    for (auto const& answer : answers)
+        ordered.append(&answer);
+    auto rank = [this](String const& id) { return install_rank ? install_rank(id) : 0; };
+    quick_sort(ordered, [&](auto const* a, auto const* b) { return rank(a->extension_id) > rank(b->extension_id); });
+
+    for (auto const* answer : ordered) {
+        auto const& object = answer->answer.as_object();
+        if (may_redirect && !decision.redirect_url.has_value()) {
+            if (auto url = object.get_string("redirectUrl"sv); url.has_value())
+                decision.redirect_url = URL::Parser::basic_parse(*url);
+        }
+        if (event == WebRequestEvent::BeforeSendHeaders && !decision.request_headers.has_value()) {
+            if (auto headers = object.get("requestHeaders"sv); headers.has_value())
+                decision.request_headers = headers_from_json(*headers);
+        }
+        if (event == WebRequestEvent::HeadersReceived && !decision.response_headers.has_value()) {
+            if (auto headers = object.get("responseHeaders"sv); headers.has_value())
+                decision.response_headers = headers_from_json(*headers);
+        }
+    }
+    return decision;
 }
 
 Vector<Requests::WebRequestInterest> ExtensionWebRequestRouter::interest() const
@@ -58,14 +177,10 @@ Vector<Requests::WebRequestInterest> ExtensionWebRequestRouter::interest() const
     return interest;
 }
 
+// The client id goes above the serial's 40 bits, so no two clients' requests share an id and nothing need be kept.
 String ExtensionWebRequestRouter::request_id_for(int client_id, u64 serial)
 {
-    return m_request_ids.ensure({ client_id, serial }, [&] { return String::number(++m_next_request_id); });
-}
-
-void ExtensionWebRequestRouter::forget_request(int client_id, u64 serial)
-{
-    m_request_ids.remove({ client_id, serial });
+    return String::number((static_cast<u64>(static_cast<u32>(client_id)) << 40) | (serial & ((1ull << 40) - 1)));
 }
 
 // A request made by one of the browser's own pages, or by any extension's, is no extension's to see.
@@ -119,15 +234,22 @@ static bool listener_hears(Web::Extensions::WebRequestListener const& listener, 
         return false;
     if (listener.window_id.has_value() && *listener.window_id != place.window_id)
         return false;
+    if (listener.incognito.has_value() && *listener.incognito != place.is_private)
+        return false;
     return any_of(listener.urls, [&](auto const& pattern) { return pattern.matches(details.url); });
 }
 
-void ExtensionWebRequestRouter::report(int client_id, Requests::WebRequestEventDetails const& details, WebRequestPlace const& place)
+void ExtensionWebRequestRouter::report(int client_id, u64 request_id_in_client, Requests::WebRequestEventDetails const& details, WebRequestPlace const& place, bool wants_answer)
 {
+    // A renderer whose claims about a request don't check out gets no listener to hear it, nor to hold it up.
+    if (!place.is_verified) {
+        if (wants_answer && on_decision)
+            on_decision(client_id, request_id_in_client, {});
+        return;
+    }
+
     auto const& context = details.context;
     auto request_id = request_id_for(client_id, context.serial);
-    if (details.event == Requests::WebRequestEvent::Completed || details.event == Requests::WebRequestEvent::ErrorOccurred)
-        forget_request(client_id, context.serial);
 
     // A frame's navigation is made in its parent's document; the top-level one is made in none.
     auto document_url = context.is_navigation ? place.parent_document_url : context.document_url;
@@ -139,6 +261,7 @@ void ExtensionWebRequestRouter::report(int client_id, Requests::WebRequestEventD
         Vector<u64> listener_ids;
         bool request_headers { false };
         bool response_headers { false };
+        bool blocking { false };
     };
     Vector<Delivery> deliveries;
     for (auto const& [key, listeners] : m_contexts) {
@@ -152,12 +275,22 @@ void ExtensionWebRequestRouter::report(int client_id, Requests::WebRequestEventD
             delivery.listener_ids.append(listener.id);
             delivery.request_headers |= listener.request_headers;
             delivery.response_headers |= listener.response_headers;
+            delivery.blocking |= listener.blocking;
         }
         if (!delivery.listener_ids.is_empty())
             deliveries.append(move(delivery));
     }
+    // Only a blocking listener's answer counts, so a request no blocking listener hears goes on at once.
+    auto waits = wants_answer && any_of(deliveries, [](auto const& delivery) { return delivery.blocking; });
+    if (wants_answer && !waits && on_decision)
+        on_decision(client_id, request_id_in_client, {});
     if (deliveries.is_empty())
         return;
+    u64 decision_id = 0;
+    if (waits) {
+        decision_id = ++m_next_decision_id;
+        m_pending_decisions.set(decision_id, { client_id, request_id_in_client, details.event, 0, {} });
+    }
 
     JsonObject base;
     base.set("requestId"sv, request_id);
@@ -171,8 +304,10 @@ void ExtensionWebRequestRouter::report(int client_id, Requests::WebRequestEventD
     base.set("incognito"sv, place.is_private);
     if (document_url.has_value())
         base.set("documentUrl"sv, document_url->serialize());
-    if (context.origin_url.has_value())
+    if (context.origin_url.has_value()) {
         base.set("originUrl"sv, context.origin_url->serialize());
+        base.set("initiator"sv, context.origin_url->origin().serialize());
+    }
     if (details.status_code.has_value())
         base.set("statusCode"sv, *details.status_code);
     if (details.status_line.has_value())
@@ -192,7 +327,13 @@ void ExtensionWebRequestRouter::report(int client_id, Requests::WebRequestEventD
             object.set("requestHeaders"sv, headers_to_json(*details.request_headers));
         if (delivery.response_headers && details.response_headers.has_value())
             object.set("responseHeaders"sv, headers_to_json(*details.response_headers));
-        delivery.key.endpoint->dispatch_extension_web_request_event(delivery.key.context_id, ++m_next_dispatch_id, move(delivery.listener_ids), object.serialized(), false);
+        auto dispatch_id = ++m_next_dispatch_id;
+        auto delivery_waits = waits && delivery.blocking;
+        if (delivery_waits) {
+            m_pending_dispatches.set(dispatch_id, { decision_id, delivery.key, m_contexts.get(delivery.key)->extension_id });
+            ++m_pending_decisions.get(decision_id)->outstanding;
+        }
+        delivery.key.endpoint->dispatch_extension_web_request_event(delivery.key.context_id, dispatch_id, move(delivery.listener_ids), object.serialized(), delivery_waits);
     }
 }
 

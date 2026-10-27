@@ -437,6 +437,7 @@ private:
     virtual void did_finish_extension_suspend(String extension_id, u64 context_id) override;
     virtual void did_change_extension_event_listeners(String extension_id, u64 context_id, Vector<String> event_names) override;
     virtual void did_change_extension_web_request_listeners(String extension_id, u64 context_id, Vector<Web::Extensions::WebRequestListener> listeners) override;
+    virtual void did_answer_extension_web_request_event(u64 dispatch_id, Vector<String> answers_json) override;
     virtual void dispatch_extension_web_request_event(u64 context_id, u64 dispatch_id, Vector<u64> listener_ids, String details_json, bool wants_answer) override;
     virtual void did_receive_reference_test_metadata(JsonValue) override;
     virtual void did_simulate_worker_request_server_connection_loss() override;

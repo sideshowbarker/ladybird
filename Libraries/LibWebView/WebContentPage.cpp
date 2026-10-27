@@ -1663,6 +1663,12 @@ void WebContentPage::dispatch_extension_port_message(u64 context_id, u64 channel
     async_dispatch_extension_port_message(context_id, channel_id, port_id, json);
 }
 
+void WebContentPage::did_answer_extension_web_request_event(u64 dispatch_id, Vector<String> answers_json)
+{
+    if (Application::the().has_extension_web_request_router())
+        Application::extension_web_request_router().answers_received(*this, dispatch_id, move(answers_json));
+}
+
 void WebContentPage::dispatch_extension_web_request_event(u64 context_id, u64 dispatch_id, Vector<u64> listener_ids, String details_json, bool wants_answer)
 {
     async_dispatch_extension_web_request_event(context_id, dispatch_id, move(listener_ids), move(details_json), wants_answer);

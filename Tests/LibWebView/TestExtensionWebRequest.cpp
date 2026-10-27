@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <AK/JsonValue.h>
 #include <LibTest/TestCase.h>
+#include <LibURL/Parser.h>
 #include <LibWebView/Extensions/ExtensionWebRequest.h>
 
 using Requests::WebRequestEvent;
@@ -18,13 +20,14 @@ class TestEndpoint final : public WebView::ExtensionWebRequestRouter::Endpoint {
 public:
     struct Dispatch {
         u64 context_id;
+        u64 dispatch_id;
         Vector<u64> listener_ids;
         String details_json;
         bool wants_answer;
     };
-    virtual void dispatch_extension_web_request_event(u64 context_id, u64, Vector<u64> listener_ids, String details_json, bool wants_answer) override
+    virtual void dispatch_extension_web_request_event(u64 context_id, u64 dispatch_id, Vector<u64> listener_ids, String details_json, bool wants_answer) override
     {
-        dispatches.append({ context_id, move(listener_ids), move(details_json), wants_answer });
+        dispatches.append({ context_id, dispatch_id, move(listener_ids), move(details_json), wants_answer });
     }
     Vector<Dispatch> dispatches;
 };
@@ -51,6 +54,10 @@ static WebRequestInterest interest(WebRequestEvent event, StringView pattern, bo
 TEST_CASE(interest_folds_listeners)
 {
     WebView::ExtensionWebRequestRouter router;
+    Web::Extensions::ExtensionDescriptor blocker;
+    blocker.id = "blocker"_string;
+    blocker.api_permissions = { "webRequest"_string, "webRequestBlocking"_string };
+    router.descriptor_for = [&](StringView id) -> Web::Extensions::ExtensionDescriptor const* { return id == "blocker"sv ? &blocker : nullptr; };
     TestEndpoint first;
     TestEndpoint second;
     router.listeners_changed(first, "blocker"_string, 1, { listener(WebRequestEvent::BeforeRequest, "<all_urls>"sv, true), listener(WebRequestEvent::BeforeRequest, "<all_urls>"sv, true) });
@@ -101,7 +108,185 @@ TEST_CASE(request_id_is_stable_per_serial_and_unique_per_client)
     EXPECT_NE(other_serial, first);
     EXPECT_NE(other_serial, other_client);
     EXPECT(first.to_number<u64>().has_value());
+}
 
-    router.forget_request(1, 10);
-    EXPECT_NE(router.request_id_for(1, 10), first);
+static Web::Extensions::ExtensionDescriptor descriptor(StringView id)
+{
+    Web::Extensions::ExtensionDescriptor descriptor;
+    descriptor.id = MUST(String::from_utf8(id));
+    descriptor.host_permissions = { MUST(MatchPattern::parse("<all_urls>"sv)) };
+    descriptor.api_permissions = { "webRequest"_string, "webRequestBlocking"_string };
+    return descriptor;
+}
+
+static Requests::WebRequestEventDetails before_request(StringView url)
+{
+    Requests::WebRequestEventDetails details;
+    details.event = WebRequestEvent::BeforeRequest;
+    details.url = URL::Parser::basic_parse(url).release_value();
+    details.method = "GET";
+    details.context.serial = 1;
+    details.context.type = "script"_string;
+    return details;
+}
+
+struct Decisions {
+    Vector<Requests::WebRequestDecision> decisions;
+};
+
+static void set_up(WebView::ExtensionWebRequestRouter& router, Vector<Web::Extensions::ExtensionDescriptor> const& descriptors, Decisions& decisions)
+{
+    router.descriptor_for = [&descriptors](StringView id) -> Web::Extensions::ExtensionDescriptor const* {
+        for (auto const& descriptor : descriptors) {
+            if (descriptor.id == id)
+                return &descriptor;
+        }
+        return nullptr;
+    };
+    // Each extension is installed after the ones listed before it.
+    router.install_rank = [&descriptors](StringView id) -> size_t {
+        for (size_t i = 0; i < descriptors.size(); ++i) {
+            if (descriptors[i].id == id)
+                return i;
+        }
+        return 0;
+    };
+    router.on_decision = [&decisions](int, u64, Requests::WebRequestDecision decision) { decisions.decisions.append(move(decision)); };
+}
+
+static JsonValue json(StringView text)
+{
+    return JsonValue::from_string(text).release_value();
+}
+
+TEST_CASE(cancel_wins_over_redirect)
+{
+    WebView::ExtensionWebRequestRouter router;
+    auto decision = router.merge_answers(WebRequestEvent::BeforeRequest,
+        { { "later"_string, json(R"({ "redirectUrl": "https://b.example/" })"sv) }, { "earlier"_string, json(R"({ "cancel": true })"sv) } });
+    EXPECT(decision.cancel);
+    EXPECT(!decision.redirect_url.has_value());
+}
+
+TEST_CASE(later_installed_extension_headers_win)
+{
+    WebView::ExtensionWebRequestRouter router;
+    Vector descriptors { descriptor("first"sv), descriptor("second"sv) };
+    Decisions decisions;
+    set_up(router, descriptors, decisions);
+    auto decision = router.merge_answers(WebRequestEvent::BeforeSendHeaders,
+        { { "second"_string, json(R"({ "requestHeaders": [{ "name": "Referer", "value": "https://www.google.com/" }] })"sv) },
+            { "first"_string, json(R"({ "requestHeaders": [{ "name": "Referer", "value": "https://first.example/" }] })"sv) } });
+    EXPECT(!decision.cancel);
+    VERIFY(decision.request_headers.has_value());
+    EXPECT_EQ(decision.request_headers->size(), 1u);
+    EXPECT_EQ(decision.request_headers->first().name, "Referer"sv);
+    EXPECT_EQ(decision.request_headers->first().value, "https://www.google.com/"sv);
+
+    // An event's answer can change only what that event may change.
+    auto ignored = router.merge_answers(WebRequestEvent::BeforeRequest, { { "second"_string, json(R"({ "requestHeaders": [] })"sv) } });
+    EXPECT(!ignored.request_headers.has_value());
+}
+
+TEST_CASE(pending_blocking_dispatches_answer_empty_when_context_goes)
+{
+    WebView::ExtensionWebRequestRouter router;
+    Vector descriptors { descriptor("blocker"sv) };
+    Decisions decisions;
+    set_up(router, descriptors, decisions);
+    TestEndpoint endpoint;
+    router.listeners_changed(endpoint, "blocker"_string, 1, { listener(WebRequestEvent::BeforeRequest, "<all_urls>"sv, true) });
+
+    router.report(1, 7, before_request("https://a.example/x.js"sv), {}, true);
+    VERIFY(endpoint.dispatches.size() == 1);
+    EXPECT(endpoint.dispatches[0].wants_answer);
+    EXPECT(decisions.decisions.is_empty());
+
+    router.context_destroyed(endpoint, 1);
+    VERIFY(decisions.decisions.size() == 1);
+    EXPECT(!decisions.decisions[0].cancel);
+    EXPECT(!decisions.decisions[0].redirect_url.has_value());
+}
+
+TEST_CASE(an_unanswered_listener_counts_as_no_answer)
+{
+    WebView::ExtensionWebRequestRouter router;
+    Vector descriptors { descriptor("blocker"sv) };
+    Decisions decisions;
+    set_up(router, descriptors, decisions);
+    TestEndpoint endpoint;
+    router.listeners_changed(endpoint, "blocker"_string, 1, { listener(WebRequestEvent::BeforeRequest, "<all_urls>"sv, true) });
+
+    // A listener that threw or whose promise rejected sends nothing back for its answer.
+    router.report(1, 7, before_request("https://a.example/x.js"sv), {}, true);
+    router.answers_received(endpoint, endpoint.dispatches[0].dispatch_id, {});
+    VERIFY(decisions.decisions.size() == 1);
+    EXPECT(!decisions.decisions[0].cancel);
+
+    // An answer that cancels cancels the request.
+    router.report(1, 8, before_request("https://a.example/y.js"sv), {}, true);
+    router.answers_received(endpoint, endpoint.dispatches[1].dispatch_id, { R"({ "cancel": true })"_string });
+    VERIFY(decisions.decisions.size() == 2);
+    EXPECT(decisions.decisions[1].cancel);
+}
+
+TEST_CASE(blocking_needs_webRequestBlocking_in_the_ui_process)
+{
+    WebView::ExtensionWebRequestRouter router;
+    auto observer = descriptor("observer"sv);
+    observer.api_permissions = { "webRequest"_string };
+    Vector descriptors { move(observer) };
+    Decisions decisions;
+    set_up(router, descriptors, decisions);
+    TestEndpoint endpoint;
+    // A renderer claiming a blocking listener for an extension without webRequestBlocking gets an observing one.
+    router.listeners_changed(endpoint, "observer"_string, 1, { listener(WebRequestEvent::BeforeRequest, "<all_urls>"sv, true) });
+    EXPECT(!router.interest().first().blocking);
+    router.report(1, 7, before_request("https://a.example/x.js"sv), {}, true);
+    EXPECT_EQ(decisions.decisions.size(), 1u);
+    VERIFY(endpoint.dispatches.size() == 1);
+    EXPECT(!endpoint.dispatches[0].wants_answer);
+}
+
+TEST_CASE(incognito_filter_matches_the_request_privacy)
+{
+    WebView::ExtensionWebRequestRouter router;
+    Vector descriptors { descriptor("watcher"sv) };
+    Decisions decisions;
+    set_up(router, descriptors, decisions);
+    router.allowed_in_private = [](StringView) { return true; };
+    TestEndpoint endpoint;
+    auto ordinary_only = listener(WebRequestEvent::BeforeRequest, "<all_urls>"sv);
+    ordinary_only.incognito = false;
+    auto private_only = listener(WebRequestEvent::BeforeRequest, "<all_urls>"sv);
+    private_only.incognito = true;
+    router.listeners_changed(endpoint, "watcher"_string, 1, { ordinary_only, private_only });
+
+    WebView::WebRequestPlace place;
+    place.is_private = true;
+    router.report(1, 7, before_request("https://a.example/x.js"sv), place, false);
+    VERIFY(endpoint.dispatches.size() == 1);
+    EXPECT_EQ(endpoint.dispatches[0].listener_ids, (Vector { private_only.id }));
+    place.is_private = false;
+    router.report(1, 8, before_request("https://a.example/y.js"sv), place, false);
+    VERIFY(endpoint.dispatches.size() == 2);
+    EXPECT_EQ(endpoint.dispatches[1].listener_ids, (Vector { ordinary_only.id }));
+}
+
+TEST_CASE(an_unverified_request_is_reported_to_no_one)
+{
+    WebView::ExtensionWebRequestRouter router;
+    Vector descriptors { descriptor("blocker"sv) };
+    Decisions decisions;
+    set_up(router, descriptors, decisions);
+    TestEndpoint endpoint;
+    router.listeners_changed(endpoint, "blocker"_string, 1, { listener(WebRequestEvent::BeforeRequest, "<all_urls>"sv, true) });
+
+    // A request whose page or frame the UI process can't find came from a renderer it can't take at its word.
+    WebView::WebRequestPlace place;
+    place.is_verified = false;
+    router.report(1, 7, before_request("https://a.example/x.js"sv), place, true);
+    EXPECT(endpoint.dispatches.is_empty());
+    VERIFY(decisions.decisions.size() == 1);
+    EXPECT(!decisions.decisions[0].cancel);
 }

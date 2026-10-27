@@ -474,6 +474,8 @@ NonnullOwnPtr<Request> Request::fetch(
     request->m_address_selection_hint = address_selection_hint;
     request->m_notify_on_cache_miss = notify_on_cache_miss;
     request->m_web_request_context = move(web_request_context);
+    // A navigation's response can move to another client; listeners keep hearing of it as the request it began as.
+    request->m_web_request_client_id = client.client_id();
     request->process();
 
     return request;
@@ -675,7 +677,21 @@ bool Request::defer_until_response_cookies_and_hsts_policy_are_stored(Function<v
 
     switch (m_response_storage_state) {
     case ResponseStorageState::NotStarted:
-        report_web_request_headers_received();
+        // Blocking listeners may replace the response's headers before anything acts on them, or cancel it. The
+        // continuation is kept only once the request waits, since otherwise the storage below needs it.
+        if (report_web_request_headers_received(MayWait::Yes, [this](Requests::WebRequestDecision decision) {
+                auto resume = move(m_web_request_headers_continuation);
+                if (decision.cancel) {
+                    fail_by_extension();
+                    return;
+                }
+                if (decision.response_headers.has_value())
+                    m_response_headers = HTTP::HeaderList::create(decision.response_headers.release_value());
+                resume();
+            })) {
+            m_web_request_headers_continuation = move(continuation);
+            return true;
+        }
         break;
     case ResponseStorageState::Pending:
         return true;
@@ -1005,6 +1021,9 @@ void Request::process()
     case State::ReadImported:
         handle_read_imported_state();
         break;
+    case State::WaitForWebRequest:
+        // Do nothing; the extensions' decision moves the request on.
+        break;
     case State::FailedCacheOnly:
         handle_failed_cache_only_state();
         break;
@@ -1034,7 +1053,16 @@ void Request::process()
 
 void Request::handle_initial_state()
 {
-    report_web_request_event(Requests::WebRequestEvent::BeforeRequest);
+    if (report_web_request_event(Requests::WebRequestEvent::BeforeRequest, {}, MayWait::Yes, [this](Requests::WebRequestDecision decision) {
+            if (decision.cancel) {
+                fail_by_extension();
+                return;
+            }
+            transition_to_state(State::Init);
+        })) {
+        transition_to_state(State::WaitForWebRequest);
+        return;
+    }
 
     // Check for resource substitution before anything else.
     if (g_resource_substitution_map) {
@@ -1167,6 +1195,26 @@ void Request::handle_read_cache_state()
     m_response_headers = m_cache_entry_reader->response_headers();
     m_cache_status = CacheStatus::ReadFromCache;
 
+    // A stored response reaches blocking onHeadersReceived listeners as one from the network does, before the page
+    // gets any of it.
+    if (report_web_request_headers_received(MayWait::Yes, [this](Requests::WebRequestDecision decision) {
+            if (decision.cancel) {
+                fail_by_extension();
+                return;
+            }
+            if (decision.response_headers.has_value())
+                m_response_headers = HTTP::HeaderList::create(decision.response_headers.release_value());
+            m_state = State::ReadCache;
+            send_cached_response();
+        })) {
+        transition_to_state(State::WaitForWebRequest);
+        return;
+    }
+    send_cached_response();
+}
+
+void Request::send_cached_response()
+{
     transfer_headers_to_client_if_needed();
 
     if (m_cache_entry_reader->body_size() < static_cast<u64>(PAGE_SIZE)) {
@@ -1444,6 +1492,20 @@ void Request::handle_fetch_state()
 {
     dbgln_if(REQUESTSERVER_DEBUG, "RequestServer: DNS lookup successful");
 
+    // The headers are final now, so listeners see what goes out, and blocking ones may change it.
+    if (report_web_request_event(Requests::WebRequestEvent::BeforeSendHeaders, [this](Requests::WebRequestEventDetails& details) { details.request_headers = m_request_headers->headers(); }, MayWait::Yes, [this](Requests::WebRequestDecision decision) {
+            if (decision.cancel) {
+                fail_by_extension();
+                return;
+            }
+            if (decision.request_headers.has_value())
+                m_request_headers = HTTP::HeaderList::create(decision.request_headers.release_value());
+            transition_to_state(State::Fetch); })) {
+        transition_to_state(State::WaitForWebRequest);
+        return;
+    }
+    report_web_request_event(Requests::WebRequestEvent::SendHeaders, [this](Requests::WebRequestEventDetails& details) { details.request_headers = m_request_headers->headers(); });
+
     m_curl_easy_handle = curl_easy_init();
     if (!m_curl_easy_handle) {
         dbgln("Request::handle_start_fetch_state: Failed to initialize curl easy handle");
@@ -1452,8 +1514,6 @@ void Request::handle_fetch_state()
     }
 
     auto is_revalidation_request = this->is_revalidation_request();
-
-    report_web_request_send_headers();
 
     if (!is_revalidation_request && !m_informed_client_request_started) {
         if (inform_client_request_started().is_error())
@@ -1687,6 +1747,8 @@ void Request::handle_complete_state()
         }
 
         if (m_export.has_value()) {
+            // The response finishes here, though another RequestServer streams it on to its page.
+            report_web_request_completed();
             write_export_result();
         } else {
             if (cached_body_file.has_value())
@@ -2596,23 +2658,24 @@ void Request::sample_network_usage()
 
 namespace RequestServer {
 
-void Request::report_web_request_event(Requests::WebRequestEvent event, Function<void(Requests::WebRequestEventDetails&)> fill)
+bool Request::report_web_request_event(Requests::WebRequestEvent event, Function<void(Requests::WebRequestEventDetails&)> fill, MayWait may_wait, Function<void(Requests::WebRequestDecision)> on_decision)
 {
     if (!m_web_request_context.has_value() || m_web_request_ended)
-        return;
+        return false;
     auto bit = static_cast<u16>(1u << to_underlying(event));
     if (m_reported_web_request_events & bit)
-        return;
+        return false;
     m_reported_web_request_events |= bit;
     if (event == Requests::WebRequestEvent::Completed || event == Requests::WebRequestEvent::ErrorOccurred)
         m_web_request_ended = true;
 
     auto const& interest = WebRequestInterestSet::the();
     if (!interest.should_report(event, m_url, m_web_request_context->type))
-        return;
+        return false;
     auto connection = ControlConnectionFromClient::the();
     if (!connection.has_value())
-        return;
+        return false;
+    auto wants_answer = may_wait == MayWait::Yes && interest.wants_answer(event, m_url, m_web_request_context->type);
 
     Requests::WebRequestEventDetails details;
     details.event = event;
@@ -2621,13 +2684,35 @@ void Request::report_web_request_event(Requests::WebRequestEvent event, Function
     details.context = *m_web_request_context;
     if (fill)
         fill(details);
-    connection->async_web_request_event(m_client->client_id(), m_request_id, move(details), false);
+    if (wants_answer)
+        m_web_request_decision_handler = move(on_decision);
+    connection->async_web_request_event(m_web_request_client_id, m_request_id, move(details), wants_answer);
+    return wants_answer;
 }
 
-void Request::report_web_request_send_headers()
+void Request::notify_web_request_decision(Badge<ControlConnectionFromClient>, Requests::WebRequestDecision decision)
 {
-    for (auto event : { Requests::WebRequestEvent::BeforeSendHeaders, Requests::WebRequestEvent::SendHeaders })
-        report_web_request_event(event, [this](Requests::WebRequestEventDetails& details) { details.request_headers = m_request_headers->headers(); });
+    if (auto handler = move(m_web_request_decision_handler))
+        handler(move(decision));
+}
+
+void Request::fail_by_extension()
+{
+    if (m_curl_easy_handle)
+        MUST(free_curl_structs());
+    m_network_error = Requests::NetworkError::BlockedByExtension;
+    transition_to_state(State::Error);
+}
+
+// The address the response came from, while the transfer that brought it is still here to ask.
+Optional<ByteString> Request::web_request_ip()
+{
+    if (m_curl_easy_handle) {
+        char* ip = nullptr;
+        if (curl_easy_getinfo(m_curl_easy_handle, CURLINFO_PRIMARY_IP, &ip) == CURLE_OK && ip && *ip)
+            m_web_request_ip = ByteString { ip };
+    }
+    return m_web_request_ip;
 }
 
 ByteString Request::web_request_status_line() const
@@ -2646,10 +2731,10 @@ ByteString Request::web_request_status_line() const
     return ByteString::formatted("{} {} {}", version, m_status_code.value_or(0), m_reason_phrase);
 }
 
-void Request::report_web_request_headers_received()
+bool Request::report_web_request_headers_received(MayWait may_wait, Function<void(Requests::WebRequestDecision)> on_decision)
 {
     if (!m_web_request_context.has_value())
-        return;
+        return false;
     if (!m_status_code.has_value())
         m_status_code = acquire_status_code();
 
@@ -2659,17 +2744,12 @@ void Request::report_web_request_headers_received()
             m_web_request_redirected = URL::Parser::basic_parse(*location, m_url).has_value();
     }
 
-    report_web_request_event(Requests::WebRequestEvent::HeadersReceived, [this](Requests::WebRequestEventDetails& details) {
+    return report_web_request_event(Requests::WebRequestEvent::HeadersReceived, [this](Requests::WebRequestEventDetails& details) {
         details.status_code = m_status_code;
         details.status_line = web_request_status_line();
         details.response_headers = m_response_headers->headers();
         details.from_cache = m_cache_status == CacheStatus::ReadFromCache;
-        if (m_curl_easy_handle) {
-            char* ip = nullptr;
-            if (curl_easy_getinfo(m_curl_easy_handle, CURLINFO_PRIMARY_IP, &ip) == CURLE_OK && ip && *ip)
-                details.ip = ByteString { ip };
-        }
-    });
+        details.ip = web_request_ip(); }, may_wait, move(on_decision));
 }
 
 void Request::report_web_request_response_started()
@@ -2682,6 +2762,7 @@ void Request::report_web_request_response_started()
         details.status_line = web_request_status_line();
         details.response_headers = m_response_headers->headers();
         details.from_cache = m_cache_status == CacheStatus::ReadFromCache;
+        details.ip = web_request_ip();
         if (m_web_request_redirected) {
             if (auto location = m_response_headers->get("Location"sv); location.has_value())
                 details.redirect_url = URL::Parser::basic_parse(*location, m_url);
@@ -2699,6 +2780,7 @@ void Request::report_web_request_completed()
         details.status_line = web_request_status_line();
         details.response_headers = m_response_headers->headers();
         details.from_cache = m_cache_status == CacheStatus::ReadFromCache;
+        details.ip = web_request_ip();
     });
 }
 

@@ -55,6 +55,7 @@ private:
     virtual void remove_cache_entries_accessed_before(UnixDateTime before) override;
 
     virtual void set_web_request_interest(Vector<Requests::WebRequestInterest>) override;
+    virtual void web_request_decision(int client_id, u64 request_id, Requests::WebRequestDecision) override;
 
     virtual void retrieved_http_cookie(int client_id, u64 request_id, RequestType request_type, u64 cookie_request_id, String cookie) override;
     virtual void stored_response_cookies_and_hsts_policy(int client_id, u64 request_id, u64 store_request_id) override;
