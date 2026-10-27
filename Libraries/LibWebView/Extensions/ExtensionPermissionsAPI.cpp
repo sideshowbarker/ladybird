@@ -54,7 +54,10 @@ ExtensionPermissionSet extension_active_permissions(Extension const& extension)
         add_origin(pattern.to_string());
     for (auto const& pattern : descriptor.granted_origins)
         add_origin(pattern.to_string());
+    // A manifest's content scripts imply host access; registered ones need it already.
     for (auto const& script : descriptor.content_scripts) {
+        if (script.id.has_value())
+            continue;
         for (auto const& pattern : script.matches)
             add_origin(pattern.to_string());
     }
@@ -67,7 +70,7 @@ static bool reaches(Extension const& extension, Web::Extensions::MatchPattern co
     auto covers = [&](auto const& pattern) { return pattern.contains(requested); };
     if (descriptor.host_permissions.contains(covers) || descriptor.granted_origins.contains(covers))
         return true;
-    return any_of(descriptor.content_scripts, [&](auto const& script) { return script.matches.contains(covers); });
+    return any_of(descriptor.content_scripts, [&](auto const& script) { return !script.id.has_value() && script.matches.contains(covers); });
 }
 
 bool extension_has_permissions(Extension const& extension, ExtensionPermissionSet const& requested)
@@ -112,7 +115,7 @@ ErrorOr<ExtensionPermissionSet, String> extension_permissions_to_remove(Extensio
         if (descriptor.host_permissions.contains(overlaps))
             return "You cannot remove required permissions."_string;
         for (auto const& script : descriptor.content_scripts) {
-            if (script.matches.contains(overlaps))
+            if (!script.id.has_value() && script.matches.contains(overlaps))
                 return "You cannot remove required permissions."_string;
         }
     }

@@ -157,6 +157,92 @@ static JS::ThrowCompletionOr<JsonObject> parse_css_injection(JS::VM& vm, StringV
     return details;
 }
 
+static constexpr auto register_signature = "registerContentScripts(array scripts, optional function callback)"sv;
+static constexpr auto update_signature = "updateContentScripts(array scripts, optional function callback)"sv;
+static constexpr auto get_signature = "getRegisteredContentScripts(optional scripting.ContentScriptFilter filter, optional function callback)"sv;
+static constexpr auto unregister_signature = "unregisterContentScripts(optional scripting.ContentScriptFilter filter, optional function callback)"sv;
+
+static JS::ThrowCompletionOr<JsonArray> parse_strings(JS::VM& vm, StringView signature, StringView where, JS::Value value)
+{
+    if (!value.is_object() || !is<JS::Array>(value.as_object()))
+        TRY(throw_invocation_error(vm, signature, MUST(String::formatted("{}: Invalid type: expected array, found {}.", where, api_type_name(value)))));
+    JsonArray strings;
+    auto length = TRY(JS::length_of_array_like(vm, value.as_object()));
+    for (size_t i = 0; i < length; ++i) {
+        auto item = TRY(value.as_object().get(JS::PropertyKey { i }));
+        if (!item.is_string())
+            TRY(throw_invocation_error(vm, signature, MUST(String::formatted("{}: Error at index {}: Invalid type: expected string, found {}.", where, i, api_type_name(item)))));
+        strings.must_append(item.as_string().utf16_string().to_utf8());
+    }
+    return strings;
+}
+
+// The scripts of a register or update call, each with the fields the UI process reads: the update's id alone is
+// required there, and the UI process checks what a registered script needs.
+static JS::ThrowCompletionOr<JsonArray> parse_registered_scripts(JS::VM& vm, StringView signature, JS::Value value)
+{
+    if (!value.is_object() || !is<JS::Array>(value.as_object()))
+        TRY(throw_invocation_error(vm, signature, MUST(String::formatted("Error at parameter 'scripts': Invalid type: expected array, found {}.", api_type_name(value)))));
+    JsonArray scripts;
+    auto length = TRY(JS::length_of_array_like(vm, value.as_object()));
+    for (size_t i = 0; i < length; ++i) {
+        auto where = MUST(String::formatted("Error at parameter 'scripts': Error at index {}", i));
+        auto item = TRY(value.as_object().get(JS::PropertyKey { i }));
+        if (!is_plain_object(item))
+            TRY(throw_invocation_error(vm, signature, MUST(String::formatted("{}: Invalid type: expected scripting.RegisteredContentScript, found {}.", where, api_type_name(item)))));
+        auto& object = item.as_object();
+        JsonObject script;
+        auto id = TRY(object.get("id"_utf16_fly_string));
+        if (!id.is_string())
+            TRY(throw_invocation_error(vm, signature, MUST(String::formatted("{}: Missing required property 'id'.", where))));
+        script.set("id"sv, id.as_string().utf16_string().to_utf8());
+        for (auto key : { "matches"sv, "excludeMatches"sv, "js"sv, "css"sv }) {
+            auto property = TRY(object.get(Utf16FlyString::from_utf8(key)));
+            if (!property.is_undefined())
+                script.set(key, TRY(parse_strings(vm, signature, MUST(String::formatted("{}: Error at property '{}'", where, key)), property)));
+        }
+        for (auto key : { "allFrames"sv, "matchOriginAsFallback"sv, "persistAcrossSessions"sv }) {
+            auto property = TRY(object.get(Utf16FlyString::from_utf8(key)));
+            if (property.is_undefined())
+                continue;
+            if (!property.is_boolean())
+                TRY(throw_invocation_error(vm, signature, MUST(String::formatted("{}: Error at property '{}': Invalid type: expected boolean, found {}.", where, key, api_type_name(property)))));
+            script.set(key, property.as_bool());
+        }
+        struct Choice {
+            StringView key;
+            ReadonlySpan<StringView> values;
+            StringView listed;
+        };
+        static constexpr Array run_at_values { "document_start"sv, "document_end"sv, "document_idle"sv };
+        static constexpr Array world_values { "ISOLATED"sv, "MAIN"sv };
+        for (auto choice : { Choice { "runAt"sv, run_at_values, "document_start, document_end, document_idle"sv }, Choice { "world"sv, world_values, "ISOLATED, MAIN"sv } }) {
+            auto property = TRY(object.get(Utf16FlyString::from_utf8(choice.key)));
+            if (property.is_undefined())
+                continue;
+            auto name = property.is_string() ? property.as_string().utf16_string().to_utf8() : String {};
+            if (!choice.values.contains_slow(name.bytes_as_string_view()))
+                TRY(throw_invocation_error(vm, signature, MUST(String::formatted("{}: Error at property '{}': Value must be one of {}.", where, choice.key, choice.listed))));
+            script.set(choice.key, name);
+        }
+        scripts.must_append(move(script));
+    }
+    return scripts;
+}
+
+static JS::ThrowCompletionOr<JsonValue> parse_filter(JS::VM& vm, StringView signature, JS::Value value)
+{
+    if (value.is_nullish())
+        return JsonValue {};
+    if (!is_plain_object(value))
+        TRY(throw_invocation_error(vm, signature, MUST(String::formatted("Error at parameter 'filter': Invalid type: expected scripting.ContentScriptFilter, found {}.", api_type_name(value)))));
+    JsonObject filter;
+    auto ids = TRY(value.as_object().get("ids"_utf16_fly_string));
+    if (!ids.is_undefined())
+        filter.set("ids"sv, TRY(parse_strings(vm, signature, "Error at parameter 'filter': Error at property 'ids'"sv, ids)));
+    return JsonValue { move(filter) };
+}
+
 GC::Ref<JS::Object> create_scripting(JS::Realm& realm, MessagingContext& context)
 {
     auto scripting = JS::Object::create(realm, realm.intrinsics().object_prototype());
@@ -174,6 +260,26 @@ GC::Ref<JS::Object> create_scripting(JS::Realm& realm, MessagingContext& context
         StringView name;
         StringView signature;
     };
+    struct RegistrationMethod {
+        StringView name;
+        StringView signature;
+        bool takes_scripts;
+    };
+    for (auto method : { RegistrationMethod { "registerContentScripts"sv, register_signature, true }, RegistrationMethod { "updateContentScripts"sv, update_signature, true }, RegistrationMethod { "getRegisteredContentScripts"sv, get_signature, false }, RegistrationMethod { "unregisterContentScripts"sv, unregister_signature, false } }) {
+        scripting->define_native_function(realm, Utf16FlyString::from_utf8(method.name), [context = GC::Ref { context }, method](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            if (context->is_detached())
+                return vm.throw_completion<JS::TypeError>("The extension context is gone"sv);
+            auto count = vm.argument_count();
+            GC::Ptr<JS::FunctionObject> callback;
+            if (count > 0 && vm.argument(count - 1).is_function())
+                callback = vm.argument(--count).as_function();
+            JsonArray arguments;
+            if (method.takes_scripts)
+                arguments.must_append(TRY(parse_registered_scripts(vm, method.signature, vm.argument(0))));
+            else
+                arguments.must_append(TRY(parse_filter(vm, method.signature, count > 0 ? vm.argument(0) : JS::js_undefined())));
+            return settle_api_call(*context, callback, MessageRouter::the().call_api(*context, MUST(String::formatted("scripting.{}", method.name)), arguments)); }, method.takes_scripts ? 1 : 0, attributes);
+    }
     for (auto [name, signature] : { CSSMethod { "insertCSS"sv, insert_css_signature }, CSSMethod { "removeCSS"sv, remove_css_signature } }) {
         scripting->define_native_function(realm, Utf16FlyString::from_utf8(name), [context = GC::Ref { context }, name, signature](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
             if (context->is_detached())

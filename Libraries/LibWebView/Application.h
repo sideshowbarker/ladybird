@@ -52,6 +52,7 @@
 #include <LibWebView/DownloadStore.h>
 #include <LibWebView/Extensions/ExtensionAlarmManager.h>
 #include <LibWebView/Extensions/ExtensionPermissionsAPI.h>
+#include <LibWebView/Extensions/ExtensionRegisteredScripts.h>
 #include <LibWebView/Extensions/ExtensionScriptingAPI.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/Extensions/ExtensionTabsAPI.h>
@@ -671,6 +672,7 @@ private:
     OwnPtr<ExtensionStorageStore> m_extension_storage_store;
     OwnPtr<ExtensionStorageStore> m_extension_session_storage_store;
     OwnPtr<ExtensionStorageStore> m_extension_sync_storage_store;
+    OwnPtr<ExtensionRegisteredScripts> m_extension_registered_scripts;
     ExtensionAlarmManager m_extension_alarm_manager;
     RefPtr<Core::Timer> m_extension_alarm_timer;
     // The revision of each enabled extension; a new revision, or none, drops its session storage and alarms.

@@ -450,6 +450,7 @@ private:
     ErrorOr<JsonValue, String> call_extension_alarms_api(String const& extension_id, StringView method, JsonArray const& arguments);
     void call_extension_scripting_api(String const& extension_id, u64 request_id, StringView method, JsonArray const& arguments);
     void call_extension_tabs_injection_api(String const& extension_id, u64 request_id, StringView method, JsonArray const& arguments);
+    ErrorOr<JsonValue, String> call_extension_registered_scripts_api(Extension const&, StringView method, JsonArray const& arguments);
     ErrorOr<JsonValue, String> call_extension_permissions_api(String const& extension_id, StringView method, JsonArray const& arguments);
     ErrorOr<JsonValue, String> call_extension_tabs_api(String const& extension_id, Web::Extensions::ExtensionDescriptor const&, StringView method, JsonArray const& arguments);
     Messages::WebContentTestClient::DidRequestTabIsPlayingAudioForTestingResponse did_request_tab_is_playing_audio_for_testing();

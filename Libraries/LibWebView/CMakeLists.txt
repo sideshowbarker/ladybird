@@ -46,6 +46,7 @@ set(SOURCES
     Extensions/ExtensionPopupHost.cpp
     Extensions/ExtensionMessageBroker.cpp
     Extensions/ExtensionRegistry.cpp
+    Extensions/ExtensionRegisteredScripts.cpp
     Extensions/ExtensionScriptingAPI.cpp
     Extensions/ExtensionStorageStore.cpp
     ExternalURLHandler.cpp

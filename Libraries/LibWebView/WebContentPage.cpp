@@ -1952,6 +1952,16 @@ void WebContentPage::call_extension_scripting_api(String const& extension_id, u6
         else
             page->complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });
     };
+    if (method.ends_with("ContentScripts"sv)) {
+        auto result = call_extension_registered_scripts_api(*extension, method, arguments);
+        if (result.is_error())
+            complete(result.release_error());
+        else if (result.value().is_null())
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::NoReply {});
+        else
+            complete(result.release_value());
+        return;
+    }
     auto is_css = method == "insertCSS"sv || method == "removeCSS"sv;
     if ((method != "executeScript"sv && !is_css) || arguments.size() != 1 || !arguments.at(0).is_object()) {
         complete(MUST(String::formatted("scripting.{}() isn't supported", method)));
@@ -1978,6 +1988,69 @@ void WebContentPage::call_extension_scripting_api(String const& extension_id, u6
         else
             page->complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::NoReply {});
     });
+}
+
+// The ids a filter names, or none for every script.
+static Optional<Vector<String>> filter_ids(JsonArray const& arguments)
+{
+    if (arguments.is_empty() || !arguments.at(0).is_object())
+        return {};
+    auto ids = arguments.at(0).as_object().get_array("ids"sv);
+    if (!ids.has_value())
+        return {};
+    Vector<String> result;
+    ids->for_each([&](JsonValue const& id) {
+        if (id.is_string())
+            result.append(id.as_string());
+    });
+    return result;
+}
+
+static Vector<JsonObject> scripts_argument(JsonArray const& arguments)
+{
+    Vector<JsonObject> scripts;
+    if (!arguments.is_empty() && arguments.at(0).is_array()) {
+        arguments.at(0).as_array().for_each([&](JsonValue const& script) {
+            if (script.is_object())
+                scripts.append(script.as_object());
+        });
+    }
+    return scripts;
+}
+
+ErrorOr<JsonValue, String> WebContentPage::call_extension_registered_scripts_api(Extension const& extension, StringView method, JsonArray const& arguments)
+{
+    auto& registry = Application::extension_registry();
+    auto* store = registry.registered_scripts();
+    if (!store)
+        return "Registered content scripts aren't available"_string;
+    // A script's files and patterns have to load before it's registered, or changed to name them.
+    auto check_scripts = [&](Vector<JsonObject> const& scripts) -> ErrorOr<void, String> {
+        for (auto const& script : scripts)
+            TRY(extension.registered_content_script(script));
+        return {};
+    };
+    if (method == "getRegisteredContentScripts"sv) {
+        JsonArray scripts;
+        for (auto& script : store->scripts(extension.id(), filter_ids(arguments)))
+            scripts.must_append(move(script));
+        return JsonValue { move(scripts) };
+    }
+    if (method == "registerContentScripts"sv) {
+        auto scripts = scripts_argument(arguments);
+        TRY(check_scripts(scripts));
+        TRY(store->register_scripts(extension.id(), move(scripts)));
+    } else if (method == "updateContentScripts"sv) {
+        auto changes = scripts_argument(arguments);
+        TRY(check_scripts(changes));
+        TRY(store->update_scripts(extension.id(), move(changes)));
+    } else if (method == "unregisterContentScripts"sv) {
+        TRY(store->unregister_scripts(extension.id(), filter_ids(arguments)));
+    } else {
+        return MUST(String::formatted("scripting.{}() isn't supported", method));
+    }
+    registry.registered_scripts_changed(extension.id());
+    return JsonValue {};
 }
 
 void WebContentPage::call_extension_tabs_injection_api(String const& extension_id, u64 request_id, StringView method, JsonArray const& arguments)

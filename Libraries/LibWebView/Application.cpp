@@ -753,6 +753,8 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_extension_sync_storage_store = ExtensionStorageStore::create_sync_store(profile().paths().data);
     m_extension_registry->set_storage_store(*m_extension_storage_store);
     m_extension_registry->set_storage_store(*m_extension_sync_storage_store);
+    m_extension_registered_scripts = make<ExtensionRegisteredScripts>(profile().paths().data);
+    m_extension_registry->set_registered_scripts(*m_extension_registered_scripts);
     m_extension_message_broker = make<ExtensionMessageBroker>();
     m_extension_registry->set_message_broker(*m_extension_message_broker);
     m_extension_background_host = make<ExtensionBackgroundHost>();

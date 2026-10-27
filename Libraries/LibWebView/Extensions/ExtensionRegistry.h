@@ -22,6 +22,8 @@
 
 namespace WebView {
 
+class ExtensionRegisteredScripts;
+
 class ExtensionRegistry;
 
 class WEBVIEW_API ExtensionRegistryObserver : public Weakable<ExtensionRegistryObserver> {
@@ -68,6 +70,10 @@ public:
     void set_message_broker(ExtensionMessageBroker& broker) { m_message_broker = &broker; }
     // Each store whose items a removed extension loses: storage.local's and storage.sync's.
     void set_storage_store(ExtensionStorageStore& store) { m_storage_stores.append(&store); }
+    void set_registered_scripts(ExtensionRegisteredScripts& scripts) { m_registered_scripts = &scripts; }
+    ExtensionRegisteredScripts* registered_scripts() const { return m_registered_scripts; }
+    // Puts the extension's registered scripts into its descriptor again, after they change.
+    void registered_scripts_changed(StringView id);
     void set_enabled(StringView id, bool enabled);
     void set_allowed_in_private(StringView id, bool);
     // What the extension has been granted, both API permissions and origin patterns; anything its manifest doesn't
@@ -92,10 +98,12 @@ private:
     friend class ExtensionRegistryObserver;
     void notify_changed();
     void record_failure(String id, ByteString directory, String error);
+    void apply_registered_scripts(Extension&);
 
     Settings& m_settings;
     ExtensionMessageBroker* m_message_broker { nullptr };
     Vector<ExtensionStorageStore*> m_storage_stores;
+    ExtensionRegisteredScripts* m_registered_scripts { nullptr };
     Vector<NonnullRefPtr<Extension>> m_extensions;
     Vector<FailedExtension> m_failed_extensions;
     Vector<WeakPtr<ExtensionRegistryObserver>> m_observers;

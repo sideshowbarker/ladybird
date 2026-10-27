@@ -1,0 +1,28 @@
+{
+    "manifest_version": 3,
+    "name": "Scripting Register Fixture",
+    "version": "1.0",
+    "description": "A background page that registers content scripts for a page under an optional host permission.",
+    "permissions": [
+        "scripting"
+    ],
+    "optional_host_permissions": [
+        "file:///*/data/registered-script-target.html"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/scripting-register.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

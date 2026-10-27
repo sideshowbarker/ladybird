@@ -179,6 +179,7 @@ set(TEST_SOURCES
     TestExtensionLocales.cpp
     TestExtensionManifest.cpp
     TestExtensionMessageBroker.cpp
+    TestExtensionRegisteredScripts.cpp
     TestExtensionRegistry.cpp
     TestExtensionStorageStore.cpp
     TestExtensionsUI.cpp

@@ -33,7 +33,7 @@ static bool valid_id(String const& id)
     return !id.is_empty() && id != "."sv && id != ".."sv && !id.contains('/') && !id.contains('\\') && !id.contains('\0');
 }
 
-static ErrorOr<void> write_atomically(ByteString const& path, String const& contents)
+ErrorOr<void> write_file_atomically(ByteString const& path, String const& contents)
 {
     TRY(Core::Directory::create(LexicalPath(path).dirname(), Core::Directory::CreateDirectories::Yes, 0700));
     auto temporary = ByteString::formatted("{}.{}", path, AK::generate_random_uuid());
@@ -133,7 +133,7 @@ struct ExtensionStorageStore::Impl {
 
     Impl(ByteString root, Writer writer)
         : root(move(root))
-        , writer(writer ? move(writer) : Writer { write_atomically })
+        , writer(writer ? move(writer) : Writer { write_file_atomically })
         , worker(Threading::Thread::construct("Extension storage"sv, [this] { return run(); }))
     {
     }
