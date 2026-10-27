@@ -60,6 +60,7 @@ class RequestServerManager;
 class RequestServerSiteBindings;
 class PermissionManager;
 class Extension;
+class ExtensionActionRegistry;
 class ExtensionBackgroundHost;
 class ExtensionMessageBroker;
 class ExtensionRegistry;

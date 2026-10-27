@@ -1,0 +1,17 @@
+getTitle default: {"value":"Fixture title"}
+getTitle global: {"value":"global"}
+getTitle tab: {"value":"tab"}
+getTitle other tab: {"error":"Error: No tab with id: 987654."}
+getBadgeText default: {"value":""}
+getBadgeText global: {"value":"global"}
+getBadgeText tab: {"value":"tab"}
+getBadgeText other tab: {"error":"Error: No tab with id: 987654."}
+getPopup default: {"value":"/popup.html"}
+getPopup global: {"value":"/global.html"}
+getPopup tab: {"value":"/tab.html"}
+getPopup other tab: {"error":"Error: No tab with id: 987654."}
+isEnabled: {"value":true}
+isEnabled tab after disable: {"value":false}
+isEnabled global after disable: {"value":true}
+isEnabled tab after enable: {"value":true}
+setTitle without a title: {"error":"TypeError: Error in invocation of action.setTitle(object details, optional function callback): Error at parameter 'details': Missing required property 'title'."}

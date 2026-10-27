@@ -72,6 +72,8 @@ struct WEBCOMMON_API ExtensionDescriptor {
     Vector<WebAccessibleResourceDescriptor> web_accessible_resources;
     Vector<ContentScriptDescriptor> content_scripts;
     bool has_background { false };
+    // Whether the manifest declares a toolbar button: "action" in version 3, "browser_action" in version 2.
+    bool has_action { false };
     String background_document_html;
 
     // Whether a page at the initiator URL may load the resource at the URL path (which begins with "/").

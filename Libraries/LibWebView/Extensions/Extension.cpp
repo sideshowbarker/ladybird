@@ -261,6 +261,7 @@ ErrorOr<NonnullRefPtr<Extension>, String> Extension::load_unpacked(ByteString di
     descriptor.extension_pages_csp = manifest.extension_pages_csp;
     descriptor.web_accessible_resources = manifest.web_accessible_resources;
     descriptor.has_background = manifest.background.has_value();
+    descriptor.has_action = manifest.action.has_value();
     descriptor.background_document_html = manifest.generated_background_document_html();
 
     for (auto const& script : manifest.content_scripts) {

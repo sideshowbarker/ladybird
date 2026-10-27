@@ -264,6 +264,7 @@ private:
     virtual void extension_storage_reply(Web::PageId, u64, Web::Extensions::StorageResult) override;
     virtual void dispatch_extension_storage_changed(Web::PageId, String, String) override;
     virtual void dispatch_extension_suspend(Web::PageId, String, u64, bool) override;
+    virtual void dispatch_extension_event(Web::PageId, String, u64, String, String) override;
     virtual void extension_runtime_message_reply(Web::PageId page_id, u64 request_id, Web::Extensions::MessageResult reply_json) override;
 
     virtual void set_force_dark_settings(Web::PageId page_id, bool enabled, HashMap<String, bool> per_host) override;

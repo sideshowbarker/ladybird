@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // Both fixtures' content scripts announce themselves; the requests go out once both are listening.
+    let readyCount = 0;
+    const bothReady = new Promise(resolve => {
+        document.addEventListener("content-script-ready", () => {
+            if (++readyCount === 2)
+                resolve();
+        });
+    });
+
+    // Manifest version 3 has browser.action and version 2 browser.browserAction, never both; setBadgeTextColor is only
+    // in action. Two fixtures answer here: one per manifest version.
+    asyncTest(async done => {
+        await bothReady;
+        const answers = [];
+        await new Promise(resolve => {
+            document.addEventListener("tabs-reply", function listener() {
+                answers.push(document.documentElement.dataset.tabsReply);
+                if (answers.length === 2) {
+                    document.removeEventListener("tabs-reply", listener);
+                    resolve();
+                }
+            });
+            document.dispatchEvent(new CustomEvent("tabs-request", { detail: JSON.stringify({ type: "namespaces" }) }));
+        });
+        for (const answer of answers.sort())
+            println(answer);
+        done();
+    });
+</script>
+</body>

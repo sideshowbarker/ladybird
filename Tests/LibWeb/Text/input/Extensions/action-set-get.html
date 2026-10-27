@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-action.js"></script>
+<body>
+<script>
+    // Each action property reads its manifest default, then a global value, and a tab's own value only in that tab.
+    asyncTest(async done => {
+        await contentScriptReady();
+        for (const [setter, getter, key] of [
+            ["setTitle", "getTitle", "title"],
+            ["setBadgeText", "getBadgeText", "text"],
+            ["setPopup", "getPopup", "popup"],
+        ]) {
+            println(`${getter} default: ${extensionPath(await callAction(getter, {}))}`);
+            await callAction(setter, { [key]: key === "popup" ? "global.html" : "global" });
+            await callAction(setter, { tabId: "$tab", [key]: key === "popup" ? "tab.html" : "tab" });
+            println(`${getter} global: ${extensionPath(await callAction(getter, {}))}`);
+            println(`${getter} tab: ${extensionPath(await callAction(getter, { tabId: "$tab" }))}`);
+            println(`${getter} other tab: ${extensionPath(await callAction(getter, { tabId: 987654 }))}`);
+        }
+        println(`isEnabled: ${JSON.stringify(await callAction("isEnabled"))}`);
+        await callAction("disable", "$tab");
+        println(`isEnabled tab after disable: ${JSON.stringify(await callAction("isEnabled", "$tab"))}`);
+        println(`isEnabled global after disable: ${JSON.stringify(await callAction("isEnabled"))}`);
+        await callAction("enable", "$tab");
+        println(`isEnabled tab after enable: ${JSON.stringify(await callAction("isEnabled", "$tab"))}`);
+        println(`setTitle without a title: ${JSON.stringify(await callAction("setTitle", {}))}`);
+        done();
+    });
+</script>
+</body>
