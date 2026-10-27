@@ -198,6 +198,20 @@ void ExtensionMessageBroker::request_storage(Endpoint& source, u64 context_id, u
         source.complete_extension_storage(request_id, { StorageResult::Type::Error, "Access to storage is not allowed from this context."_string });
         return;
     }
+    // No policy sets anything in storage.managed, so it reads as empty; extensions compare the write error's wording.
+    if (request.area == StorageRequest::Area::Managed) {
+        switch (request.operation) {
+        case StorageRequest::Operation::Get:
+            source.complete_extension_storage(request_id, { StorageResult::Type::Items, "{}"_string });
+            return;
+        case StorageRequest::Operation::BytesInUse:
+            source.complete_extension_storage(request_id, { StorageResult::Type::Bytes, {}, 0 });
+            return;
+        default:
+            source.complete_extension_storage(request_id, { StorageResult::Type::Error, "This is a read-only store."_string });
+            return;
+        }
+    }
     if (request.operation == StorageRequest::Operation::SetAccessLevel) {
         if (!is_session || (request.items_json != "TRUSTED_CONTEXTS"sv && request.items_json != "TRUSTED_AND_UNTRUSTED_CONTEXTS"sv)) {
             source.complete_extension_storage(request_id, { StorageResult::Type::Error, "Invalid access level"_string });

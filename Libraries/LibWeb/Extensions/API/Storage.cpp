@@ -120,7 +120,7 @@ static GC::Ref<JS::Object> create_storage_area(JS::Realm& realm, MessagingContex
         // Exposed, as extensions read them, but not enforced: nothing syncs, so writing often costs nothing.
         object->define_direct_property("MAX_WRITE_OPERATIONS_PER_HOUR"_utf16_fly_string, JS::Value(1800), 0);
         object->define_direct_property("MAX_WRITE_OPERATIONS_PER_MINUTE"_utf16_fly_string, JS::Value(120), 0);
-    } else {
+    } else if (area != StorageRequest::Area::Managed) {
         object->define_direct_property("QUOTA_BYTES"_utf16_fly_string, JS::Value(10485760), 0);
     }
     struct Method {
@@ -158,7 +158,7 @@ GC::Ref<JS::Object> create_storage(JS::Realm& realm, MessagingContext& context)
     context.set_storage_listeners(global_listeners);
     storage->define_direct_property("onChanged"_utf16_fly_string, create_event(realm, global_listeners), attributes);
     // A content script has storage.session too, but the UI process refuses its calls until the extension allows them.
-    for (auto area : { StorageRequest::Area::Local, StorageRequest::Area::Session, StorageRequest::Area::Sync }) {
+    for (auto area : { StorageRequest::Area::Local, StorageRequest::Area::Session, StorageRequest::Area::Sync, StorageRequest::Area::Managed }) {
         auto name = MUST(String::from_utf8(storage_area_name(area)));
         auto listeners = realm.heap().allocate<EventListenerList>();
         context.set_storage_area_listeners(name, listeners);
