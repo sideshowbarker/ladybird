@@ -64,6 +64,15 @@ void ExtensionsUI::register_interfaces()
         if (auto id = installed_id_from_message(data); id.has_value())
             Application::extension_registry().remove(*id);
     });
+    register_interface("openExtensionOptions"sv, [this](auto const& data) {
+        if (!consume_user_activation())
+            return;
+        auto id = installed_id_from_message(data);
+        if (!id.has_value())
+            return;
+        if (auto extension = Application::extension_registry().find(*id))
+            (void)Application::the().open_extension_options_page(*extension, {});
+    });
     register_interface("loadUnpackedExtension"sv, [this](auto const&) { load_unpacked(); });
     register_interface("installExtension"sv, [this](auto const& data) { install(data); });
     register_interface("cancelExtensionInstall"sv, [this](auto const& data) {
@@ -130,6 +139,7 @@ void ExtensionsUI::send_snapshot()
             entry.set("name"sv, manifest.name);
             entry.set("version"sv, manifest.version);
             entry.set("description"sv, manifest.description);
+            entry.set("hasOptions"sv, manifest.options_page.has_value());
             entry.set("error"sv, String {});
             for (auto const& pattern : (*extension)->descriptor().host_permissions)
                 permissions.must_append(pattern.to_string());

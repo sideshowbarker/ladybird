@@ -2390,6 +2390,20 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
         return;
     }
 
+    // Only the extension's own documents may open its options page.
+    if (api_namespace == "runtime"sv && name == "openOptionsPage"sv) {
+        if (!context->is_extension_document)
+            return;
+        auto tabs = Application::the().extension_tabs();
+        auto viewer = extension_tab_viewer(context->extension_id, extension->descriptor(), tabs);
+        auto result = Application::the().open_extension_options_page(*extension, viewer.current_window_id.has_value() ? viewer.current_window_id : viewer.last_focused_window_id);
+        if (result.is_error())
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
+        else
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::NoReply {});
+        return;
+    }
+
     // Only the extension's own documents have menus and commands, and menus only with either menu permission.
     if (api_namespace == "contextMenus"sv || api_namespace == "commands"sv) {
         if (!context->is_extension_document)

@@ -735,6 +735,9 @@ private:
 public:
     // Grants and takes away optional permissions, persists the result, and fires permissions.onAdded and onRemoved
     // with what actually changed.
+    // Activates a tab showing the extension's options page, or else opens one in the window given (or the one last
+    // focused). Extensions compare the error for an extension without one.
+    ErrorOr<void, String> open_extension_options_page(Extension const&, Optional<i64> window_id);
     ExtensionMenus& extension_menus() { return m_extension_menus; }
     ExtensionCommands& extension_commands() { return m_extension_commands; }
     void change_extension_grants(String const& extension_id, ExtensionPermissionSet const& added, ExtensionPermissionSet const& removed);

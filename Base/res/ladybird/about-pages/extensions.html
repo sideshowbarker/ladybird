@@ -201,6 +201,13 @@
                                 ladybird.sendMessage("setExtensionAllowedInPrivate", { id: extension.id, allowed });
                             }
                         ),
+                        ...(extension.hasOptions
+                            ? [
+                                  actionButton("Options", "extension-options", () => {
+                                      ladybird.sendMessage("openExtensionOptions", { id: extension.id });
+                                  }),
+                              ]
+                            : []),
                         actionButton("Reload", "extension-reload", () => {
                             operationError.textContent = "";
                             ladybird.sendMessage("reloadExtension", { id: extension.id });

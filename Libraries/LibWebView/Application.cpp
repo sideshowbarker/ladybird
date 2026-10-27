@@ -4215,6 +4215,29 @@ ErrorOr<ExtensionTab, String> Application::update_extension_tab(i64 tab_id, Exte
     return tab;
 }
 
+ErrorOr<void, String> Application::open_extension_options_page(Extension const& extension, Optional<i64> window_id)
+{
+    auto const& page = extension.manifest().options_page;
+    if (!page.has_value())
+        return "Could not create an options page."_string;
+    auto url = resolve_extension_tab_url(extension.descriptor(), *page);
+    if (url.is_error())
+        return "Could not create an options page."_string;
+    for (auto const& tab : extension_tabs()) {
+        if (tab.url.equals(url.value(), URL::ExcludeFragment::Yes)) {
+            TRY(update_extension_tab(tab.id, { .url = {}, .active = true, .pinned = {} }));
+            return {};
+        }
+    }
+    if (!window_id.has_value()) {
+        auto order = extension_window_focus_order();
+        if (!order.is_empty())
+            window_id = order.first();
+    }
+    TRY(create_extension_tab({ .url = url.release_value(), .active = true, .index = {}, .window_id = window_id, .pinned = false, .may_open_in_private_window = false }));
+    return {};
+}
+
 ErrorOr<void, String> Application::close_extension_tab(i64 tab_id)
 {
     // Only the tabs this process opened itself can close here; another view belongs to whoever made it.

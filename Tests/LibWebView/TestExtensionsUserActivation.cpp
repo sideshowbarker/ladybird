@@ -93,12 +93,19 @@ TEST_CASE(extensions_user_activation)
         }});
         ladybird.sendMessage('removeExtension', {{ id: '{}' }});
         ladybird.sendMessage('loadUnpackedExtension', {{ directory: '/tmp' }});
+        ladybird.sendMessage('openExtensionOptions', {{ id: '{}' }});
         ladybird.sendMessage('loadExtensions');
     )",
-        id)));
+        id, id)));
     Core::EventLoop::current().spin_until([&] { return checked; });
     VERIFY(WebView::Application::settings().installed_extensions().size() == 1);
     VERIFY(WebView::Application::settings().installed_extensions()[0].id == id);
     VERIFY(WebView::Application::extension_registry().failed_extensions().size() == 1);
     VERIFY(app->picker_requests == 0);
+    size_t views = 0;
+    WebView::ViewImplementation::for_each_view([&](auto&) {
+        ++views;
+        return IterationDecision::Continue;
+    });
+    VERIFY(views == 1);
 }

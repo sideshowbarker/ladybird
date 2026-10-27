@@ -12,6 +12,8 @@
 #include <LibJS/Runtime/Promise.h>
 #include <LibJS/Runtime/Realm.h>
 #include <LibJS/Runtime/VM.h>
+#include <LibURL/Parser.h>
+#include <LibWeb/Extensions/API/Arguments.h>
 #include <LibWeb/Extensions/API/Completion.h>
 #include <LibWeb/Extensions/API/Event.h>
 #include <LibWeb/Extensions/API/Runtime.h>
@@ -152,6 +154,79 @@ GC::Ref<JS::Object> create_runtime(JS::Realm& realm, MessagingContext& context, 
             return settle_api_call(*context, callback, promise);
         },
         1, attributes);
+
+    // openOptionsPage(): The UI process opens the options page in a tab, or activates a tab showing it already.
+    if (namespace_context == NamespaceContext::ExtensionDocument) {
+        runtime->define_native_function(
+            realm, "openOptionsPage"_utf16_fly_string, [context = GC::Ref { context }](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (context->is_detached())
+                    return vm.throw_completion<JS::TypeError>("The extension context is gone"sv);
+                GC::Ptr<JS::FunctionObject> callback;
+                if (vm.argument(0).is_function())
+                    callback = vm.argument(0).as_function();
+                return settle_api_call(*context, callback, MessageRouter::the().call_api(*context, "runtime.openOptionsPage"sv, {}));
+            },
+            0, attributes);
+
+        // setUninstallURL(url): Nothing visits it, since Ladybird has no uninstall page to send the user to; an http or
+        // https URL (or none) is accepted, and anything else fails as extensions expect.
+        runtime->define_native_function(
+            realm, "setUninstallURL"_utf16_fly_string, [context = GC::Ref { context }](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (context->is_detached())
+                    return vm.throw_completion<JS::TypeError>("The extension context is gone"sv);
+                GC::Ptr<JS::FunctionObject> callback;
+                if (vm.argument(1).is_function())
+                    callback = vm.argument(1).as_function();
+                if (!vm.argument(0).is_string())
+                    return vm.throw_completion<JS::TypeError>(Utf16String::formatted("Error in invocation of runtime.setUninstallURL(string url, optional function callback): Error at parameter 'url': Invalid type: expected string, found {}.", api_type_name(vm.argument(0))));
+                auto url = vm.argument(0).as_string().utf16_string().to_utf8();
+                auto& realm = context->realm();
+                auto parsed = URL::Parser::basic_parse(url);
+                if (!url.is_empty() && (!parsed.has_value() || (parsed->scheme() != "http"sv && parsed->scheme() != "https"sv))) {
+                    auto message = MUST(String::formatted("Invalid URL: \"{}\".", url));
+                    return settle_api_call(*context, callback, WebIDL::create_rejected_promise(realm, JS::Error::create(realm, Utf16String::from_utf8(message))));
+                }
+                return settle_api_call(*context, callback, WebIDL::create_resolved_promise(realm, JS::js_undefined()));
+            },
+            1, attributes);
+    }
+
+    // getPlatformInfo(): The values are the ones the API defines for this platform and processor.
+    runtime->define_native_function(
+        realm, "getPlatformInfo"_utf16_fly_string, [context = GC::Ref { context }](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            if (context->is_detached())
+                return vm.throw_completion<JS::TypeError>("The extension context is gone"sv);
+            GC::Ptr<JS::FunctionObject> callback;
+            if (vm.argument(0).is_function())
+                callback = vm.argument(0).as_function();
+#if defined(AK_OS_MACOS)
+            auto os = "mac"sv;
+#elif defined(AK_OS_WINDOWS)
+            auto os = "win"sv;
+#elif defined(AK_OS_ANDROID)
+            auto os = "android"sv;
+#elif defined(AK_OS_OPENBSD)
+            auto os = "openbsd"sv;
+#else
+            auto os = "linux"sv;
+#endif
+#if ARCH(AARCH64)
+            auto arch = "arm64"sv;
+#elif ARCH(X86_64)
+            auto arch = "x86-64"sv;
+#elif ARCH(RISCV64)
+            auto arch = "riscv64"sv;
+#else
+            auto arch = "x86-32"sv;
+#endif
+            auto& realm = context->realm();
+            auto info = JS::Object::create(realm, realm.intrinsics().object_prototype());
+            info->define_direct_property("os"_utf16_fly_string, JS::PrimitiveString::create(vm, Utf16String::from_utf8(os)), JS::default_attributes);
+            info->define_direct_property("arch"_utf16_fly_string, JS::PrimitiveString::create(vm, Utf16String::from_utf8(arch)), JS::default_attributes);
+            info->define_direct_property("nacl_arch"_utf16_fly_string, JS::PrimitiveString::create(vm, Utf16String::from_utf8(arch)), JS::default_attributes);
+            return settle_api_call(*context, callback, WebIDL::create_resolved_promise(realm, info));
+        },
+        0, attributes);
 
     return runtime;
 }

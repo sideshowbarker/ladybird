@@ -19,6 +19,7 @@
                 `an unknown command: ${(await sendToBackground({ type: "update", details: { name: "nope" } })).failed}`
             );
             println(`alias: ${JSON.stringify(await sendToBackground({ type: "alias" }))}`);
+            println(`no options page: ${(await sendToBackground({ type: "open-options" })).failed}`);
             done();
         });
     </script>

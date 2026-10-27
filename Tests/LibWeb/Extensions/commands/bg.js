@@ -7,6 +7,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         );
         return true;
     };
+    if (message.type === "open-options") return reply(browser.runtime.openOptionsPage());
     if (message.type === "getAll") return reply(browser.commands.getAll());
     if (message.type === "update") return reply(browser.commands.update(message.details));
     if (message.type === "alias")

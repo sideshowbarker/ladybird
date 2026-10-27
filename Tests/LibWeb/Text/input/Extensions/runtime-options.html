@@ -1,0 +1,29 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // runtime.openOptionsPage() opens the options page in a tab, and then activates that tab rather than opening
+        // another; setUninstallURL(), getPlatformInfo(), and extension.isAllowedFileSchemeAccess() answer as extensions expect.
+        const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+        asyncTest(async done => {
+            await contentScriptReady();
+            println(`open: ${JSON.stringify(await sendToBackground({ type: "open" }))}`);
+            let tabs;
+            while (!(tabs = (await sendToBackground({ type: "options-tabs" })).value).length) await pause(20);
+            println(`options tabs: ${JSON.stringify(tabs)}`);
+            await sendToBackground({ type: "open" });
+            println(`opened again: ${JSON.stringify((await sendToBackground({ type: "options-tabs" })).value)}`);
+            println(
+                `setUninstallURL: ${JSON.stringify(await sendToBackground({ type: "uninstall-url", url: "https://example.com/bye" }))}`
+            );
+            println(`an empty one: ${JSON.stringify(await sendToBackground({ type: "uninstall-url", url: "" }))}`);
+            println(
+                `a bad one: ${(await sendToBackground({ type: "uninstall-url", url: "javascript:void 0" })).failed}`
+            );
+            println(`getPlatformInfo: ${JSON.stringify((await sendToBackground({ type: "platform" })).value)}`);
+            println(`isAllowedFileSchemeAccess: ${(await sendToBackground({ type: "file-access" })).value}`);
+            done();
+        });
+    </script>
+</body>
