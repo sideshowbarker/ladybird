@@ -1,0 +1,13 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // A tab whose page the extension has no host permission for is refused, and isn't touched.
+        asyncTest(async done => {
+            await contentScriptReady();
+            println(`no host access: ${(await sendToBackground({ type: "other-tab" })).failed}`);
+            done();
+        });
+    </script>
+</body>

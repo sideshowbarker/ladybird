@@ -1,0 +1,11 @@
+frameIds [0, 0]: [1]
+allFrames with frameIds: Cannot specify 'allFrames' if either 'frameIds' or 'documentIds' is specified.
+frameIds of the wrong type: TypeError: Error in invocation of scripting.executeScript(scripting.ScriptInjection injection, optional function callback): Error at parameter 'injection': Error at property 'target': Error at property 'frameIds': Invalid type: expected array, found string.
+after all that: 1
+cyclic: [{"frameId":0,"result":null}]
+bigint: [{"frameId":0,"result":null}]
+nothing: [{"frameId":0}]
+allFrames: ["file:","file:","about:"]
+a frame removed mid-injection: Frame with ID N was removed.
+messaging from an injected script: "pong from frame true"
+a refused child: Cannot access contents of the page. Extension manifest must request permission to access the respective host.

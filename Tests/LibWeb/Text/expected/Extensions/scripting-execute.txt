@@ -1,0 +1,7 @@
+func with args: {"value":[{"frameId":0,"result":"3Scripted page"}]}
+isolated world: {"value":[{"frameId":0,"result":"undefined"}]}
+main world: {"value":[{"frameId":0,"result":"number"}]}
+files: {"value":[{"frameId":0,"result":13}]}
+a promise: {"value":[{"frameId":0,"result":"waited"}]}
+a throw: {"failed":"Error: boom"}
+neither func nor files: {"failed":"Exactly one of 'func' and 'files' must be specified"}

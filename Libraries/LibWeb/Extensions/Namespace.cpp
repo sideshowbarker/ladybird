@@ -11,6 +11,7 @@
 #include <LibWeb/Extensions/API/I18n.h>
 #include <LibWeb/Extensions/API/Permissions.h>
 #include <LibWeb/Extensions/API/Runtime.h>
+#include <LibWeb/Extensions/API/Scripting.h>
 #include <LibWeb/Extensions/API/Storage.h>
 #include <LibWeb/Extensions/API/Tabs.h>
 #include <LibWeb/Extensions/MessagingContext.h>
@@ -33,6 +34,10 @@ GC::Ref<JS::Object> install_namespace(JS::Realm& realm, MessagingContext& messag
     // Content scripts can't see or change what the extension may do.
     if (context == NamespaceContext::ExtensionDocument)
         namespace_object->define_direct_property("permissions"_utf16_fly_string, create_permissions(realm, messaging_context), attributes);
+
+    // Only manifest version 3 has scripting; version 2 injects with tabs.executeScript().
+    if (context == NamespaceContext::ExtensionDocument && messaging_context.descriptor().manifest_version >= 3 && messaging_context.descriptor().has_permission("scripting"sv))
+        namespace_object->define_direct_property("scripting"_utf16_fly_string, create_scripting(realm, messaging_context), attributes);
 
     // Alarms wake the extension's own pages, so content scripts don't have them.
     if (context == NamespaceContext::ExtensionDocument && messaging_context.descriptor().has_permission("alarms"sv))

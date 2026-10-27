@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <LibWeb/HTML/Scripting/ClassicScript.h>
+
 #include <AK/OwnPtr.h>
 #include <AK/String.h>
 #include <LibGC/Cell.h>
@@ -43,7 +45,8 @@ public:
     virtual DOM::Document& document() override { return *m_document; }
 
     // Runs the source as a classic script of this world. A detached world refuses with an abrupt completion.
-    JS::Completion run_script(ByteString filename, Utf16View source, URL::URL base_url);
+    // An injected script asks for its exception back; a content script's is reported.
+    JS::Completion run_script(ByteString filename, Utf16View source, URL::URL base_url, HTML::ClassicScript::RethrowErrors = HTML::ClassicScript::RethrowErrors::No);
 
     // Drops the realm and its wrapper cache. Every world is detached before its document is destroyed.
     virtual void detach() override;

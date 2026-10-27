@@ -288,7 +288,7 @@ ErrorOr<ExtensionManifest, String> ExtensionManifest::parse(StringView manifest_
     // Manifest version 2 mixes host patterns into "permissions" and "optional_permissions"; version 3 keeps them in
     // "host_permissions" and "optional_host_permissions".
     auto is_supported_api_permission = [](String const& permission) {
-        return permission == "storage"sv || permission == "unlimitedStorage"sv || permission == "tabs"sv || permission == "activeTab"sv || permission == "alarms"sv;
+        return permission == "storage"sv || permission == "unlimitedStorage"sv || permission == "tabs"sv || permission == "activeTab"sv || permission == "alarms"sv || permission == "scripting"sv;
     };
     auto sort_permissions = [&](Vector<String> const& listed, Vector<String>& api_permissions, Vector<String>& host_permissions) {
         for (auto const& permission : listed) {

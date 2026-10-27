@@ -1,0 +1,31 @@
+{
+    "manifest_version": 3,
+    "name": "Scripting Fixture",
+    "version": "1.0",
+    "description": "A background page that injects scripts into the test pages' tabs, and into a tab it may not touch.",
+    "permissions": [
+        "scripting"
+    ],
+    "host_permissions": [
+        "file:///*"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/scripting-execute.html",
+                "file:///*/Extensions/scripting-execute-all-frames.html",
+                "file:///*/Extensions/scripting-host-access.html",
+                "file:///*/Extensions/scripting-targets.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

@@ -6,6 +6,7 @@ set(SOURCES
     CSS/StyleSheetIdentifier.cpp
     CSS/SystemColor.cpp
     Extensions/ExtensionDescriptor.cpp
+    Extensions/Injection.cpp
     Extensions/Localization.cpp
     Extensions/MatchPattern.cpp
     Extensions/MessageResult.cpp

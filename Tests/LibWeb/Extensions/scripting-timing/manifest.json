@@ -1,0 +1,37 @@
+{
+    "manifest_version": 3,
+    "name": "Scripting Timing Fixture",
+    "version": "1.0",
+    "description": "Injects into a page while it's still loading, by default and with injectImmediately.",
+    "permissions": [
+        "scripting"
+    ],
+    "host_permissions": [
+        "http://*/*"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "http://*/*Extensions/scripting-timing.html"
+            ],
+            "js": [
+                "early.js"
+            ],
+            "run_at": "document_start"
+        },
+        {
+            "matches": [
+                "http://*/*Extensions/scripting-timing.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

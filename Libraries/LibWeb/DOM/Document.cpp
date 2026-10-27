@@ -134,6 +134,7 @@
 #include <LibWeb/Extensions/ContentScriptInjector.h>
 #include <LibWeb/Extensions/ExtensionDocumentContext.h>
 #include <LibWeb/Extensions/ExtensionWorld.h>
+#include <LibWeb/Extensions/ScriptExecutor.h>
 #include <LibWeb/Fetch/Engine/NetworkTransportHandle.h>
 #include <LibWeb/Fetch/Fetching/Checks.h>
 #include <LibWeb/Fetch/Infrastructure/FetchController.h>
@@ -8462,6 +8463,10 @@ void Document::set_ready_to_run_scripts()
         m_deferred_parser_start = nullptr;
         callback->function()();
     }
+    // Extension injections held until scripts may run wait at the document_start point, which runs them itself unless
+    // it already passed.
+    if (content_scripts_ran_at(Extensions::RunAt::DocumentStart))
+        Extensions::run_pending_injections(*this, Extensions::RunAt::DocumentStart);
 }
 
 void Document::set_deferred_parser_start(GC::Ref<GC::Function<void()>> callback)
@@ -12592,6 +12597,7 @@ Extensions::ExtensionWorld& Document::ensure_extension_world(Extensions::Extensi
 
 void Document::detach_extension_worlds()
 {
+    Extensions::cancel_pending_injections(*this);
     for (auto const& world : m_extension_worlds)
         world.value->detach();
     m_extension_worlds.clear();
