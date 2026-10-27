@@ -2554,6 +2554,15 @@ void Tab::update_extension_action(String const& extension_id)
     }
 }
 
+QWidget* Tab::extension_action_button(StringView extension_id) const
+{
+    for (auto const& [id, button] : m_extension_action_buttons) {
+        if (id == extension_id)
+            return button;
+    }
+    return nullptr;
+}
+
 void Tab::update_downloads_button()
 {
     auto downloads = WebView::Application::the().file_downloader().downloads_of_session(m_window->is_private());

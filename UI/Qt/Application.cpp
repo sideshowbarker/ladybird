@@ -8,6 +8,7 @@
 #include <LibCore/ArgsParser.h>
 #include <LibURL/InternalURLs.h>
 #include <LibURL/URL.h>
+#include <LibWebView/Extensions/ExtensionPopupHost.h>
 #include <LibWebView/SessionStore.h>
 #include <LibWebView/URL.h>
 #include <LibWebView/Utilities.h>
@@ -16,6 +17,7 @@
 #include <UI/Qt/ChromeLayout.h>
 #include <UI/Qt/ChromeStyle.h>
 #include <UI/Qt/EventLoopImplementationQt.h>
+#include <UI/Qt/ExtensionPopup.h>
 #include <UI/Qt/ExternalURLHandler.h>
 #include <UI/Qt/Menu.h>
 #include <UI/Qt/PictureInPictureWindow.h>
@@ -1312,6 +1314,68 @@ void Application::extension_action_changed(String const& extension_id, Optional<
             });
         }
     }
+}
+
+bool Application::show_extension_popup(WebView::ExtensionPopupRequest const& request)
+{
+    BrowserWindow* window = nullptr;
+    for (auto* widget : QApplication::topLevelWidgets()) {
+        if (auto* browser_window = as_if<BrowserWindow>(widget); browser_window && browser_window->extension_window_id() == request.window_id)
+            window = browser_window;
+    }
+    auto* tab = window ? window->current_tab() : nullptr;
+    auto* anchor = tab ? tab->extension_action_button(request.extension_id) : nullptr;
+    if (!anchor)
+        return false;
+
+    auto window_id = request.window_id;
+    auto generation = request.generation;
+    auto* popup = new ExtensionPopup(*anchor, window->is_private());
+    popup->on_close = [window_id, generation](auto reason) {
+        WebView::Application::extension_popup_host().close(window_id, generation, reason);
+    };
+    auto& view = popup->view();
+    view.set_reports_content_size(WebView::minimum_extension_popup_size);
+    view.set_is_closable_by_script(true);
+    view.on_content_size_change = [window_id, generation](Gfx::IntSize size) {
+        WebView::Application::extension_popup_host().content_size_changed(window_id, generation, size);
+    };
+    view.on_close = [window_id, generation] {
+        Core::deferred_invoke([window_id, generation] {
+            WebView::Application::extension_popup_host().close(window_id, generation, WebView::ExtensionPopupHost::CloseReason::WindowClose);
+        });
+    };
+    view.load(request.url);
+    m_extension_popups.set(window_id, popup);
+    popup->show();
+    return true;
+}
+
+void Application::resize_extension_popup(i64 window_id, Gfx::IntSize size)
+{
+    if (auto popup = m_extension_popups.get(window_id); popup.has_value() && *popup)
+        (*popup)->resize_to(size);
+}
+
+void Application::close_extension_popup(i64 window_id)
+{
+    auto popup = m_extension_popups.take(window_id);
+    if (!popup.has_value() || !*popup)
+        return;
+    // Nothing of a closed popup reaches the host again, even before the view goes away.
+    (*popup)->on_close = nullptr;
+    (*popup)->view().on_content_size_change = nullptr;
+    (*popup)->view().on_close = nullptr;
+    (*popup)->dismiss();
+    // A popup can close from one of its view's own callbacks, so it goes once that has returned.
+    (*popup)->deleteLater();
+}
+
+WebView::ViewImplementation* Application::extension_popup_view(i64 window_id) const
+{
+    if (auto popup = m_extension_popups.get(window_id); popup.has_value() && *popup)
+        return &(*popup)->view();
+    return nullptr;
 }
 
 Vector<WebView::ExtensionTab> Application::extension_tabs() const

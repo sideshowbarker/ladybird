@@ -41,6 +41,8 @@ target_sources(ladybird PRIVATE
     EventLoopImplementationQt.cpp
     EventLoopImplementationQtEventTarget.cpp
     ExtensionActionButton.cpp
+    ExtensionPopup.cpp
+    ExtensionPopupPosition.cpp
     FindInPageWidget.cpp
     Icon.cpp
     HiddenPageSizing.cpp

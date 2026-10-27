@@ -186,6 +186,7 @@ public:
     // Rebuilds the extension buttons from the extensions with actions, or refreshes one extension's button.
     void update_extension_actions();
     void update_extension_action(String const& extension_id);
+    QWidget* extension_action_button(StringView extension_id) const;
     // BrowserWindow pins and unpins tabs, since it keeps each window's pinned tabs at the start of its strip.
     void set_pinned(bool);
 

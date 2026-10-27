@@ -13,6 +13,7 @@
 #include <AK/StdLibExtras.h>
 #include <AK/TypeCasts.h>
 #include <LibWebView/Application.h>
+#include <LibWebView/Extensions/ExtensionPopupHost.h>
 #include <LibWebView/HistoryStore.h>
 #include <LibWebView/SessionStore.h>
 #include <LibWebView/URL.h>
@@ -1032,6 +1033,10 @@ void BrowserWindow::set_current_tab(Tab* tab)
         m_current_tab->close_popovers();
         m_current_tab->view().set_system_visibility_state(Web::HTML::VisibilityState::Hidden);
     }
+
+    // An extension's popup belongs to the tab it was opened over.
+    if (m_current_tab && tab)
+        WebView::Application::extension_popup_host().close(m_extension_window_id, WebView::ExtensionPopupHost::CloseReason::ActiveTabChanged);
 
     m_current_tab = tab;
 

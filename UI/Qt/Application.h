@@ -26,6 +26,8 @@ class QWidget;
 
 namespace Ladybird {
 
+class ExtensionPopup;
+
 class ProcessManagerWindow;
 
 struct WindowConfiguration {
@@ -123,6 +125,7 @@ public:
     QAction* quit_action();
 
 private:
+    HashMap<i64, QPointer<ExtensionPopup>> m_extension_popups;
     void present_window(BrowserWindow&, WindowConfiguration const&, ShowWindow);
     explicit Application();
 
@@ -152,6 +155,10 @@ private:
     virtual Vector<WebView::ExtensionTab> extension_tabs() const override;
     virtual void extension_action_list_changed() override;
     virtual void extension_action_changed(String const& extension_id, Optional<i64> tab_id) override;
+    virtual bool show_extension_popup(WebView::ExtensionPopupRequest const&) override;
+    virtual void resize_extension_popup(i64 window_id, Gfx::IntSize) override;
+    virtual void close_extension_popup(i64 window_id) override;
+    virtual WebView::ViewImplementation* extension_popup_view(i64 window_id) const override;
     virtual Vector<i64> extension_window_focus_order() const override { return m_extension_window_focus_order; }
     virtual Vector<WebView::BookmarkItem::Bookmark> bookmarks_for_all_tabs_in_current_window() const override;
     virtual Optional<WebView::ViewImplementation&> activate_tab_with_url(URL::URL const&, URL::ExcludeFragment) const override;
