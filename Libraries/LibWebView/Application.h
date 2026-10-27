@@ -331,6 +331,8 @@ public:
     // The browser's tabs, for extensions, in window and then tab order. A frontend with tabs of its own reports them, and
     // the default reports each view marked as a tab, as the active tab of a window of its own.
     virtual Vector<ExtensionTab> extension_tabs() const;
+    // Drops the extension state that belongs to one tab, for a tab that loaded another document or closed.
+    void clear_extension_tab_state(i64 tab_id);
     // The ids of the windows the user has focused, most recent first.
     virtual Vector<i64> extension_window_focus_order() const { return {}; }
     virtual Optional<ViewImplementation&> activate_tab_with_url(URL::URL const&, URL::ExcludeFragment) const { return {}; }
