@@ -1,0 +1,7 @@
+started: true
+the page changed: refined rgb(10, 20, 30)
+an options change: rgb(40, 50, 60)
+the registered script: yes
+errors: []
+restarted: true
+errors after a restart: []
