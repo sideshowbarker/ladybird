@@ -84,6 +84,8 @@ struct WEBCOMMON_API ExtensionDescriptor {
     [[nodiscard]] bool is_web_accessible(StringView url_path, URL::URL const& initiator) const;
 
     bool has_permission(StringView permission) const { return api_permissions.contains_slow(permission); }
+    // Whether the descriptors differ in what has been granted alone, which changes at runtime without a reload.
+    [[nodiscard]] bool differs_only_in_grants(ExtensionDescriptor const&) const;
     // Whether a host permission, required or granted, matches the URL.
     [[nodiscard]] bool has_host_access(URL::URL const&) const;
 

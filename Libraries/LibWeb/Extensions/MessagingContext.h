@@ -62,6 +62,8 @@ public:
 
     virtual JS::Realm& realm() = 0;
     virtual ExtensionDescriptor const& descriptor() const = 0;
+    // A grant changes what the extension may do without reloading it, so its contexts take the new descriptor.
+    virtual void set_descriptor(ExtensionDescriptor) = 0;
     virtual EventListenerList& message_listeners() = 0;
     virtual Page& page() = 0;
     virtual MessageSender sender() const = 0;
