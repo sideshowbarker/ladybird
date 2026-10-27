@@ -1,0 +1,6 @@
+started: true
+before the page's own scripts: rgb(24, 26, 27) true
+the page's theme: rgb(232, 230, 227) 0
+a frame's theme: {"background":"rgb(24, 26, 27)","color":"rgb(232, 230, 227)","frame":true}
+injected into the open tab: ["model-dark-reader.html","model-dark-reader-frame.html"] yes
+errors: []

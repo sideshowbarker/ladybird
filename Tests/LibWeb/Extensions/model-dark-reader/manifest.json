@@ -1,0 +1,65 @@
+{
+    "manifest_version": 2,
+    "name": "Dark Reader Model Fixture",
+    "version": "1.0",
+    "description": "Starts up the way Dark Reader's Firefox build does by default, and themes the pages and frames it matches.",
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "model-dark-reader@ladybird.test"
+        }
+    },
+    "permissions": [
+        "storage",
+        "tabs",
+        "contextMenus",
+        "alarms",
+        "file:///*"
+    ],
+    "commands": {
+        "toggle": {
+            "description": "Toggle the extension",
+            "suggested_key": {
+                "default": "Alt+Shift+D"
+            }
+        }
+    },
+    "browser_action": {
+        "default_title": "Dark Reader model"
+    },
+    "options_ui": {
+        "page": "options.html"
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ],
+        "persistent": true
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/model-dark-reader.html",
+                "file:///*/data/model-dark-reader-frame.html"
+            ],
+            "js": [
+                "main.js"
+            ],
+            "run_at": "document_start",
+            "all_frames": true,
+            "match_about_blank": true,
+            "world": "MAIN"
+        },
+        {
+            "matches": [
+                "file:///*/Extensions/model-dark-reader.html",
+                "file:///*/data/model-dark-reader-frame.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_start",
+            "all_frames": true,
+            "match_about_blank": true
+        }
+    ]
+}
