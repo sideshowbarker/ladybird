@@ -14,6 +14,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return sendResponse(
             ["onCreated", "onRemoved", "onFocusChanged"].map(name => typeof browser.windows[name].addListener)
         );
+    if (message.type === "no-menus") return sendResponse([typeof browser.contextMenus, typeof browser.menus]);
     if (message.type === "all") return settle(browser.windows.getAll().then(mine));
     if (message.type === "populated")
         return settle(

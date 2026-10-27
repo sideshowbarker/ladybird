@@ -43,9 +43,9 @@ ALLOWED_REALM_MENTIONS = {
     "Crypto": (8, 382, "WebCrypto algorithms still use realms for buffer/key/promise materialization"),
     "DOM": (10, 33, "DOM abort plumbing and node helpers still have callback/materialization realm use"),
     "Extensions": (
-        33,
-        55,
-        "extension worlds create and own the realms content scripts run in, the browser namespace materializes its JS objects there, and API completions, storage areas and values, runtime messages, i18n functions, tabs.query() results, the tabs and windows methods, action, alarms, permissions, and scripting API methods and results, injected scripts' results, and Port objects and events materialize results in a context's realm",
+        37,
+        61,
+        "extension worlds create and own the realms content scripts run in, the browser namespace materializes its JS objects there, and API completions, storage areas and values, runtime messages, i18n functions, tabs.query() results, the tabs, windows, contextMenus, and commands methods, action, alarms, permissions, and scripting API methods and results, injected scripts' results, and Port objects and events materialize results in a context's realm",
     ),
     "Fetch": (
         20,

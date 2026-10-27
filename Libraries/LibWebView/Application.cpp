@@ -274,6 +274,16 @@ public:
         app.m_extension_message_broker->reconcile_contexts();
         app.sync_extension_actions();
         app.sync_extension_session_state();
+        // An extension that's reloaded, disabled, or removed loses its menu items; a removed one, its command changes.
+        HashMap<String, u64> enabled_revisions;
+        HashMap<String, u64> installed_revisions;
+        for (auto const& extension : app.m_extension_registry->extensions()) {
+            installed_revisions.set(extension->id(), extension->descriptor().revision);
+            if (app.m_extension_registry->is_enabled(extension->id()))
+                enabled_revisions.set(extension->id(), extension->descriptor().revision);
+        }
+        app.m_extension_menus.extensions_changed(enabled_revisions);
+        app.m_extension_commands.extensions_changed(installed_revisions);
         WebContentClient::for_each_client([&](WebContentClient& client) {
             client.async_set_extensions(app.m_extension_registry->enabled_descriptors(client.is_private()));
             return IterationDecision::Continue;

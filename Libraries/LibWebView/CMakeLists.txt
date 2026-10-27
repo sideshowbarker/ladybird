@@ -44,6 +44,7 @@ set(SOURCES
     Extensions/ExtensionManifest.cpp
     Extensions/ExtensionPermissionsAPI.cpp
     Extensions/ExtensionPopupHost.cpp
+    Extensions/ExtensionMenus.cpp
     Extensions/ExtensionMessageBroker.cpp
     Extensions/ExtensionRegistry.cpp
     Extensions/ExtensionRegisteredScripts.cpp

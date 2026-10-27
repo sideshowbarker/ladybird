@@ -21,6 +21,7 @@
             println(`getCurrent is getLastFocused: ${(await sendToBackground({ type: "current-and-last" })).value}`);
             println(`constants: ${JSON.stringify(await sendToBackground({ type: "constants" }))}`);
             println(`events: ${JSON.stringify(await sendToBackground({ type: "events" }))}`);
+            println(`no menus without the permission: ${JSON.stringify(await sendToBackground({ type: "no-menus" }))}`);
             done();
         });
     </script>

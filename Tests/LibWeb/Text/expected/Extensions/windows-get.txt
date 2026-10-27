@@ -6,3 +6,4 @@ get(WINDOW_ID_CURRENT) is getCurrent(): true
 getCurrent is getLastFocused: true
 constants: [-1,-2]
 events: ["function","function","function"]
+no menus without the permission: ["undefined","undefined"]

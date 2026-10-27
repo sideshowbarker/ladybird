@@ -44,6 +44,14 @@ struct WEBVIEW_API ExtensionManifest {
         Vector<IconPath> default_icon;
     };
 
+    // One of the manifest's "commands", with the shortcut it suggests for this platform (or its default one), written
+    // without spaces.
+    struct Command {
+        String name;
+        String description;
+        Optional<String> shortcut;
+    };
+
     // Returns a user-facing error naming the offending key when the manifest is invalid.
     static ErrorOr<ExtensionManifest, String> parse(StringView manifest_json);
 
@@ -66,6 +74,7 @@ struct WEBVIEW_API ExtensionManifest {
     String extension_pages_csp;
     Optional<Background> background;
     Optional<Action> action;
+    Vector<Command> commands;
 };
 
 }

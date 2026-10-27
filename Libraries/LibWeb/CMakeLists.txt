@@ -353,7 +353,9 @@ set(SOURCES
     Extensions/API/Action.cpp
     Extensions/API/Alarms.cpp
     Extensions/API/Arguments.cpp
+    Extensions/API/Commands.cpp
     Extensions/API/Completion.cpp
+    Extensions/API/ContextMenus.cpp
     Extensions/API/Event.cpp
     Extensions/API/I18n.cpp
     Extensions/API/Permissions.cpp

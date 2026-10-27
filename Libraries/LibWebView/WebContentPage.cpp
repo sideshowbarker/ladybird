@@ -2289,6 +2289,45 @@ ErrorOr<JsonValue, String> WebContentPage::call_extension_windows_api(String con
     return MUST(String::formatted("windows.{}() isn't supported", method));
 }
 
+ErrorOr<JsonValue, String> WebContentPage::call_extension_menus_api(Extension const& extension, StringView method, JsonArray const& arguments)
+{
+    auto& menus = Application::the().extension_menus();
+    auto argument = [&](size_t index) { return index < arguments.size() ? arguments.at(index) : JsonValue {}; };
+    if (method == "create"sv && argument(0).is_object())
+        TRY(menus.create(extension.id(), extension.descriptor().revision, argument(0).as_object()));
+    else if (method == "update"sv && argument(1).is_object())
+        TRY(menus.update(extension.id(), argument(0), argument(1).as_object()));
+    else if (method == "remove"sv)
+        TRY(menus.remove(extension.id(), argument(0)));
+    else if (method == "removeAll"sv)
+        menus.remove_all(extension.id());
+    else
+        return MUST(String::formatted("contextMenus.{}() isn't supported", method));
+    return JsonValue {};
+}
+
+ErrorOr<JsonValue, String> WebContentPage::call_extension_commands_api(Extension const& extension, StringView method, JsonArray const& arguments)
+{
+    auto& commands = Application::the().extension_commands();
+    auto const& declared = extension.manifest().commands;
+    if (method == "getAll"sv) {
+        JsonArray result;
+        for (auto const& command : commands.commands(extension.id(), declared)) {
+            JsonObject object;
+            object.set("name"sv, command.name);
+            object.set("description"sv, command.description);
+            object.set("shortcut"sv, command.shortcut.value_or({}));
+            result.must_append(move(object));
+        }
+        return JsonValue { move(result) };
+    }
+    if (method == "update"sv && arguments.size() == 1 && arguments.at(0).is_object()) {
+        TRY(commands.update(extension.id(), declared, arguments.at(0).as_object()));
+        return JsonValue {};
+    }
+    return MUST(String::formatted("commands.{}() isn't supported", method));
+}
+
 void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, String method, String arguments_json)
 {
     auto context = Application::extension_message_broker().current_context(*this, context_id);
@@ -2345,6 +2384,25 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
             complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
         else if (result.value().is_null())
             // A call with no result resolves with undefined, as alarms.get() does for a missing alarm.
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::NoReply {});
+        else
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });
+        return;
+    }
+
+    // Only the extension's own documents have menus and commands, and menus only with either menu permission.
+    if (api_namespace == "contextMenus"sv || api_namespace == "commands"sv) {
+        if (!context->is_extension_document)
+            return;
+        auto const& descriptor = extension->descriptor();
+        if (api_namespace == "contextMenus"sv && !descriptor.has_permission("contextMenus"sv) && !descriptor.has_permission("menus"sv)) {
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { "The extension doesn't have the contextMenus permission."_string });
+            return;
+        }
+        auto result = api_namespace == "contextMenus"sv ? call_extension_menus_api(*extension, name, call_arguments) : call_extension_commands_api(*extension, name, call_arguments);
+        if (result.is_error())
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
+        else if (result.value().is_null())
             complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::NoReply {});
         else
             complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });

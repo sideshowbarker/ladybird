@@ -1,0 +1,25 @@
+{
+    "manifest_version": 3,
+    "name": "Context Menus Fixture",
+    "version": "1.0",
+    "description": "Creates, changes, and removes context menu items, which Ladybird records and shows nowhere.",
+    "permissions": [
+        "contextMenus"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/context-menus.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}
