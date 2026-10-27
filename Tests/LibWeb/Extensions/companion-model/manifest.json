@@ -1,0 +1,30 @@
+{
+    "manifest_version": 3,
+    "name": "Companion Model Fixture",
+    "version": "1.0",
+    "description": "Uses the APIs the way Web Specs Companion does: a badge set from tabs.onUpdated, a popup that opens a tab, an alarm, and storage.session.",
+    "permissions": [
+        "tabs",
+        "storage",
+        "alarms"
+    ],
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/companion-model.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}
