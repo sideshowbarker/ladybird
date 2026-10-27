@@ -1,0 +1,39 @@
+<!doctype html>
+<script>
+    // Read before anything else of the page's runs: The extension's document_start scripts have run by now.
+    window.firstFrame = {
+        background: document.documentElement.style.backgroundColor,
+        mainWorld: window.darkReaderMainWorld === true,
+    };
+</script>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // An extension that starts up as Dark Reader does by default themes the page from its first frame, in both of its
+        // worlds; themes a frame by that frame's id; injects into a tab already open; and records no error while starting.
+        const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+        asyncTest(async done => {
+            await contentScriptReady();
+            println(`started: ${await sendToBackground({ type: "started" })}`);
+            println(`before the page's own scripts: ${window.firstFrame.background} ${window.firstFrame.mainWorld}`);
+            while (!document.documentElement.dataset.themedFrame) await pause(20);
+            println(
+                `the page's theme: ${getComputedStyle(document.documentElement).color} ${document.documentElement.dataset.themedFrame}`
+            );
+            const framed = new Promise(resolve =>
+                window.addEventListener("message", event => resolve(event.data), { once: true })
+            );
+            const frame = document.createElement("iframe");
+            frame.src = "../../data/model-dark-reader-frame.html";
+            document.body.append(frame);
+            println(`a frame's theme: ${JSON.stringify(await framed)}`);
+            const injected = await sendToBackground({ type: "inject-open-tabs" });
+            println(
+                `injected into the open tab: ${JSON.stringify(injected)} ${document.documentElement.dataset.injected}`
+            );
+            println(`errors: ${JSON.stringify(await sendToBackground({ type: "errors" }))}`);
+            done();
+        });
+    </script>
+</body>
