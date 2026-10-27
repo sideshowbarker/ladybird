@@ -41,6 +41,7 @@ TEST_CASE(match_pattern_round_trips_through_ipc)
 TEST_CASE(descriptor_round_trips_through_ipc)
 {
     ContentScriptDescriptor first_script {
+        .id = "registered"_string,
         .matches = { MUST(MatchPattern::parse("https://e.com/*"sv)), MatchPattern::all_urls() },
         .exclude_matches = { MUST(MatchPattern::parse("https://e.com/private/*"sv)) },
         .js_paths = { "a.js"_string, "b.js"_string },
@@ -53,6 +54,7 @@ TEST_CASE(descriptor_round_trips_through_ipc)
         .world = ExecutionWorld::Main,
     };
     ContentScriptDescriptor second_script {
+        .id = {},
         .matches = { MUST(MatchPattern::parse("file:///*"sv)) },
         .exclude_matches = {},
         .js_paths = { "c.js"_string },

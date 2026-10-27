@@ -303,6 +303,58 @@ ErrorOr<NonnullRefPtr<Extension>, String> Extension::load_unpacked(ByteString di
     return extension;
 }
 
+ErrorOr<Web::Extensions::ContentScriptDescriptor, String> Extension::registered_content_script(JsonObject const& script) const
+{
+    Web::Extensions::ContentScriptDescriptor descriptor;
+    auto id = script.get_string("id"sv).value_or({});
+    descriptor.id = id;
+    auto parse_patterns = [&](StringView key, Vector<Web::Extensions::MatchPattern>& patterns) -> ErrorOr<void, String> {
+        auto array = script.get_array(key);
+        if (!array.has_value())
+            return {};
+        for (size_t i = 0; i < array->size(); ++i) {
+            auto const& value = array->at(i);
+            auto pattern = value.is_string() ? Web::Extensions::MatchPattern::parse(value.as_string()) : Error::from_string_literal("Invalid pattern");
+            if (pattern.is_error())
+                return MUST(String::formatted("Script with ID '{}' has invalid value for {}[{}]: {}", id, key == "matches"sv ? "matches"sv : "exclude_matches"sv, i, value.is_string() ? value.as_string() : String {}));
+            patterns.append(pattern.release_value());
+        }
+        return {};
+    };
+    TRY(parse_patterns("matches"sv, descriptor.matches));
+    TRY(parse_patterns("excludeMatches"sv, descriptor.exclude_matches));
+    auto read_files = [&](StringView key, Vector<String>& paths, Vector<String>& sources) -> ErrorOr<void, String> {
+        auto array = script.get_array(key);
+        if (!array.has_value())
+            return {};
+        for (auto const& path : array->values()) {
+            if (!path.is_string())
+                continue;
+            auto source = read_file_as_utf8(m_resource_directory, path.as_string());
+            if (source.is_error())
+                return MUST(String::formatted("Could not load file: '{}'.", path.as_string()));
+            paths.append(path.as_string());
+            sources.append(source.release_value());
+        }
+        return {};
+    };
+    TRY(read_files("js"sv, descriptor.js_paths, descriptor.js_sources));
+    TRY(read_files("css"sv, descriptor.css_paths, descriptor.css_sources));
+    auto run_at = script.get_string("runAt"sv).value_or("document_idle"_string);
+    descriptor.run_at = run_at == "document_start"sv ? Web::Extensions::RunAt::DocumentStart : run_at == "document_end"sv ? Web::Extensions::RunAt::DocumentEnd
+                                                                                                                          : Web::Extensions::RunAt::DocumentIdle;
+    descriptor.all_frames = script.get_bool("allFrames"sv).value_or(false);
+    descriptor.match_about_blank = script.get_bool("matchOriginAsFallback"sv).value_or(false);
+    descriptor.world = script.get_string("world"sv) == "MAIN"sv ? Web::Extensions::ExecutionWorld::Main : Web::Extensions::ExecutionWorld::Isolated;
+    return descriptor;
+}
+
+void Extension::set_registered_content_scripts(Vector<Web::Extensions::ContentScriptDescriptor> scripts)
+{
+    m_descriptor.content_scripts.remove_all_matching([](auto const& script) { return script.id.has_value(); });
+    m_descriptor.content_scripts.extend(move(scripts));
+}
+
 Extension::Extension(ByteString directory, Core::Directory resource_directory, String id, ExtensionManifest manifest, Web::Extensions::ExtensionDescriptor descriptor)
     : m_directory(move(directory))
     , m_resource_directory(move(resource_directory))

@@ -21,6 +21,7 @@
 #include <LibWebView/Extensions/ExtensionBackgroundHost.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionPermissionsAPI.h>
+#include <LibWebView/Extensions/ExtensionRegisteredScripts.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Extensions/ExtensionScriptingAPI.h>
 #include <LibWebView/Extensions/ExtensionStorageStore.h>
@@ -710,6 +711,65 @@ TEST_CASE(optional_permissions_start_ungranted_and_their_grants_persist)
     EXPECT(reloaded->descriptor().has_host_access(optional));
 }
 
+TEST_CASE(registered_scripts_reach_the_descriptor_and_survive_a_restart)
+{
+    TemporaryDirectory directory;
+    auto profile = LexicalPath::join(directory.path, "profile"sv).string();
+    auto path = directory.extension("registering"sv, R"({ "manifest_version": 3, "name": "Registering", "version": "1", "permissions": ["scripting"] })"sv);
+    auto file = MUST(Core::File::open(LexicalPath::join(path, "cs.js"sv).string(), Core::File::OpenMode::Write));
+    MUST(file->write_until_depleted("window.ran = true;"sv.bytes()));
+    auto script = [](StringView id, bool persist) {
+        return MUST(JsonValue::from_string(MUST(String::formatted(R"({{ "id": "{}", "matches": ["https://example.com/*"], "js": ["cs.js"], "persistAcrossSessions": {} }})", id, persist)))).as_object();
+    };
+    auto registered_ids = [](WebView::Extension const& extension) {
+        Vector<String> ids;
+        for (auto const& script : extension.descriptor().content_scripts) {
+            if (script.id.has_value())
+                ids.append(*script.id);
+        }
+        return ids;
+    };
+
+    String id;
+    {
+        auto settings = WebView::Settings::create(directory.settings_path());
+        WebView::ExtensionRegisteredScripts scripts { profile };
+        ExtensionRegistry registry { settings };
+        registry.set_registered_scripts(scripts);
+        id = TRY_OR_FAIL(registry.load_unpacked(path))->id();
+        MUST(scripts.register_scripts(id, { script("kept"sv, true), script("session"sv, false) }));
+        registry.registered_scripts_changed(id);
+        auto extension = registry.find(id);
+        EXPECT_EQ(registered_ids(*extension), (Vector { "kept"_string, "session"_string }));
+        EXPECT_EQ(extension->descriptor().content_scripts[0].js_sources, (Vector { "window.ran = true;"_string }));
+    }
+
+    auto settings = WebView::Settings::create(directory.settings_path());
+    WebView::ExtensionRegisteredScripts scripts { profile };
+    ExtensionRegistry registry { settings };
+    registry.set_registered_scripts(scripts);
+    registry.restore_from_settings();
+    EXPECT_EQ(registered_ids(*registry.find(id)), (Vector { "kept"_string }));
+
+    // Removing the extension forgets its scripts for good.
+    registry.remove(id);
+    WebView::ExtensionRegisteredScripts after_removal { profile };
+    EXPECT(after_removal.scripts(id).is_empty());
+}
+
+TEST_CASE(injection_refusal_keeps_browser_pages_off_limits)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    auto extension = TRY_OR_FAIL(registry.load_unpacked(directory.extension("everywhere"sv, R"({ "manifest_version": 3, "name": "Everywhere", "version": "1", "permissions": ["scripting"], "host_permissions": ["<all_urls>"] })"sv)));
+    auto url = [](StringView text) { return URL::Parser::basic_parse(text).release_value(); };
+    EXPECT(!WebView::extension_injection_refusal(*extension, url("https://example.com/"sv), true, false).has_value());
+    // A browser page stays off limits with a host permission for everything and with activeTab both.
+    EXPECT_EQ(WebView::extension_injection_refusal(*extension, url("about:settings"sv), true, true), "Cannot access contents of url \"about:settings\". Extension manifest must request permission to access this host."_string);
+    EXPECT(WebView::extension_injection_refusal(*extension, url("about:newtab"sv), false, true).has_value());
+}
+
 TEST_CASE(removing_an_origin_a_required_one_overlaps_changes_nothing)
 {
     TemporaryDirectory directory;
@@ -738,17 +798,4 @@ TEST_CASE(removing_an_origin_a_required_one_overlaps_changes_nothing)
     auto removed = TRY_OR_FAIL(remove({ "tabs"_string }, { "https://free.example.net/*"_string }));
     EXPECT_EQ(removed.permissions, (Vector { "tabs"_string }));
     EXPECT_EQ(removed.origins, (Vector { "https://free.example.net/*"_string }));
-}
-
-TEST_CASE(injection_refusal_keeps_browser_pages_off_limits)
-{
-    TemporaryDirectory directory;
-    auto settings = WebView::Settings::create(directory.settings_path());
-    ExtensionRegistry registry { settings };
-    auto extension = TRY_OR_FAIL(registry.load_unpacked(directory.extension("everywhere"sv, R"({ "manifest_version": 3, "name": "Everywhere", "version": "1", "permissions": ["scripting"], "host_permissions": ["<all_urls>"] })"sv)));
-    auto url = [](StringView text) { return URL::Parser::basic_parse(text).release_value(); };
-    EXPECT(!WebView::extension_injection_refusal(*extension, url("https://example.com/"sv), true, false).has_value());
-    // A browser page stays off limits with a host permission for everything and with activeTab both.
-    EXPECT_EQ(WebView::extension_injection_refusal(*extension, url("about:settings"sv), true, true), "Cannot access contents of url \"about:settings\". Extension manifest must request permission to access this host."_string);
-    EXPECT(WebView::extension_injection_refusal(*extension, url("about:newtab"sv), false, true).has_value());
 }

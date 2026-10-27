@@ -12,6 +12,7 @@
 #include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebCommon/Loader/UserAgent.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
+#include <LibWebView/Extensions/ExtensionRegisteredScripts.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Extensions/ExtensionStorageStore.h>
 #include <LibWebView/Settings.h>
@@ -85,6 +86,7 @@ NonnullRefPtr<Extension> ExtensionRegistry::install(PendingExtensionInstall pend
     }
     quick_sort(grants);
     extension->apply_permission_grants(grants);
+    apply_registered_scripts(*extension);
     if (m_message_broker)
         m_message_broker->close_channels_for(extension->id());
     m_settings.add_installed_extension(extension->directory(), extension->id(), move(grants));
@@ -155,6 +157,8 @@ void ExtensionRegistry::remove(StringView id)
     m_extensions.remove_all_matching([&](auto const& extension) { return extension->id() == *installed_id; });
     m_failed_extensions.remove_all_matching([&](auto const& failed) { return failed.id == *installed_id; });
     m_settings.remove_installed_extension(*installed_id);
+    if (m_registered_scripts)
+        m_registered_scripts->delete_scripts(*installed_id);
     notify_changed();
     for (auto* store : m_storage_stores) {
         store->delete_storage(*installed_id, [id = *installed_id](ErrorOr<void> result) {
@@ -216,8 +220,35 @@ void ExtensionRegistry::restore_from_settings()
             record_failure(installed.id, installed.path, extension.release_error());
             continue;
         }
+        apply_registered_scripts(*extension.value());
         m_extensions.append(extension.release_value());
     }
+    notify_changed();
+}
+
+void ExtensionRegistry::apply_registered_scripts(Extension& extension)
+{
+    if (!m_registered_scripts)
+        return;
+    Vector<Web::Extensions::ContentScriptDescriptor> scripts;
+    for (auto const& script : m_registered_scripts->scripts(extension.id())) {
+        // A file that went missing since registration leaves its script out until it's back.
+        auto descriptor = extension.registered_content_script(script);
+        if (descriptor.is_error()) {
+            warnln("Extension {} has a registered content script that won't load: {}", extension.id(), descriptor.error());
+            continue;
+        }
+        scripts.append(descriptor.release_value());
+    }
+    extension.set_registered_content_scripts(move(scripts));
+}
+
+void ExtensionRegistry::registered_scripts_changed(StringView id)
+{
+    auto extension = find(id);
+    if (!extension)
+        return;
+    apply_registered_scripts(*extension);
     notify_changed();
 }
 
@@ -270,6 +301,8 @@ bool ExtensionRegistry::may_create_context(StringView id, URL::URL const& docume
         if ((inherited && !script.match_about_blank) || (!is_top_level && !script.all_frames) || script.world != Web::Extensions::ExecutionWorld::Isolated)
             continue;
         if (script.exclude_matches.contains([&](auto const& pattern) { return pattern.matches(document_url); }))
+            continue;
+        if (script.id.has_value() && !extension->descriptor().has_host_access(document_url))
             continue;
         if (script.matches.contains([&](auto const& pattern) { return pattern.matches(document_url); }))
             return true;

@@ -99,6 +99,12 @@ static void run_content_scripts_at(DOM::Document& document, RunAt run_at)
         for (auto const& script : extension.content_scripts) {
             if (script.run_at != run_at || !content_script_matches(document, script))
                 continue;
+            // A registered script needs the extension's host access too, which it can lose at runtime.
+            if (script.id.has_value()) {
+                auto url = effective_url_for_matching(document, script);
+                if (!url.has_value() || !extension.has_host_access(*url))
+                    continue;
+            }
             inject(document, extension, script);
             // A script may navigate or destroy the document; nothing runs in one that is no longer active.
             if (!document.is_fully_active())

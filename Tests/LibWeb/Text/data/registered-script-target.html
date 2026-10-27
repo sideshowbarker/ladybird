@@ -1,0 +1,14 @@
+<!doctype html>
+<body>
+    <script>
+        // Tells the page that loaded it if a registered script ran before this, its first script, and in an about:blank
+        // child it then makes.
+        const ranFirst = window.registeredRan === true;
+        const child = document.createElement("iframe");
+        document.body.append(child);
+        setTimeout(
+            () => parent.postMessage({ ranFirst, inBlank: child.contentWindow.registeredRan === true }, "*"),
+            100
+        );
+    </script>
+</body>

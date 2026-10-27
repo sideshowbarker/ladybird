@@ -1,0 +1,52 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // A registered content script runs in pages loaded after it's registered, before their own scripts and in their
+        // about:blank children, for as long as it stays registered and the extension keeps its host.
+        function loadTarget() {
+            return new Promise(resolve => {
+                const frame = document.createElement("iframe");
+                window.addEventListener(
+                    "message",
+                    event => {
+                        frame.remove();
+                        resolve(`ran first: ${event.data.ranFirst}, in about:blank: ${event.data.inBlank}`);
+                    },
+                    { once: true }
+                );
+                frame.src = "../../data/registered-script-target.html";
+                document.body.append(frame);
+            });
+        }
+
+        asyncTest(async done => {
+            await contentScriptReady();
+            const id = await sendToBackground({ type: "id" });
+            internals.grantExtensionPermissions(id, [], ["file:///*/data/registered-script-target.html"]);
+            while (!(await sendToBackground({ type: "granted" })).value)
+                await new Promise(resolve => setTimeout(resolve, 20));
+
+            println(`before registering: ${await loadTarget()}`);
+            println(`register: ${JSON.stringify(await sendToBackground({ type: "register" }))}`);
+            println(`registered: ${await loadTarget()}`);
+            println(`a duplicate: ${(await sendToBackground({ type: "register-dark" })).failed}`);
+            println(`all: ${(await sendToBackground({ type: "list" })).value}`);
+            println(`by id: ${(await sendToBackground({ type: "list", filter: { ids: ["other"] } })).value}`);
+            println(`update: ${JSON.stringify(await sendToBackground({ type: "update" }))}`);
+
+            await sendToBackground({ type: "unregister", filter: { ids: ["dark"] } });
+            println(`unregistered: ${await loadTarget()} / ${(await sendToBackground({ type: "list" })).value}`);
+
+            await sendToBackground({ type: "register-dark" });
+            println(`registered again: ${await loadTarget()}`);
+            println(`remove the host: ${JSON.stringify(await sendToBackground({ type: "remove-origin" }))}`);
+            println(`without the host: ${await loadTarget()}`);
+
+            await sendToBackground({ type: "unregister" });
+            println(`unregister all: ${(await sendToBackground({ type: "list" })).value}`);
+            done();
+        });
+    </script>
+</body>
