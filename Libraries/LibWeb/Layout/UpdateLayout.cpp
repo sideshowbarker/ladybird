@@ -58,6 +58,7 @@ Layout::RustFFI::FfiLayoutUpdateHostCallbacks Document::layout_update_host_callb
                 .viewport_block_size_raw = viewport_rect.height().raw_value(),
                 .document_style_node = document.style_node_id().value(),
                 .has_stale_list_item_counters = !document.m_list_owners_with_stale_item_counters.is_empty(),
+                .measures_root_content_inline_sizes = document.m_measures_root_content_inline_sizes,
             }; },
         .container_query_evaluation_is_pending = [](void* context, Layout::BegunRead const* read) -> bool { return static_cast<Document*>(context)->has_size_containers_needing_evaluation_after_layout(*read); },
         .needs_style_update_after_layout = [](void* context, Layout::BegunRead const* read) -> bool { return static_cast<Document*>(context)->needs_style_update_after_layout(*read); },

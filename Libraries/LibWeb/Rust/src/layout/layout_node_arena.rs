@@ -1362,6 +1362,9 @@ pub(crate) struct LayoutNodeArena {
     /// The document element's natural size as it was last handed to the `<object>` showing the
     /// document, if it has been.
     handed_over_document_svg_root_natural_size: Option<crate::css::style::NaturalSize>,
+    /// The layout root's min- and max-content inline sizes as the last full layout found them, when the host asked
+    /// that layout to measure them.
+    root_content_inline_sizes: Option<(CssPixels, CssPixels)>,
     /// What the running pass has to tell the document, waiting for the commit that delivers it.
     /// The rows the layout commit in progress gathers for the style engine's container queries.
     pub(crate) layout_style_snapshot_commit: Vec<super::style_snapshot::CommittedGeometry>,
@@ -1515,6 +1518,7 @@ impl LayoutNodeArena {
             document_svg_root_natural_size: None,
             container_bases_read_by_committed_layout: Default::default(),
             handed_over_document_svg_root_natural_size: (None),
+            root_content_inline_sizes: None,
             layout_style_snapshot_commit: Vec::new(),
             layout_tree_update_marks: Default::default(),
             counter_styles: Default::default(),
@@ -3451,6 +3455,11 @@ impl LayoutNodeArena {
         natural_size: crate::css::style::NaturalSize,
     ) {
         self.document_svg_root_natural_size = Some((root_box, natural_size));
+    }
+
+    /// Note the min- and max-content inline sizes a full layout measured the layout root at, or that it measured none.
+    pub(crate) fn note_root_content_inline_sizes(&mut self, sizes: Option<(CssPixels, CssPixels)>) {
+        self.root_content_inline_sizes = sizes;
     }
 
     pub(crate) fn note_container_bases_read_by_committed_layout(
@@ -6841,6 +6850,23 @@ pub extern "C" fn render_state_set_node_needs_compositor_animation_frame(
         host,
         LayoutChange::SetNodeNeedsCompositorAnimationFrame { node: id, kind, value },
     );
+}
+
+/// The layout root's min- and max-content inline sizes, as the last full layout measured them. False when the host
+/// didn't ask that layout to measure them.
+#[unsafe(no_mangle)]
+pub extern "C" fn render_state_root_content_inline_sizes(
+    host: &DocumentHost,
+    out_min_content: &mut CssPixels,
+    out_max_content: &mut CssPixels,
+) -> bool {
+    let sizes = read_arena(host, node_read(), (), |arena, ()| arena.root_content_inline_sizes);
+    let Some((min_content, max_content)) = sizes else {
+        return false;
+    };
+    *out_min_content = min_content;
+    *out_max_content = max_content;
+    true
 }
 
 /// What the row is scrolled to, as the document published it.

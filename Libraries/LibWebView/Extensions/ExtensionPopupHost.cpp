@@ -11,13 +11,10 @@
 
 namespace WebView {
 
-static constexpr Gfx::IntSize minimum_popup_size { 25, 25 };
-static constexpr Gfx::IntSize maximum_popup_size { 800, 600 };
-
 Gfx::IntSize clamp_extension_popup_size(Gfx::IntSize size)
 {
-    return { clamp(size.width(), minimum_popup_size.width(), maximum_popup_size.width()),
-        clamp(size.height(), minimum_popup_size.height(), maximum_popup_size.height()) };
+    return { clamp(size.width(), minimum_extension_popup_size.width(), maximum_extension_popup_size.width()),
+        clamp(size.height(), minimum_extension_popup_size.height(), maximum_extension_popup_size.height()) };
 }
 
 ExtensionPopupHost::ExtensionPopupHost(Frontend& frontend)
@@ -92,6 +89,14 @@ Optional<String> ExtensionPopupHost::extension_in(i64 window_id) const
     if (auto popup = m_popups.get(window_id); popup.has_value())
         return popup->request.extension_id;
     return {};
+}
+
+Optional<ExtensionPopupHost::PopupState> ExtensionPopupHost::state(i64 window_id) const
+{
+    auto popup = m_popups.get(window_id);
+    if (!popup.has_value())
+        return {};
+    return PopupState { popup->request.extension_id, popup->request.url, popup->size };
 }
 
 Optional<i64> ExtensionPopupHost::window_showing(WebContentPage const& page) const

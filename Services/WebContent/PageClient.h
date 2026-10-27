@@ -92,6 +92,13 @@ public:
     }
     void set_zoom_level(double zoom_level);
     void set_maximum_frames_per_second(double maximum_frames_per_second);
+    // A page that reports its content size tells Hub the size the top-level document's content wants, in CSS pixels:
+    // its root's max-content width within the given bounds, and its height at that width. It reports after each
+    // rendering update with a layout that changed it.
+    void set_reports_content_size(Optional<Gfx::IntSize> minimum_size, Gfx::IntSize maximum_size);
+    // A page whose top-level traversable its own scripts may close with window.close(), whatever its history holds.
+    void set_is_closable_by_script(bool closable) { m_is_closable_by_script = closable; }
+    virtual bool top_level_traversable_is_closable_by_script() const override { return m_is_closable_by_script; }
     void set_frame_rate_capped(bool capped) { m_frame_rate_capped = capped; }
     virtual double maximum_frames_per_second() const override { return m_maximum_frames_per_second; }
     void set_preferred_color_scheme(Web::CSS::PreferredColorScheme);
@@ -179,6 +186,12 @@ public:
     void publish_accessibility_tree(bool whole_tree_requested);
 
 private:
+    void report_content_size_if_changed();
+    Optional<Gfx::IntSize> m_content_size_minimum;
+    Gfx::IntSize m_content_size_maximum;
+    u64 m_content_size_layout_count { 0 };
+    bool m_is_closable_by_script { false };
+    Optional<Gfx::IntSize> m_reported_content_size;
     struct PendingDOMMutation {
         GC::Ref<Web::DOM::Node> target;
         WebView::Mutation mutation;
@@ -232,6 +245,7 @@ private:
     virtual void forward_pinch_event_to_remote_navigable(Web::PageId, Web::HTML::CrossProcessId navigable_id, Web::PinchEvent) override;
     virtual void page_did_destroy_child_frame(Web::HTML::CrossProcessId frame_id) override;
     virtual String dump_site_isolation_process_tree_for_testing() override;
+    virtual String extension_popup_state_for_testing(String const& extension_id) override;
     virtual void crash_remote_frame_processes_for_testing() override;
     virtual void close_tab_for_testing() override;
     virtual void page_did_spoof_document_origin_for_testing(Web::HTML::EnvironmentSettingsObject const&, URL::Origin const&) override;

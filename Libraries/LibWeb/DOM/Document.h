@@ -237,6 +237,7 @@ enum class InvalidateLayoutTreeReason {
     X(InternalsLayoutTest, false)                   \
     X(InternalsHitTest, false)                      \
     X(MediaQueryListMatches, false)                 \
+    X(NavigableMeasureContentSize, false)           \
     X(NavigableSelectedText, false)                 \
     X(NavigableViewportScroll, false)               \
     X(NodeNameOrDescription, false)                 \
@@ -779,6 +780,12 @@ public:
 
     QuirksMode mode() const { return m_quirks_mode; }
     bool in_quirks_mode() const { return m_quirks_mode == QuirksMode::Yes; }
+
+    // Whether the next full layout also measures the layout root's min- and max-content inline sizes, which the
+    // navigable reads back when it sizes the viewport to the document's content.
+    void set_measures_root_content_inline_sizes(bool measures) { m_measures_root_content_inline_sizes = measures; }
+    // How many layouts the document has committed, so whoever measured it can tell a fresh layout from none.
+    u64 layout_commit_count() const { return m_layout_commit_count; }
 
     CSS::RustInlineStyleBlocks& inline_style_blocks() { return m_inline_style_blocks; }
     bool in_limited_quirks_mode() const { return m_quirks_mode == QuirksMode::Limited; }
@@ -2530,6 +2537,9 @@ private:
 
     HashTable<GC::Ref<Element>> m_list_owners_pending_item_renumber;
     HashTable<GC::Ref<Element>> m_list_owners_with_stale_item_counters;
+
+    bool m_measures_root_content_inline_sizes { false };
+    u64 m_layout_commit_count { 0 };
     bool m_stale_list_item_counter_rendered { false };
     // The hit-test items of the frame the document adopted last: their generation as the frame landed, and the
     // structural epoch of the visual context tree the frame was recorded against. None once something that can be hit

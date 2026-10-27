@@ -36,6 +36,7 @@ endpoint WebContentTestClient routed by Web::PageId page_id
     [NotRouted] did_request_now_playing_state_for_testing(Web::PageId page_id) => (Optional<Web::MediaSession::MediaSessionState> state)
     trigger_now_playing_action_for_testing(Web::PageId page_id, Web::Bindings::MediaSessionAction action, Optional<double> seek_offset, Optional<double> seek_time, Optional<bool> fast_seek) =|
 
+    [NotRouted] did_request_extension_popup_state_for_testing(Web::PageId page_id, String extension_id) => (String state)
     [NotRouted] did_request_tab_is_playing_audio_for_testing(Web::PageId page_id) => (bool is_playing_audio)
     [NotRouted] did_request_tab_is_heard_playing_audio_for_testing(Web::PageId page_id) => (bool is_heard_playing_audio)
     [NotRouted] did_request_tab_is_using_microphone_for_testing(Web::PageId page_id) => (bool is_using_microphone)

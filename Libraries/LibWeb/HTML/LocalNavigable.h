@@ -252,6 +252,10 @@ public:
     void set_viewport_size(CSSPixelSize, InvalidateDisplayList = InvalidateDisplayList::No);
     Gfx::IntSize viewport_size_in_device_pixels() const;
     Gfx::IntRect present_viewport_rect() const;
+    // The size the active document's content wants, within the given bounds: its root's max-content width, and its
+    // scroll height when laid out at that width. The document is laid out at those sizes to measure it, then at the
+    // real size again. Nothing of it is painted, and neither the compositor nor the resize steps see the other sizes.
+    Optional<CSSPixelSize> measure_document_content_size(CSSPixelSize minimum, CSSPixelSize maximum);
 
     // A size the window takes as a rendering update is in flight waits for that update to end: the update flies for
     // the size it began with, and a new size would make the main thread wait for the flight and lay out again.

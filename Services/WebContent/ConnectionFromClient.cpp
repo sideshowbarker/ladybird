@@ -3696,6 +3696,18 @@ void ConnectionFromClient::set_frame_rate_capped(Web::PageId page_id, bool cappe
         page->set_frame_rate_capped(capped);
 }
 
+void ConnectionFromClient::set_reports_content_size(Web::PageId page_id, Optional<Gfx::IntSize> minimum_size, Gfx::IntSize maximum_size)
+{
+    if (auto page = this->page(page_id); page.has_value())
+        page->set_reports_content_size(minimum_size, maximum_size);
+}
+
+void ConnectionFromClient::set_is_closable_by_script(Web::PageId page_id, bool closable)
+{
+    if (auto page = this->page(page_id); page.has_value())
+        page->set_is_closable_by_script(closable);
+}
+
 void ConnectionFromClient::set_window_position(Web::PageId page_id, Web::DevicePixelPoint position)
 {
     if (auto page = this->page(page_id); page.has_value())

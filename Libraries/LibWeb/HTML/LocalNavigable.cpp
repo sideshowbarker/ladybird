@@ -890,6 +890,11 @@ bool LocalNavigable::is_script_closable()
     if (!is_top_level_traversable())
         return false;
 
+    // AD-HOC: A traversable that Hub marked, such as an extension's popup, is closable by its own scripts whatever its
+    //         history holds; HTML has no notion of one.
+    if (page().client().top_level_traversable_is_closable_by_script())
+        return true;
+
     return as<LocalTraversableNavigable>(this)->is_created_by_web_content()
         || as<LocalTraversableNavigable>(this)->session_history_entry_count() == 1;
 }
@@ -5017,6 +5022,38 @@ void LocalNavigable::take_viewport_size_held_for_rendering_update_in_flight()
 {
     if (auto size = m_viewport_size_held_for_rendering_update_in_flight; size.has_value())
         set_viewport_size(*size);
+}
+
+Optional<CSSPixelSize> LocalNavigable::measure_document_content_size(CSSPixelSize minimum, CSSPixelSize maximum)
+{
+    auto document = active_document();
+    if (!document || !document->document_element())
+        return {};
+    auto real_size = m_viewport_size;
+    auto lay_out_at = [&](CSSPixelSize size) {
+        m_viewport_size = size;
+        document->set_needs_layout_update(DOM::SetNeedsLayoutReason::NavigableSetViewportSize);
+        document->update_layout(DOM::UpdateLayoutReason::NavigableMeasureContentSize);
+    };
+    // The root's intrinsic widths come from a layout at the smallest size, which measures the root's content rather
+    // than the space it was given; what overflows a narrower root on its start side is unreachable, so the root's
+    // scroll width alone could never see it.
+    document->set_measures_root_content_inline_sizes(true);
+    lay_out_at(minimum);
+    document->set_measures_root_content_inline_sizes(false);
+    CSSPixels min_content_width;
+    CSSPixels max_content_width;
+    auto width = minimum.width();
+    if (Layout::RustFFI::render_state_root_content_inline_sizes(document->layout_node_arena().host(), &min_content_width, &max_content_width))
+        width = clamp(max_content_width, minimum.width(), maximum.width());
+    // The height is what the document takes up at that width. Nothing bounds it here: the client bounds the size it
+    // shows, and decides what to do with content past the bound.
+    lay_out_at({ width, minimum.height() });
+    CSSPixelSize measured { width, document->document_element()->scroll_height() };
+    m_viewport_size = real_size;
+    document->set_needs_layout_update(DOM::SetNeedsLayoutReason::NavigableSetViewportSize);
+    document->update_layout(DOM::UpdateLayoutReason::NavigableMeasureContentSize);
+    return measured;
 }
 
 void LocalNavigable::set_viewport_size(CSSPixelSize size, InvalidateDisplayList invalidate_display_list)

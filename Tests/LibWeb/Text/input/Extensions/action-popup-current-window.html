@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-action-popup.js"></script>
+<body>
+<script>
+    // A popup's current window is the one whose button opened it.
+    asyncTest(async done => {
+        await contentScriptReady();
+        await openPopup("popup.html");
+        const report = await sendToBackground({ type: "popup-report" });
+        println(`the popup's active tab in its current window is the opener: ${report.openedFromThisTab}`);
+        await closePopup();
+        done();
+    });
+</script>
+</body>

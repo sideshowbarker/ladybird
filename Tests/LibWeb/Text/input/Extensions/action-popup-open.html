@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-action-popup.js"></script>
+<body>
+<script>
+    // Clicking the button opens its popup, an extension page that isn't a tab, and clicking again closes it.
+    asyncTest(async done => {
+        await contentScriptReady();
+        await openPopup("popup.html");
+        const state = popupState();
+        println(`open: ${state.open}, page: ${state.path}`);
+        const report = await sendToBackground({ type: "popup-report" });
+        println(`the popup's messages carry a tab: ${report.senderTab !== null}`);
+        internals.clickExtensionAction(popupFixture());
+        println(`after a second click, open: ${(await waitFor(() => !popupState().open)) ? false : true}`);
+        done();
+    });
+</script>
+</body>

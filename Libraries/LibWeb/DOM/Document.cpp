@@ -2512,6 +2512,7 @@ void Document::end_style_stabilization_epoch()
 // full layout paths so neither can forget one.
 void Document::after_layout_commit(Layout::BegunRead const& read, LayoutTreeChanged layout_tree_changed)
 {
+    ++m_layout_commit_count;
     // NB: Called during layout update.
     // Read before anything below writes the render state, while the main thread knows it from the round.
     bool const collects_boxes_with_auto_content_visibility = layout_tree_changed == LayoutTreeChanged::Yes

@@ -349,10 +349,11 @@ public:
     virtual void extension_action_list_changed() { }
     // A frontend shows an extension's popup in a surface of its own, below the button, and loads the request's URL
     // into its view; ExtensionPopupHost decides when it opens, closes, and how big it is.
-    virtual bool show_extension_popup(ExtensionPopupRequest const&) { return false; }
-    virtual void resize_extension_popup(i64, Gfx::IntSize) { }
-    virtual void close_extension_popup(i64) { }
-    virtual ViewImplementation* extension_popup_view(i64) const { return nullptr; }
+    // By default, a popup is a headless view of its own, as test-web and the headless browser show it.
+    virtual bool show_extension_popup(ExtensionPopupRequest const&);
+    virtual void resize_extension_popup(i64 window_id, Gfx::IntSize);
+    virtual void close_extension_popup(i64 window_id);
+    virtual ViewImplementation* extension_popup_view(i64 window_id) const;
     virtual void extension_action_changed(String const&, Optional<i64>) { }
     // The ids of the windows the user has focused, most recent first.
     virtual Vector<i64> extension_window_focus_order() const { return {}; }
@@ -675,6 +676,11 @@ private:
     class ExtensionPopupFrontend;
     OwnPtr<ExtensionPopupFrontend> m_extension_popup_frontend;
     OwnPtr<ExtensionPopupHost> m_extension_popup_host;
+    HashMap<i64, OwnPtr<HeadlessWebView>> m_headless_extension_popups;
+    // Headless views closed from one of their own callbacks: they go on the event loop's next turn, once that callback
+    // has returned, or with the Application, whichever comes first.
+    Vector<OwnPtr<HeadlessWebView>> m_closing_headless_extension_views;
+    void retire_headless_extension_view(OwnPtr<HeadlessWebView>);
     HashMap<String, u64> m_extension_action_revisions;
     HashTable<String> m_extension_actions_allowed_in_private;
     HashMap<String, ExtensionActiveTabGrants> m_extension_active_tab_grants;

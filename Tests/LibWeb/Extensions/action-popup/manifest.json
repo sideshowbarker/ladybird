@@ -1,0 +1,29 @@
+{
+    "manifest_version": 3,
+    "name": "Action Popup Fixture",
+    "version": "1.0",
+    "description": "An action whose popup reports to the background page, sizes itself as asked, and closes on request.",
+    "action": {
+        "default_title": "Popup fixture",
+        "default_popup": "popup.html"
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/action-popup-open.html",
+                "file:///*/Extensions/action-popup-size.html",
+                "file:///*/Extensions/action-popup-current-window.html",
+                "file:///*/Extensions/action-popup-window-close.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

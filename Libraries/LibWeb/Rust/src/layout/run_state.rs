@@ -67,6 +67,8 @@ pub(crate) struct HostFindings {
     pub(crate) messages: Vec<super::commit::FfiCommitMessage>,
     pub(crate) document_svg_root_natural_size: Option<(NodeSlotId, crate::css::style::NaturalSize)>,
     pub(crate) container_length_reads: Vec<ContainerLengthRead>,
+    /// The layout root's min- and max-content inline sizes, when the root stage was asked to measure them.
+    pub(crate) root_content_inline_sizes: Option<(CssPixels, CssPixels)>,
 }
 
 /// What a run found out besides its result, which the run that takes in its result receives with it.
@@ -175,6 +177,9 @@ impl HostFindings {
         }
         if other.document_svg_root_natural_size.is_some() {
             self.document_svg_root_natural_size = other.document_svg_root_natural_size;
+        }
+        if other.root_content_inline_sizes.is_some() {
+            self.root_content_inline_sizes = other.root_content_inline_sizes;
         }
     }
 }
