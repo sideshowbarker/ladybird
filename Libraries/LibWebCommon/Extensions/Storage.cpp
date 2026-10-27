@@ -8,6 +8,23 @@
 #include <LibIPC/Encoder.h>
 #include <LibWebCommon/Extensions/Storage.h>
 
+namespace Web::Extensions {
+
+StringView storage_area_name(StorageRequest::Area area)
+{
+    switch (area) {
+    case StorageRequest::Area::Local:
+        return "local"sv;
+    case StorageRequest::Area::Session:
+        return "session"sv;
+    case StorageRequest::Area::Sync:
+        return "sync"sv;
+    }
+    VERIFY_NOT_REACHED();
+}
+
+}
+
 namespace IPC {
 
 using Web::Extensions::StorageRequest;
@@ -31,7 +48,7 @@ ErrorOr<StorageRequest> decode(Decoder& decoder)
     auto keys = TRY(decoder.decode<Optional<Vector<String>>>());
     auto items_json = TRY(decoder.decode<String>());
     auto area = TRY(decoder.decode<u8>());
-    if (area > to_underlying(StorageRequest::Area::Session))
+    if (area > to_underlying(StorageRequest::Area::Sync))
         return Error::from_string_literal("Invalid extension storage area");
     return StorageRequest { static_cast<StorageRequest::Operation>(operation), move(keys), move(items_json), static_cast<StorageRequest::Area>(area) };
 }

@@ -52,7 +52,7 @@ void ExtensionMessageBroker::broadcast_storage_changes(String const& extension_i
 {
     auto is_session = area == StorageRequest::Area::Session;
     JsonObject payload;
-    payload.set("areaName"sv, is_session ? "session"sv : "local"sv);
+    payload.set("areaName"sv, Web::Extensions::storage_area_name(area));
     payload.set("changes"sv, MUST(JsonValue::from_string(changed_items)));
     auto changes = payload.serialized();
 
@@ -256,7 +256,8 @@ void ExtensionMessageBroker::request_storage(Endpoint& source, u64 context_id, u
             complete({ StorageResult::Type::Error, "Storage items must be a JSON object"_string });
             break;
         }
-        store.set(id, parsed.release_value().as_object(), !is_session && source.extension_has_permission(id, "unlimitedStorage"sv), move(changed));
+        // unlimitedStorage lifts only storage.local's quota.
+        store.set(id, parsed.release_value().as_object(), request.area == StorageRequest::Area::Local && source.extension_has_permission(id, "unlimitedStorage"sv), move(changed));
         break;
     }
     case StorageRequest::Operation::Remove:

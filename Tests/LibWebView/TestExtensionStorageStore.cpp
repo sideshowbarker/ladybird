@@ -341,3 +341,51 @@ TEST_CASE(session_storage_is_dropped_with_the_extension)
     MUST(wait_for<void>(f.loop, [&](auto callback) { store->delete_storage("one"_string, move(callback)); }));
     EXPECT(get(f, *store).is_empty());
 }
+
+TEST_CASE(sync_storage_limits_items_their_count_and_their_total)
+{
+    Fixture f;
+    auto store = ExtensionStorageStore::create_sync_store(f.root);
+    // An item counts its key and its value's JSON: "k" and a string of 8,189 characters with its quotes is 8,192.
+    JsonObject item;
+    item.set("k"sv, MUST(String::repeated('a', 8189)));
+    EXPECT(!set(f, *store, item).is_error());
+    item.set("k"sv, MUST(String::repeated('a', 8190)));
+    auto too_big = set(f, *store, item);
+    EXPECT_EQ(too_big.error().string_literal(), "QUOTA_BYTES_PER_ITEM quota exceeded"sv);
+    EXPECT_EQ(get(f, *store).get_string("k"sv)->bytes().size(), 8189u);
+
+    // unlimitedStorage doesn't lift sync's limits.
+    EXPECT(set(f, *store, item, true).is_error());
+
+    JsonObject many;
+    for (size_t i = 1; i < ExtensionStorageStore::sync_max_items; ++i)
+        many.set(String::number(i), 1);
+    EXPECT(!set(f, *store, many).is_error());
+    JsonObject one_more;
+    one_more.set("one more"sv, 1);
+    EXPECT_EQ(set(f, *store, one_more).error().string_literal(), "MAX_ITEMS quota exceeded"sv);
+
+    auto fresh = ExtensionStorageStore::create_sync_store(LexicalPath::join(f.root, "fresh"sv).string());
+    JsonObject large;
+    for (size_t i = 0; i < 13; ++i)
+        large.set(String::number(i), MUST(String::repeated('a', 8000)));
+    EXPECT_EQ(set(f, *fresh, large).error().string_literal(), "QUOTA_BYTES quota exceeded"sv);
+}
+
+TEST_CASE(sync_storage_persists_per_extension)
+{
+    Fixture f;
+    {
+        auto store = ExtensionStorageStore::create_sync_store(f.root);
+        JsonObject items;
+        items.set("a"sv, 1);
+        EXPECT(!set(f, *store, items).is_error());
+        EXPECT(FileSystem::exists(LexicalPath::join(f.root, "extensions/one/storage-sync.json"sv).string()));
+        EXPECT(!FileSystem::exists(f.path()));
+    }
+    auto reopened = ExtensionStorageStore::create_sync_store(f.root);
+    EXPECT_EQ(get(f, *reopened).serialized(), "{\"a\":1}"sv);
+    auto other = MUST(wait_for<JsonObject>(f.loop, [&](auto callback) { reopened->get("two"_string, {}, move(callback)); }));
+    EXPECT(other.is_empty());
+}

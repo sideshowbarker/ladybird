@@ -1,0 +1,25 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // storage.sync keeps its own values, apart from storage.local, under its own limits, and reports its changes as
+        // the "sync" area.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const show = reply => JSON.stringify(reply);
+            println(`limits: ${show(await sendToBackground({ type: "limits" }))}`);
+            println(`set: ${show(await sendToBackground({ type: "set", items: { token: "one" } }))}`);
+            println(`get: ${show(await sendToBackground({ type: "get", keys: "token" }))}`);
+            println(`not in storage.local: ${show(await sendToBackground({ type: "local-get", keys: "token" }))}`);
+            let areas;
+            while (!(areas = await sendToBackground({ type: "areas" })).length)
+                await new Promise(resolve => setTimeout(resolve, 20));
+            println(`change areas: ${show(areas)}`);
+            const tooBig = await sendToBackground({ type: "set", items: { big: "x".repeat(9000) } });
+            println(`too big: ${tooBig.failed}`);
+            await sendToBackground({ type: "remove", keys: "token" });
+            done();
+        });
+    </script>
+</body>

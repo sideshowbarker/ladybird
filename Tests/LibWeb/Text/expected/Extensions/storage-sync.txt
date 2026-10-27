@@ -1,0 +1,6 @@
+limits: [102400,8192,512,1800,120]
+set: {"value":null}
+get: {"value":{"token":"one"}}
+not in storage.local: {"value":{}}
+change areas: ["sync"]
+too big: QUOTA_BYTES_PER_ITEM quota exceeded

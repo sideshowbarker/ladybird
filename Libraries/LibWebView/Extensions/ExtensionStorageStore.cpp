@@ -183,7 +183,7 @@ struct ExtensionStorageStore::Impl {
     }
 
     ByteString directory(String const& id) const { return LexicalPath::join(root, "extensions"sv, id).string(); }
-    ByteString path(String const& id) const { return LexicalPath::join(directory(id), "storage-local.json"sv).string(); }
+    ByteString path(String const& id) const { return LexicalPath::join(directory(id), is_sync ? "storage-sync.json"sv : "storage-local.json"sv).string(); }
 
     struct Entry {
         Optional<JsonObject> items;
@@ -197,7 +197,7 @@ struct ExtensionStorageStore::Impl {
             return Error::from_string_literal("Invalid extension storage id");
         auto& entry = entries.ensure(id);
         if (entry.invalid)
-            return Error::from_string_literal("storage-local.json is corrupt or has an unsupported formatVersion");
+            return is_sync ? Error::from_string_literal("storage-sync.json is corrupt or has an unsupported formatVersion") : Error::from_string_literal("storage-local.json is corrupt or has an unsupported formatVersion");
         if (entry.items.has_value())
             return &entry;
         if (in_memory) {
@@ -215,7 +215,7 @@ struct ExtensionStorageStore::Impl {
         auto parsed = JsonValue::from_string(data);
         if (parsed.is_error() || !parsed.value().is_object() || parsed.value().as_object().get_u32("formatVersion"sv) != 1u || !parsed.value().as_object().has_object("items"sv)) {
             entry.invalid = true;
-            return Error::from_string_literal("storage-local.json is corrupt or has an unsupported formatVersion");
+            return is_sync ? Error::from_string_literal("storage-sync.json is corrupt or has an unsupported formatVersion") : Error::from_string_literal("storage-local.json is corrupt or has an unsupported formatVersion");
         }
         entry.items = *parsed.value().as_object().get_object("items"sv);
         entry.bytes_in_use = size(*entry.items);
@@ -256,7 +256,25 @@ struct ExtensionStorageStore::Impl {
         }
         if (in_memory && bytes_in_use > ExtensionStorageStore::quota_bytes)
             return Error::from_string_literal("storage.session QUOTA_BYTES quota exceeded");
-        if (!unlimited && bytes_in_use > ExtensionStorageStore::quota_bytes)
+        // Extensions compare these errors' wording.
+        if (is_sync) {
+            for (auto const& [key, values] : changes) {
+                if (values.new_value.has_value() && key.byte_count() + quota_json_size(*values.new_value) > ExtensionStorageStore::sync_quota_bytes_per_item)
+                    return Error::from_string_literal("QUOTA_BYTES_PER_ITEM quota exceeded");
+            }
+            auto items = entry->items->size();
+            for (auto const& [key, values] : changes) {
+                if (values.new_value.has_value() && !entry->items->has(key))
+                    ++items;
+                else if (!values.new_value.has_value() && entry->items->has(key))
+                    --items;
+            }
+            if (items > ExtensionStorageStore::sync_max_items)
+                return Error::from_string_literal("MAX_ITEMS quota exceeded");
+            if (bytes_in_use > ExtensionStorageStore::sync_quota_bytes)
+                return Error::from_string_literal("QUOTA_BYTES quota exceeded");
+        }
+        if (!is_sync && !unlimited && bytes_in_use > ExtensionStorageStore::quota_bytes)
             return Error::from_string_literal("storage.local QUOTA_BYTES quota exceeded");
         if (changes.is_empty())
             return changes;
@@ -281,6 +299,7 @@ struct ExtensionStorageStore::Impl {
     ByteString root;
     Writer writer;
     bool in_memory { false };
+    bool is_sync { false };
     Core::EventLoop* loop { nullptr };
     Mutex mutex;
     ConditionVariable condition { mutex };
@@ -300,6 +319,13 @@ NonnullOwnPtr<ExtensionStorageStore> ExtensionStorageStore::create_session_store
 {
     auto store = make<ExtensionStorageStore>(ByteString {});
     store->m_impl->in_memory = true;
+    return store;
+}
+
+NonnullOwnPtr<ExtensionStorageStore> ExtensionStorageStore::create_sync_store(ByteString profile_data, Writer writer)
+{
+    auto store = make<ExtensionStorageStore>(move(profile_data), move(writer));
+    store->m_impl->is_sync = true;
     return store;
 }
 
