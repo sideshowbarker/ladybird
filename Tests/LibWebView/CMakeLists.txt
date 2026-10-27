@@ -247,6 +247,7 @@ if (NOT WIN32)
         TestCrashOverlay.cpp
         TestCrashReportSubmission.cpp
         TestExtensionActionRegistry.cpp
+        TestExtensionAlarmManager.cpp
         TestExtensionPopupHost.cpp
         TestExtensionsUserActivation.cpp
         TestExtensionTabs.cpp

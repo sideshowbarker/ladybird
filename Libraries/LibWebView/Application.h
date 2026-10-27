@@ -50,6 +50,7 @@
 #include <LibWebView/BrowserProcess.h>
 #include <LibWebView/BrowsingSession.h>
 #include <LibWebView/DownloadStore.h>
+#include <LibWebView/Extensions/ExtensionAlarmManager.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/Extensions/ExtensionTabsAPI.h>
 #include <LibWebView/ExternalURLHandler.h>
@@ -98,6 +99,9 @@ public:
     static Settings& settings() { return *the().m_settings; }
     static ExtensionStorageStore& extension_storage_store() { return *the().m_extension_storage_store; }
     static ExtensionStorageStore& extension_session_storage_store() { return *the().m_extension_session_storage_store; }
+    static ExtensionAlarmManager& extension_alarm_manager() { return the().m_extension_alarm_manager; }
+    // Sets the timer for the next alarm that comes due, after alarms change.
+    void schedule_extension_alarms();
     static ExtensionRegistry& extension_registry() { return *the().m_extension_registry; }
     static ExtensionMessageBroker& extension_message_broker() { return *the().m_extension_message_broker; }
     bool has_extension_message_broker() const { return m_extension_message_broker; }
@@ -663,7 +667,9 @@ private:
     OwnPtr<ExtensionsObserver> m_extensions_observer;
     OwnPtr<ExtensionStorageStore> m_extension_storage_store;
     OwnPtr<ExtensionStorageStore> m_extension_session_storage_store;
-    // The revision of each enabled extension whose session storage is in use; a new revision or none drops it.
+    ExtensionAlarmManager m_extension_alarm_manager;
+    RefPtr<Core::Timer> m_extension_alarm_timer;
+    // The revision of each enabled extension; a new revision, or none, drops its session storage and alarms.
     HashMap<String, u64> m_extension_session_revisions;
     OwnPtr<ExtensionMessageBroker> m_extension_message_broker;
     OwnPtr<ExtensionBackgroundHost> m_extension_background_host;
@@ -682,7 +688,7 @@ private:
     HashTable<String> m_extension_actions_allowed_in_private;
     HashMap<String, ExtensionActiveTabGrants> m_extension_active_tab_grants;
     void sync_extension_actions();
-    void sync_extension_session_storage();
+    void sync_extension_session_state();
 
     bool m_extension_background_pages_may_start { false };
     OwnPtr<BrowserProcess> m_browser_process;

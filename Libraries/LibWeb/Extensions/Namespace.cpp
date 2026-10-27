@@ -7,6 +7,7 @@
 #include <LibJS/Runtime/Object.h>
 #include <LibJS/Runtime/Realm.h>
 #include <LibWeb/Extensions/API/Action.h>
+#include <LibWeb/Extensions/API/Alarms.h>
 #include <LibWeb/Extensions/API/I18n.h>
 #include <LibWeb/Extensions/API/Runtime.h>
 #include <LibWeb/Extensions/API/Storage.h>
@@ -27,6 +28,10 @@ GC::Ref<JS::Object> install_namespace(JS::Realm& realm, MessagingContext& messag
 
     if (messaging_context.descriptor().has_permission("storage"sv))
         namespace_object->define_direct_property("storage"_utf16_fly_string, create_storage(realm, messaging_context), attributes);
+
+    // Alarms wake the extension's own pages, so content scripts don't have them.
+    if (context == NamespaceContext::ExtensionDocument && messaging_context.descriptor().has_permission("alarms"sv))
+        namespace_object->define_direct_property("alarms"_utf16_fly_string, create_alarms(realm, messaging_context), attributes);
 
     // Content scripts act on the page they're in, so only the extension's own documents get tabs.
     if (context == NamespaceContext::ExtensionDocument)

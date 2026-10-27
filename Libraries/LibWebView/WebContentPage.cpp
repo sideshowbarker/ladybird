@@ -1908,6 +1908,36 @@ ExtensionTabViewer WebContentPage::extension_tab_viewer(String const& extension_
     return { extension, allowed_in_private, current_window_id, last_focused_window_id, Application::the().extension_active_tab_grants(extension_id) };
 }
 
+ErrorOr<JsonValue, String> WebContentPage::call_extension_alarms_api(String const& extension_id, StringView method, JsonArray const& arguments)
+{
+    auto& alarms = Application::extension_alarm_manager();
+    // The renderer checked the arguments' types; a name it leaves out is the empty string.
+    auto name = !arguments.is_empty() && arguments.at(0).is_string() ? arguments.at(0).as_string() : String {};
+    if (method == "create"sv && arguments.size() == 2 && arguments.at(1).is_object()) {
+        auto const& info = arguments.at(1).as_object();
+        TRY(alarms.create(extension_id, name, { .when = info.get_double_with_precision_loss("when"sv), .delay_in_minutes = info.get_double_with_precision_loss("delayInMinutes"sv), .period_in_minutes = info.get_double_with_precision_loss("periodInMinutes"sv) }, UnixDateTime::now()));
+        Application::the().schedule_extension_alarms();
+        return JsonValue {};
+    }
+    if (method == "get"sv) {
+        if (auto alarm = alarms.get(extension_id, name); alarm.has_value())
+            return alarm->to_json();
+        return JsonValue {};
+    }
+    if (method == "getAll"sv) {
+        JsonArray all;
+        for (auto const& alarm : alarms.get_all(extension_id))
+            all.must_append(alarm.to_json());
+        return all;
+    }
+    if (method == "clear"sv || method == "clearAll"sv) {
+        auto cleared = method == "clear"sv ? alarms.clear(extension_id, name) : alarms.clear_all(extension_id);
+        Application::the().schedule_extension_alarms();
+        return cleared;
+    }
+    return MUST(String::formatted("alarms.{}() isn't supported", method));
+}
+
 ErrorOr<JsonValue, String> WebContentPage::call_extension_tabs_api(String const& extension_id, Web::Extensions::ExtensionDescriptor const& extension, StringView method, JsonArray const& arguments)
 {
     auto tabs = Application::the().extension_tabs();
@@ -1962,6 +1992,21 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
     auto api_namespace = method.bytes_as_string_view().substring_view(0, *separator);
     auto name = method.bytes_as_string_view().substring_view(*separator + 1);
     auto const& call_arguments = arguments.value().as_array();
+
+    // Only the extension's own documents have alarms, and only with the permission.
+    if (api_namespace == "alarms"sv) {
+        if (!context->is_extension_document || !extension->descriptor().has_permission("alarms"sv))
+            return;
+        auto result = call_extension_alarms_api(context->extension_id, name, call_arguments);
+        if (result.is_error())
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
+        else if (result.value().is_null())
+            // A call with no result resolves with undefined, as alarms.get() does for a missing alarm.
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::NoReply {});
+        else
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });
+        return;
+    }
 
     // Only the extension's own documents have tabs.
     if (api_namespace == "tabs"sv) {

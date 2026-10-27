@@ -271,7 +271,7 @@ public:
         app.m_extension_background_host->prepare(*app.m_extension_registry);
         app.m_extension_message_broker->reconcile_contexts();
         app.sync_extension_actions();
-        app.sync_extension_session_storage();
+        app.sync_extension_session_state();
         WebContentClient::for_each_client([&](WebContentClient& client) {
             client.async_set_extensions(app.m_extension_registry->enabled_descriptors(client.is_private()));
             return IterationDecision::Continue;
@@ -3620,9 +3620,9 @@ void Application::sync_extension_actions()
         extension_action_list_changed();
 }
 
-void Application::sync_extension_session_storage()
+void Application::sync_extension_session_state()
 {
-    // storage.session lasts only as long as the extension stays enabled and isn't reloaded.
+    // storage.session and alarms last only as long as the extension stays enabled and isn't reloaded.
     HashMap<String, u64> revisions;
     for (auto const& extension : m_extension_registry->extensions()) {
         if (m_extension_registry->is_enabled(extension->id()))
@@ -3633,8 +3633,34 @@ void Application::sync_extension_session_storage()
             continue;
         m_extension_session_storage_store->delete_storage(id, [](auto) { });
         m_extension_message_broker->forget_session_storage_access(id);
+        m_extension_alarm_manager.drop_extension(id);
     }
     m_extension_session_revisions = move(revisions);
+    schedule_extension_alarms();
+}
+
+void Application::schedule_extension_alarms()
+{
+    auto next = m_extension_alarm_manager.next_due();
+    if (!next.has_value()) {
+        if (m_extension_alarm_timer)
+            m_extension_alarm_timer->stop();
+        return;
+    }
+    // An alarm can be years away, which no timer can wait for at once; so the timer checks again every hour.
+    auto delay = clamp(*next - UnixDateTime::now(), AK::Duration::zero(), AK::Duration::from_seconds(60 * 60));
+    if (!m_extension_alarm_timer) {
+        m_extension_alarm_timer = Core::Timer::create_single_shot(AK::Duration::zero(), [this] {
+            for (auto const& due : m_extension_alarm_manager.take_due(UnixDateTime::now())) {
+                JsonArray arguments;
+                arguments.must_append(due.alarm.to_json());
+                m_extension_message_broker->dispatch_extension_event(due.extension_id, "alarms.onAlarm"_string, arguments.serialized());
+            }
+            schedule_extension_alarms();
+        });
+    }
+    // A due alarm fires a millisecond late rather than early.
+    m_extension_alarm_timer->restart(delay + AK::Duration::from_milliseconds(1));
 }
 
 void Application::extension_tab_activated_document(i64 tab_id, URL::URL const& url)

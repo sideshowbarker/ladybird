@@ -35,6 +35,7 @@ set(SOURCES
     Extensions/Extension.cpp
     Extensions/ExtensionActionAPI.cpp
     Extensions/ExtensionActionRegistry.cpp
+    Extensions/ExtensionAlarmManager.cpp
     Extensions/ExtensionTabs.cpp
     Extensions/ExtensionTabsAPI.cpp
     Extensions/ExtensionBackgroundHost.cpp
