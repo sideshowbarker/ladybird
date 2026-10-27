@@ -1,0 +1,46 @@
+{
+    "manifest_version": 3,
+    "name": "Refined GitHub Model Fixture",
+    "version": "1.0",
+    "description": "Starts up the way Refined GitHub's Firefox build does by default, and changes the pages it matches.",
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "model-refined-github@ladybird.test"
+        }
+    },
+    "permissions": [
+        "storage",
+        "scripting",
+        "contextMenus",
+        "activeTab",
+        "alarms"
+    ],
+    "host_permissions": [
+        "file:///*/Extensions/model-refined-github.html",
+        "file:///*/data/model-refined-github-target.html"
+    ],
+    "optional_host_permissions": [
+        "*://*/*"
+    ],
+    "action": {
+        "default_title": "Refined GitHub model"
+    },
+    "options_page": "options.html",
+    "background": {
+        "scripts": [
+            "bg.js"
+        ],
+        "type": "module"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/model-refined-github.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_start"
+        }
+    ]
+}
