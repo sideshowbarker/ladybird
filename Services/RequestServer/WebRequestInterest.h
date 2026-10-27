@@ -22,9 +22,16 @@ public:
     void set(Vector<Requests::WebRequestInterest>);
     bool is_empty() const { return m_entries.is_empty(); }
 
+    bool startup_gate_is_on() const { return m_startup_gate; }
+    void set_startup_gate(bool on) { m_startup_gate = on; }
+
     [[nodiscard]] bool should_report(Requests::WebRequestEvent, URL::URL const&, StringView type) const;
     // Whether a listener that may change the request hears it, so the request waits for the answer.
     [[nodiscard]] bool wants_answer(Requests::WebRequestEvent, URL::URL const&, StringView type) const;
+
+    // Sends the event to the UI process when some listener wants to hear it, and returns whether the sender now waits
+    // for the listeners' decision, which may_wait allows when a blocking listener hears it.
+    bool send(int client_id, u64 request_id, Requests::WebRequestEventDetails, bool may_wait) const;
 
 private:
     struct Entry {
@@ -37,6 +44,7 @@ private:
     Entry const* find(Requests::WebRequestEvent, URL::URL const&, StringView type, bool blocking_only) const;
 
     Vector<Entry> m_entries;
+    bool m_startup_gate { false };
 };
 
 }

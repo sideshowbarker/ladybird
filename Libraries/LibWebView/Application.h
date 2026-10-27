@@ -690,6 +690,7 @@ private:
     HashMap<String, u64> m_extension_session_revisions;
     OwnPtr<ExtensionMessageBroker> m_extension_message_broker;
     OwnPtr<ExtensionWebRequestRouter> m_extension_web_request_router;
+    OwnPtr<ExtensionWebRequestStartupGate> m_extension_web_request_startup_gate;
     OwnPtr<ExtensionBackgroundHost> m_extension_background_host;
     OwnPtr<ExtensionActionRegistry> m_extension_action_registry;
     class ExtensionPopupFrontend;

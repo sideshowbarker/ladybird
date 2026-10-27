@@ -22,6 +22,7 @@
 #include <LibHTTP/Proxy.h>
 #include <LibIPC/ConnectionFromClient.h>
 #include <LibRequests/RequestTransferLease.h>
+#include <LibRequests/WebRequest.h>
 #include <LibRequests/WebSocket.h>
 #include <LibWebSocket/WebSocket.h>
 #include <RequestServer/Forward.h>
@@ -55,6 +56,9 @@ class ConnectionFromClient final
 
 public:
     using ConnectionMap = HashMap<int, NonnullRefPtr<ConnectionFromClient>>;
+    // Lets every request that waited for the extensions that may block it go on.
+    static void release_requests_held_by_startup_gate(ConnectionMap&);
+    bool holds_websocket_for_startup_gate(u64 websocket_id) const { return m_websockets_held_by_startup_gate.contains(websocket_id); }
 
     struct RequestTransferLease {
         NonnullRefPtr<ConnectionFromClient> owner;
@@ -68,6 +72,7 @@ public:
     virtual void die() override;
 
     bool websocket_retrieved_http_cookie(Badge<ControlConnectionFromClient>, u64 websocket_id, u64 cookie_request_id, String cookie);
+    void websocket_web_request_decision(Badge<ControlConnectionFromClient>, u64 websocket_id, Requests::WebRequestDecision);
 
     IsPrivate is_private() const { return m_is_private; }
 
@@ -97,7 +102,7 @@ private:
     virtual Messages::RequestServer::StoreCacheAssociatedDataResponse store_cache_associated_data(Optional<HTTP::NetworkIsolationKey>, URL::URL, ByteString method, Vector<HTTP::Header> request_headers, Optional<u64> vary_key, HTTP::CacheEntryAssociatedData, Core::AnonymousBuffer) override;
     virtual Messages::RequestServer::RetrieveCacheAssociatedDataResponse retrieve_cache_associated_data(Optional<HTTP::NetworkIsolationKey>, URL::URL, ByteString method, Vector<HTTP::Header> request_headers, Optional<u64> vary_key, HTTP::CacheEntryAssociatedData) override;
 
-    virtual void websocket_connect(u64 websocket_id, URL::URL, Optional<HTTP::NetworkIsolationKey>, ByteString, Vector<ByteString>, Vector<ByteString>, Vector<HTTP::Header>) override;
+    virtual void websocket_connect(u64 websocket_id, URL::URL, Optional<HTTP::NetworkIsolationKey>, ByteString, Vector<ByteString>, Vector<ByteString>, Vector<HTTP::Header>, Optional<Requests::WebRequestContext>) override;
     virtual void websocket_send(u64 websocket_id, bool, ByteBuffer) override;
     virtual void websocket_send_shared(u64 websocket_id, bool, Core::AnonymousBuffer) override;
     virtual void websocket_close(u64 websocket_id, u16, ByteString) override;
@@ -108,7 +113,11 @@ private:
     void cancel_owned_work();
     void check_active_requests();
     void complete_aia_fetch(void* easy_handle, int result_code);
-    void fail_websocket(u64 websocket_id, Requests::WebSocket::Error);
+    void fail_websocket(u64 websocket_id, Requests::WebSocket::Error, StringView web_request_error = "NS_ERROR_CONNECTION_REFUSED"sv);
+    // Tells extensions' webRequest listeners of an event of a WebSocket a page opened; the WebSocket's last event
+    // forgets it.
+    void start_websocket_web_request(u64 websocket_id, Function<void()> retrieve_cookies_and_connect);
+    bool report_websocket_web_request_event(u64 websocket_id, Requests::WebRequestEvent, Function<void(Requests::WebRequestEventDetails&)> fill = {}, bool may_wait = false);
     size_t websocket_count() const;
     size_t total_websocket_count() const;
     void connect_websocket(u64 websocket_id, URL::URL, ByteString origin, Vector<ByteString> protocols, Vector<ByteString> extensions, Vector<HTTP::Header> request_headers);
@@ -153,6 +162,14 @@ private:
         Function<void(String)> continuation;
     };
     HashMap<u64, WebSocketCookieRequest> m_websocket_cookie_requests;
+
+    struct WebSocketWebRequest {
+        URL::URL url;
+        Requests::WebRequestContext context;
+        Function<void(Requests::WebRequestDecision)> on_decision;
+    };
+    HashMap<u64, WebSocketWebRequest> m_websocket_web_requests;
+    HashMap<u64, Function<void()>> m_websockets_held_by_startup_gate;
     HashMap<u64, RefPtr<WebSocket::WebSocket>> m_websockets;
 
     RefPtr<Core::Timer> m_timer;

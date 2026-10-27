@@ -8,15 +8,45 @@
 
 #include <AK/Function.h>
 #include <AK/HashMap.h>
+#include <AK/HashTable.h>
 #include <AK/JsonValue.h>
 #include <AK/String.h>
+#include <AK/Time.h>
 #include <AK/Vector.h>
+#include <LibCore/Forward.h>
 #include <LibRequests/WebRequest.h>
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
 #include <LibWebCommon/Extensions/WebRequest.h>
 #include <LibWebView/Forward.h>
 
 namespace WebView {
+
+// Holds back pages' requests at startup until every extension that may block them has its background page running, so
+// none of them gets past its listeners unheard. It lets them go after a while, in case a background page never loads.
+class WEBVIEW_API ExtensionWebRequestStartupGate {
+    AK_ALLOC_WITH_KMALLOC;
+
+public:
+    explicit ExtensionWebRequestStartupGate(AK::Duration timeout = AK::Duration::from_seconds(10));
+    ~ExtensionWebRequestStartupGate();
+
+    // The enabled extensions that may block requests: those with webRequestBlocking.
+    void start(Vector<String> extension_ids);
+    // The extension's background page loaded, or failed to.
+    void background_settled(StringView extension_id);
+
+    bool is_on() const { return m_on; }
+    AK::Duration timeout() const { return m_timeout; }
+    Function<void(bool on)> on_change;
+
+private:
+    void open();
+
+    HashTable<String> m_waiting_for;
+    bool m_on { false };
+    AK::Duration m_timeout;
+    RefPtr<Core::Timer> m_timer;
+};
 
 // Where a request belongs, as the UI process knows it: its tab and window (-1 outside any tab), its frame (0 for a
 // tab's top-level document), and that frame's parent (-1 at the top).
@@ -51,7 +81,7 @@ public:
     // Where the extension comes in the order extensions were installed: a later one has a greater rank.
     Function<size_t(StringView extension_id)> install_rank;
     // The decision about a request that waits on its listeners' answers.
-    Function<void(int client_id, u64 request_id, Requests::WebRequestDecision)> on_decision;
+    Function<void(int client_id, u64 request_id, bool for_websocket, Requests::WebRequestDecision)> on_decision;
 
     // Sends an event of a RequestServer client's request to every listener that hears it: one whose filter matches,
     // of an extension with host access to the request's URL and to the document that made it. When the request waits,
@@ -107,6 +137,7 @@ private:
         int client_id { 0 };
         u64 request_id { 0 };
         Requests::WebRequestEvent event { Requests::WebRequestEvent::BeforeRequest };
+        bool is_websocket { false };
         size_t outstanding { 0 };
         Vector<ExtensionAnswer> answers;
         Optional<URL::URL> initiator;

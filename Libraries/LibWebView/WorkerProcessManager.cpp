@@ -12,6 +12,7 @@
 #include <LibWebView/Application.h>
 #include <LibWebView/CanonicalEnvironmentSettingsObject.h>
 #include <LibWebView/CanonicalNavigable.h>
+#include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/HelperProcess.h>
 #include <LibWebView/PermissionManager.h>
 #include <LibWebView/RequestServerManager.h>
@@ -219,6 +220,7 @@ Web::HTML::WorkerAgentId WorkerProcessManager::start_worker_agent(Owner owner, O
         client->async_set_user_agent(Application::the().user_agent_string());
         client->async_set_navigator_compatibility_mode(Application::the().navigator_compatibility_mode());
         client->async_set_preferred_languages(Application::settings().languages());
+        client->async_set_extensions(Application::extension_registry().enabled_descriptors(session->is_private()));
         connect_to_image_decoder(*client, move(image_decoder));
 
         if (auto compositor_handle = Application::the().connect_new_compositor_canvas_client(); !compositor_handle.is_error())
@@ -359,6 +361,12 @@ void WorkerProcessManager::update_navigator_compatibility_mode(Web::NavigatorCom
 {
     for (auto const& agent : m_agents)
         agent.value.client->async_set_navigator_compatibility_mode(mode);
+}
+
+void WorkerProcessManager::update_extensions()
+{
+    for (auto const& agent : m_agents)
+        agent.value.client->async_set_extensions(Application::extension_registry().enabled_descriptors(agent.value.is_private));
 }
 
 void WorkerProcessManager::update_preferred_languages(Vector<String> const& preferred_languages)

@@ -8,6 +8,7 @@
 #include <LibCore/Process.h>
 #include <LibWeb/Compositor/CompositorConnection.h>
 #include <LibWeb/DOMURL/DOMURL.h>
+#include <LibWeb/Extensions/ExtensionSet.h>
 #include <LibWeb/FileAPI/BlobURLStore.h>
 #include <LibWeb/HTML/BroadcastChannel.h>
 #include <LibWeb/HTML/WorkerAgentParent.h>
@@ -100,6 +101,11 @@ void ConnectionFromClient::set_user_agent(String user_agent)
 void ConnectionFromClient::set_navigator_compatibility_mode(Web::NavigatorCompatibilityMode mode)
 {
     Web::ResourceLoader::the().set_navigator_compatibility_mode(mode);
+}
+
+void ConnectionFromClient::set_extensions(Vector<Web::Extensions::ExtensionDescriptor> extensions)
+{
+    Web::Extensions::ExtensionSet::the().set_extensions(move(extensions));
 }
 
 void ConnectionFromClient::set_preferred_languages(Vector<String> preferred_languages)

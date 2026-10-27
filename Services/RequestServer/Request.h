@@ -114,6 +114,8 @@ public:
     // Tells listeners the page stopped waiting for this request.
     void report_web_request_aborted() { report_web_request_error(Requests::web_request_aborted_error_name); }
     void notify_web_request_decision(Badge<ControlConnectionFromClient>, Requests::WebRequestDecision);
+    bool is_held_by_startup_gate() const { return m_held_by_startup_gate; }
+    void release_from_startup_gate(Badge<ConnectionFromClient>);
     RequestType type() const { return m_type; }
     URL::URL const& url() const { return m_url; }
     bool is_complete() const { return m_state == State::Complete || m_state == State::Error; }
@@ -363,6 +365,7 @@ private:
     Function<void()> m_web_request_headers_continuation;
     Optional<ByteString> m_web_request_ip;
     int m_web_request_client_id { -1 };
+    bool m_held_by_startup_gate { false };
     bool m_informed_client_requires_network { false };
     bool m_informed_client_request_started { false };
     bool m_cache_entry_was_revalidated { false };

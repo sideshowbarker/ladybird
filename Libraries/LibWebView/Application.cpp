@@ -289,6 +289,7 @@ public:
             client.async_set_extensions(app.m_extension_registry->enabled_descriptors(client.is_private()));
             return IterationDecision::Continue;
         });
+        WorkerProcessManager::the().update_extensions();
         if (app.m_extension_background_pages_may_start) {
             Core::deferred_invoke([weak_this = make_weak_ptr()] {
                 if (!weak_this)
@@ -786,11 +787,11 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
         }
         return 0;
     };
-    m_extension_web_request_router->on_decision = [](int client_id, u64 request_id, Requests::WebRequestDecision decision) {
+    m_extension_web_request_router->on_decision = [](int client_id, u64 request_id, bool for_websocket, Requests::WebRequestDecision decision) {
         request_server_manager().for_each_instance([&](RequestServerInstance& instance) {
             if (!instance.has_client(client_id))
                 return IterationDecision::Continue;
-            instance.control_client().async_web_request_decision(client_id, request_id, decision);
+            instance.control_client().async_web_request_decision(client_id, request_id, for_websocket, decision);
             return IterationDecision::Break;
         });
     };
@@ -873,6 +874,27 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_font_service_host = FontServiceHost::create(*m_font_service);
     if (m_stats_log)
         m_stats_log->start_sampling();
+    // Pages' requests wait at startup for the background pages of the extensions that may block them, and every
+    // RequestServer, which launches next, learns so as it connects.
+    m_extension_web_request_startup_gate = make<ExtensionWebRequestStartupGate>();
+    m_extension_web_request_startup_gate->on_change = [this](bool on) {
+        if (!m_request_server_manager)
+            return;
+        request_server_manager().for_each_instance([&](RequestServerInstance& instance) {
+            instance.control_client().async_set_web_request_startup_gate(on);
+            return IterationDecision::Continue;
+        });
+    };
+    m_extension_message_broker->on_background_settled = [this](String const& extension_id) {
+        m_extension_web_request_startup_gate->background_settled(extension_id);
+    };
+    Vector<String> blocking_extensions;
+    for (auto const& descriptor : m_extension_registry->enabled_descriptors()) {
+        if (descriptor.has_permission("webRequest"sv) && descriptor.has_permission("webRequestBlocking"sv) && descriptor.has_background)
+            blocking_extensions.append(descriptor.id);
+    }
+    m_extension_web_request_startup_gate->start(move(blocking_extensions));
+
     TRY(launch_services());
 
     // A background page is a hidden view, and a view can only be made once the event loop runs and the browser's
@@ -2319,11 +2341,14 @@ void Application::configure_request_server_control_client(Requests::RequestContr
         auto& app = the();
         if (!app.m_extension_web_request_router) {
             if (wants_answer)
-                control_client->async_web_request_decision(client_id, request_id, {});
+                control_client->async_web_request_decision(client_id, request_id, details.is_websocket, {});
             return;
         }
         app.m_extension_web_request_router->report(client_id, request_id, details, app.web_request_place(client_id, details.context), wants_answer);
     };
+
+    if (m_extension_web_request_startup_gate && m_extension_web_request_startup_gate->is_on())
+        control_client.async_set_web_request_startup_gate(true);
 
     // A RequestServer that starts after extensions began listening learns what they listen for.
     if (m_extension_web_request_router) {

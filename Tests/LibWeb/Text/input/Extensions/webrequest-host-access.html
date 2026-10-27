@@ -50,6 +50,42 @@
             println(`all-URLs extension heard the page's own-host fetch: ${heardBy(own)}`);
             println(`all-URLs extension heard the page's loopback fetch: ${heardBy(loopback)}`);
             println(`all-URLs extension heard its background's fetch: ${heardBy(fromBackground)}`);
+            // An about:blank or srcdoc frame's requests are its creator's, for host access and for documentUrl.
+            const fromBlank = await server.createEcho("GET", echoPath("from-blank.txt"), {
+                status: 200,
+                headers: noStore,
+                body: "x",
+            });
+            const fromSrcdoc = await server.createEcho("GET", echoPath("from-srcdoc.txt"), {
+                status: 200,
+                headers: noStore,
+                body: "x",
+            });
+            const blank = document.createElement("iframe");
+            document.body.appendChild(blank);
+            await blank.contentWindow.fetch(fromBlank);
+            const srcdoc = document.createElement("iframe");
+            await new Promise(resolve => {
+                srcdoc.onload = resolve;
+                srcdoc.srcdoc = "<p>srcdoc</p>";
+                document.body.appendChild(srcdoc);
+            });
+            await srcdoc.contentWindow.fetch(fromSrcdoc);
+            const frameEvents = await webRequestEvents(
+                events =>
+                    events.filter(e => e.event === "onCompleted" && (e.url === fromBlank || e.url === fromSrcdoc))
+                        .length === 2
+            );
+            for (const [name, url] of [
+                ["about:blank", fromBlank],
+                ["srcdoc", fromSrcdoc],
+            ]) {
+                const heard = frameEvents.find(e => e.url === url && e.event === "onBeforeRequest");
+                println(
+                    `${name} frame's fetch heard: ${!!heard}, documentUrl is the page: ${heard?.documentUrl === location.href}`
+                );
+            }
+
             const hostOnly = await askHostOnly({ type: "heard", token: webRequestToken });
             println(`loopback-only extension heard: ${hostOnly.length}`);
             done();

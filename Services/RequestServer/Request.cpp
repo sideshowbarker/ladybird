@@ -20,6 +20,7 @@
 #include <LibHTTP/Status.h>
 #include <LibTextCodec/Decoder.h>
 #include <LibURL/Parser.h>
+#include <LibWebCommon/Extensions/Scheme.h>
 #include <RequestServer/AIA.h>
 #include <RequestServer/CURL.h>
 #include <RequestServer/ConnectionFromClient.h>
@@ -1053,6 +1054,17 @@ void Request::process()
 
 void Request::handle_initial_state()
 {
+    // A page's request waits at startup until the extensions that may block it can hear it. An extension's own pages
+    // don't wait, since their extension may be the one starting.
+    if (m_web_request_context.has_value() && WebRequestInterestSet::the().startup_gate_is_on()) {
+        auto const& document_url = m_web_request_context->document_url;
+        if (!document_url.has_value() || document_url->scheme() != Web::Extensions::scheme) {
+            m_held_by_startup_gate = true;
+            transition_to_state(State::WaitForWebRequest);
+            return;
+        }
+    }
+
     if (report_web_request_event(Requests::WebRequestEvent::BeforeRequest, {}, MayWait::Yes, [this](Requests::WebRequestDecision decision) {
             if (decision.cancel) {
                 fail_by_extension();
@@ -2673,13 +2685,9 @@ bool Request::report_web_request_event(Requests::WebRequestEvent event, Function
     if (event == Requests::WebRequestEvent::Completed || event == Requests::WebRequestEvent::ErrorOccurred)
         m_web_request_ended = true;
 
-    auto const& interest = WebRequestInterestSet::the();
-    if (!interest.should_report(event, m_url, m_web_request_context->type))
+    // Nothing is built for an event no listener wants.
+    if (!WebRequestInterestSet::the().should_report(event, m_url, m_web_request_context->type))
         return false;
-    auto connection = ControlConnectionFromClient::the();
-    if (!connection.has_value())
-        return false;
-    auto wants_answer = may_wait == MayWait::Yes && interest.wants_answer(event, m_url, m_web_request_context->type);
 
     Requests::WebRequestEventDetails details;
     details.event = event;
@@ -2688,10 +2696,10 @@ bool Request::report_web_request_event(Requests::WebRequestEvent event, Function
     details.context = *m_web_request_context;
     if (fill)
         fill(details);
-    if (wants_answer)
+    auto waits = WebRequestInterestSet::the().send(m_web_request_client_id, m_request_id, move(details), may_wait == MayWait::Yes);
+    if (waits)
         m_web_request_decision_handler = move(on_decision);
-    connection->async_web_request_event(m_web_request_client_id, m_request_id, move(details), wants_answer);
-    return wants_answer;
+    return waits;
 }
 
 void Request::notify_web_request_decision(Badge<ControlConnectionFromClient>, Requests::WebRequestDecision decision)
@@ -2725,6 +2733,13 @@ void Request::serve_extension_redirect(URL::URL target)
     transfer_headers_to_client_if_needed();
     m_curl_result_code = CURLE_OK;
     transition_to_state(State::Complete);
+}
+
+void Request::release_from_startup_gate(Badge<ConnectionFromClient>)
+{
+    if (!exchange(m_held_by_startup_gate, false))
+        return;
+    transition_to_state(State::Init);
 }
 
 void Request::fail_by_extension()

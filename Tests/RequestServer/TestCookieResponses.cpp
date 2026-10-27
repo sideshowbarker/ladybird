@@ -184,7 +184,7 @@ public:
 
     void websocket_connect(u64 websocket_id, URL::URL url, ByteString origin = "http://localhost"sv, Vector<ByteString> protocols = {}, Vector<HTTP::Header> headers = {})
     {
-        auto message = make<Messages::RequestServer::WebsocketConnect>(websocket_id, move(url), Optional<HTTP::NetworkIsolationKey> {}, move(origin), move(protocols), Vector<ByteString> {}, move(headers));
+        auto message = make<Messages::RequestServer::WebsocketConnect>(websocket_id, move(url), Optional<HTTP::NetworkIsolationKey> {}, move(origin), move(protocols), Vector<ByteString> {}, move(headers), Optional<Requests::WebRequestContext> {});
         auto response = dispatch(move(message));
         VERIFY(!response);
     }

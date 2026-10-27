@@ -59,6 +59,7 @@ public:
     void update_user_agent(String const&);
     void update_navigator_compatibility_mode(Web::NavigatorCompatibilityMode);
     void update_preferred_languages(Vector<String> const&);
+    void update_extensions();
 
     void close_worker_agent(WebContentClient&, Web::HTML::WorkerAgentId, Web::HTML::WorkerAgentOwnerToken);
     void close_worker_agent(WebWorkerClient&, Web::HTML::WorkerAgentId, Web::HTML::WorkerAgentOwnerToken);

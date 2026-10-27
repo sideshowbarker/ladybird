@@ -188,14 +188,25 @@ void ControlConnectionFromClient::set_web_request_interest(Vector<Requests::WebR
     WebRequestInterestSet::the().set(move(interest));
 }
 
-void ControlConnectionFromClient::web_request_decision(int client_id, u64 request_id, Requests::WebRequestDecision decision)
+void ControlConnectionFromClient::web_request_decision(int client_id, u64 request_id, bool for_websocket, Requests::WebRequestDecision decision)
 {
     // The request may have ended while its listeners decided.
     auto connection = m_connections.get(client_id);
     if (!connection.has_value())
         return;
+    if (for_websocket) {
+        (*connection)->websocket_web_request_decision({}, request_id, move(decision));
+        return;
+    }
     if (auto request = (*connection)->m_active_requests.get(request_id); request.has_value())
         (*request)->notify_web_request_decision({}, move(decision));
+}
+
+void ControlConnectionFromClient::set_web_request_startup_gate(bool on)
+{
+    WebRequestInterestSet::the().set_startup_gate(on);
+    if (!on)
+        RequestServer::ConnectionFromClient::release_requests_held_by_startup_gate(m_connections);
 }
 
 void ControlConnectionFromClient::set_performance_monitor_enabled(bool enabled)

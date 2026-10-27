@@ -11,6 +11,7 @@ set(TEST_SOURCES
     TestRequestTimingInfo.cpp
     TestSiteBinding.cpp
     TestWebRequestInterest.cpp
+    TestWebRequestStartupGate.cpp
     ${LADYBIRD_SOURCE_DIR}/Services/RequestServer/AIA.cpp
 )
 

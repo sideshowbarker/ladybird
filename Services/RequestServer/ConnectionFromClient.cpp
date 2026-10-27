@@ -21,6 +21,7 @@
 #include <LibRequests/WebSocket.h>
 #include <LibURL/Parser.h>
 #include <LibURL/Site.h>
+#include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebSocket/ConnectionInfo.h>
 #include <LibWebSocket/Message.h>
 #include <RequestServer/AIA.h>
@@ -30,6 +31,7 @@
 #include <RequestServer/ControlConnectionFromClient.h>
 #include <RequestServer/Request.h>
 #include <RequestServer/Resolver.h>
+#include <RequestServer/WebRequestInterest.h>
 #include <RequestServer/WebSocketImplCurl.h>
 
 namespace RequestServer {
@@ -726,11 +728,31 @@ void ConnectionFromClient::complete_aia_fetch(void* easy_handle, int result_code
     }
 }
 
-void ConnectionFromClient::fail_websocket(u64 websocket_id, Requests::WebSocket::Error error)
+void ConnectionFromClient::fail_websocket(u64 websocket_id, Requests::WebSocket::Error error, StringView web_request_error)
 {
+    report_websocket_web_request_event(websocket_id, Requests::WebRequestEvent::ErrorOccurred, [&](auto& details) { details.error = web_request_error; });
     async_websocket_ready_state_changed(websocket_id, to_underlying(Requests::WebSocket::ReadyState::Closed));
     async_websocket_errored(websocket_id, to_underlying(error));
     async_websocket_closed(websocket_id, to_underlying(WebSocket::CloseStatusCode::AbnormalClosure), {}, false);
+}
+
+void ConnectionFromClient::release_requests_held_by_startup_gate(ConnectionMap& connections)
+{
+    for (auto& [client_id, connection] : connections) {
+        Vector<Request*> held;
+        for (auto& [request_id, request] : connection->m_active_requests) {
+            if (request->is_held_by_startup_gate())
+                held.append(request.ptr());
+        }
+        for (auto* request : held)
+            request->release_from_startup_gate({});
+
+        auto held_websockets = move(connection->m_websockets_held_by_startup_gate);
+        for (auto& [websocket_id, retrieve_cookies_and_connect] : held_websockets) {
+            if (connection->m_pending_websockets.contains(websocket_id))
+                connection->start_websocket_web_request(websocket_id, move(retrieve_cookies_and_connect));
+        }
+    }
 }
 
 Messages::RequestServer::StopRequestResponse ConnectionFromClient::stop_request(u64 request_id)
@@ -903,7 +925,7 @@ size_t ConnectionFromClient::total_websocket_count() const
     return count;
 }
 
-void ConnectionFromClient::websocket_connect(u64 websocket_id, URL::URL url, Optional<HTTP::NetworkIsolationKey> network_isolation_key, ByteString origin, Vector<ByteString> protocols, Vector<ByteString> extensions, Vector<HTTP::Header> additional_request_headers)
+void ConnectionFromClient::websocket_connect(u64 websocket_id, URL::URL url, Optional<HTTP::NetworkIsolationKey> network_isolation_key, ByteString origin, Vector<ByteString> protocols, Vector<ByteString> extensions, Vector<HTTP::Header> additional_request_headers, Optional<Requests::WebRequestContext> web_request_context)
 {
     if (m_pending_websockets.contains(websocket_id) || m_websockets.contains(websocket_id)) {
         did_misbehave("reused live WebSocket ID");
@@ -949,30 +971,95 @@ void ConnectionFromClient::websocket_connect(u64 websocket_id, URL::URL url, Opt
 
     m_pending_websockets.set(websocket_id);
 
-    auto control_connection = ControlConnectionFromClient::the();
-    if (!control_connection.has_value()) {
-        m_pending_websockets.remove(websocket_id);
-        fail_websocket(websocket_id, Requests::WebSocket::Error::CouldNotEstablishConnection);
+    auto retrieve_cookies_and_connect = [this, websocket_id, url, network_isolation_key = move(network_isolation_key), origin = move(origin), protocols = move(protocols), extensions = move(extensions), additional_request_headers = move(additional_request_headers)]() mutable {
+        auto control_connection = ControlConnectionFromClient::the();
+        if (!control_connection.has_value()) {
+            m_pending_websockets.remove(websocket_id);
+            fail_websocket(websocket_id, Requests::WebSocket::Error::CouldNotEstablishConnection);
+            return;
+        }
+
+        static u64 s_next_cookie_request_id = 0;
+        auto cookie_request_id = s_next_cookie_request_id++;
+
+        m_websocket_cookie_requests.set(websocket_id, {
+                                                          .cookie_request_id = cookie_request_id,
+                                                          .continuation = [this, websocket_id, url, origin = move(origin), protocols = move(protocols), extensions = move(extensions), request_headers = move(additional_request_headers)](String cookie) mutable {
+                                                              // Sent as UTF-8, like the Cookie header of a fetch.
+                                                              if (!cookie.is_empty())
+                                                                  request_headers.append({ "Cookie"sv, cookie.to_byte_string() });
+                                                              for (auto event : { Requests::WebRequestEvent::BeforeSendHeaders, Requests::WebRequestEvent::SendHeaders })
+                                                                  report_websocket_web_request_event(websocket_id, event, [&](auto& details) { details.request_headers = request_headers; });
+                                                              connect_websocket(websocket_id, move(url), move(origin), move(protocols), move(extensions), move(request_headers));
+                                                          },
+                                                      });
+
+        Optional<HTTP::Cookie::PartitionContext> partition_context;
+        if (network_isolation_key.has_value())
+            partition_context = HTTP::Cookie::PartitionContext { network_isolation_key->top_level_site, network_isolation_key->has_cross_site_ancestor };
+        control_connection->async_retrieve_http_cookie(client_id(), websocket_id, RequestType::WebSocket, cookie_request_id, url, move(partition_context));
+    };
+
+    if (!web_request_context.has_value()) {
+        retrieve_cookies_and_connect();
         return;
     }
 
-    static u64 s_next_cookie_request_id = 0;
-    auto cookie_request_id = s_next_cookie_request_id++;
+    // A page's WebSocket waits at startup like its other requests, for the extensions that may block it.
+    auto const& document_url = web_request_context->document_url;
+    auto held = WebRequestInterestSet::the().startup_gate_is_on() && (!document_url.has_value() || document_url->scheme() != Web::Extensions::scheme);
+    m_websocket_web_requests.set(websocket_id, { url, web_request_context.release_value(), {} });
+    if (held) {
+        m_websockets_held_by_startup_gate.set(websocket_id, move(retrieve_cookies_and_connect));
+        return;
+    }
+    start_websocket_web_request(websocket_id, move(retrieve_cookies_and_connect));
+}
 
-    m_websocket_cookie_requests.set(websocket_id, {
-                                                      .cookie_request_id = cookie_request_id,
-                                                      .continuation = [this, websocket_id, url, origin = move(origin), protocols = move(protocols), extensions = move(extensions), request_headers = move(additional_request_headers)](String cookie) mutable {
-                                                          // Sent as UTF-8, like the Cookie header of a fetch.
-                                                          if (!cookie.is_empty())
-                                                              request_headers.append({ "Cookie"sv, cookie.to_byte_string() });
-                                                          connect_websocket(websocket_id, move(url), move(origin), move(protocols), move(extensions), move(request_headers));
-                                                      },
-                                                  });
+// Extensions' blocking listeners may cancel the connection before anything about it goes out.
+void ConnectionFromClient::start_websocket_web_request(u64 websocket_id, Function<void()> retrieve_cookies_and_connect)
+{
+    if (!report_websocket_web_request_event(websocket_id, Requests::WebRequestEvent::BeforeRequest, {}, true)) {
+        retrieve_cookies_and_connect();
+        return;
+    }
+    m_websocket_web_requests.get(websocket_id)->on_decision = [this, websocket_id, retrieve_cookies_and_connect = move(retrieve_cookies_and_connect)](Requests::WebRequestDecision decision) mutable {
+        if (!m_pending_websockets.contains(websocket_id))
+            return;
+        if (decision.cancel) {
+            m_pending_websockets.remove(websocket_id);
+            fail_websocket(websocket_id, Requests::WebSocket::Error::CouldNotEstablishConnection, Requests::web_request_error_name(Requests::NetworkError::BlockedByExtension));
+            return;
+        }
+        retrieve_cookies_and_connect();
+    };
+}
 
-    Optional<HTTP::Cookie::PartitionContext> partition_context;
-    if (network_isolation_key.has_value())
-        partition_context = HTTP::Cookie::PartitionContext { network_isolation_key->top_level_site, network_isolation_key->has_cross_site_ancestor };
-    control_connection->async_retrieve_http_cookie(client_id(), websocket_id, RequestType::WebSocket, cookie_request_id, url, move(partition_context));
+void ConnectionFromClient::websocket_web_request_decision(Badge<ControlConnectionFromClient>, u64 websocket_id, Requests::WebRequestDecision decision)
+{
+    auto web_request = m_websocket_web_requests.get(websocket_id);
+    if (!web_request.has_value())
+        return;
+    if (auto on_decision = move(web_request->on_decision))
+        on_decision(move(decision));
+}
+
+bool ConnectionFromClient::report_websocket_web_request_event(u64 websocket_id, Requests::WebRequestEvent event, Function<void(Requests::WebRequestEventDetails&)> fill, bool may_wait)
+{
+    auto web_request = m_websocket_web_requests.get(websocket_id);
+    if (!web_request.has_value())
+        return false;
+    Requests::WebRequestEventDetails details;
+    details.event = event;
+    details.url = web_request->url;
+    details.method = "GET";
+    details.context = web_request->context;
+    details.is_websocket = true;
+    if (fill)
+        fill(details);
+    if (event == Requests::WebRequestEvent::Completed || event == Requests::WebRequestEvent::ErrorOccurred)
+        m_websocket_web_requests.remove(websocket_id);
+    return WebRequestInterestSet::the().send(client_id(), websocket_id, move(details), may_wait);
 }
 
 bool ConnectionFromClient::websocket_retrieved_http_cookie(Badge<ControlConnectionFromClient>, u64 websocket_id, u64 cookie_request_id, String cookie)
@@ -1087,11 +1174,15 @@ void ConnectionFromClient::open_websocket(u64 websocket_id, URL::URL url, ByteSt
         strong_self->async_websocket_received(websocket_id, message.is_text(), data);
     };
     connection->on_error = [self = weak_self, websocket_id](auto message) {
-        if (auto strong_self = self.strong_ref())
+        if (auto strong_self = self.strong_ref()) {
+            strong_self->report_websocket_web_request_event(websocket_id, Requests::WebRequestEvent::ErrorOccurred, [](auto& details) { details.error = "NS_ERROR_NET_INTERRUPT"sv; });
             strong_self->async_websocket_errored(websocket_id, (i32)message);
+        }
     };
     connection->on_close = [self = weak_self, websocket_id](u16 code, ByteString reason, bool was_clean) {
         if (auto strong_self = self.strong_ref()) {
+            // A connection that closes without an error has completed, as far as listeners hear.
+            strong_self->report_websocket_web_request_event(websocket_id, Requests::WebRequestEvent::Completed);
             strong_self->async_websocket_closed(websocket_id, code, move(reason), was_clean);
             Core::deferred_invoke([self, websocket_id] {
                 if (auto strong_self = self.strong_ref())
@@ -1138,6 +1229,7 @@ void ConnectionFromClient::websocket_send_shared(u64 websocket_id, bool is_text,
 void ConnectionFromClient::websocket_close(u64 websocket_id, u16 code, ByteString reason)
 {
     m_websocket_cookie_requests.remove(websocket_id);
+    m_websockets_held_by_startup_gate.remove(websocket_id);
 
     if (m_pending_websockets.remove(websocket_id)) {
         fail_websocket(websocket_id, Requests::WebSocket::Error::CouldNotEstablishConnection);
