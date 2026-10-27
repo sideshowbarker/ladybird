@@ -1,0 +1,33 @@
+{
+    "manifest_version": 2,
+    "name": "Commands Fixture",
+    "version": "1.0",
+    "description": "A Firefox-style manifest version 2 extension with commands and the menus permission.",
+    "permissions": [
+        "menus"
+    ],
+    "commands": {
+        "toggle": {
+            "description": "Toggle the thing",
+            "suggested_key": {
+                "default": "Alt+Shift+D"
+            }
+        }
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/commands.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

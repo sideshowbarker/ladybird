@@ -1,0 +1,25 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // commands.getAll() lists the manifest's commands, update() changes what it reports, and an unknown command fails;
+        // Firefox's menus permission gives the same object as contextMenus.
+        asyncTest(async done => {
+            await contentScriptReady();
+            println(`getAll: ${JSON.stringify((await sendToBackground({ type: "getAll" })).value)}`);
+            const update = await sendToBackground({
+                type: "update",
+                details: { name: "toggle", description: "Changed", shortcut: "Ctrl+Shift+K" },
+            });
+            println(
+                `update: ${JSON.stringify(update)} ${JSON.stringify((await sendToBackground({ type: "getAll" })).value)}`
+            );
+            println(
+                `an unknown command: ${(await sendToBackground({ type: "update", details: { name: "nope" } })).failed}`
+            );
+            println(`alias: ${JSON.stringify(await sendToBackground({ type: "alias" }))}`);
+            done();
+        });
+    </script>
+</body>
