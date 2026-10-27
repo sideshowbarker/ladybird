@@ -38,6 +38,23 @@ TEST_CASE(match_pattern_round_trips_through_ipc)
     EXPECT_EQ(round_trip(MatchPattern::all_urls()), MatchPattern::all_urls());
 }
 
+// An extension's patterns for its own pages, as a webRequest listener's filter may name them, cross processes too.
+TEST_CASE(extension_scheme_patterns_round_trip_through_ipc)
+{
+    auto pattern = MUST(MatchPattern::parse("ladybird-extension://0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11/*"sv, MatchPattern::AllowExtensionScheme::Yes));
+    IPC::MessageBuffer message_buffer;
+    IPC::Encoder encoder { message_buffer };
+    MUST(encoder.encode(pattern));
+    auto data = message_buffer.take_data();
+    FixedMemoryStream stream { data.span() };
+    Queue<IPC::Attachment> attachments;
+    IPC::Decoder decoder { stream, attachments };
+    auto decoded = decoder.decode<MatchPattern>();
+    EXPECT(!decoded.is_error());
+    if (!decoded.is_error())
+        EXPECT_EQ(decoded.value(), pattern);
+}
+
 TEST_CASE(descriptor_round_trips_through_ipc)
 {
     ContentScriptDescriptor first_script {

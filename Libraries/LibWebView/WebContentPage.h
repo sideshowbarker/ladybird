@@ -26,6 +26,7 @@
 #include <LibWebCommon/StorageAPI/StorageEndpoint.h>
 #include <LibWebView/Export.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
+#include <LibWebView/Extensions/ExtensionWebRequest.h>
 #include <LibWebView/Forward.h>
 #include <WebContent/WebContentClientEndpoint.h>
 #include <WebContent/WebContentServerEndpoint.h>
@@ -67,7 +68,8 @@ class WEBVIEW_API WebContentPage final
     , public WebContentClientPageStub
     , public WebContentTestClientPageStub
     , public WebContentServerPageProxy
-    , public ExtensionMessageBroker::Endpoint {
+    , public ExtensionMessageBroker::Endpoint
+    , public ExtensionWebRequestRouter::Endpoint {
     AK_MAKE_NONCOPYABLE(WebContentPage);
     AK_MAKE_NONMOVABLE(WebContentPage);
     AK_ALLOC_WITH_KMALLOC;

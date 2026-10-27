@@ -306,6 +306,19 @@ void ExtensionMessageBroker::set_event_listeners(Endpoint& endpoint, String cons
     m_background_listeners.ensure(context->extension_id).ensure(&endpoint).set(context_id, move(event_names));
 }
 
+bool ExtensionMessageBroker::is_extension_page_context(Endpoint& endpoint, String const& extension_id, u64 context_id) const
+{
+    auto registered = m_contexts.get(&endpoint);
+    auto context = registered.has_value() ? registered->get(context_id) : Optional<Context const&> {};
+    if (!context.has_value() || context->extension_id != extension_id)
+        return false;
+    auto sender = endpoint.extension_message_sender(extension_id, context->document_id);
+    if (!sender.has_value() || !sender->url.has_value())
+        return false;
+    auto url = URL::Parser::basic_parse(*sender->url);
+    return url.has_value() && url->scheme() == Web::Extensions::scheme && url->serialized_host() == extension_id;
+}
+
 bool ExtensionMessageBroker::background_listens_for(StringView extension_id, StringView event_name) const
 {
     auto listeners = m_background_listeners.get(extension_id);

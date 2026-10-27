@@ -104,6 +104,8 @@ public:
     // A context's named API events that have listeners, as it reports them whenever one gains its first listener or
     // loses its last. Only a background page's contexts count, and their sets outlast the page until it runs again.
     void set_event_listeners(Endpoint&, String const& extension_id, u64 context_id, Vector<String> event_names);
+    // Whether the context is one of the extension's own documents, rather than a content script it runs in a page.
+    bool is_extension_page_context(Endpoint&, String const& extension_id, u64 context_id) const;
     bool background_listens_for(StringView extension_id, StringView event_name) const;
 
     // The background host's hooks: wake_background starts an extension's stopped background page, so that what's sent

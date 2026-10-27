@@ -11,6 +11,7 @@ set(TEST_SOURCES
     TestProxyHostResolution.cpp
     TestRequestTimingInfo.cpp
     TestSiteBinding.cpp
+    TestWebRequestInterest.cpp
     ${LADYBIRD_SOURCE_DIR}/Services/RequestServer/AIA.cpp
 )
 
