@@ -10,6 +10,7 @@
 #include <LibWeb/Extensions/API/Alarms.h>
 #include <LibWeb/Extensions/API/Commands.h>
 #include <LibWeb/Extensions/API/ContextMenus.h>
+#include <LibWeb/Extensions/API/ExtensionNamespace.h>
 #include <LibWeb/Extensions/API/I18n.h>
 #include <LibWeb/Extensions/API/Permissions.h>
 #include <LibWeb/Extensions/API/Runtime.h>
@@ -53,6 +54,8 @@ GC::Ref<JS::Object> install_namespace(JS::Realm& realm, MessagingContext& messag
         namespace_object->define_direct_property("windows"_utf16_fly_string, create_windows(realm, messaging_context), attributes);
     if (context == NamespaceContext::ExtensionDocument)
         namespace_object->define_direct_property("commands"_utf16_fly_string, create_commands(realm, messaging_context), attributes);
+    if (context == NamespaceContext::ExtensionDocument)
+        namespace_object->define_direct_property("extension"_utf16_fly_string, create_extension_namespace(realm, messaging_context), attributes);
     // Firefox calls the permission and the namespace "menus"; either permission gives both names, for one object.
     if (context == NamespaceContext::ExtensionDocument && (messaging_context.descriptor().has_permission("contextMenus"sv) || messaging_context.descriptor().has_permission("menus"sv))) {
         auto menus = create_context_menus(realm, messaging_context);

@@ -1,0 +1,29 @@
+{
+    "manifest_version": 3,
+    "name": "Runtime Options Fixture",
+    "version": "1.0",
+    "description": "Opens its options page, and makes the runtime and extension calls both target extensions make at startup.",
+    "permissions": [
+        "tabs"
+    ],
+    "options_ui": {
+        "page": "options.html",
+        "open_in_tab": false
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/runtime-options.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

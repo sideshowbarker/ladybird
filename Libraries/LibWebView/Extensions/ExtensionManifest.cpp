@@ -346,6 +346,20 @@ ErrorOr<ExtensionManifest, String> ExtensionManifest::parse(StringView manifest_
     manifest.background = TRY(parse_background(object, manifest.manifest_version));
     manifest.action = TRY(parse_action(object, manifest.manifest_version));
     manifest.commands = TRY(parse_commands(object));
+    if (object.has("options_ui"sv)) {
+        auto options_ui = object.get_object("options_ui"sv);
+        if (!options_ui.has_value())
+            return error_for("options_ui"sv, "must be an object"sv);
+        if (options_ui->has("page"sv) && !options_ui->get_string("page"sv).has_value())
+            return error_for("options_ui.page"sv, "must be a string"sv);
+        if (auto page = options_ui->get_string("page"sv); page.has_value())
+            manifest.options_page = *page;
+    }
+    if (!manifest.options_page.has_value() && object.has("options_page"sv)) {
+        if (!object.get_string("options_page"sv).has_value())
+            return error_for("options_page"sv, "must be a string"sv);
+        manifest.options_page = *object.get_string("options_page"sv);
+    }
 
     return manifest;
 }

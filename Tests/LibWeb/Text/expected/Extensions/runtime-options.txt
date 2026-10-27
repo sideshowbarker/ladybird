@@ -1,0 +1,8 @@
+open: {"value":null}
+options tabs: [true]
+opened again: [true]
+setUninstallURL: {"value":null}
+an empty one: {"value":null}
+a bad one: Invalid URL: "javascript:void 0".
+getPlatformInfo: ["string","string"]
+isAllowedFileSchemeAccess: true
