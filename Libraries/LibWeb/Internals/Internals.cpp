@@ -1790,6 +1790,11 @@ Utf16String Internals::extension_popup_state(Utf16String const& extension_id)
     return Utf16String::from_utf8(page().client().extension_popup_state_for_testing(extension_id.to_utf8_but_should_be_ported_to_utf16()));
 }
 
+Utf16String Internals::extension_background_state(Utf16String const& extension_id)
+{
+    return Utf16String::from_utf8(page().client().extension_background_state_for_testing(extension_id.to_utf8_but_should_be_ported_to_utf16()));
+}
+
 // Clicks the extension's toolbar button for this page's tab.
 void Internals::click_extension_action(Utf16String const& extension_id)
 {

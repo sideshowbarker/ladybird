@@ -71,6 +71,9 @@ public:
     // The listeners of an API event by its name ("action.onClicked", e.g.), made when first asked for.
     EventListenerList& event_listeners(String const& event_name);
     GC::Ptr<EventListenerList> existing_event_listeners(String const& event_name) const;
+    // An extension document's context tells the UI process which of these events it listens to, so that a stopped
+    // background page wakes only for those.
+    void report_event_listeners();
 
 protected:
     virtual void visit_edges(Visitor& visitor) override

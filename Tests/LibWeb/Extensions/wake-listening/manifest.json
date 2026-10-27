@@ -1,0 +1,25 @@
+{
+    "manifest_version": 3,
+    "name": "Wake Listening Fixture",
+    "version": "1.0",
+    "description": "An event page with an action.onClicked listener, which a click wakes.",
+    "action": {
+        "default_title": "Wake listening fixture"
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/idle-unload-wakes-only-for-listeners.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

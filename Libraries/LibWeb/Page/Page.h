@@ -715,6 +715,7 @@ public:
     virtual void page_did_destroy_child_frame(HTML::CrossProcessId) { }
     virtual String dump_site_isolation_process_tree_for_testing() { return {}; }
     virtual String extension_popup_state_for_testing(String const&) { return {}; }
+    virtual String extension_background_state_for_testing(String const&) { return {}; }
     virtual void crash_remote_frame_processes_for_testing() { }
     virtual void page_did_spoof_document_origin_for_testing(HTML::EnvironmentSettingsObject const&, URL::Origin const&) { }
     virtual void stop_loading_through_ui_process_for_testing() { }
@@ -933,6 +934,7 @@ public:
     virtual void page_did_set_extension_idle_timeout([[maybe_unused]] String const& extension_id, [[maybe_unused]] double milliseconds) { }
     virtual void page_did_click_extension_action([[maybe_unused]] String const& extension_id) { }
     virtual void page_did_finish_extension_suspend([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id) { }
+    virtual void page_did_change_extension_event_listeners([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id, [[maybe_unused]] Vector<String> event_names) { }
     virtual void page_did_receive_reference_test_metadata(JsonValue) { }
 
     virtual void page_did_set_browser_zoom([[maybe_unused]] double factor) { }

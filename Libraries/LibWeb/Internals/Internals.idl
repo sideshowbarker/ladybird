@@ -33,6 +33,8 @@ interface Internals {
     undefined setExtensionIdleTimeout(DOMString extensionId, double milliseconds);
     undefined clickExtensionAction(DOMString extensionId);
     DOMString extensionPopupState(DOMString extensionId);
+    // "running" while the extension's background page has a view (starting or loaded), else "stopped".
+    DOMString extensionBackgroundState(DOMString extensionId);
 
     undefined gc();
     [CreatesPromise] Promise<undefined> gcAsync();

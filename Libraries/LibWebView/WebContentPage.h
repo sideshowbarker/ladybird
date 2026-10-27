@@ -421,11 +421,13 @@ private:
     virtual void did_set_extension_idle_timeout(String extension_id, double milliseconds) override;
     virtual void did_click_extension_action(String extension_id) override;
     virtual void did_finish_extension_suspend(String extension_id, u64 context_id) override;
+    virtual void did_change_extension_event_listeners(String extension_id, u64 context_id, Vector<String> event_names) override;
     virtual void did_receive_reference_test_metadata(JsonValue) override;
     virtual void did_simulate_worker_request_server_connection_loss() override;
     Messages::WebContentTestClient::DidRequestUiProcessSessionHistoryForTestingResponse did_request_ui_process_session_history_for_testing();
     Messages::WebContentTestClient::DidRequestSiteIsolationProcessTreeForTestingResponse did_request_site_isolation_process_tree_for_testing();
     Messages::WebContentTestClient::DidRequestExtensionPopupStateForTestingResponse did_request_extension_popup_state_for_testing(String const& extension_id);
+    Messages::WebContentTestClient::DidRequestExtensionBackgroundStateForTestingResponse did_request_extension_background_state_for_testing(String const& extension_id);
     Messages::WebContentTestClient::DidRequestTabIsPlayingAudioForTestingResponse did_request_tab_is_playing_audio_for_testing();
     Messages::WebContentTestClient::DidRequestTabAudibilityChangeCountForTestingResponse did_request_tab_audibility_change_count_for_testing();
     virtual void did_request_crash_of_remote_frame_processes_for_testing() override;

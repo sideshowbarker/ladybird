@@ -1,0 +1,3 @@
+not listening, after a click: stopped
+listening, after a click: running
+clicks it heard: ["click"]

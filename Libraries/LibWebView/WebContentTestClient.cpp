@@ -101,6 +101,13 @@ Messages::WebContentTestClient::DidRequestExtensionPopupStateForTestingResponse 
     return String {};
 }
 
+Messages::WebContentTestClient::DidRequestExtensionBackgroundStateForTestingResponse WebContentTestClient::did_request_extension_background_state_for_testing(Web::PageId page_id, String extension_id)
+{
+    if (auto* page = m_client.page(page_id))
+        return page->did_request_extension_background_state_for_testing(extension_id);
+    return String {};
+}
+
 Messages::WebContentTestClient::DidRequestSiteIsolationProcessTreeForTestingResponse WebContentTestClient::did_request_site_isolation_process_tree_for_testing(Web::PageId page_id)
 {
     if (auto* page = m_client.page(page_id))

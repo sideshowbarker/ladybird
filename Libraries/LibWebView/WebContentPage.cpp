@@ -3532,6 +3532,13 @@ void WebContentPage::did_finish_extension_suspend(String extension_id, u64 conte
         host.suspend_acknowledged(extension_id, context_id);
 }
 
+void WebContentPage::did_change_extension_event_listeners(String extension_id, u64 context_id, Vector<String> event_names)
+{
+    // The broker takes the set only from a context this page registered for the extension's background page.
+    if (Application::the().has_extension_message_broker())
+        Application::extension_message_broker().set_event_listeners(*this, extension_id, context_id, move(event_names));
+}
+
 void WebContentPage::did_click_extension_action(String extension_id)
 {
     if (!displays_tab())
@@ -3571,6 +3578,11 @@ Messages::WebContentTestClient::DidRequestUiProcessSessionHistoryForTestingRespo
     if (displays_tab())
         return { view().ui_process_session_history_for_testing({}) };
     return { "{}"_string };
+}
+
+Messages::WebContentTestClient::DidRequestExtensionBackgroundStateForTestingResponse WebContentPage::did_request_extension_background_state_for_testing(String const& extension_id)
+{
+    return Application::extension_background_host().is_hosting(extension_id) ? "running"_string : "stopped"_string;
 }
 
 Messages::WebContentTestClient::DidRequestExtensionPopupStateForTestingResponse WebContentPage::did_request_extension_popup_state_for_testing(String const& extension_id)

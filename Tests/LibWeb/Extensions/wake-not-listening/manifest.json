@@ -1,0 +1,14 @@
+{
+    "manifest_version": 3,
+    "name": "Wake Not Listening Fixture",
+    "version": "1.0",
+    "description": "An event page with an action but no action.onClicked listener, which a click leaves stopped.",
+    "action": {
+        "default_title": "Wake not listening fixture"
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    }
+}

@@ -1077,3 +1077,67 @@ TEST_CASE(background_events_reach_only_the_background_and_wait_for_it_to_start)
     broker.background_finished(id, 1, false);
     EXPECT_EQ(background.events.size(), 2u);
 }
+
+TEST_CASE(an_unloaded_background_wakes_only_for_events_it_listens_to)
+{
+    ExtensionMessageBroker broker;
+    FakeEndpoint background;
+    background.background = true;
+    auto id = MUST(String::from_utf8(x));
+    Vector<String> woken;
+    broker.wake_background = [&](String const& extension) { woken.append(extension); };
+    broker.context_created(background, id, 1, { 1, 1 }, 1);
+    broker.set_event_listeners(background, id, 1, { "action.onClicked"_string });
+    broker.context_destroyed(background, id, 1);
+
+    broker.dispatch_background_event(id, "tabs.onUpdated"_string, "[]"_string);
+    EXPECT(woken.is_empty());
+    broker.dispatch_background_event(id, "action.onClicked"_string, "[]"_string);
+    EXPECT_EQ(woken.size(), 1u);
+    EXPECT(broker.background_listens_for(id, "action.onClicked"sv));
+    EXPECT(!broker.background_listens_for(id, "tabs.onUpdated"sv));
+}
+
+TEST_CASE(a_background_that_registered_nothing_wakes_for_nothing)
+{
+    ExtensionMessageBroker broker;
+    FakeEndpoint background;
+    background.background = true;
+    auto id = MUST(String::from_utf8(x));
+    Vector<String> woken;
+    broker.wake_background = [&](String const& extension) { woken.append(extension); };
+    broker.context_created(background, id, 1, { 1, 1 }, 1);
+    broker.set_event_listeners(background, id, 1, { "action.onClicked"_string });
+    broker.context_destroyed(background, id, 1);
+    // Its next run registers nothing, so the listener its previous run had no longer counts.
+    broker.context_created(background, id, 2, { 1, 1 }, 1);
+    broker.context_destroyed(background, id, 2);
+
+    broker.dispatch_background_event(id, "action.onClicked"_string, "[]"_string);
+    EXPECT(woken.is_empty());
+}
+
+TEST_CASE(a_background_that_never_ran_wakes_for_every_event)
+{
+    ExtensionMessageBroker broker;
+    auto id = MUST(String::from_utf8(x));
+    Vector<String> woken;
+    broker.wake_background = [&](String const& extension) { woken.append(extension); };
+    broker.dispatch_background_event(id, "tabs.onUpdated"_string, "[]"_string);
+    EXPECT_EQ(woken.size(), 1u);
+    EXPECT(broker.background_listens_for(id, "tabs.onUpdated"sv));
+}
+
+TEST_CASE(a_running_background_gets_every_event_and_other_pages_listeners_dont_count)
+{
+    ExtensionMessageBroker broker;
+    FakeEndpoint page, background;
+    background.background = true;
+    auto id = MUST(String::from_utf8(x));
+    broker.context_created(page, id, 1, { 1, 1 }, 1);
+    broker.context_created(background, id, 2, { 1, 1 }, 1);
+    broker.set_event_listeners(page, id, 1, { "tabs.onUpdated"_string });
+    broker.dispatch_background_event(id, "tabs.onUpdated"_string, "[1]"_string);
+    EXPECT_EQ(background.events, (Vector { "2 tabs.onUpdated [1]"_string }));
+    EXPECT(!broker.background_listens_for(id, "tabs.onUpdated"sv));
+}

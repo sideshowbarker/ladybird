@@ -1225,6 +1225,11 @@ void PageClient::page_did_finish_extension_suspend(String const& extension_id, u
     client().async_did_finish_extension_suspend(m_id, extension_id, context_id);
 }
 
+void PageClient::page_did_change_extension_event_listeners(String const& extension_id, u64 context_id, Vector<String> event_names)
+{
+    client().async_did_change_extension_event_listeners(m_id, extension_id, context_id, move(event_names));
+}
+
 void PageClient::page_did_set_extension_idle_timeout(String const& extension_id, double milliseconds)
 {
     if (auto* test_connection = client().test_connection())
@@ -1919,6 +1924,13 @@ String PageClient::extension_popup_state_for_testing(String const& extension_id)
     if (auto* test_connection = client().test_connection())
         return test_connection->did_request_extension_popup_state_for_testing(m_id, extension_id);
     return "{}"_string;
+}
+
+String PageClient::extension_background_state_for_testing(String const& extension_id)
+{
+    if (auto* test_connection = client().test_connection())
+        return test_connection->did_request_extension_background_state_for_testing(m_id, extension_id);
+    return {};
 }
 
 String PageClient::dump_site_isolation_process_tree_for_testing()
