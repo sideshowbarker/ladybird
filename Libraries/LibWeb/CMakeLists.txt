@@ -282,6 +282,7 @@ set(SOURCES
     Extensions/API/Permissions.cpp
     Extensions/API/Port.cpp
     Extensions/API/Runtime.cpp
+    Extensions/API/Scripting.cpp
     Extensions/API/Storage.cpp
     Extensions/API/Tabs.cpp
     Extensions/ContentScriptInjector.cpp
@@ -290,6 +291,7 @@ set(SOURCES
     Extensions/ExtensionWorld.cpp
     Extensions/MessageRouter.cpp
     Extensions/MessagingContext.cpp
+    Extensions/ScriptExecutor.cpp
     Extensions/Namespace.cpp
     Fetch/Body.cpp
     Fetch/BodyInit.cpp

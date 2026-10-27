@@ -1,0 +1,23 @@
+<!doctype html>
+<title>Scripted page</title>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        window.pageGlobal = 1;
+        // scripting.executeScript() runs a function with arguments, or files, in the extension's world or the page's,
+        // and resolves with each frame's result.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const show = reply => JSON.stringify(reply);
+            println(`func with args: ${show(await sendToBackground({ type: "func", run: "add" }))}`);
+            println(`isolated world: ${show(await sendToBackground({ type: "func", run: "pageGlobal" }))}`);
+            println(`main world: ${show(await sendToBackground({ type: "func", run: "pageGlobal", world: "MAIN" }))}`);
+            println(`files: ${show(await sendToBackground({ type: "files" }))}`);
+            println(`a promise: ${show(await sendToBackground({ type: "func", run: "later" }))}`);
+            println(`a throw: ${show(await sendToBackground({ type: "func", run: "boom" }))}`);
+            println(`neither func nor files: ${show(await sendToBackground({ type: "neither" }))}`);
+            done();
+        });
+    </script>
+</body>

@@ -1,0 +1,29 @@
+{
+    "manifest_version": 3,
+    "name": "Scripting Optional Fixture",
+    "version": "1.0",
+    "description": "Asks for scripting and activeTab as optional permissions, and keeps injecting after they're removed.",
+    "optional_permissions": [
+        "scripting",
+        "activeTab"
+    ],
+    "action": {
+        "default_title": "Optional fixture"
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/scripting-optional.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

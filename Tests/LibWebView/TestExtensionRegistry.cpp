@@ -22,6 +22,7 @@
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionPermissionsAPI.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
+#include <LibWebView/Extensions/ExtensionScriptingAPI.h>
 #include <LibWebView/Extensions/ExtensionStorageStore.h>
 #include <LibWebView/Settings.h>
 #include <LibWebView/ViewImplementation.h>
@@ -737,4 +738,17 @@ TEST_CASE(removing_an_origin_a_required_one_overlaps_changes_nothing)
     auto removed = TRY_OR_FAIL(remove({ "tabs"_string }, { "https://free.example.net/*"_string }));
     EXPECT_EQ(removed.permissions, (Vector { "tabs"_string }));
     EXPECT_EQ(removed.origins, (Vector { "https://free.example.net/*"_string }));
+}
+
+TEST_CASE(injection_refusal_keeps_browser_pages_off_limits)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    auto extension = TRY_OR_FAIL(registry.load_unpacked(directory.extension("everywhere"sv, R"({ "manifest_version": 3, "name": "Everywhere", "version": "1", "permissions": ["scripting"], "host_permissions": ["<all_urls>"] })"sv)));
+    auto url = [](StringView text) { return URL::Parser::basic_parse(text).release_value(); };
+    EXPECT(!WebView::extension_injection_refusal(*extension, url("https://example.com/"sv), true, false).has_value());
+    // A browser page stays off limits with a host permission for everything and with activeTab both.
+    EXPECT_EQ(WebView::extension_injection_refusal(*extension, url("about:settings"sv), true, true), "Cannot access contents of url \"about:settings\". Extension manifest must request permission to access this host."_string);
+    EXPECT(WebView::extension_injection_refusal(*extension, url("about:newtab"sv), false, true).has_value());
 }

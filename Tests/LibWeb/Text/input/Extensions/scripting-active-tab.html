@@ -1,0 +1,23 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <iframe src="data:text/html,another origin" onload="window.crossLoaded = true"></iframe>
+    <script>
+        // activeTab reaches the tab's top frame and frames of its origin, like an about:blank child, but not a frame of
+        // another origin, even with allFrames.
+        asyncTest(async done => {
+            await contentScriptReady();
+            while (!window.crossLoaded) await new Promise(resolve => setTimeout(resolve, 20));
+            document.body.append(document.createElement("iframe"));
+            const id = await sendToBackground({ type: "id" });
+            println(`before a click: ${(await sendToBackground({ type: "run" })).failed}`);
+            internals.clickExtensionAction(id);
+            let all;
+            while ((all = await sendToBackground({ type: "run", target: { allFrames: true } })).failed)
+                await new Promise(resolve => setTimeout(resolve, 20));
+            println(`after a click, allFrames: ${JSON.stringify(all.value)}`);
+            done();
+        });
+    </script>
+</body>

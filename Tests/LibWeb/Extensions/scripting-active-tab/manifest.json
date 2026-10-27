@@ -1,0 +1,29 @@
+{
+    "manifest_version": 3,
+    "name": "Scripting Active Tab Fixture",
+    "version": "1.0",
+    "description": "Injects with activeTab alone, which reaches only frames of the tab's own origin.",
+    "permissions": [
+        "scripting",
+        "activeTab"
+    ],
+    "action": {
+        "default_title": "Active tab fixture"
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/scripting-active-tab.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}
