@@ -98,6 +98,7 @@ public:
     static ExtensionRegistry& extension_registry() { return *the().m_extension_registry; }
     static ExtensionMessageBroker& extension_message_broker() { return *the().m_extension_message_broker; }
     static ExtensionBackgroundHost& extension_background_host() { return *the().m_extension_background_host; }
+    static ExtensionActionRegistry& extension_action_registry() { return *the().m_extension_action_registry; }
     static Profile const& profile() { return *the().m_profile; }
     BrowserProcess& browser_process() { return *m_browser_process; }
     bool should_exit_after_profile_coordination() const { return m_should_exit_after_profile_coordination; }
@@ -623,6 +624,9 @@ private:
     OwnPtr<ExtensionStorageStore> m_extension_storage_store;
     OwnPtr<ExtensionMessageBroker> m_extension_message_broker;
     OwnPtr<ExtensionBackgroundHost> m_extension_background_host;
+    OwnPtr<ExtensionActionRegistry> m_extension_action_registry;
+    HashMap<String, u64> m_extension_action_revisions;
+    void sync_extension_actions();
     bool m_extension_background_pages_may_start { false };
     OwnPtr<BrowserProcess> m_browser_process;
     bool m_should_exit_after_profile_coordination { false };

@@ -1952,6 +1952,12 @@ void Page::dispatch_extension_suspend(String const& extension_id, u64 context_id
         on_extension_suspend(extension_id, context_id, canceled);
 }
 
+void Page::dispatch_extension_event(String const& extension_id, u64 context_id, String const& event_name, String const& arguments_json)
+{
+    if (on_extension_event)
+        on_extension_event(extension_id, context_id, event_name, arguments_json);
+}
+
 void Page::complete_extension_runtime_message(u64 request_id, Web::Extensions::MessageResult const& reply_json)
 {
     Extensions::MessageRouter::the().complete(*this, request_id, reply_json);

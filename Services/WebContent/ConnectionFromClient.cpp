@@ -3236,6 +3236,12 @@ void ConnectionFromClient::dispatch_extension_suspend(Web::PageId page_id, Strin
         page->page().dispatch_extension_suspend(extension_id, context_id, canceled);
 }
 
+void ConnectionFromClient::dispatch_extension_event(Web::PageId page_id, String extension_id, u64 context_id, String event_name, String arguments_json)
+{
+    if (auto page = this->page(page_id); page.has_value())
+        page->page().dispatch_extension_event(extension_id, context_id, event_name, arguments_json);
+}
+
 void ConnectionFromClient::extension_runtime_message_reply(Web::PageId page_id, u64 request_id, Web::Extensions::MessageResult reply_json)
 {
     if (auto page = this->page(page_id); page.has_value())

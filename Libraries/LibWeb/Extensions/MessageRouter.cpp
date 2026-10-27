@@ -4,8 +4,10 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <AK/JsonArray.h>
 #include <LibGC/CellAllocator.h>
 #include <LibJS/Runtime/AbstractOperations.h>
+#include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/JSONObject.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -127,6 +129,7 @@ void MessageRouter::register_context(MessagingContext& context)
     page.on_extension_storage_reply = [this, &page](u64 request_id, StorageResult const& result) { complete_storage(page, request_id, result); };
     page.on_extension_storage_changed = [this, &page](String const& id, String const& changes) { dispatch_storage_changed(page, id, changes); };
     page.on_extension_suspend = [this, &page](String const& id, u64 context_id, bool canceled) { dispatch_suspend(page, id, context_id, canceled); };
+    page.on_extension_event = [this, &page](String const& id, u64 context_id, String const& name, String const& arguments) { dispatch_event(page, id, context_id, name, arguments); };
     context.page().client().page_did_create_extension_context(context.extension_id(), context.context_id(), context.document().id(), context.descriptor().revision);
 }
 
@@ -275,6 +278,47 @@ void MessageRouter::complete_storage(Page& page, u64 request_id, StorageResult c
         }
     }
     WebIDL::resolve_promise(realm, *pending->sender.promise, value);
+}
+
+GC::Ref<JS::PromiseCapability> MessageRouter::call_api(MessagingContext& context, StringView method, JsonArray const& arguments)
+{
+    auto& realm = context.realm();
+    if (context.is_detached())
+        return WebIDL::create_rejected_promise(realm, JS::TypeError::create(realm, "The extension context is detached"_utf16));
+    auto promise = WebIDL::create_promise(realm);
+    auto request_id = m_next_request_id++;
+    m_pending_sends.set(request_id, PendingSend { GC::make_root(promise), GC::make_root(realm), &context.page(), &context });
+    context.page().client().page_did_call_extension_api(context.context_id(), request_id, MUST(String::from_utf8(method)), arguments.serialized());
+    return promise;
+}
+
+void MessageRouter::dispatch_event(Page& page, String const& extension_id, u64 context_id, String const& event_name, String const& arguments_json)
+{
+    auto* context = context_for(page, context_id);
+    if (!context || context->extension_id() != extension_id || context->is_detached())
+        return;
+    auto list = context->existing_event_listeners(event_name);
+    if (!list)
+        return;
+    auto& realm = context->realm();
+    HTML::TemporaryExecutionContext execution_context { realm, HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };
+    auto parsed = JS::JSONObject::parse_json(realm.vm(), Utf16String::from_utf8(arguments_json));
+    if (parsed.is_error() || !parsed.value().is_object() || !is<JS::Array>(parsed.value().as_object()))
+        return;
+    auto parsed_value = parsed.release_value();
+    auto& array = static_cast<JS::Array&>(parsed_value.as_object());
+    GC::RootVector<JS::Value> arguments;
+    auto length = MUST(JS::length_of_array_like(realm.vm(), array));
+    for (size_t i = 0; i < length; ++i)
+        arguments.append(MUST(array.get(JS::PropertyKey { i })));
+    auto listeners = list->listeners();
+    for (auto listener : listeners) {
+        if (context->is_detached())
+            break;
+        auto result = JS::call(realm.vm(), JS::Value { listener }, JS::js_undefined(), ReadonlySpan<JS::Value> { arguments.data(), arguments.size() });
+        if (result.is_error())
+            HTML::report_exception(result, realm);
+    }
 }
 
 void MessageRouter::dispatch_suspend(Page& page, String const& extension_id, u64 context_id, bool canceled)

@@ -441,9 +441,11 @@ public:
     void complete_extension_storage(u64 request_id, Extensions::StorageResult const&);
     void dispatch_extension_storage_changed(String const& extension_id, String const& changes_json);
     void dispatch_extension_suspend(String const& extension_id, u64 context_id, bool canceled);
+    void dispatch_extension_event(String const& extension_id, u64 context_id, String const& event_name, String const& arguments_json);
     Function<void(u64, Extensions::StorageResult const&)> on_extension_storage_reply;
     Function<void(String const&, String const&)> on_extension_storage_changed;
     Function<void(String const&, u64, bool)> on_extension_suspend;
+    Function<void(String const&, u64, String const&, String const&)> on_extension_event;
     void complete_extension_runtime_message(u64 request_id, Web::Extensions::MessageResult const& reply_json);
     void invalidate_user_style();
     void invalidate_style_for_preference_change();
@@ -901,6 +903,7 @@ public:
     virtual void page_did_disconnect_extension_port(u64, u64, u64) { }
     virtual void page_did_request_extension_storage(u64, u64, Extensions::StorageRequest const&) { }
     virtual void page_did_request_extension_tabs_query([[maybe_unused]] u64 context_id, [[maybe_unused]] u64 request_id, [[maybe_unused]] String const& query_json) { }
+    virtual void page_did_call_extension_api([[maybe_unused]] u64 context_id, [[maybe_unused]] u64 request_id, [[maybe_unused]] String const& method, [[maybe_unused]] String const& arguments_json) { }
     virtual void page_did_send_extension_tab_message([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 request_id, [[maybe_unused]] u64 context_id, [[maybe_unused]] i64 tab_id, [[maybe_unused]] Optional<i64> frame_id, [[maybe_unused]] String const& message_json) { }
     virtual void page_did_reply_to_extension_runtime_message([[maybe_unused]] u64 dispatch_id, [[maybe_unused]] Web::Extensions::MessageResult const& reply_json) { }
 

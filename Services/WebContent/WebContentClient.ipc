@@ -246,6 +246,7 @@ endpoint WebContentClient routed by Web::PageId page_id
     did_send_extension_runtime_message(Web::PageId page_id, String extension_id, u64 request_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id) =|
     did_request_extension_storage(Web::PageId page_id, u64 context_id, u64 request_id, Web::Extensions::StorageRequest request) =|
     did_request_extension_tabs_query(Web::PageId page_id, u64 context_id, u64 request_id, String query_json) =|
+    did_call_extension_api(Web::PageId page_id, u64 context_id, u64 request_id, String method, String arguments_json) =|
     did_finish_extension_suspend(Web::PageId page_id, String extension_id, u64 context_id) =|
     did_send_extension_tab_message(Web::PageId page_id, String extension_id, u64 request_id, u64 context_id, i64 tab_id, Optional<i64> frame_id, String message_json) =|
     did_reply_to_extension_runtime_message(Web::PageId page_id, u64 dispatch_id, Web::Extensions::MessageResult reply_json) =|

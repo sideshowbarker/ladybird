@@ -56,6 +56,7 @@ class RequestServerSiteBindings;
 class PermissionManager;
 class SessionStore;
 class Extension;
+class ExtensionActionRegistry;
 class ExtensionBackgroundHost;
 class ExtensionMessageBroker;
 class ExtensionRegistry;

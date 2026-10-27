@@ -12,6 +12,7 @@
 #include <LibJS/Runtime/Object.h>
 #include <LibJS/Runtime/PropertyKey.h>
 #include <LibJS/Runtime/Realm.h>
+#include <LibWeb/Extensions/API/Arguments.h>
 #include <LibWeb/Extensions/API/Completion.h>
 #include <LibWeb/Extensions/API/Tabs.h>
 #include <LibWeb/Extensions/MessageRouter.h>
@@ -58,31 +59,6 @@ static constexpr Array query_keys {
     QueryKey { "windowType"sv, QueryValueType::String, window_type_values },
 };
 
-// An API integer is a signed 32-bit one, and any other number is just a number.
-static bool is_api_integer(JS::Value value)
-{
-    return value.is_integral_number() && value.as_double() >= NumericLimits<i32>::min() && value.as_double() <= NumericLimits<i32>::max();
-}
-
-static StringView type_name_of(JS::Value value)
-{
-    if (value.is_undefined())
-        return "undefined"sv;
-    if (value.is_null())
-        return "null"sv;
-    if (value.is_boolean())
-        return "boolean"sv;
-    if (value.is_number())
-        return is_api_integer(value) ? "integer"sv : "number"sv;
-    if (value.is_string())
-        return "string"sv;
-    if (value.is_function())
-        return "function"sv;
-    if (value.is_object() && is<JS::Array>(value.as_object()))
-        return "array"sv;
-    return "object"sv;
-}
-
 // Extensions compare these messages, so their wording is fixed.
 static JS::ThrowCompletionOr<void> throw_invocation_error(JS::VM& vm, StringView detail)
 {
@@ -96,7 +72,7 @@ static JS::ThrowCompletionOr<void> throw_property_error(JS::VM& vm, StringView k
 
 static JS::ThrowCompletionOr<void> throw_type_error(JS::VM& vm, StringView key, StringView expected, JS::Value value)
 {
-    return throw_property_error(vm, key, MUST(String::formatted("Invalid type: expected {}, found {}.", expected, type_name_of(value))));
+    return throw_property_error(vm, key, MUST(String::formatted("Invalid type: expected {}, found {}.", expected, api_type_name(value))));
 }
 
 struct ParsedQuery {
@@ -195,7 +171,7 @@ static JS::ThrowCompletionOr<SendMessageOptions> parse_send_message_options(JS::
     if (argument.is_nullish())
         return options;
     if (!argument.is_object() || argument.is_function() || is<JS::Array>(argument.as_object())) {
-        TRY(throw_send_message_error(vm, MUST(String::formatted("Error at parameter 'options': Invalid type: expected object, found {}.", type_name_of(argument)))));
+        TRY(throw_send_message_error(vm, MUST(String::formatted("Error at parameter 'options': Invalid type: expected object, found {}.", api_type_name(argument)))));
         VERIFY_NOT_REACHED();
     }
     auto& object = argument.as_object();
@@ -212,13 +188,13 @@ static JS::ThrowCompletionOr<SendMessageOptions> parse_send_message_options(JS::
             if (value.is_undefined())
                 continue;
             if (!is_api_integer(value))
-                TRY(throw_send_message_error(vm, MUST(String::formatted("Error at parameter 'options': Error at property 'frameId': Invalid type: expected integer, found {}.", type_name_of(value)))));
+                TRY(throw_send_message_error(vm, MUST(String::formatted("Error at parameter 'options': Error at property 'frameId': Invalid type: expected integer, found {}.", api_type_name(value)))));
             options.frame_id = static_cast<i64>(value.as_double());
         } else if (name == "documentId"sv) {
             if (value.is_undefined())
                 continue;
             if (!value.is_string())
-                TRY(throw_send_message_error(vm, MUST(String::formatted("Error at parameter 'options': Error at property 'documentId': Invalid type: expected string, found {}.", type_name_of(value)))));
+                TRY(throw_send_message_error(vm, MUST(String::formatted("Error at parameter 'options': Error at property 'documentId': Invalid type: expected string, found {}.", api_type_name(value)))));
             options.has_document_id = true;
         } else {
             TRY(throw_send_message_error(vm, MUST(String::formatted("Error at parameter 'options': Unexpected property: '{}'.", name))));
@@ -256,7 +232,7 @@ GC::Ref<JS::Object> create_tabs(JS::Realm& realm, MessagingContext& context)
         if (count > 3)
             TRY(throw_send_message_error(vm, "No matching signature."sv));
         if (!is_api_integer(vm.argument(0)))
-            TRY(throw_send_message_error(vm, MUST(String::formatted("Error at parameter 'tabId': Invalid type: expected integer, found {}.", type_name_of(vm.argument(0))))));
+            TRY(throw_send_message_error(vm, MUST(String::formatted("Error at parameter 'tabId': Invalid type: expected integer, found {}.", api_type_name(vm.argument(0))))));
         auto options = TRY(parse_send_message_options(vm, count > 2 ? vm.argument(2) : JS::js_undefined()));
         auto& operation_realm = context->realm();
         // No API hands out document ids yet, so none can name a document.

@@ -299,6 +299,7 @@ private:
     virtual void did_send_extension_tab_message(String extension_id, u64 request_id, u64 context_id, i64 tab_id, Optional<i64> frame_id, String message_json) override;
     virtual void did_request_extension_storage(u64 context_id, u64 request_id, Web::Extensions::StorageRequest) override;
     virtual void did_request_extension_tabs_query(u64 context_id, u64 request_id, String query_json) override;
+    virtual void did_call_extension_api(u64 context_id, u64 request_id, String method, String arguments_json) override;
     virtual bool extension_has_permission(String const&, StringView) const override;
     virtual void complete_extension_storage(u64, Web::Extensions::StorageResult const&) override;
     virtual void dispatch_extension_storage_changed(String const&, String const&) override;

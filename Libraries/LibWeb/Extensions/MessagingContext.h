@@ -68,6 +68,10 @@ public:
 
     String const& extension_id() const { return descriptor().id; }
 
+    // The listeners of an API event by its name ("action.onClicked", e.g.), made when first asked for.
+    EventListenerList& event_listeners(String const& event_name);
+    GC::Ptr<EventListenerList> existing_event_listeners(String const& event_name) const;
+
 protected:
     virtual void visit_edges(Visitor& visitor) override
     {
@@ -80,6 +84,8 @@ protected:
         visitor.visit(m_last_error);
         visitor.visit(m_storage_listeners);
         visitor.visit(m_local_storage_listeners);
+        for (auto const& [name, listeners] : m_event_listeners)
+            visitor.visit(listeners);
     }
 
     MessagingContext()
@@ -96,6 +102,7 @@ private:
     HashMap<u64, GC::Ref<Port>> m_live_ports;
     GC::Ptr<EventListenerList> m_storage_listeners;
     GC::Ptr<EventListenerList> m_local_storage_listeners;
+    HashMap<String, GC::Ref<EventListenerList>> m_event_listeners;
     JS::Value m_last_error { JS::js_undefined() };
 };
 

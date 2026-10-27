@@ -1,0 +1,11 @@
+background default: {"value":[217,0,0,255]}
+text default: {"value":[255,255,255,255]}
+"#abc": set {"value":null}, get {"value":[170,187,204,255]}
+"rgb(1, 2, 3)": set {"value":null}, get {"value":[1,2,3,255]}
+[10,20,30,128]: set {"value":null}, get {"value":[10,20,30,128]}
+"nonsense": set {"error":"Error: Invalid color"}, get {"value":[10,20,30,128]}
+[1,2,3]: set {"error":"Error: Invalid color"}, get {"value":[10,20,30,128]}
+[1,2,3,300]: set {"error":"Error: Invalid color"}, get {"value":[10,20,30,128]}
+text on yellow: {"value":[0,0,0,255]}
+text set to blue: {"value":[0,0,255,255]}
+a color whose getter throws: Error: the getter threw

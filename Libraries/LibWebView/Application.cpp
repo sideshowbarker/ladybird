@@ -54,6 +54,7 @@
 #include <LibWebView/CompositorPresentationClient.h>
 #include <LibWebView/CookieJar.h>
 #include <LibWebView/CrashReportStore.h>
+#include <LibWebView/Extensions/ExtensionActionRegistry.h>
 #include <LibWebView/Extensions/ExtensionBackgroundHost.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
@@ -248,6 +249,7 @@ public:
         auto& app = m_application;
         app.m_extension_background_host->prepare(*app.m_extension_registry);
         app.m_extension_message_broker->reconcile_contexts();
+        app.sync_extension_actions();
         WebContentClient::for_each_client([&](WebContentClient& client) {
             client.async_set_extensions(app.m_extension_registry->enabled_descriptors(client.is_private()));
             return IterationDecision::Continue;
@@ -723,6 +725,7 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_extension_message_broker = make<ExtensionMessageBroker>();
     m_extension_registry->set_message_broker(*m_extension_message_broker);
     m_extension_background_host = make<ExtensionBackgroundHost>();
+    m_extension_action_registry = make<ExtensionActionRegistry>();
     m_extension_message_broker->wake_background = [this](String const& id) {
         if (m_extension_background_host)
             m_extension_background_host->wake(id);
@@ -3546,6 +3549,27 @@ Optional<Core::TimeZoneWatcher&> Application::time_zone_watcher()
     if (m_time_zone_watcher != nullptr)
         return *m_time_zone_watcher;
     return {};
+}
+
+// Keeps one action per enabled extension that declares one. A reload gives the extension a new revision, and its
+// action starts over from the manifest.
+void Application::sync_extension_actions()
+{
+    auto& actions = *m_extension_action_registry;
+    HashMap<String, u64> revisions;
+    for (auto const& extension : m_extension_registry->extensions()) {
+        auto const& descriptor = extension->descriptor();
+        if (!m_extension_registry->is_enabled(descriptor.id) || !extension->manifest().action.has_value())
+            continue;
+        revisions.set(descriptor.id, descriptor.revision);
+        if (m_extension_action_revisions.get(descriptor.id) != descriptor.revision || !actions.has_action(descriptor.id))
+            actions.set_extension(descriptor.id, descriptor.name, *extension->manifest().action);
+    }
+    for (auto const& id : actions.extensions_with_actions()) {
+        if (!revisions.contains(id))
+            actions.remove_extension(id);
+    }
+    m_extension_action_revisions = move(revisions);
 }
 
 Vector<ExtensionTab> Application::extension_tabs() const

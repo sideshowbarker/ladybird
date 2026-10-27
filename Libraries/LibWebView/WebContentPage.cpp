@@ -27,6 +27,8 @@
 #include <LibWebView/CanonicalTraversable.h>
 #include <LibWebView/CanonicalWindow.h>
 #include <LibWebView/CookieJar.h>
+#include <LibWebView/Extensions/ExtensionActionAPI.h>
+#include <LibWebView/Extensions/ExtensionActionRegistry.h>
 #include <LibWebView/Extensions/ExtensionBackgroundHost.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
@@ -1874,6 +1876,46 @@ void WebContentPage::did_request_extension_tabs_query(u64 context_id, u64 reques
     auto last_focused_window_id = last_focused_extension_window_for(Application::the().extension_window_focus_order(), tabs, allowed_in_private);
     ExtensionTabViewer viewer { extension->descriptor(), allowed_in_private, current_window_id, last_focused_window_id };
     auto result = query_extension_tabs(viewer, tabs, query.value().as_object());
+    if (result.is_error())
+        complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
+    else
+        complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });
+}
+
+void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, String method, String arguments_json)
+{
+    auto context = Application::extension_message_broker().current_context(*this, context_id);
+    if (!context.has_value())
+        return;
+    auto extension = Application::extension_registry().find(context->extension_id);
+    auto arguments = JsonValue::from_string(arguments_json);
+    if (!extension || arguments.is_error() || !arguments.value().is_array())
+        return;
+
+    // The renderer names the namespace; the UI process decides whether this context may use it.
+    auto separator = method.bytes_as_string_view().find('.');
+    if (!separator.has_value())
+        return;
+    auto api_namespace = method.bytes_as_string_view().substring_view(0, *separator);
+    auto name = method.bytes_as_string_view().substring_view(*separator + 1);
+    if (!may_call_extension_action_api(context->is_extension_document, api_namespace, extension->descriptor()))
+        return;
+
+    // A tab the call names has to be one the extension can see; extensions compare this error's wording.
+    auto const& call_arguments = arguments.value().as_array();
+    if (!call_arguments.is_empty()) {
+        if (auto tab_id = call_arguments.at(0).get_integer<i64>(); tab_id.has_value()) {
+            auto& registry = Application::extension_registry();
+            ExtensionTabViewer viewer { extension->descriptor(), registry.is_allowed_in_private(context->extension_id), {}, {} };
+            auto tabs = Application::the().extension_tabs();
+            if (tabs.find_if([&](auto const& tab) { return tab.id == *tab_id && may_see_tab(viewer, tab); }).is_end()) {
+                complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { MUST(String::formatted("No tab with id: {}.", *tab_id)) });
+                return;
+            }
+        }
+    }
+
+    auto result = call_extension_action_api(Application::extension_action_registry(), extension->descriptor(), name, call_arguments);
     if (result.is_error())
         complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
     else
