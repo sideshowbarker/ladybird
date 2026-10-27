@@ -7,6 +7,7 @@
 #include <AK/JsonArray.h>
 #include <AK/JsonObject.h>
 #include <AK/JsonValue.h>
+#include <AK/QuickSort.h>
 #include <AK/StringBuilder.h>
 #include <LibWebView/Extensions/ExtensionManifest.h>
 
@@ -163,6 +164,64 @@ static ErrorOr<Optional<ExtensionManifest::Background>, String> parse_background
     return background;
 }
 
+static String extension_relative_path(StringView path)
+{
+    return MUST(String::from_utf8(path.trim("/"sv, TrimMode::Left)));
+}
+
+static ErrorOr<Optional<ExtensionManifest::Action>, String> parse_action(JsonObject const& manifest, u8 manifest_version)
+{
+    // Each manifest version reads only its own key; page_action isn't supported.
+    auto key = manifest_version == 2 ? "browser_action"sv : "action"sv;
+    auto object = manifest.get_object(key);
+    if (!object.has_value()) {
+        if (manifest.has(key))
+            return error_for(key, "must be an object"sv);
+        return OptionalNone {};
+    }
+
+    ExtensionManifest::Action action;
+    action.is_browser_action = manifest_version == 2;
+
+    auto qualified = [&](StringView member) { return MUST(String::formatted("{}.{}", key, member)); };
+    auto read_string = [&](StringView member) -> ErrorOr<Optional<String>, String> {
+        auto value = object->get(member);
+        if (!value.has_value())
+            return OptionalNone {};
+        if (!value->is_string())
+            return error_for(qualified(member), "must be a string"sv);
+        return Optional<String> { value->as_string() };
+    };
+
+    if (auto popup = TRY(read_string("default_popup"sv)); popup.has_value())
+        action.default_popup = extension_relative_path(*popup);
+    action.default_title = TRY(read_string("default_title"sv));
+
+    if (auto icon = object->get("default_icon"sv); icon.has_value()) {
+        if (icon->is_string()) {
+            action.default_icon.append({ 0, extension_relative_path(icon->as_string()) });
+        } else if (icon->is_object()) {
+            Optional<String> error;
+            icon->as_object().for_each_member([&](String const& size, JsonValue const& path) {
+                if (error.has_value())
+                    return;
+                auto pixels = size.to_number<u32>();
+                if (!pixels.has_value() || !path.is_string()) {
+                    error = error_for(qualified("default_icon"sv), "must map sizes to paths"sv);
+                    return;
+                }
+                action.default_icon.append({ *pixels, extension_relative_path(path.as_string()) });
+            });
+            if (error.has_value())
+                return error.release_value();
+            quick_sort(action.default_icon, [](auto const& a, auto const& b) { return a.size < b.size; });
+        } else {
+            return error_for(qualified("default_icon"sv), "must be a string or an object"sv);
+        }
+    }
+    return action;
+}
+
 // Returns an error message, or nothing when the policy was read into the out parameter.
 static Optional<String> parse_content_security_policy(JsonObject const& manifest, u8 manifest_version, String& extension_pages_csp)
 {
@@ -238,6 +297,7 @@ ErrorOr<ExtensionManifest, String> ExtensionManifest::parse(StringView manifest_
     if (auto error = parse_content_security_policy(object, manifest.manifest_version, manifest.extension_pages_csp); error.has_value())
         return error.release_value();
     manifest.background = TRY(parse_background(object, manifest.manifest_version));
+    manifest.action = TRY(parse_action(object, manifest.manifest_version));
 
     return manifest;
 }
