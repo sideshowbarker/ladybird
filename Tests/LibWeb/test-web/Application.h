@@ -41,6 +41,16 @@ public:
     virtual void focus_page_from_notification(WebView::WebContentPage&) override;
     virtual void open_url_in_new_tab_from_notification(URL::URL const&, Web::PageId originating_page, WebView::CanonicalTraversable*, WebView::IsPrivate) override;
 
+    // Extensions see one window as focused, and it runs no tests: So a background page's current window is the same
+    // whichever view a test runs in, and a tab that opens or becomes active doesn't take focus from it.
+    virtual Vector<i64> extension_window_focus_order() const override
+    {
+        if (focused_extension_window_id.has_value())
+            return { *focused_extension_window_id };
+        return {};
+    }
+    Optional<i64> focused_extension_window_id;
+
     ErrorOr<void> launch_test_fixtures();
 
     static constexpr u8 VERBOSITY_LEVEL_LOG_TEST_OUTPUT = 1;

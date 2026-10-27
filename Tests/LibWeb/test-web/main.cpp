@@ -1282,6 +1282,13 @@ static ErrorOr<int> run_tests(Core::AnonymousBuffer const& theme, Web::DevicePix
         views.unchecked_append(move(view));
     }
 
+    // The window extensions see as focused, in a view of its own that never runs a test.
+    OwnPtr<TestWebView> focused_extension_view;
+    if (!WebView::Application::browser_options().extension_directories.is_empty()) {
+        focused_extension_view = TestWebView::create(theme, window_size);
+        app.focused_extension_window_id = focused_extension_view->extension_window_id();
+    }
+
     // We need to wait for the initial about:blank load to complete before starting the tests, otherwise we may load the
     // test URL before the about:blank load completes. WebContent currently cannot handle this, and will drop the test URL.
     // Nothing else bounds this wait, so it gets the per-test timeout.
