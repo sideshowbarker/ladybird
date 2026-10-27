@@ -2,7 +2,6 @@ Ladybird drops a tab’s action values when the tab activates another
 top-level document, and keeps them across same-document navigations.
 Chromium does the same in ExtensionActionRunner::DidFinishNavigation(),
 which returns early for a navigation that isn’t in the primary main
-frame, hasn’t committed, or is same-document; and Gecko does too, in
-ExtensionActions’ handleLocationChange(), which clears the tab’s context
-only for a location change from browsing, not for a hash change or
-pushState().
+frame, hasn’t committed, or is same-document. And so does Gecko, in
+ExtensionActions’ handleLocationChange(), which clears a tab’s context
+only for a location change from browsing.
