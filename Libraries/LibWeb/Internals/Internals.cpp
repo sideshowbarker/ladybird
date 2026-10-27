@@ -1784,6 +1784,12 @@ void Internals::set_extension_idle_timeout(Utf16String const& extension_id, doub
     page().client().page_did_set_extension_idle_timeout(extension_id.to_utf8_but_should_be_ported_to_utf16(), milliseconds);
 }
 
+// Clicks the extension's toolbar button for this page's tab.
+void Internals::click_extension_action(Utf16String const& extension_id)
+{
+    page().client().page_did_click_extension_action(extension_id.to_utf8_but_should_be_ported_to_utf16());
+}
+
 bool Internals::headless()
 {
     return page().client().is_headless();

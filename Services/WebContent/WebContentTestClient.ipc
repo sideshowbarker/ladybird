@@ -13,6 +13,7 @@ endpoint WebContentTestClient routed by Web::PageId page_id
     did_finish_test(Web::PageId page_id, String text) =|
     did_set_test_timeout(Web::PageId page_id, double milliseconds) =|
     did_set_extension_idle_timeout(Web::PageId page_id, String extension_id, double milliseconds) =|
+    did_click_extension_action(Web::PageId page_id, String extension_id) =|
     did_receive_reference_test_metadata(Web::PageId page_id, JsonValue result) =|
 
     did_expire_cookies_with_time_offset(AK::Duration offset) => ()

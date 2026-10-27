@@ -929,6 +929,7 @@ public:
     virtual void page_did_finish_test([[maybe_unused]] Utf16String const& text) { }
     virtual void page_did_set_test_timeout([[maybe_unused]] double milliseconds) { }
     virtual void page_did_set_extension_idle_timeout([[maybe_unused]] String const& extension_id, [[maybe_unused]] double milliseconds) { }
+    virtual void page_did_click_extension_action([[maybe_unused]] String const& extension_id) { }
     virtual void page_did_finish_extension_suspend([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id) { }
     virtual void page_did_receive_reference_test_metadata(JsonValue) { }
 

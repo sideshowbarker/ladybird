@@ -50,6 +50,7 @@ endif()
 
 set(TEST_SOURCES
     TestChromeIcons.cpp
+    TestExtensionActionButton.cpp
     TestHiddenPageSizing.cpp
     TestNativeTextEditingLineEdit.cpp
     TestProcessManagerWindow.cpp
@@ -60,6 +61,7 @@ set(TEST_SOURCES
     TestWebContentViewInputMethod.cpp
     "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebView/ProcessMonitor.cpp"
     "${LADYBIRD_SOURCE_DIR}/UI/Qt/ChromeStyle.cpp"
+    "${LADYBIRD_SOURCE_DIR}/UI/Qt/ExtensionActionButton.cpp"
     "${LADYBIRD_SOURCE_DIR}/UI/Qt/HiddenPageSizing.cpp"
     "${LADYBIRD_SOURCE_DIR}/UI/Qt/Icon.cpp"
     "${LADYBIRD_SOURCE_DIR}/UI/Qt/InputMethodUtils.cpp"

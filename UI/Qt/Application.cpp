@@ -1294,6 +1294,26 @@ Optional<WebView::ViewImplementation&> Application::active_web_view() const
     return {};
 }
 
+void Application::extension_action_list_changed()
+{
+    for (auto* widget : QApplication::topLevelWidgets()) {
+        if (auto* window = as_if<BrowserWindow>(widget))
+            window->for_each_tab([](Tab& tab) { tab.update_extension_actions(); });
+    }
+}
+
+void Application::extension_action_changed(String const& extension_id, Optional<i64> tab_id)
+{
+    for (auto* widget : QApplication::topLevelWidgets()) {
+        if (auto* window = as_if<BrowserWindow>(widget)) {
+            window->for_each_tab([&](Tab& tab) {
+                if (!tab_id.has_value() || tab.extension_tab_id() == *tab_id)
+                    tab.update_extension_action(extension_id);
+            });
+        }
+    }
+}
+
 Vector<WebView::ExtensionTab> Application::extension_tabs() const
 {
     Vector<BrowserWindow*> windows;

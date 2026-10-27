@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // Clicking a button without a popup dispatches action.onClicked with the tab, and grants activeTab for that tab.
+    asyncTest(async done => {
+        await contentScriptReady();
+        const id = internals.extensionId("Action Click Fixture");
+        const localPath = url => (url ? url.replace(/^.*\/Extensions\//, ".../") : url);
+        println(`URL before a click: ${localPath(await sendToBackground({ type: "url" }))}`);
+        internals.clickExtensionAction(id);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const clicks = await sendToBackground({ type: "clicks" });
+        println(`clicks: ${clicks.length}, from this tab: ${clicks[0]?.sameTab}, with its URL: ${localPath(clicks[0]?.url)}`);
+        println(`URL after a click: ${localPath(await sendToBackground({ type: "url" }))}`);
+
+        // A button with a popup opens it instead, and one whose popup is cleared dispatches again.
+        await sendToBackground({ type: "set-popup", popup: "popup.html" });
+        internals.clickExtensionAction(id);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        println(`clicks with a popup: ${(await sendToBackground({ type: "clicks" })).length}`);
+        await sendToBackground({ type: "set-popup", popup: "" });
+        internals.clickExtensionAction(id);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        println(`clicks after clearing it: ${(await sendToBackground({ type: "clicks" })).length}`);
+        done();
+    });
+</script>
+</body>

@@ -50,6 +50,7 @@
 #include <LibWebView/BrowserProcess.h>
 #include <LibWebView/BrowsingSession.h>
 #include <LibWebView/DownloadStore.h>
+#include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/ExternalURLHandler.h>
 #include <LibWebView/FileDownloader.h>
 #include <LibWebView/Forward.h>
@@ -296,8 +297,21 @@ public:
     // The browser's tabs, for extensions, in window and then tab order. A frontend with tabs of its own reports them, and
     // the default reports each view marked as a tab, as the active tab of a window of its own.
     virtual Vector<ExtensionTab> extension_tabs() const;
-    // Drops the extension state that belongs to one tab, for a tab that loaded another document or closed.
-    void clear_extension_tab_state(i64 tab_id);
+    // A tab that activates another document drops what extensions set for it alone, and an activeTab grant ends when
+    // the document is of another origin; one that closes drops all of it.
+    void extension_tab_activated_document(i64 tab_id, URL::URL const&);
+    void extension_tab_closed(i64 tab_id);
+    ExtensionActiveTabGrants const* extension_active_tab_grants(StringView extension_id) const;
+
+    // The user invoked an extension's toolbar button in a tab: That grants activeTab there, then opens the button's
+    // popup, or dispatches action.onClicked to the background page when it has none.
+    void activate_extension_action(String const& extension_id, i64 tab_id);
+
+    // Frontends show a button per extension in extension_action_registry().extensions_with_actions(); the list
+    // changes when an extension with an action is added, removed, enabled, or disabled, and one extension's state for
+    // a tab (or globally, without a tab id) when it calls the action API.
+    virtual void extension_action_list_changed() { }
+    virtual void extension_action_changed(String const&, Optional<i64>) { }
     // The ids of the windows the user has focused, most recent first.
     virtual Vector<i64> extension_window_focus_order() const { return {}; }
     virtual Vector<ViewImplementation&> active_window_web_views() const { return {}; }
@@ -629,6 +643,8 @@ private:
     OwnPtr<ExtensionBackgroundHost> m_extension_background_host;
     OwnPtr<ExtensionActionRegistry> m_extension_action_registry;
     HashMap<String, u64> m_extension_action_revisions;
+    HashTable<String> m_extension_actions_allowed_in_private;
+    HashMap<String, ExtensionActiveTabGrants> m_extension_active_tab_grants;
     void sync_extension_actions();
 
     bool m_extension_background_pages_may_start { false };

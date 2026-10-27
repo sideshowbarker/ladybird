@@ -169,6 +169,8 @@ public:
     // tab of a window of its own.
     void mark_as_extension_tab();
     Optional<i64> extension_tab_id() const { return m_extension_tab_id; }
+    // A frontend that keeps its own tab ids hands the view its tab's, so that what extensions keep per tab follows it.
+    void set_extension_tab_id(i64 tab_id) { m_extension_tab_id = tab_id; }
     Optional<i64> extension_window_id() const { return m_extension_window_id; }
 
     CanonicalTraversable& traversable() const;

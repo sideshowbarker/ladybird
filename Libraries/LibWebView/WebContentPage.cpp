@@ -1804,7 +1804,7 @@ void WebContentPage::annotate_extension_sender(Web::Extensions::MessageSender& s
         return;
     auto tabs = Application::the().extension_tabs();
     auto tab = tabs.find_if([&](auto const& tab) { return tab.view_id == view_id; });
-    ExtensionTabViewer viewer { extension->descriptor(), registry.is_allowed_in_private(sender.extension_id), {}, {} };
+    ExtensionTabViewer viewer { extension->descriptor(), registry.is_allowed_in_private(sender.extension_id), {}, {}, Application::the().extension_active_tab_grants(sender.extension_id) };
     if (tab == tabs.end() || !may_see_tab(viewer, *tab))
         return;
     sender.tab_json = serialize_extension_tab(viewer, *tab).serialized();
@@ -1831,7 +1831,7 @@ void WebContentPage::did_send_extension_tab_message(String extension_id, u64 req
     auto& registry = Application::extension_registry();
     Optional<u64> view_id;
     if (auto extension = registry.find(extension_id)) {
-        ExtensionTabViewer viewer { extension->descriptor(), registry.is_allowed_in_private(extension_id), {}, {} };
+        ExtensionTabViewer viewer { extension->descriptor(), registry.is_allowed_in_private(extension_id), {}, {}, Application::the().extension_active_tab_grants(extension_id) };
         for (auto const& tab : Application::the().extension_tabs()) {
             if (tab.id == tab_id && may_see_tab(viewer, tab))
                 view_id = tab.view_id;
@@ -1877,7 +1877,7 @@ void WebContentPage::did_request_extension_tabs_query(u64 context_id, u64 reques
     }
     auto allowed_in_private = registry.is_allowed_in_private(context->extension_id);
     auto last_focused_window_id = last_focused_extension_window_for(Application::the().extension_window_focus_order(), tabs, allowed_in_private);
-    ExtensionTabViewer viewer { extension->descriptor(), allowed_in_private, current_window_id, last_focused_window_id };
+    ExtensionTabViewer viewer { extension->descriptor(), allowed_in_private, current_window_id, last_focused_window_id, Application::the().extension_active_tab_grants(context->extension_id) };
     auto result = query_extension_tabs(viewer, tabs, query.value().as_object());
     if (result.is_error())
         complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
@@ -1909,7 +1909,7 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
     if (!call_arguments.is_empty()) {
         if (auto tab_id = call_arguments.at(0).get_integer<i64>(); tab_id.has_value()) {
             auto& registry = Application::extension_registry();
-            ExtensionTabViewer viewer { extension->descriptor(), registry.is_allowed_in_private(context->extension_id), {}, {} };
+            ExtensionTabViewer viewer { extension->descriptor(), registry.is_allowed_in_private(context->extension_id), {}, {}, Application::the().extension_active_tab_grants(context->extension_id) };
             auto tabs = Application::the().extension_tabs();
             if (tabs.find_if([&](auto const& tab) { return tab.id == *tab_id && may_see_tab(viewer, tab); }).is_end()) {
                 complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { MUST(String::formatted("No tab with id: {}.", *tab_id)) });
@@ -3507,12 +3507,25 @@ void WebContentPage::dispatch_extension_suspend(String const& extension_id, u64 
     async_dispatch_extension_suspend(extension_id, context_id, canceled);
 }
 
+void WebContentPage::dispatch_extension_event(String const& extension_id, u64 context_id, String const& event_name, String const& arguments_json)
+{
+    async_dispatch_extension_event(extension_id, context_id, event_name, arguments_json);
+}
+
 void WebContentPage::did_finish_extension_suspend(String extension_id, u64 context_id)
 {
     // Only the page the host suspended can end its suspension.
     auto& host = Application::extension_background_host();
     if (host.hosts_page(extension_id, *this))
         host.suspend_acknowledged(extension_id, context_id);
+}
+
+void WebContentPage::did_click_extension_action(String extension_id)
+{
+    if (!displays_tab())
+        return;
+    if (auto tab_id = view().extension_tab_id(); tab_id.has_value())
+        Application::the().activate_extension_action(extension_id, *tab_id);
 }
 
 void WebContentPage::did_set_extension_idle_timeout(String extension_id, double milliseconds)

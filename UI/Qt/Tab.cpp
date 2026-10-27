@@ -15,6 +15,8 @@
 #include <LibWebCommon/HTML/SelectedFile.h>
 #include <LibWebView/Application.h>
 #include <LibWebView/DownloadPresentation.h>
+#include <LibWebView/Extensions/Extension.h>
+#include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/URL.h>
 #include <LibWebView/Utilities.h>
 #include <LibWebView/WebContentClient.h>
@@ -23,6 +25,7 @@
 #include <UI/Qt/BrowserWindow.h>
 #include <UI/Qt/ChromeLayout.h>
 #include <UI/Qt/ChromeStyle.h>
+#include <UI/Qt/ExtensionActionButton.h>
 #include <UI/Qt/Icon.h>
 #include <UI/Qt/JavaScriptDialog.h>
 #include <UI/Qt/LadybirdButton.h>
@@ -1116,6 +1119,7 @@ void Tab::initialize(Optional<WebView::CanonicalTraversable&> traversable)
     };
 
     m_view = new WebContentView(this, traversable, AK::move(view_initial_state));
+    m_view->set_extension_tab_id(m_extension_tab_id);
     // The window reports its geometry to its tabs as it is moved and resized, so a tab opened later has to be told
     // where the window stands now.
     m_view->set_window_position({ m_window->x(), m_window->y() });
@@ -1299,6 +1303,12 @@ void Tab::initialize(Optional<WebView::CanonicalTraversable&> traversable)
     m_location_edit->set_zoom_action(create_application_action(*m_location_edit, view().reset_zoom_action(), IncludeActionIcon::No));
     location_edit_layout->addWidget(m_location_edit);
 
+    m_extension_actions = new QWidget(m_toolbar);
+    auto* extension_actions_layout = new QHBoxLayout(m_extension_actions);
+    extension_actions_layout->setContentsMargins(0, 0, 0, 0);
+    extension_actions_layout->setSpacing(2);
+    update_extension_actions();
+
     m_performance_monitor = new PerformanceMonitorWidget(m_toolbar);
     (void)WebView::TabPerformanceMonitor::the();
     m_performance_monitor->setVisible(WebView::Application::settings().config_variable_as_bool(WebView::ConfigVariableID::ShowTabPerformanceMonitor));
@@ -1331,6 +1341,7 @@ void Tab::initialize(Optional<WebView::CanonicalTraversable&> traversable)
 
     toolbar_layout->addWidget(navigation_button_cluster, 0, Qt::AlignVCenter);
     toolbar_layout->addWidget(location_edit_container, 1);
+    toolbar_layout->addWidget(m_extension_actions, 0, Qt::AlignVCenter);
     toolbar_layout->addWidget(m_downloads_button, 0, Qt::AlignVCenter);
     toolbar_layout->addWidget(m_performance_monitor, 0, Qt::AlignVCenter);
 
@@ -2485,6 +2496,61 @@ void Tab::recreate_toolbar_icons()
     if (auto* action = m_location_edit->trailing_action()) {
         auto engaged = view().toggle_bookmark_action().engaged();
         action->setIcon(create_chrome_icon(engaged ? ChromeIcon::StarFilled : ChromeIcon::Star, Theme::chrome_palette(*this), activity));
+    }
+}
+
+// An extension's icon at the button's size: the manifest's or setIcon()'s paths, read from the extension's directory.
+static QIcon extension_action_icon(String const& extension_id, Vector<WebView::ExtensionManifest::IconPath> const& paths)
+{
+    QIcon icon;
+    auto extension = WebView::Application::extension_registry().find(extension_id);
+    if (!extension)
+        return icon;
+    for (auto const& path : paths) {
+        auto file = extension->resolve_resource_path(ByteString::formatted("/{}", path.path));
+        if (file.is_error())
+            continue;
+        auto file_path = QString::fromUtf8(file.value().characters());
+        if (path.size == 0)
+            icon.addFile(file_path);
+        else
+            icon.addFile(file_path, QSize(static_cast<int>(path.size), static_cast<int>(path.size)));
+    }
+    return icon;
+}
+
+void Tab::update_extension_actions()
+{
+    auto& registry = WebView::Application::extension_action_registry();
+    auto& extensions = WebView::Application::extension_registry();
+    auto is_private = m_window->is_private() == WebView::IsPrivate::Yes;
+
+    for (auto& [id, button] : m_extension_action_buttons)
+        button->deleteLater();
+    m_extension_action_buttons.clear();
+
+    for (auto const& id : registry.extensions_with_actions()) {
+        // A private window shows only the extensions allowed there.
+        if (is_private && !extensions.is_allowed_in_private(id))
+            continue;
+        auto* button = new ExtensionActionButton(m_extension_actions);
+        QObject::connect(button, &QToolButton::clicked, this, [this, id] {
+            WebView::Application::the().activate_extension_action(id, m_extension_tab_id);
+        });
+        m_extension_actions->layout()->addWidget(button);
+        m_extension_action_buttons.append({ id, button });
+        update_extension_action(id);
+    }
+    m_extension_actions->setVisible(!m_extension_action_buttons.is_empty());
+}
+
+void Tab::update_extension_action(String const& extension_id)
+{
+    for (auto& [id, button] : m_extension_action_buttons) {
+        if (id != extension_id)
+            continue;
+        auto state = WebView::Application::extension_action_registry().state(id, m_extension_tab_id);
+        button->set_state(state, extension_action_icon(id, state.icon));
     }
 }
 

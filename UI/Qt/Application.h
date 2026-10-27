@@ -150,6 +150,8 @@ private:
 
     virtual Optional<WebView::ViewImplementation&> active_web_view() const override;
     virtual Vector<WebView::ExtensionTab> extension_tabs() const override;
+    virtual void extension_action_list_changed() override;
+    virtual void extension_action_changed(String const& extension_id, Optional<i64> tab_id) override;
     virtual Vector<i64> extension_window_focus_order() const override { return m_extension_window_focus_order; }
     virtual Vector<WebView::BookmarkItem::Bookmark> bookmarks_for_all_tabs_in_current_window() const override;
     virtual Optional<WebView::ViewImplementation&> activate_tab_with_url(URL::URL const&, URL::ExcludeFragment) const override;

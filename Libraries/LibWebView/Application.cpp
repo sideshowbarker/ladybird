@@ -726,6 +726,7 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_extension_registry->set_message_broker(*m_extension_message_broker);
     m_extension_background_host = make<ExtensionBackgroundHost>();
     m_extension_action_registry = make<ExtensionActionRegistry>();
+    m_extension_action_registry->on_change = [this](String const& extension_id, Optional<i64> tab_id) { extension_action_changed(extension_id, tab_id); };
     m_extension_message_broker->wake_background = [this](String const& id) {
         if (m_extension_background_host)
             m_extension_background_host->wake(id);
@@ -3557,11 +3558,14 @@ void Application::sync_extension_actions()
 {
     auto& actions = *m_extension_action_registry;
     HashMap<String, u64> revisions;
+    HashTable<String> allowed_in_private;
     for (auto const& extension : m_extension_registry->extensions()) {
         auto const& descriptor = extension->descriptor();
         if (!m_extension_registry->is_enabled(descriptor.id) || !extension->manifest().action.has_value())
             continue;
         revisions.set(descriptor.id, descriptor.revision);
+        if (m_extension_registry->is_allowed_in_private(descriptor.id))
+            allowed_in_private.set(descriptor.id);
         if (m_extension_action_revisions.get(descriptor.id) != descriptor.revision || !actions.has_action(descriptor.id))
             actions.set_extension(descriptor.id, descriptor.name, *extension->manifest().action);
     }
@@ -3569,13 +3573,67 @@ void Application::sync_extension_actions()
         if (!revisions.contains(id))
             actions.remove_extension(id);
     }
+    // Private windows show only the buttons of extensions allowed there, so a change of that permission changes them.
+    auto private_access_changed = allowed_in_private.size() != m_extension_actions_allowed_in_private.size()
+        || any_of(allowed_in_private, [&](auto const& id) { return !m_extension_actions_allowed_in_private.contains(id); });
+    auto list_changed = private_access_changed || revisions.size() != m_extension_action_revisions.size() || any_of(revisions, [&](auto const& entry) { return m_extension_action_revisions.get(entry.key) != entry.value; });
+    m_extension_actions_allowed_in_private = move(allowed_in_private);
+    m_extension_active_tab_grants.remove_all_matching([&](auto const& id, auto const&) { return m_extension_action_revisions.get(id) != revisions.get(id); });
     m_extension_action_revisions = move(revisions);
+    if (list_changed)
+        extension_action_list_changed();
 }
 
-void Application::clear_extension_tab_state(i64 tab_id)
+void Application::extension_tab_activated_document(i64 tab_id, URL::URL const& url)
 {
     if (m_extension_action_registry)
         m_extension_action_registry->clear_tab(tab_id);
+    for (auto& [id, grants] : m_extension_active_tab_grants)
+        grants.tab_navigated(tab_id, url);
+}
+
+void Application::extension_tab_closed(i64 tab_id)
+{
+    if (m_extension_action_registry)
+        m_extension_action_registry->clear_tab(tab_id);
+    for (auto& [id, grants] : m_extension_active_tab_grants)
+        grants.tab_closed(tab_id);
+}
+
+ExtensionActiveTabGrants const* Application::extension_active_tab_grants(StringView extension_id) const
+{
+    auto it = m_extension_active_tab_grants.find(extension_id);
+    return it == m_extension_active_tab_grants.end() ? nullptr : &it->value;
+}
+
+void Application::activate_extension_action(String const& extension_id, i64 tab_id)
+{
+    auto extension = m_extension_registry->find(extension_id);
+    if (!extension || !m_extension_action_registry->has_action(extension_id))
+        return;
+    auto state = m_extension_action_registry->state(extension_id, tab_id);
+    if (!state.enabled)
+        return;
+    auto tabs = extension_tabs();
+    auto tab = tabs.find_if([&](auto const& tab) { return tab.id == tab_id; });
+    if (tab == tabs.end())
+        return;
+
+    // A private tab acts only for an extension allowed in private windows.
+    if (tab->is_private == IsPrivate::Yes && !m_extension_registry->is_allowed_in_private(extension_id))
+        return;
+
+    auto const& descriptor = extension->descriptor();
+    if (descriptor.has_permission("activeTab"sv))
+        m_extension_active_tab_grants.ensure(extension_id).grant(tab_id, tab->url);
+
+    if (!state.popup.is_empty())
+        return;
+    ExtensionTabViewer viewer { descriptor, m_extension_registry->is_allowed_in_private(extension_id), tab->window_id, tab->window_id, extension_active_tab_grants(extension_id) };
+    JsonArray arguments;
+    arguments.must_append(serialize_extension_tab(viewer, *tab));
+    auto event_name = descriptor.manifest_version == 2 ? "browserAction.onClicked"_string : "action.onClicked"_string;
+    m_extension_message_broker->dispatch_background_event(extension_id, move(event_name), arguments.serialized());
 }
 
 Vector<ExtensionTab> Application::extension_tabs() const

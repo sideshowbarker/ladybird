@@ -375,6 +375,7 @@ private:
     virtual void page_did_finish_test(Utf16String const& text) override;
     virtual void page_did_set_test_timeout(double milliseconds) override;
     virtual void page_did_set_extension_idle_timeout(String const& extension_id, double milliseconds) override;
+    virtual void page_did_click_extension_action(String const& extension_id) override;
     virtual void page_did_finish_extension_suspend(String const& extension_id, u64 context_id) override;
     virtual void page_did_receive_reference_test_metadata(JsonValue) override;
     virtual void page_did_set_browser_zoom(double factor) override;

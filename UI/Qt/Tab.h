@@ -49,6 +49,7 @@ class BrowserWindow;
 enum class ChromeIcon;
 class DownloadsButton;
 class DownloadsPopover;
+class ExtensionActionButton;
 class ReloadButton;
 class RestoreSessionCard;
 class JavaScriptDialog;
@@ -181,6 +182,10 @@ public:
 
     bool is_pinned() const { return m_is_pinned; }
     i64 extension_tab_id() const { return m_extension_tab_id; }
+
+    // Rebuilds the extension buttons from the extensions with actions, or refreshes one extension's button.
+    void update_extension_actions();
+    void update_extension_action(String const& extension_id);
     // BrowserWindow pins and unpins tabs, since it keeps each window's pinned tabs at the start of its strip.
     void set_pinned(bool);
 
@@ -256,6 +261,8 @@ private:
     QWidget* m_toolbar_container { nullptr };
     QWidget* m_toolbar { nullptr };
     QWidget* m_performance_monitor { nullptr };
+    QWidget* m_extension_actions { nullptr };
+    Vector<std::pair<String, ExtensionActionButton*>> m_extension_action_buttons;
     QWidget* m_toolbar_window_controls_separator { nullptr };
     QWidget* m_toolbar_sidebar_slot { nullptr };
     QWidget* m_toolbar_window_controls { nullptr };

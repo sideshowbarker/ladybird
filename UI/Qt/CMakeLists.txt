@@ -40,6 +40,7 @@ target_sources(ladybird PRIVATE
     DevToolsBanner.cpp
     EventLoopImplementationQt.cpp
     EventLoopImplementationQtEventTarget.cpp
+    ExtensionActionButton.cpp
     FindInPageWidget.cpp
     Icon.cpp
     HiddenPageSizing.cpp

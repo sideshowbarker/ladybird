@@ -38,12 +38,31 @@ bool may_see_tab(ExtensionTabViewer const& viewer, ExtensionTab const& tab)
     return tab.is_private == IsPrivate::No || viewer.allowed_in_private;
 }
 
+void ExtensionActiveTabGrants::grant(i64 tab_id, URL::URL const& url)
+{
+    m_origins.set(tab_id, url.origin());
+}
+
+void ExtensionActiveTabGrants::tab_navigated(i64 tab_id, URL::URL const& url)
+{
+    auto origin = m_origins.get(tab_id);
+    if (origin.has_value() && !origin->is_same_origin(url.origin()))
+        m_origins.remove(tab_id);
+}
+
+void ExtensionActiveTabGrants::tab_closed(i64 tab_id)
+{
+    m_origins.remove(tab_id);
+}
+
 bool may_see_tab_details(ExtensionTabViewer const& viewer, ExtensionTab const& tab)
 {
     if (viewer.extension.has_permission("tabs"sv))
         return true;
-    // An extension always sees its own pages.
+    // An extension always sees its own pages, and a tab where the user invoked it.
     if (tab.url.scheme() == Web::Extensions::scheme && tab.url.serialized_host() == viewer.extension.id)
+        return true;
+    if (viewer.active_tab_grants && viewer.active_tab_grants->contains(tab.id))
         return true;
     return viewer.extension.host_permissions.contains([&](auto const& pattern) { return pattern.matches(tab.url); });
 }

@@ -130,7 +130,7 @@ ViewImplementation::~ViewImplementation()
     if (!m_window_handle.is_empty() && !m_owner_view_id.has_value())
         Application::the().notify_webdriver_window_closed(m_window_handle);
     if (m_extension_tab_id.has_value() && Application::is_initialized())
-        Application::the().clear_extension_tab_state(*m_extension_tab_id);
+        Application::the().extension_tab_closed(*m_extension_tab_id);
 
     reset_spell_checking();
 
@@ -336,7 +336,7 @@ void ViewImplementation::did_change_active_document(Badge<CanonicalTraversable>)
     m_permissions_requested_by_page.clear();
     // A tab that loads another document drops what extensions set for it alone.
     if (m_extension_tab_id.has_value())
-        Application::the().clear_extension_tab_state(*m_extension_tab_id);
+        Application::the().extension_tab_activated_document(*m_extension_tab_id, url());
     set_title(Utf16String::from_utf8(url().serialize()));
     set_favicon({});
     did_update_url();
