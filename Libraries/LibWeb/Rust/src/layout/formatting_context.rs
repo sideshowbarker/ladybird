@@ -3794,6 +3794,9 @@ pub(crate) struct LayoutStageFacts {
     pub(crate) viewport_inline_size: CssPixels,
     pub(crate) viewport_block_size: CssPixels,
     pub(crate) document_in_quirks_mode: bool,
+    /// The root stage also measures the layout root's min- and max-content inline sizes, for a host that sizes the
+    /// document's viewport to its content.
+    pub(crate) measures_root_content_inline_sizes: bool,
 }
 
 /// What a layout stage computes from: the arena and the layout stage's scratch, borrowed for the
@@ -3851,11 +3854,17 @@ impl LayoutStageJob {
             messages,
             document_svg_root_natural_size,
             container_length_reads,
+            root_content_inline_sizes,
         } = output.host_findings;
         if let Some((root_box, natural_size)) = document_svg_root_natural_size {
             state
                 .arena_mut()
                 .note_document_svg_root_natural_size(root_box, natural_size);
+        }
+        if matches!(kind, LayoutStageKind::Root { .. }) {
+            state
+                .arena_mut()
+                .note_root_content_inline_sizes(root_content_inline_sizes);
         }
         state
             .arena_mut()
@@ -3956,6 +3965,17 @@ fn compute_root_layout(input: LayoutStageInput<'_>, should_collect_devtools_layo
                     root_for_layout,
                     &mut root_cells,
                 );
+            }
+            if stage.measures_root_content_inline_sizes {
+                // The root is measured as a box with no definite inline size: what it would take up given any amount
+                // of inline space, and the least it can be given.
+                let measured_cells = used_values::cells_before_sizing(&pass, root_for_layout, root_constraints);
+                let sizing = sizing_context::SizingContext::new(entry_run_state, pass);
+                let sized = sizing_context::SizedBox::new(root_for_layout, &measured_cells);
+                let min_content = sizing.calculate_min_content_inline_size(sized, root_constraints);
+                let max_content = sizing.calculate_max_content_inline_size(sized, root_constraints);
+                host_findings_outside_runs
+                    .note(|findings| findings.root_content_inline_sizes = Some((min_content, max_content)));
             }
             let input = LayoutInput::new(
                 AvailableSpace {
@@ -4233,6 +4253,7 @@ mod baseline_tests {
                 viewport_inline_size: CssPixels::from_integer(800),
                 viewport_block_size: CssPixels::from_integer(600),
                 document_in_quirks_mode: false,
+                measures_root_content_inline_sizes: false,
             },
         );
         RunState::with_root(pass, parent, Node::INVALID, None, |_, pass| {

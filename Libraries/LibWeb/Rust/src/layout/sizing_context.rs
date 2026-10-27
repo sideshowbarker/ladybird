@@ -4704,6 +4704,7 @@ mod replaced_ratio_tests {
                 viewport_inline_size: CssPixels::from_integer(800),
                 viewport_block_size: CssPixels::from_integer(600),
                 document_in_quirks_mode: false,
+                measures_root_content_inline_sizes: false,
             },
         );
         let result = RunState::with_root(pass, node, Node::INVALID, None, |state, pass| {

@@ -191,6 +191,7 @@ impl<'arena> LayoutPass<'arena> {
                 viewport_inline_size: CssPixels::default(),
                 viewport_block_size: CssPixels::default(),
                 document_in_quirks_mode: false,
+                measures_root_content_inline_sizes: false,
             },
         )
     }

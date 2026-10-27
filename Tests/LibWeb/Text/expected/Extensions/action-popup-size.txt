@@ -1,0 +1,7 @@
+w=900&h=700 content: 800x600
+w=10&h=10 content: 25x25
+w=320&h=180 content: 320x180
+w=320&h=180&end content: 320x180
+after growing: 300x200
+after shrinking: 60x40
+from its largest size, after shrinking: 60x40

@@ -1,0 +1,4 @@
+open: true
+after window.close(), open: false
+after pushState() and window.close(), open: false
+after a navigation and window.close(), open: false

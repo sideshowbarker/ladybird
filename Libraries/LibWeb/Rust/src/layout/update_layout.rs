@@ -134,6 +134,9 @@ pub struct FfiLayoutUpdateDocumentFacts {
     /// The document holds list owners whose item counters went stale without changing what they
     /// render, which it reconciles with what a layout tree build rebuilt before the tree lays out.
     pub has_stale_list_item_counters: bool,
+    /// A full layout also measures the layout root's min- and max-content inline sizes, for a host sizing the
+    /// document's viewport to its content.
+    pub measures_root_content_inline_sizes: bool,
 }
 
 /// What the document still has pending when a layout update runs out of its exact bound, as far as the host knows
@@ -766,6 +769,7 @@ impl LayoutRoundJob {
             viewport_inline_size: crate::layout::CssPixels::from_raw(facts.viewport_inline_size_raw),
             viewport_block_size: crate::layout::CssPixels::from_raw(facts.viewport_block_size_raw),
             document_in_quirks_mode: facts.document_in_quirks_mode,
+            measures_root_content_inline_sizes: facts.measures_root_content_inline_sizes,
         };
         // The round cannot call the host, which hears of the boxes nodes gain and lose once it is over.
         state.arena_mut().queue_box_presence();
@@ -1286,6 +1290,7 @@ mod tests {
             viewport_block_size_raw: 0,
             document_style_node: 0,
             has_stale_list_item_counters: false,
+            measures_root_content_inline_sizes: false,
         }
     }
 
