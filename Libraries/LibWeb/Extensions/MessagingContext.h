@@ -13,6 +13,7 @@
 #include <LibWeb/Export.h>
 #include <LibWeb/Extensions/API/Event.h>
 #include <LibWeb/Extensions/API/Port.h>
+#include <LibWeb/Extensions/API/WebRequest.h>
 #include <LibWeb/Forward.h>
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
 #include <LibWebCommon/Extensions/MessageSender.h>
@@ -57,6 +58,9 @@ public:
     GC::Ptr<EventListenerList> suspend_listeners(bool canceled) { return canceled ? m_suspend_canceled_listeners : m_suspend_listeners; }
     HashMap<u64, GC::Ref<Port>>& live_ports() { return m_live_ports; }
 
+    void set_web_request_listeners(GC::Ref<WebRequestListeners> listeners) { m_web_request_listeners = listeners; }
+    GC::Ptr<WebRequestListeners> web_request_listeners() { return m_web_request_listeners; }
+
     u64 context_id() const { return m_context_id; }
     virtual DOM::Document& document() = 0;
 
@@ -90,6 +94,7 @@ protected:
             visitor.visit(port);
         visitor.visit(m_last_error);
         visitor.visit(m_storage_listeners);
+        visitor.visit(m_web_request_listeners);
         for (auto const& [name, listeners] : m_storage_area_listeners)
             visitor.visit(listeners);
         for (auto const& [name, listeners] : m_event_listeners)
@@ -109,6 +114,7 @@ private:
     GC::Ptr<EventListenerList> m_suspend_canceled_listeners;
     HashMap<u64, GC::Ref<Port>> m_live_ports;
     GC::Ptr<EventListenerList> m_storage_listeners;
+    GC::Ptr<WebRequestListeners> m_web_request_listeners;
     HashMap<String, GC::Ref<EventListenerList>> m_storage_area_listeners;
     HashMap<String, GC::Ref<EventListenerList>> m_event_listeners;
     JS::Value m_last_error { JS::js_undefined() };

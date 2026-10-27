@@ -1,0 +1,25 @@
+{
+    "manifest_version": 2,
+    "name": "WebRequest No Permission Fixture",
+    "version": "1.0",
+    "description": "A background page without the webRequest permission, which reports whether it has the namespace.",
+    "permissions": [
+        "<all_urls>"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/webrequest-api.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

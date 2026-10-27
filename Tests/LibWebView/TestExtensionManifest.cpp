@@ -417,6 +417,16 @@ TEST_CASE(only_supported_api_permissions_are_retained)
     EXPECT(!manifest.permissions.contains_slow("unknownPermission"sv));
 }
 
+TEST_CASE(web_request_permissions_parse)
+{
+    auto manifest = parse(R"({
+        "manifest_version": 2, "name": "Blocker", "version": "1",
+        "permissions": ["webRequest", "webRequestBlocking", "<all_urls>"]
+    })"sv);
+    EXPECT_EQ(manifest.permissions, (Vector { "webRequest"_string, "webRequestBlocking"_string }));
+    EXPECT_EQ(manifest.host_permissions, (Vector { "<all_urls>"_string }));
+}
+
 TEST_CASE(manifest_action)
 {
     auto mv3 = parse(R"({ "manifest_version": 3, "name": "x", "version": "1", "action": { "default_popup": "/popup.html", "default_title": "Title", "default_icon": { "32": "icons/32.png", "16": "/icons/16.png" } } })"sv);

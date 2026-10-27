@@ -17,6 +17,7 @@
 #include <LibWeb/Extensions/API/Scripting.h>
 #include <LibWeb/Extensions/API/Storage.h>
 #include <LibWeb/Extensions/API/Tabs.h>
+#include <LibWeb/Extensions/API/WebRequest.h>
 #include <LibWeb/Extensions/API/Windows.h>
 #include <LibWeb/Extensions/MessagingContext.h>
 #include <LibWeb/Extensions/Namespace.h>
@@ -62,6 +63,10 @@ GC::Ref<JS::Object> install_namespace(JS::Realm& realm, MessagingContext& messag
         namespace_object->define_direct_property("contextMenus"_utf16_fly_string, menus, attributes);
         namespace_object->define_direct_property("menus"_utf16_fly_string, menus, attributes);
     }
+
+    // Requests are watched from the extension's own pages, never from content scripts.
+    if (context == NamespaceContext::ExtensionDocument && messaging_context.descriptor().has_permission("webRequest"sv))
+        namespace_object->define_direct_property("webRequest"_utf16_fly_string, create_web_request(realm, messaging_context), attributes);
 
     // The toolbar button belongs to the extension's own documents too, and exists only when the manifest declares one.
     if (context == NamespaceContext::ExtensionDocument && messaging_context.descriptor().has_action) {
