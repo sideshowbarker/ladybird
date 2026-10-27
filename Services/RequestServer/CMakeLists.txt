@@ -10,6 +10,7 @@ set(SOURCES
     RequestPipe.cpp
     Resolver.cpp
     ResourceSubstitutionMap.cpp
+    WebRequestInterest.cpp
     WebSocketImplCurl.cpp
 )
 
@@ -41,7 +42,7 @@ target_link_libraries(requestserverservice PUBLIC LibCore LibDNS LibHTTP LibIPC 
 if (APPLE)
     target_link_libraries(requestserverservice PRIVATE "-framework CoreFoundation" "-framework Security")
 endif()
-target_link_libraries(requestserverservice PRIVATE OpenSSL::Crypto OpenSSL::SSL)
+target_link_libraries(requestserverservice PRIVATE LibWebCommon OpenSSL::Crypto OpenSSL::SSL)
 
 if (WIN32)
     ladybird_windows_bin(RequestServer CONSOLE)

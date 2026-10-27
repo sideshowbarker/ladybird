@@ -12,6 +12,7 @@
 #include <RequestServer/ControlConnectionFromClient.h>
 #include <RequestServer/Request.h>
 #include <RequestServer/Resolver.h>
+#include <RequestServer/WebRequestInterest.h>
 
 namespace RequestServer {
 
@@ -206,6 +207,11 @@ void ControlConnectionFromClient::set_proxy_configuration(HTTP::ProxyConfigurati
 void ControlConnectionFromClient::trust_certificate(ByteString host, u16 port, ByteString fingerprint, Requests::CertificateError errors, ByteString error_details)
 {
     add_certificate_exception(host, port, move(fingerprint), errors, move(error_details));
+}
+
+void ControlConnectionFromClient::set_web_request_interest(Vector<Requests::WebRequestInterest> interest)
+{
+    WebRequestInterestSet::the().set(move(interest));
 }
 
 void ControlConnectionFromClient::set_performance_monitor_enabled(bool enabled)

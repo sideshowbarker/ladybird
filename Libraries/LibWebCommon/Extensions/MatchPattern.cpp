@@ -209,8 +209,9 @@ ErrorOr<void> encode(Encoder& encoder, Web::Extensions::MatchPattern const& patt
 template<>
 ErrorOr<Web::Extensions::MatchPattern> decode(Decoder& decoder)
 {
+    // Only patterns that parsed are ever encoded, and an extension's patterns for its own pages are among them.
     auto pattern = TRY(decoder.decode<String>());
-    return Web::Extensions::MatchPattern::parse(pattern);
+    return Web::Extensions::MatchPattern::parse(pattern, Web::Extensions::MatchPattern::AllowExtensionScheme::Yes);
 }
 
 }

@@ -10,24 +10,13 @@
 #include <AK/String.h>
 #include <AK/Vector.h>
 #include <LibIPC/Forward.h>
+#include <LibRequests/WebRequest.h>
 #include <LibWebCommon/Export.h>
 #include <LibWebCommon/Extensions/MatchPattern.h>
 
 namespace Web::Extensions {
 
-// The webRequest events, in the order a request that succeeds without a redirect reaches them.
-// https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest
-enum class WebRequestEvent : u8 {
-    BeforeRequest,
-    BeforeSendHeaders,
-    SendHeaders,
-    HeadersReceived,
-    AuthRequired,
-    BeforeRedirect,
-    ResponseStarted,
-    Completed,
-    ErrorOccurred,
-};
+using Requests::WebRequestEvent;
 
 // The event's name as extensions see it: "onBeforeRequest", e.g.
 WEBCOMMON_API StringView web_request_event_name(WebRequestEvent);

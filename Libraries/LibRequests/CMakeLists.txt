@@ -7,6 +7,7 @@ set(SOURCES
     RequestControlClient.cpp
     ExportedRequest.cpp
     RequestTimingInfo.cpp
+    WebRequest.cpp
     WebRequestContext.cpp
     WebSocket.cpp
 )
