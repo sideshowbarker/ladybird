@@ -5,3 +5,7 @@ Chromium’s argument checks use, since extensions compare it.
 setBadgeTextColor() exists only in manifest version 3’s action, as in
 Chromium, whose browser_action.json has none; Gecko’s browserAction has
 it too, so an MV2 extension written for Firefox finds it missing here.
+
+A call naming a tab the extension can’t see fails with “No tab with id:
+N.”, Chromium’s kTabNotFoundError, in the same wording, since extensions
+compare it.
