@@ -1,0 +1,25 @@
+{
+    "manifest_version": 3,
+    "name": "Alarms Fixture",
+    "version": "1.0",
+    "description": "An event page that sets, reads, and clears alarms for the test page, and records the ones it hears.",
+    "permissions": [
+        "alarms"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/alarms.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

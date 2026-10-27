@@ -1,0 +1,9 @@
+get: later undefined true
+periodic: 5
+getAll: later, often
+missing: {"value":null}
+clear: true false
+clearAll: true 0
+both times: Cannot set both when and delayInMinutes.
+callbacks: {"name":"","cleared":true,"missingIsUndefined":true}
+woke for: wake
