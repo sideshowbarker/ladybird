@@ -1,0 +1,4 @@
+cookie stored: false
+cookie stored without the listener's change: true
+with the added policy: inline script didn't run
+without it: inline script ran

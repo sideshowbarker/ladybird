@@ -1,0 +1,52 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-webrequest.js"></script>
+<body>
+    <script>
+        function loadScript(url) {
+            return new Promise(resolve => {
+                const script = document.createElement("script");
+                script.src = url;
+                script.onload = () => resolve("load");
+                script.onerror = () => resolve("error");
+                document.body.appendChild(script);
+            });
+        }
+
+        // A blocking listener that answers { cancel: true }, at once or through a promise, fails the request; one that
+        // throws or rejects lets it load.
+        asyncTest(async done => {
+            await watchWebRequests();
+            const server = httpTestServer();
+            const script = async (name, body) =>
+                await server.createEcho("GET", echoPath(name), {
+                    status: 200,
+                    headers: { "Content-Type": "text/javascript", "Cache-Control": "no-store" },
+                    body,
+                });
+            const canceled = await script("cancel.js", "window.canceledRan = true;");
+            println(`canceled: ${await loadScript(canceled)}, ran: ${window.canceledRan === true}`);
+            const failed = (
+                await webRequestEvents(events => events.some(e => e.url === canceled && e.event === "onErrorOccurred"))
+            ).filter(e => e.url === canceled);
+            println(`canceled events: ${eventNames(failed)}, error: ${failed.at(-1).error}`);
+
+            const delayed = await script("promise-cancel.js", "window.delayedRan = true;");
+            println(`canceled through a promise: ${await loadScript(delayed)}, ran: ${window.delayedRan === true}`);
+
+            const removesItself = await script("removes-itself.js", "window.removesItselfRan = true;");
+            println(
+                `listener removed itself while answering: ${await loadScript(removesItself)}, ran: ${window.removesItselfRan === true}`
+            );
+
+            const kept = await script("kept.js", "window.keptRan = true;");
+            println(`unmatched: ${await loadScript(kept)}, ran: ${window.keptRan === true}`);
+            const throws = await script("throws.js", "window.throwsRan = true;");
+            println(`listener threw: ${await loadScript(throws)}, ran: ${window.throwsRan === true}`);
+            const rejects = await script("rejects.js", "window.rejectsRan = true;");
+            println(`listener's promise rejected: ${await loadScript(rejects)}, ran: ${window.rejectsRan === true}`);
+            done();
+        });
+    </script>
+</body>
