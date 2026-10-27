@@ -1,0 +1,17 @@
+<!doctype html>
+<script>
+    // Reports to the page that loaded it the colors the extension gave this frame, once it has its theme.
+    const report = () => {
+        if (!document.documentElement.dataset.themedFrame) return setTimeout(report, 20);
+        const style = getComputedStyle(document.documentElement);
+        parent.postMessage(
+            {
+                background: style.backgroundColor,
+                color: style.color,
+                frame: document.documentElement.dataset.themedFrame !== "0",
+            },
+            "*"
+        );
+    };
+    report();
+</script>
