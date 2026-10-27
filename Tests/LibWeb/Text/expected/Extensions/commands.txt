@@ -2,3 +2,4 @@ getAll: [{"name":"toggle","description":"Toggle the thing","shortcut":"Alt+Shift
 update: {"value":null} [{"name":"toggle","description":"Changed","shortcut":"Ctrl+Shift+K"}]
 an unknown command: Unknown command "nope"
 alias: [true,"function"]
+no options page: Could not create an options page.

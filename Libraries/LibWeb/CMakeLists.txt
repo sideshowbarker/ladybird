@@ -279,6 +279,7 @@ set(SOURCES
     Extensions/API/Completion.cpp
     Extensions/API/ContextMenus.cpp
     Extensions/API/Event.cpp
+    Extensions/API/ExtensionNamespace.cpp
     Extensions/API/I18n.cpp
     Extensions/API/Permissions.cpp
     Extensions/API/Port.cpp

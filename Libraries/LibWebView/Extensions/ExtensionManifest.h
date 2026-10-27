@@ -75,6 +75,8 @@ struct WEBVIEW_API ExtensionManifest {
     Optional<Background> background;
     Optional<Action> action;
     Vector<Command> commands;
+    // The page options_ui names, or else options_page, as a path in the extension.
+    Optional<String> options_page;
 };
 
 }

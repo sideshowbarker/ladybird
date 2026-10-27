@@ -4234,6 +4234,35 @@ void Application::reload_extension_tab(i64 tab_id, bool bypass_cache, ExtensionT
     callback(reload_headless_extension_tab(tab_id, bypass_cache));
 }
 
+void Application::open_extension_options_page(Extension const& extension, Optional<i64> window_id, ExtensionTabActionCallback callback)
+{
+    auto const& page = extension.manifest().options_page;
+    if (!page.has_value())
+        return callback("Could not create an options page."_string);
+    auto url = resolve_extension_tab_url(extension.descriptor(), *page);
+    if (url.is_error())
+        return callback("Could not create an options page."_string);
+    // The page opens or activates like any tab, and the call completes when that has happened.
+    auto complete = [callback = move(callback)](ErrorOr<ExtensionTab, String> result) mutable {
+        if (result.is_error())
+            callback(result.release_error());
+        else
+            callback({});
+    };
+    for (auto const& tab : extension_tabs()) {
+        if (tab.url.equals(url.value(), URL::ExcludeFragment::Yes)) {
+            update_extension_tab(tab.id, { .url = {}, .active = true, .pinned = {} }, move(complete));
+            return;
+        }
+    }
+    if (!window_id.has_value()) {
+        auto order = extension_window_focus_order();
+        if (!order.is_empty())
+            window_id = order.first();
+    }
+    create_extension_tab({ .url = url.release_value(), .active = true, .index = {}, .window_id = window_id, .pinned = false, .may_open_in_private_window = false }, move(complete));
+}
+
 ErrorOr<void, String> Application::close_headless_extension_tab(i64 tab_id)
 {
     // Only the tabs this process opened itself can close here; another view belongs to whoever made it.

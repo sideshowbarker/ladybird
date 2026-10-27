@@ -496,3 +496,18 @@ TEST_CASE(commands_parse)
     auto not_an_object = WebView::ExtensionManifest::parse(R"({ "manifest_version": 3, "name": "C", "version": "1", "commands": [] })"sv);
     EXPECT(not_an_object.is_error());
 }
+
+TEST_CASE(options_page_parse)
+{
+    // options_ui's page wins over options_page, which manifest version 2 extensions often keep beside it.
+    auto both = TRY_OR_FAIL(WebView::ExtensionManifest::parse(R"({
+        "manifest_version": 2, "name": "Options", "version": "1",
+        "options_ui": { "page": "ui/options.html", "open_in_tab": false }, "options_page": "old.html"
+    })"sv));
+    EXPECT_EQ(both.options_page, "ui/options.html"sv);
+    auto page = TRY_OR_FAIL(WebView::ExtensionManifest::parse(R"({ "manifest_version": 3, "name": "O", "version": "1", "options_page": "options.html" })"sv));
+    EXPECT_EQ(page.options_page, "options.html"sv);
+    auto none = TRY_OR_FAIL(WebView::ExtensionManifest::parse(R"({ "manifest_version": 3, "name": "O", "version": "1" })"sv));
+    EXPECT(!none.options_page.has_value());
+    EXPECT(WebView::ExtensionManifest::parse(R"({ "manifest_version": 3, "name": "O", "version": "1", "options_ui": { "page": 1 } })"sv).is_error());
+}
