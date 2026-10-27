@@ -14,6 +14,7 @@
 #include <LibJS/Runtime/Realm.h>
 #include <LibWeb/Extensions/API/Arguments.h>
 #include <LibWeb/Extensions/API/Completion.h>
+#include <LibWeb/Extensions/API/Event.h>
 #include <LibWeb/Extensions/API/Tabs.h>
 #include <LibWeb/Extensions/MessageRouter.h>
 #include <LibWeb/Extensions/MessagingContext.h>
@@ -324,6 +325,8 @@ GC::Ref<JS::Object> create_tabs(JS::Realm& realm, MessagingContext& context)
     auto attributes = JS::Attribute::Writable | JS::Attribute::Configurable;
     tabs->define_direct_property("TAB_ID_NONE"_utf16_fly_string, JS::Value(-1), 0);
     tabs->define_direct_property("TAB_INDEX_NONE"_utf16_fly_string, JS::Value(-1), 0);
+    for (auto name : { "onActivated"sv, "onUpdated"sv, "onRemoved"sv })
+        tabs->define_direct_property(Utf16FlyString::from_utf8(name), create_event(realm, context.event_listeners(MUST(String::formatted("tabs.{}", name)))), attributes);
     tabs->define_native_function(realm, "query"_utf16_fly_string, [context = GC::Ref { context }](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
         if (context->is_detached())
             return vm.throw_completion<JS::TypeError>("The extension context is gone"sv);

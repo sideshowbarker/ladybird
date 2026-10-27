@@ -3626,14 +3626,101 @@ void Application::extension_tab_activated_document(i64 tab_id, URL::URL const& u
         grants.tab_navigated(tab_id, url);
 }
 
-void Application::extension_tab_closed(i64 tab_id)
+void Application::extension_tab_closed(i64 tab_id, Optional<ExtensionTab> closing_tab)
 {
     if (m_extension_popup_host)
         m_extension_popup_host->tab_closed(tab_id);
     if (m_extension_action_registry)
         m_extension_action_registry->clear_tab(tab_id);
+
+    // The tab is gone by now, so the event describes it as the frontend knew it, or else as it last reported.
+    auto snapshot = m_extension_tab_snapshots.take(tab_id);
+    auto tab = closing_tab.has_value() ? closing_tab : snapshot;
+    if (m_closed_extension_tabs.set(tab_id) == AK::HashSetResult::InsertedNewEntry && tab.has_value()) {
+        JsonObject remove_info;
+        remove_info.set("windowId"sv, tab->window_id);
+        remove_info.set("isWindowClosing"sv, m_closing_extension_windows.contains(tab->window_id));
+        for_each_extension_tab_viewer([&](Extension const& extension, ExtensionTabViewer const& viewer) {
+            if (!may_see_tab(viewer, *tab))
+                return;
+            JsonArray arguments;
+            arguments.must_append(tab_id);
+            arguments.must_append(remove_info);
+            m_extension_message_broker->dispatch_extension_event(extension.id(), "tabs.onRemoved"_string, arguments.serialized());
+        });
+    }
+
     for (auto& [id, grants] : m_extension_active_tab_grants)
         grants.tab_closed(tab_id);
+}
+
+void Application::for_each_extension_tab_viewer(Function<void(Extension const&, ExtensionTabViewer const&)> const& callback) const
+{
+    if (!m_extension_registry || !m_extension_message_broker)
+        return;
+    for (auto const& extension : m_extension_registry->extensions()) {
+        if (!m_extension_registry->is_enabled(extension->id()))
+            continue;
+        ExtensionTabViewer viewer { extension->descriptor(), m_extension_registry->is_allowed_in_private(extension->id()), {}, {}, extension_active_tab_grants(extension->id()) };
+        callback(*extension, viewer);
+    }
+}
+
+void Application::extension_tab_activated(i64 tab_id)
+{
+    auto tabs = extension_tabs();
+    auto tab = tabs.find_if([&](auto const& tab) { return tab.id == tab_id; });
+    if (tab == tabs.end())
+        return;
+    JsonObject active_info;
+    active_info.set("tabId"sv, tab_id);
+    active_info.set("windowId"sv, tab->window_id);
+    for_each_extension_tab_viewer([&](Extension const& extension, ExtensionTabViewer const& viewer) {
+        if (!may_see_tab(viewer, *tab))
+            return;
+        JsonArray arguments;
+        arguments.must_append(active_info);
+        m_extension_message_broker->dispatch_extension_event(extension.id(), "tabs.onActivated"_string, arguments.serialized());
+    });
+}
+
+void Application::extension_tab_changed(i64 tab_id)
+{
+    if (!m_extension_registry || m_extension_registry->extensions().is_empty())
+        return;
+    auto tabs = extension_tabs();
+    auto tab = tabs.find_if([&](auto const& tab) { return tab.id == tab_id; });
+    if (tab == tabs.end())
+        return;
+    // A tab's first report compares against the tab with nothing in it but its initial about:blank document, so its
+    // first real URL and title show as changed, but that document doesn't.
+    auto before = *tab;
+    if (auto snapshot = m_extension_tab_snapshots.get(tab_id); snapshot.has_value()) {
+        before = *snapshot;
+    } else {
+        before.pinned = false;
+        before.loading = false;
+        if (!before.url.equals(URL::about_blank())) {
+            before.url = {};
+            before.title = {};
+        }
+    }
+    m_extension_tab_snapshots.set(tab_id, *tab);
+    for_each_extension_tab_viewer([&](Extension const& extension, ExtensionTabViewer const& viewer) {
+        auto change_info = extension_tab_change_info(viewer, before, *tab);
+        if (!change_info.has_value())
+            return;
+        JsonArray arguments;
+        arguments.must_append(tab_id);
+        arguments.must_append(change_info.release_value());
+        arguments.must_append(serialize_extension_tab(viewer, *tab));
+        m_extension_message_broker->dispatch_extension_event(extension.id(), "tabs.onUpdated"_string, arguments.serialized());
+    });
+}
+
+void Application::extension_window_closing(i64 window_id)
+{
+    m_closing_extension_windows.set(window_id);
 }
 
 ExtensionActiveTabGrants const* Application::extension_active_tab_grants(StringView extension_id) const
@@ -3770,12 +3857,16 @@ ErrorOr<ExtensionTab, String> Application::create_extension_tab(ExtensionTabCrea
         });
     };
     auto url = creation.url.value_or(settings().new_tab_page_url());
-    view->load_extension_page(url);
-    auto tab = extension_tab_for(*view);
+    auto& new_view = *view;
+    m_headless_extension_tabs.append(move(view));
+    // Each headless tab is the active one of a window of its own, and becomes that before its first load starts.
+    if (creation.active)
+        extension_tab_activated(*new_view.extension_tab_id());
+    new_view.load_extension_page(url);
+    auto tab = extension_tab_for(new_view);
     tab.url = url;
     // The tab will show the new page, so it has none of the old one's title.
     tab.title = {};
-    m_headless_extension_tabs.append(move(view));
     return tab;
 }
 

@@ -106,6 +106,26 @@ JsonObject serialize_extension_tab(ExtensionTabViewer const& viewer, ExtensionTa
     return object;
 }
 
+Optional<JsonObject> extension_tab_change_info(ExtensionTabViewer const& viewer, ExtensionTab const& before, ExtensionTab const& after)
+{
+    if (!may_see_tab(viewer, after))
+        return {};
+    JsonObject info;
+    if (status_of(before) != status_of(after))
+        info.set("status"sv, status_of(after));
+    if (may_see_tab_details(viewer, after)) {
+        if (before.url != after.url)
+            info.set("url"sv, after.url.serialize());
+        if (before.title != after.title)
+            info.set("title"sv, after.title);
+    }
+    if (before.pinned != after.pinned)
+        info.set("pinned"sv, after.pinned);
+    if (info.is_empty())
+        return {};
+    return info;
+}
+
 // The query comes from a renderer, which checked it, but whose checks the UI process can't rely on.
 static ErrorOr<Vector<Web::Extensions::MatchPattern>, String> url_patterns_from(JsonValue const& value)
 {

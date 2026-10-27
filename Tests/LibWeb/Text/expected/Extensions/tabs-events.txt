@@ -1,0 +1,7 @@
+activated: true
+loading with its URL: true true
+complete: true
+retitled: true
+every update after the URL has it: true
+no update for the initial about:blank: true
+removed last: removed number false

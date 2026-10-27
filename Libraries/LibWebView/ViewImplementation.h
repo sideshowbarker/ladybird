@@ -277,6 +277,8 @@ public:
     // Loads an extension's own page that the extension asked to show in this view (with tabs.create() or tabs.update()):
     // Until the view's next document becomes active, its pages may load that one file, whatever document they show.
     void load_extension_page(URL::URL const&);
+    // A view that's a tab reports each change of its status, URL, or title, for the tabs.onUpdated event.
+    void report_extension_tab_change();
     // Whether the view may load that file, which it then may not load again.
     bool take_extension_page_load(StringView extension_id, StringView path);
     bool is_closable_by_script() const { return m_is_closable_by_script; }

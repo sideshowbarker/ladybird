@@ -93,6 +93,9 @@ public:
     // a JSON array. A starting page gets it once it has loaded, and a running one at once. A stopped page wakes for it
     // only if its last run listened to the event, or if it hasn't run at all yet; otherwise the event is dropped.
     void dispatch_background_event(String const& extension_id, String event_name, String arguments_json);
+    // Dispatches a named API event to every one of the extension's own documents that's open (its popup and its pages
+    // in tabs, e.g.), and to its background page as dispatch_background_event() does.
+    void dispatch_extension_event(String const& extension_id, String event_name, String arguments_json);
 
     // A context's named API events that have listeners, as it reports them whenever one gains its first listener or
     // loses its last. Only a background page's contexts count, and their sets outlast the page until it runs again.

@@ -942,6 +942,8 @@ void BrowserWindow::adopt_tab(Tab& tab, int index)
     }
 
     m_tabs_container->set_current_tab(&tab);
+    // Its window changed, which its next report has to show.
+    WebView::Application::the().extension_tab_changed(tab.extension_tab_id());
 }
 
 void BrowserWindow::move_tab_to_window(int index, BrowserWindow& target_window, int target_index)
@@ -1049,6 +1051,12 @@ void BrowserWindow::set_current_tab(Tab* tab)
     }
 
     WebView::Application::the().update_actions_for_active_web_view();
+    // A window's first tab becomes current before the window holds it, so the report waits until it does.
+    if (m_current_tab) {
+        Core::deferred_invoke([tab_id = m_current_tab->extension_tab_id()] {
+            WebView::Application::the().extension_tab_activated(tab_id);
+        });
+    }
 }
 
 void BrowserWindow::activate_tab(int index)
@@ -1088,6 +1096,7 @@ bool BrowserWindow::close_tab(int index, WebView::SessionStore::KeepForReopening
     }
 
     auto* tab = m_tabs_container->tab(index);
+    WebView::Application::the().extension_tab_closed(tab->extension_tab_id(), Application::extension_tab_for(*this, *tab));
     m_tabs_container->remove_tab(index);
     if (auto session_tab_id = tab->session_tab_id(); session_tab_id.has_value()) {
         WebView::SessionStore::TabClosed closed {
@@ -1147,6 +1156,7 @@ void BrowserWindow::pin_tab(Tab& tab, Optional<int> pinned_index)
     if (index != destination)
         m_tabs_container->tab_bar()->moveTab(index, destination);
     pinned_state_changed(tab);
+    WebView::Application::the().extension_tab_changed(tab.extension_tab_id());
 }
 
 void BrowserWindow::unpin_tab(Tab& tab)
@@ -1160,6 +1170,7 @@ void BrowserWindow::unpin_tab(Tab& tab)
     if (index != destination)
         m_tabs_container->tab_bar()->moveTab(index, destination);
     pinned_state_changed(tab);
+    WebView::Application::the().extension_tab_changed(tab.extension_tab_id());
 }
 
 void BrowserWindow::pinned_state_changed(Tab& tab)
@@ -1972,8 +1983,11 @@ void BrowserWindow::closeEvent(QCloseEvent* event)
         return;
     }
 
+    // The window's tabs close with it.
+    WebView::Application::the().extension_window_closing(m_extension_window_id);
     Vector<Function<void()>> close_requests;
     for_each_tab([&](auto& tab) {
+        WebView::Application::the().extension_tab_closed(tab.extension_tab_id(), Application::extension_tab_for(*this, tab));
         close_requests.append(tab.prepare_for_window_close());
     });
     for (auto& close_request : close_requests)

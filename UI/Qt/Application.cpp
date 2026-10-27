@@ -1389,7 +1389,7 @@ static Vector<BrowserWindow*> browser_windows()
     return windows;
 }
 
-static WebView::ExtensionTab extension_tab_for(BrowserWindow& window, Tab& tab)
+WebView::ExtensionTab Application::extension_tab_for(BrowserWindow& window, Tab& tab)
 {
     return {
         .id = tab.extension_tab_id(),

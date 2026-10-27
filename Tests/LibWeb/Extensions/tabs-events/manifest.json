@@ -1,0 +1,25 @@
+{
+    "manifest_version": 3,
+    "name": "Tabs Events Fixture",
+    "version": "1.0",
+    "description": "A background page that records the tab events of the tabs it opens for the test pages.",
+    "permissions": [
+        "tabs"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/tabs-events.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

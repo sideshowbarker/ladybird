@@ -1,0 +1,22 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // An unloaded event page that listens to tabs.onUpdated wakes for a tab's change, and hears it.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const id = internals.extensionId("Tabs Wake Fixture");
+            internals.setExtensionIdleTimeout(id, 50);
+            while (internals.extensionBackgroundState(id) !== "stopped")
+                await new Promise(resolve => setTimeout(resolve, 20));
+            document.title = "Woken by a title";
+            while (internals.extensionBackgroundState(id) !== "running")
+                await new Promise(resolve => setTimeout(resolve, 20));
+            internals.setExtensionIdleTimeout(id, 30000);
+            const titles = await sendToBackground({ type: "titles" });
+            println(`woke, and heard the title: ${titles.includes("Woken by a title")}`);
+            done();
+        });
+    </script>
+</body>
