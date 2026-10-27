@@ -1211,6 +1211,17 @@ void Settings::set_installed_extension_allowed_in_private(StringView id, bool al
     }
 }
 
+void Settings::set_installed_extension_granted_permissions(StringView id, Vector<String> granted_permissions)
+{
+    for (auto& extension : m_installed_extensions) {
+        if (extension.id != id || extension.granted_permissions == granted_permissions)
+            continue;
+        extension.granted_permissions = move(granted_permissions);
+        persist_settings();
+        return;
+    }
+}
+
 void Settings::set_installed_extension_last_seen_version(StringView id, String version)
 {
     for (auto& extension : m_installed_extensions) {

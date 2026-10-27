@@ -446,3 +446,22 @@ TEST_CASE(manifest_action)
     EXPECT(parse_error(R"({ "manifest_version": 3, "name": "x", "version": "1", "action": { "default_popup": 1 } })"sv).contains("action.default_popup"sv));
     EXPECT(parse_error(R"({ "manifest_version": 2, "name": "x", "version": "1", "browser_action": { "default_icon": { "16": 1 } } })"sv).contains("browser_action.default_icon"sv));
 }
+
+TEST_CASE(optional_permissions_parse_in_both_manifest_versions)
+{
+    auto mv3 = TRY_OR_FAIL(WebView::ExtensionManifest::parse(R"({
+        "manifest_version": 3, "name": "Optional", "version": "1",
+        "optional_permissions": ["tabs", "unknownPermission"],
+        "optional_host_permissions": ["https://a.example/*"]
+    })"sv));
+    EXPECT_EQ(mv3.optional_permissions, (Vector { "tabs"_string }));
+    EXPECT_EQ(mv3.optional_host_permissions, (Vector { "https://a.example/*"_string }));
+
+    // Manifest version 2 mixes host patterns into "optional_permissions", as it does into "permissions".
+    auto mv2 = TRY_OR_FAIL(WebView::ExtensionManifest::parse(R"({
+        "manifest_version": 2, "name": "Optional", "version": "1",
+        "optional_permissions": ["tabs", "https://b.example/*", "<all_urls>"]
+    })"sv));
+    EXPECT_EQ(mv2.optional_permissions, (Vector { "tabs"_string }));
+    EXPECT_EQ(mv2.optional_host_permissions, (Vector { "https://b.example/*"_string, "<all_urls>"_string }));
+}

@@ -70,6 +70,9 @@ public:
     void set_storage_store(ExtensionStorageStore& store) { m_storage_stores.append(&store); }
     void set_enabled(StringView id, bool enabled);
     void set_allowed_in_private(StringView id, bool);
+    // What the extension has been granted, both API permissions and origin patterns; anything its manifest doesn't
+    // declare counts for nothing.
+    void set_granted(StringView id, Vector<String> api_permissions, Vector<String> origins);
     bool is_allowed_in_private(StringView id) const;
 
     // Loads every extension in Settings, keeping failures for display and retry.

@@ -68,6 +68,10 @@ struct WEBCOMMON_API ExtensionDescriptor {
     String ui_locale {};
     Vector<String> api_permissions {};
     Vector<MatchPattern> host_permissions {};
+    // What the manifest lets the extension ask for later, and the optional host patterns it has been granted.
+    Vector<String> optional_api_permissions {};
+    Vector<MatchPattern> optional_host_permissions {};
+    Vector<MatchPattern> granted_origins {};
     String extension_pages_csp;
     Vector<WebAccessibleResourceDescriptor> web_accessible_resources;
     Vector<ContentScriptDescriptor> content_scripts;
@@ -80,6 +84,8 @@ struct WEBCOMMON_API ExtensionDescriptor {
     [[nodiscard]] bool is_web_accessible(StringView url_path, URL::URL const& initiator) const;
 
     bool has_permission(StringView permission) const { return api_permissions.contains_slow(permission); }
+    // Whether a host permission, required or granted, matches the URL.
+    [[nodiscard]] bool has_host_access(URL::URL const&) const;
 
     bool operator==(ExtensionDescriptor const&) const = default;
 };

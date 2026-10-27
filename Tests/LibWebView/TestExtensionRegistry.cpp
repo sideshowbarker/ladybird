@@ -671,3 +671,39 @@ TEST_CASE(observer_can_outlive_registry)
     }
     observer.clear();
 }
+
+TEST_CASE(optional_permissions_start_ungranted_and_their_grants_persist)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    auto path = directory.extension("optional"sv, R"({
+        "manifest_version": 3, "name": "Optional", "version": "1",
+        "permissions": ["storage"], "optional_permissions": ["tabs"],
+        "host_permissions": ["https://required.example/*"], "optional_host_permissions": ["https://optional.example/*"]
+    })"sv);
+    auto extension = TRY_OR_FAIL(registry.load_unpacked(path));
+    auto id = extension->id();
+    auto required = URL::Parser::basic_parse("https://required.example/a"sv).release_value();
+    auto optional = URL::Parser::basic_parse("https://optional.example/a"sv).release_value();
+    EXPECT_EQ(extension->descriptor().api_permissions, (Vector { "storage"_string }));
+    EXPECT_EQ(extension->descriptor().optional_api_permissions, (Vector { "tabs"_string }));
+    EXPECT(extension->descriptor().has_host_access(required));
+    EXPECT(!extension->descriptor().has_host_access(optional));
+
+    registry.set_granted(id, { "storage"_string, "tabs"_string }, { "https://optional.example/*"_string });
+    auto granted = registry.find(id);
+    EXPECT(granted->descriptor().has_permission("tabs"sv));
+    EXPECT(granted->descriptor().has_host_access(optional));
+    EXPECT(settings.installed_extensions()[0].granted_permissions.contains_slow("https://optional.example/*"sv));
+
+    // A grant of something the manifest doesn't declare as optional grants nothing.
+    registry.set_granted(id, { "storage"_string, "tabs"_string, "cookies"_string }, { "https://optional.example/*"_string, "https://other.example/*"_string });
+    EXPECT(!registry.find(id)->descriptor().has_permission("cookies"sv));
+    EXPECT(!registry.find(id)->descriptor().has_host_access(URL::Parser::basic_parse("https://other.example/a"sv).release_value()));
+
+    // Loading it again keeps the grants.
+    auto reloaded = TRY_OR_FAIL(registry.load_unpacked(path));
+    EXPECT(reloaded->descriptor().has_permission("tabs"sv));
+    EXPECT(reloaded->descriptor().has_host_access(optional));
+}

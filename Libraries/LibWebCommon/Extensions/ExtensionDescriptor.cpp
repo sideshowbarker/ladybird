@@ -12,6 +12,12 @@
 
 namespace Web::Extensions {
 
+bool ExtensionDescriptor::has_host_access(URL::URL const& url) const
+{
+    auto matches = [&](auto const& pattern) { return pattern.matches(url); };
+    return host_permissions.contains(matches) || granted_origins.contains(matches);
+}
+
 bool ExtensionDescriptor::is_web_accessible(StringView url_path, URL::URL const& initiator) const
 {
     auto relative_path = canonical_resource_path(url_path);
@@ -102,6 +108,9 @@ ErrorOr<void> encode(Encoder& encoder, Web::Extensions::ExtensionDescriptor cons
     TRY(encoder.encode(extension.ui_locale));
     TRY(encoder.encode(extension.api_permissions));
     TRY(encoder.encode(extension.host_permissions));
+    TRY(encoder.encode(extension.optional_api_permissions));
+    TRY(encoder.encode(extension.optional_host_permissions));
+    TRY(encoder.encode(extension.granted_origins));
     TRY(encoder.encode(extension.extension_pages_csp));
     TRY(encoder.encode(extension.web_accessible_resources));
     TRY(encoder.encode(extension.content_scripts));
@@ -125,6 +134,9 @@ ErrorOr<Web::Extensions::ExtensionDescriptor> decode(Decoder& decoder)
     extension.ui_locale = TRY(decoder.decode<String>());
     extension.api_permissions = TRY(decoder.decode<Vector<String>>());
     extension.host_permissions = TRY(decoder.decode<Vector<Web::Extensions::MatchPattern>>());
+    extension.optional_api_permissions = TRY(decoder.decode<Vector<String>>());
+    extension.optional_host_permissions = TRY(decoder.decode<Vector<Web::Extensions::MatchPattern>>());
+    extension.granted_origins = TRY(decoder.decode<Vector<Web::Extensions::MatchPattern>>());
     extension.extension_pages_csp = TRY(decoder.decode<String>());
     extension.web_accessible_resources = TRY(decoder.decode<Vector<Web::Extensions::WebAccessibleResourceDescriptor>>());
     extension.content_scripts = TRY(decoder.decode<Vector<Web::Extensions::ContentScriptDescriptor>>());

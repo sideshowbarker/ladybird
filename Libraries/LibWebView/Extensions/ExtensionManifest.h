@@ -60,6 +60,9 @@ struct WEBVIEW_API ExtensionManifest {
     Vector<Web::Extensions::WebAccessibleResourceDescriptor> web_accessible_resources;
     Vector<String> permissions;
     Vector<String> host_permissions;
+    // What the extension may ask for later, which starts out ungranted.
+    Vector<String> optional_permissions;
+    Vector<String> optional_host_permissions;
     String extension_pages_csp;
     Optional<Background> background;
     Optional<Action> action;

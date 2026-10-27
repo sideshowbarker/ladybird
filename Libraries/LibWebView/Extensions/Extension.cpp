@@ -221,7 +221,17 @@ void Extension::apply_permission_grants(Vector<String> const& grants)
         if (!m_descriptor.api_permissions.contains_slow(permission))
             m_descriptor.api_permissions.append(permission);
     }
+    // An optional permission or host pattern counts only once it has been granted.
+    for (auto const& permission : m_manifest.optional_permissions) {
+        if (grants.contains_slow(permission) && !m_descriptor.api_permissions.contains_slow(permission))
+            m_descriptor.api_permissions.append(permission);
+    }
     quick_sort(m_descriptor.api_permissions);
+    m_descriptor.granted_origins.clear();
+    for (size_t i = 0; i < m_manifest.optional_host_permissions.size(); ++i) {
+        if (grants.contains_slow(m_manifest.optional_host_permissions[i]))
+            m_descriptor.granted_origins.append(m_descriptor.optional_host_permissions[i]);
+    }
 }
 
 ErrorOr<NonnullRefPtr<Extension>, String> Extension::load_unpacked(ByteString directory, String id, Optional<Vector<String>> granted_permissions, String locale)
@@ -257,6 +267,13 @@ ErrorOr<NonnullRefPtr<Extension>, String> Extension::load_unpacked(ByteString di
         if (pattern.is_error())
             return MUST(String::formatted("manifest.json: Invalid host permission: {}", host));
         descriptor.host_permissions.append(pattern.release_value());
+    }
+    descriptor.optional_api_permissions = manifest.optional_permissions;
+    for (auto const& host : manifest.optional_host_permissions) {
+        auto pattern = Web::Extensions::MatchPattern::parse(host);
+        if (pattern.is_error())
+            return MUST(String::formatted("manifest.json: Invalid optional host permission: {}", host));
+        descriptor.optional_host_permissions.append(pattern.release_value());
     }
     descriptor.extension_pages_csp = manifest.extension_pages_csp;
     descriptor.web_accessible_resources = manifest.web_accessible_resources;
