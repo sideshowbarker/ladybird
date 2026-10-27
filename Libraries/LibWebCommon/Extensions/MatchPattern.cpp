@@ -162,6 +162,32 @@ bool MatchPattern::matches(URL::URL const& url) const
     return scheme_matches(url.scheme()) && host_matches(url.serialized_host()) && path_matches(url);
 }
 
+bool MatchPattern::contains(MatchPattern const& other) const
+{
+    if (m_matches_all_urls)
+        return true;
+    if (other.m_matches_all_urls)
+        return false;
+    if (m_scheme != other.m_scheme && !(m_scheme == "*"sv && star_schemes.contains_slow(other.m_scheme.bytes_as_string_view())))
+        return false;
+    if (m_scheme == "file"sv)
+        return glob_matches(m_path, other.m_path);
+    // A wildcard host covers only what this pattern's host covers: "*" covers any, and "*.a.b" covers "*.c.a.b".
+    if (m_host != "*"sv) {
+        if (other.m_host == "*"sv)
+            return false;
+        auto other_host = other.m_host.bytes_as_string_view();
+        if (other_host.starts_with("*."sv)) {
+            if (!m_host.starts_with_bytes("*."sv))
+                return false;
+            other_host = other_host.substring_view(2);
+        }
+        if (!host_matches(other_host))
+            return false;
+    }
+    return glob_matches(m_path, other.m_path);
+}
+
 String MatchPattern::to_string() const
 {
     if (m_matches_all_urls)

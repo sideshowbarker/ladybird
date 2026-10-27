@@ -716,6 +716,7 @@ public:
     virtual String dump_site_isolation_process_tree_for_testing() { return {}; }
     virtual String extension_popup_state_for_testing(String const&) { return {}; }
     virtual String extension_background_state_for_testing(String const&) { return {}; }
+    virtual void grant_extension_permissions_for_testing(String const&, Vector<String>, Vector<String>) { }
     virtual void crash_remote_frame_processes_for_testing() { }
     virtual void page_did_spoof_document_origin_for_testing(HTML::EnvironmentSettingsObject const&, URL::Origin const&) { }
     virtual void stop_loading_through_ui_process_for_testing() { }

@@ -356,6 +356,7 @@ set(SOURCES
     Extensions/API/Completion.cpp
     Extensions/API/Event.cpp
     Extensions/API/I18n.cpp
+    Extensions/API/Permissions.cpp
     Extensions/API/Port.cpp
     Extensions/API/Runtime.cpp
     Extensions/API/Storage.cpp

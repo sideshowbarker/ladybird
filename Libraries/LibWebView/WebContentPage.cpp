@@ -30,6 +30,7 @@
 #include <LibWebView/Extensions/ExtensionActionAPI.h>
 #include <LibWebView/Extensions/ExtensionActionRegistry.h>
 #include <LibWebView/Extensions/ExtensionBackgroundHost.h>
+#include <LibWebView/Extensions/ExtensionPermissionsAPI.h>
 #include <LibWebView/Extensions/ExtensionPopupHost.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
@@ -1919,6 +1920,29 @@ ExtensionTabViewer WebContentPage::extension_tab_viewer(String const& extension_
     return { extension, allowed_in_private, current_window_id, last_focused_window_id, Application::the().extension_active_tab_grants(extension_id) };
 }
 
+ErrorOr<JsonValue, String> WebContentPage::call_extension_permissions_api(String const& extension_id, StringView method, JsonArray const& arguments)
+{
+    auto extension = Application::extension_registry().find(extension_id);
+    if (!extension)
+        return "The extension is gone"_string;
+    if (method == "getAll"sv)
+        return extension_active_permissions(*extension).to_json();
+    if (arguments.size() != 1 || !arguments.at(0).is_object())
+        return MUST(String::formatted("permissions.{}() needs a permissions object", method));
+    auto requested = ExtensionPermissionSet::from_json(arguments.at(0).as_object());
+    if (method == "contains"sv)
+        return extension_has_permissions(*extension, requested);
+    // There's no prompt to grant with yet, so nothing is granted.
+    if (method == "request"sv)
+        return false;
+    if (method == "remove"sv) {
+        auto removed = TRY(extension_permissions_to_remove(*extension, requested));
+        Application::the().change_extension_grants(extension_id, {}, removed);
+        return true;
+    }
+    return MUST(String::formatted("permissions.{}() isn't supported", method));
+}
+
 ErrorOr<JsonValue, String> WebContentPage::call_extension_alarms_api(String const& extension_id, StringView method, JsonArray const& arguments)
 {
     auto& alarms = Application::extension_alarm_manager();
@@ -2004,10 +2028,26 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
     auto name = method.bytes_as_string_view().substring_view(*separator + 1);
     auto const& call_arguments = arguments.value().as_array();
 
+    // Only the extension's own documents have the permissions API.
+    if (api_namespace == "permissions"sv) {
+        if (!context->is_extension_document)
+            return;
+        auto result = call_extension_permissions_api(context->extension_id, name, call_arguments);
+        if (result.is_error())
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
+        else
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });
+        return;
+    }
+
     // Only the extension's own documents have alarms, and only with the permission.
     if (api_namespace == "alarms"sv) {
-        if (!context->is_extension_document || !extension->descriptor().has_permission("alarms"sv))
+        if (!context->is_extension_document)
             return;
+        if (!extension->descriptor().has_permission("alarms"sv)) {
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { "The extension doesn't have the alarms permission."_string });
+            return;
+        }
         auto result = call_extension_alarms_api(context->extension_id, name, call_arguments);
         if (result.is_error())
             complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
@@ -3702,6 +3742,16 @@ Messages::WebContentTestClient::DidRequestUiProcessSessionHistoryForTestingRespo
     if (displays_tab())
         return { view().ui_process_session_history_for_testing({}) };
     return { "{}"_string };
+}
+
+void WebContentPage::did_request_extension_grant_for_testing(String const& extension_id, Vector<String> permissions, Vector<String> origins)
+{
+    // A test stands in for the user who grants optional permissions, which no prompt asks for yet.
+    auto extension = Application::extension_registry().find(extension_id);
+    if (!extension)
+        return;
+    auto added = extension_permissions_to_grant(*extension, { move(permissions), move(origins) });
+    Application::the().change_extension_grants(extension_id, added, {});
 }
 
 Messages::WebContentTestClient::DidRequestExtensionBackgroundStateForTestingResponse WebContentPage::did_request_extension_background_state_for_testing(String const& extension_id)

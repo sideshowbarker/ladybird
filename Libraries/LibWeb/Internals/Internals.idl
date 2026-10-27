@@ -35,6 +35,8 @@ interface Internals {
     DOMString extensionPopupState(DOMString extensionId);
     // "running" while the extension's background page has a view (starting or loaded), else "stopped".
     DOMString extensionBackgroundState(DOMString extensionId);
+    // Grants optional permissions as a user would, firing permissions.onAdded.
+    undefined grantExtensionPermissions(DOMString extensionId, sequence<DOMString> permissions, sequence<DOMString> origins);
 
     undefined gc();
     [CreatesPromise] Promise<undefined> gcAsync();

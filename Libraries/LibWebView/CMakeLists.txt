@@ -42,6 +42,7 @@ set(SOURCES
     Extensions/ExtensionBackgroundLifetime.cpp
     Extensions/ExtensionLifecycle.cpp
     Extensions/ExtensionManifest.cpp
+    Extensions/ExtensionPermissionsAPI.cpp
     Extensions/ExtensionPopupHost.cpp
     Extensions/ExtensionMessageBroker.cpp
     Extensions/ExtensionRegistry.cpp

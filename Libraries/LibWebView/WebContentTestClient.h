@@ -39,6 +39,7 @@ private:
     virtual Messages::WebContentTestClient::DidRequestSiteIsolationProcessTreeForTestingResponse did_request_site_isolation_process_tree_for_testing(Web::PageId page_id) override;
     virtual Messages::WebContentTestClient::DidRequestExtensionPopupStateForTestingResponse did_request_extension_popup_state_for_testing(Web::PageId page_id, String extension_id) override;
     virtual Messages::WebContentTestClient::DidRequestExtensionBackgroundStateForTestingResponse did_request_extension_background_state_for_testing(Web::PageId page_id, String extension_id) override;
+    virtual void did_request_extension_grant_for_testing(Web::PageId page_id, String extension_id, Vector<String> permissions, Vector<String> origins) override;
     virtual Messages::WebContentTestClient::DidRequestTabIsPlayingAudioForTestingResponse did_request_tab_is_playing_audio_for_testing(Web::PageId page_id) override;
     virtual Messages::WebContentTestClient::DidRequestTabAudibilityChangeCountForTestingResponse did_request_tab_audibility_change_count_for_testing(Web::PageId page_id) override;
     virtual Messages::WebContentTestClient::DidRequestHasPopulatedDocumentForTestingResponse did_request_has_populated_document_for_testing(Web::PageId page_id, Web::HTML::CrossProcessId navigable_id) override;

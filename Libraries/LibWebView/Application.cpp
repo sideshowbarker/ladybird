@@ -3667,6 +3667,40 @@ void Application::dispatch_extension_lifecycle_events(bool at_browser_start)
     }
 }
 
+void Application::change_extension_grants(String const& extension_id, ExtensionPermissionSet const& added, ExtensionPermissionSet const& removed)
+{
+    auto extension = m_extension_registry->find(extension_id);
+    if (!extension || (added.is_empty() && removed.is_empty()))
+        return;
+    auto permissions = extension->descriptor().api_permissions;
+    Vector<String> origins;
+    for (auto const& pattern : extension->descriptor().granted_origins)
+        origins.append(pattern.to_string());
+    for (auto const& permission : added.permissions) {
+        if (!permissions.contains_slow(permission))
+            permissions.append(permission);
+    }
+    for (auto const& origin : added.origins) {
+        if (!origins.contains_slow(origin))
+            origins.append(origin);
+    }
+    permissions.remove_all_matching([&](auto const& permission) { return removed.permissions.contains_slow(permission); });
+    origins.remove_all_matching([&](auto const& origin) { return removed.origins.contains_slow(origin); });
+    m_extension_registry->set_granted(extension_id, move(permissions), move(origins));
+    // The tabs where the user invoked the extension stop being reachable once activeTab is gone.
+    if (removed.permissions.contains_slow("activeTab"sv))
+        m_extension_active_tab_grants.remove(extension_id);
+    auto dispatch = [&](StringView event_name, ExtensionPermissionSet const& set) {
+        if (set.is_empty())
+            return;
+        JsonArray arguments;
+        arguments.must_append(set.to_json());
+        m_extension_message_broker->dispatch_extension_event(extension_id, MUST(String::from_utf8(event_name)), arguments.serialized());
+    };
+    dispatch("permissions.onAdded"sv, added);
+    dispatch("permissions.onRemoved"sv, removed);
+}
+
 void Application::schedule_extension_alarms()
 {
     auto next = m_extension_alarm_manager.next_due();

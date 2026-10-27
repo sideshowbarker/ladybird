@@ -1,0 +1,51 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // permissions.getAll(), contains(), request(), and remove(), and the events a grant and a removal fire.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const id = internals.extensionId("Permissions Fixture");
+            const ask = message => sendToBackground(message);
+            const show = value => JSON.stringify(value);
+            const all = (await ask({ type: "getAll" })).value;
+            println(`getAll: ${show(all.permissions)} ${show([...all.origins].sort())}`);
+            for (const permissions of [
+                { permissions: ["storage"] },
+                { permissions: ["tabs"] },
+                { origins: ["https://required.example/a/*"] },
+                { origins: ["https://optional.example/*"] },
+                { permissions: ["cookies"] },
+            ])
+                println(`contains ${show(permissions)}: ${(await ask({ type: "contains", permissions })).value}`);
+            println(`request: ${(await ask({ type: "request", permissions: { permissions: ["tabs"] } })).value}`);
+
+            internals.grantExtensionPermissions(id, ["tabs"], ["https://optional.example/*"]);
+            let changes;
+            while (!(changes = await ask({ type: "changes" })).length)
+                await new Promise(resolve => setTimeout(resolve, 20));
+            println(
+                `after a grant: ${show(changes)} ${(await ask({ type: "contains", permissions: { permissions: ["tabs"], origins: ["https://optional.example/*"] } })).value}`
+            );
+
+            println(
+                `remove an optional origin: ${(await ask({ type: "remove", permissions: { origins: ["https://optional.example/*"] } })).value}`
+            );
+            while (!(changes = await ask({ type: "changes" })).length)
+                await new Promise(resolve => setTimeout(resolve, 20));
+            println(
+                `after removing it: ${show(changes)} ${(await ask({ type: "contains", permissions: { origins: ["https://optional.example/*"] } })).value}`
+            );
+            println(
+                `remove a required one: ${(await ask({ type: "remove", permissions: { permissions: ["storage"] } })).failed}`
+            );
+            println(
+                `remove an undeclared one: ${(await ask({ type: "remove", permissions: { permissions: ["cookies"] } })).failed}`
+            );
+            println(`malformed: ${(await ask({ type: "contains", permissions: "tabs" })).failed.split(":")[0]}`);
+            await ask({ type: "remove", permissions: { permissions: ["tabs"] } });
+            done();
+        });
+    </script>
+</body>

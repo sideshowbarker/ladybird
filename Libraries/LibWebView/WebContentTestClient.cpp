@@ -101,6 +101,12 @@ Messages::WebContentTestClient::DidRequestExtensionPopupStateForTestingResponse 
     return String {};
 }
 
+void WebContentTestClient::did_request_extension_grant_for_testing(Web::PageId page_id, String extension_id, Vector<String> permissions, Vector<String> origins)
+{
+    if (auto* page = m_client.page(page_id))
+        page->did_request_extension_grant_for_testing(extension_id, move(permissions), move(origins));
+}
+
 Messages::WebContentTestClient::DidRequestExtensionBackgroundStateForTestingResponse WebContentTestClient::did_request_extension_background_state_for_testing(Web::PageId page_id, String extension_id)
 {
     if (auto* page = m_client.page(page_id))

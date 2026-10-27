@@ -51,6 +51,7 @@
 #include <LibWebView/BrowsingSession.h>
 #include <LibWebView/DownloadStore.h>
 #include <LibWebView/Extensions/ExtensionAlarmManager.h>
+#include <LibWebView/Extensions/ExtensionPermissionsAPI.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/Extensions/ExtensionTabsAPI.h>
 #include <LibWebView/ExternalURLHandler.h>
@@ -695,6 +696,12 @@ private:
     // version; each goes to the extension's background page once it has started.
     void dispatch_extension_lifecycle_events(bool at_browser_start);
 
+public:
+    // Grants and takes away optional permissions, persists the result, and fires permissions.onAdded and onRemoved
+    // with what actually changed.
+    void change_extension_grants(String const& extension_id, ExtensionPermissionSet const& added, ExtensionPermissionSet const& removed);
+
+private:
     bool m_extension_background_pages_may_start { false };
     OwnPtr<BrowserProcess> m_browser_process;
     bool m_should_exit_after_profile_coordination { false };

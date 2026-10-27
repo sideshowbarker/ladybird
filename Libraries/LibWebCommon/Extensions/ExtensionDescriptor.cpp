@@ -12,6 +12,16 @@
 
 namespace Web::Extensions {
 
+bool ExtensionDescriptor::differs_only_in_grants(ExtensionDescriptor const& other) const
+{
+    auto without_grants = [](ExtensionDescriptor descriptor) {
+        descriptor.api_permissions.clear();
+        descriptor.granted_origins.clear();
+        return descriptor;
+    };
+    return without_grants(*this) == without_grants(other);
+}
+
 bool ExtensionDescriptor::has_host_access(URL::URL const& url) const
 {
     auto matches = [&](auto const& pattern) { return pattern.matches(url); };

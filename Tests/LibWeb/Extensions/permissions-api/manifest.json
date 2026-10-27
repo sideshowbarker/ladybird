@@ -1,0 +1,34 @@
+{
+    "manifest_version": 3,
+    "name": "Permissions Fixture",
+    "version": "1.0",
+    "description": "A background page that reads, checks, and gives up its permissions for the test page, and records the changes.",
+    "permissions": [
+        "storage"
+    ],
+    "optional_permissions": [
+        "tabs"
+    ],
+    "host_permissions": [
+        "https://required.example/*"
+    ],
+    "optional_host_permissions": [
+        "https://optional.example/*"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/permissions-api.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

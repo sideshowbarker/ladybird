@@ -110,7 +110,9 @@ void MessageRouter::reconcile_contexts()
         contexts.append(*context);
     for (auto context : contexts) {
         auto const* descriptor = ExtensionSet::the().find(context->extension_id());
-        if (!descriptor || *descriptor != context->descriptor())
+        if (descriptor && *descriptor != context->descriptor() && descriptor->differs_only_in_grants(context->descriptor()))
+            context->set_descriptor(*descriptor);
+        else if (!descriptor || *descriptor != context->descriptor())
             context->detach();
     }
 }

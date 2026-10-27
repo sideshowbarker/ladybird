@@ -1790,6 +1790,17 @@ Utf16String Internals::extension_popup_state(Utf16String const& extension_id)
     return Utf16String::from_utf8(page().client().extension_popup_state_for_testing(extension_id.to_utf8_but_should_be_ported_to_utf16()));
 }
 
+void Internals::grant_extension_permissions(Utf16String const& extension_id, Vector<Utf16String> const& permissions, Vector<Utf16String> const& origins)
+{
+    auto to_utf8 = [](Vector<Utf16String> const& strings) {
+        Vector<String> result;
+        for (auto const& string : strings)
+            result.append(string.to_utf8_but_should_be_ported_to_utf16());
+        return result;
+    };
+    page().client().grant_extension_permissions_for_testing(extension_id.to_utf8_but_should_be_ported_to_utf16(), to_utf8(permissions), to_utf8(origins));
+}
+
 Utf16String Internals::extension_background_state(Utf16String const& extension_id)
 {
     return Utf16String::from_utf8(page().client().extension_background_state_for_testing(extension_id.to_utf8_but_should_be_ported_to_utf16()));
