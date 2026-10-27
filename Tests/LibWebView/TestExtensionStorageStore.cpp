@@ -310,3 +310,34 @@ TEST_CASE(quota_total_stays_exact_across_mutations_and_reopen)
     ExtensionStorageStore reopened(f.root);
     EXPECT_EQ(bytes(f, reopened), 0u);
 }
+
+TEST_CASE(session_storage_keeps_its_items_in_memory)
+{
+    Fixture f;
+    auto store = ExtensionStorageStore::create_session_store();
+    JsonObject items;
+    items.set("a"sv, 1);
+    EXPECT(!set(f, *store, items).is_error());
+    EXPECT_EQ(get(f, *store).serialized(), "{\"a\":1}"sv);
+    EXPECT_EQ(bytes(f, *store), 2u);
+    EXPECT(!FileSystem::exists(f.path()));
+
+    // It has the same quota as storage.local, which unlimitedStorage doesn't lift.
+    items.set("a"sv, MUST(String::repeated('a', ExtensionStorageStore::quota_bytes)));
+    auto result = set(f, *store, items, true);
+    EXPECT(result.is_error());
+    if (result.is_error())
+        EXPECT_EQ(result.error().string_literal(), "storage.session QUOTA_BYTES quota exceeded"sv);
+    EXPECT_EQ(get(f, *store).serialized(), "{\"a\":1}"sv);
+}
+
+TEST_CASE(session_storage_is_dropped_with_the_extension)
+{
+    Fixture f;
+    auto store = ExtensionStorageStore::create_session_store();
+    JsonObject items;
+    items.set("a"sv, 1);
+    EXPECT(!set(f, *store, items).is_error());
+    MUST(wait_for<void>(f.loop, [&](auto callback) { store->delete_storage("one"_string, move(callback)); }));
+    EXPECT(get(f, *store).is_empty());
+}

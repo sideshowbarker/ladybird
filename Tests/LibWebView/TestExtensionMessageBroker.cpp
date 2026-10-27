@@ -96,7 +96,12 @@ struct FakeEndpoint final : public ExtensionMessageBroker::Endpoint {
     Vector<String> storage_events;
     virtual bool extension_has_permission(String const&, StringView permission) const override { return permission == "storage"sv && storage_permission; }
     virtual void complete_extension_storage(u64, Web::Extensions::StorageResult const& result) override { storage_replies.append(result); }
-    virtual void dispatch_extension_storage_changed(String const&, String const& changes) override { storage_events.append(changes); }
+    Vector<u64> storage_event_contexts;
+    virtual void dispatch_extension_storage_changed(String const&, u64 context_id, String const& changes) override
+    {
+        storage_events.append(changes);
+        storage_event_contexts.append(context_id);
+    }
 
     Vector<Dispatch> dispatches;
     Vector<Completion> completions;
@@ -123,9 +128,11 @@ struct FakeEndpoint final : public ExtensionMessageBroker::Endpoint {
 
     virtual Optional<MessageSender> extension_message_sender(String const& extension_id, Web::HTML::CrossProcessId document_id) const override
     {
-        if (!authorized || document_id != Web::HTML::CrossProcessId { 1, 1 })
+        // The document { 1, 2 } is always a web page that a content script runs in.
+        if (!authorized || (document_id != Web::HTML::CrossProcessId { 1, 1 } && document_id != Web::HTML::CrossProcessId { 1, 2 }))
             return {};
-        return MessageSender { .extension_id = extension_id, .url = content_script ? "https://example.com/"_string : MUST(String::formatted("ladybird-extension://{}/page.html", extension_id)), .from_background = background };
+        auto in_web_page = content_script || document_id == Web::HTML::CrossProcessId { 1, 2 };
+        return MessageSender { .extension_id = extension_id, .url = in_web_page ? "https://example.com/"_string : MUST(String::formatted("ladybird-extension://{}/page.html", extension_id)), .from_background = background };
     }
 };
 
@@ -510,7 +517,7 @@ struct StorageFixture {
     }
     void set(FakeEndpoint& endpoint, u64 context_id = 1)
     {
-        broker.request_storage(endpoint, context_id, 1, { .operation = Web::Extensions::StorageRequest::Operation::Set, .keys = {}, .items_json = R"({"key":1})"_string }, store);
+        broker.request_storage(endpoint, context_id, 1, { .operation = Web::Extensions::StorageRequest::Operation::Set, .keys = {}, .items_json = R"({"key":1})"_string, .area = Web::Extensions::StorageRequest::Area::Local }, store);
     }
 };
 
@@ -567,7 +574,7 @@ TEST_CASE(storage_changes_include_writer_and_only_same_extension)
     EXPECT_EQ(f.b.storage_events.size(), 1u);
     EXPECT(f.other.storage_events.is_empty());
     if (!f.a.storage_events.is_empty())
-        EXPECT_EQ(f.a.storage_events[0], R"({"key":{"newValue":1}})"sv);
+        EXPECT_EQ(f.a.storage_events[0], R"({"areaName":"local","changes":{"key":{"newValue":1}}})"sv);
     f.set(f.a);
     f.drain();
     EXPECT_EQ(f.a.storage_events.size(), 1u);
@@ -1045,7 +1052,7 @@ TEST_CASE(a_background_pages_own_storage_writes_dont_wake_it)
     f.set(f.b, 2);
     f.drain();
     EXPECT(woken.is_empty());
-    f.broker.request_storage(f.a, 1, 2, { .operation = Web::Extensions::StorageRequest::Operation::Set, .keys = {}, .items_json = R"({"key":2})"_string }, f.store);
+    f.broker.request_storage(f.a, 1, 2, { .operation = Web::Extensions::StorageRequest::Operation::Set, .keys = {}, .items_json = R"({"key":2})"_string, .area = Web::Extensions::StorageRequest::Area::Local }, f.store);
     f.drain();
     EXPECT_EQ(woken.size(), 1u);
 }
@@ -1165,4 +1172,24 @@ TEST_CASE(only_an_event_a_background_listens_to_keeps_it_awake)
     EXPECT_EQ(activity.size(), 1u);
     EXPECT_EQ(woken.size(), 1u);
     EXPECT_EQ(background.events.size(), 2u);
+}
+
+TEST_CASE(session_changes_reach_a_content_script_only_once_it_may_use_the_area)
+{
+    StorageFixture f;
+    auto session = WebView::ExtensionStorageStore::create_session_store();
+    // One page with an extension document and a content script in a web frame.
+    f.broker.context_created(f.a, f.id, 4, { 1, 2 }, 1);
+    // The session store answers from a thread of its own, so each write waits for its reply.
+    auto write = [&](u64 request_id, StringView json) {
+        auto replies = f.a.storage_replies.size();
+        f.broker.request_storage(f.a, 1, request_id, { .operation = Web::Extensions::StorageRequest::Operation::Set, .keys = {}, .items_json = MUST(String::from_utf8(json)), .area = Web::Extensions::StorageRequest::Area::Session }, *session);
+        f.loop.spin_until([&] { return f.a.storage_replies.size() > replies; });
+    };
+    write(1, R"({"key":1})"sv);
+    EXPECT_EQ(f.a.storage_event_contexts, (Vector<u64> { 1 }));
+
+    f.broker.request_storage(f.a, 1, 2, { .operation = Web::Extensions::StorageRequest::Operation::SetAccessLevel, .keys = {}, .items_json = "TRUSTED_AND_UNTRUSTED_CONTEXTS"_string, .area = Web::Extensions::StorageRequest::Area::Session }, *session);
+    write(3, R"({"key":2})"sv);
+    EXPECT_EQ(f.a.storage_event_contexts, (Vector<u64> { 1, 1, 4 }));
 }

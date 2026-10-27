@@ -40,7 +40,7 @@ public:
         virtual void dispatch_extension_port_disconnect(u64 context_id, u64 port_id, Optional<String> const& error) = 0;
         virtual bool extension_has_permission(String const&, StringView) const { return false; }
         virtual void complete_extension_storage(u64, Web::Extensions::StorageResult const&) { }
-        virtual void dispatch_extension_storage_changed(String const&, String const&) { }
+        virtual void dispatch_extension_storage_changed(String const&, u64, String const&) { }
         virtual Optional<u64> extension_revision(String const& extension_id) const = 0;
         virtual Optional<Web::Extensions::MessageSender> extension_message_sender(String const& extension_id, Web::HTML::CrossProcessId document_id) const = 0;
         // The view of the tab this endpoint's page is part of, and a document's frame id within that tab.
@@ -66,7 +66,11 @@ public:
     void send_to_tab(Endpoint& source, String const& extension_id, u64 request_id, u64 context_id, u64 view_id, Optional<i64> frame_id, String const& message_json);
     void reply(Endpoint& target, u64 dispatch_id, Web::Extensions::MessageResult const& reply_json);
 
+    // The request's area picks the store: storage.local's, or storage.session's.
     void request_storage(Endpoint&, u64 context_id, u64 request_id, Web::Extensions::StorageRequest const&, ExtensionStorageStore&);
+    // storage.session is the extension's own documents' alone, until setAccessLevel() opens it to content scripts.
+    bool session_storage_is_open_to_content_scripts(StringView extension_id) const { return m_session_storage_open.contains(extension_id); }
+    void forget_session_storage_access(StringView extension_id) { m_session_storage_open.remove(extension_id); }
 
     // The extension and document of a context that's still current, for a request that only reads what the browser shows.
     struct CurrentContext {
@@ -119,7 +123,7 @@ private:
     };
 
     bool storage_context_is_current(Endpoint*, u64 context_id, Context const&) const;
-    void broadcast_storage_changes(String const&, u64 revision, String const&, bool written_by_background);
+    void broadcast_storage_changes(String const&, u64 revision, String const&, bool written_by_background, Web::Extensions::StorageRequest::Area);
     void settle(u64 pending_id, Web::Extensions::MessageResult const& reply_json);
     void decline(u64 pending_id);
 
@@ -202,6 +206,7 @@ private:
     };
     Vector<QueuedMessage> m_queued_messages;
     HashMap<String, u64> m_starting_backgrounds;
+    HashTable<String> m_session_storage_open;
     // The listened-to events of each context of an extension's current or last background run, by endpoint and context.
     // An extension that isn't here hasn't run its background page yet.
     HashMap<String, HashMap<Endpoint*, HashMap<u64, Vector<String>>>> m_background_listeners;

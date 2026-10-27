@@ -1,0 +1,32 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // storage.session keeps values apart from storage.local, reports its changes as the "session" area, and is the
+        // extension's own documents' alone until it opens itself to content scripts.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const show = reply => JSON.stringify(reply);
+            println(`set: ${show(await sendToBackground({ type: "set", items: { token: "one" } }))}`);
+            println(`get: ${show(await sendToBackground({ type: "get", keys: "token" }))}`);
+            println(`not in storage.local: ${show(await sendToBackground({ type: "local-get", keys: "token" }))}`);
+            let areas;
+            while (!(areas = await sendToBackground({ type: "areas" })).length)
+                await new Promise(resolve => setTimeout(resolve, 20));
+            println(`change areas: ${show(areas)}`);
+
+            println(
+                `content script, by default: ${(await sendToBackground({ type: "direct-get", keys: "token" })).failed}`
+            );
+            await sendToBackground({ type: "access", level: "TRUSTED_AND_UNTRUSTED_CONTEXTS" });
+            println(
+                `content script, once allowed: ${show(await sendToBackground({ type: "direct-get", keys: "token" }))}`
+            );
+
+            await sendToBackground({ type: "access", level: "TRUSTED_CONTEXTS" });
+            await sendToBackground({ type: "clear" });
+            done();
+        });
+    </script>
+</body>
