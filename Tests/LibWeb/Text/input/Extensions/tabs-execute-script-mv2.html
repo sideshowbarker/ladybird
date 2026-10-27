@@ -1,0 +1,26 @@
+<!doctype html>
+<title>MV2 page</title>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <div id="box"></div>
+    <iframe src="../../data/extension-frame-with-child.html"></iframe>
+    <script>
+        // Manifest version 2's tabs.executeScript() runs code or a file and resolves with each frame's value; its
+        // tabs.insertCSS() adds CSS.
+        asyncTest(async done => {
+            await contentScriptReady();
+            println(`code: ${JSON.stringify(await sendToBackground({ type: "code" }))}`);
+            println(`file: ${JSON.stringify(await sendToBackground({ type: "file" }))}`);
+            await sendToBackground({ type: "css" });
+            println(`css: ${getComputedStyle(document.getElementById("box")).color}`);
+            document.body.append(document.createElement("iframe"));
+            while ((await sendToBackground({ type: "frame-id" })) === null)
+                await new Promise(resolve => setTimeout(resolve, 20));
+            println(`a frame's subtree: ${JSON.stringify(await sendToBackground({ type: "subtree" }))}`);
+            println(`without matchAboutBlank: ${JSON.stringify(await sendToBackground({ type: "no-blank" }))}`);
+            println(`the top frame throws: ${JSON.stringify(await sendToBackground({ type: "top-throws" }))}`);
+            done();
+        });
+    </script>
+</body>
