@@ -285,14 +285,23 @@ ErrorOr<ExtensionManifest, String> ExtensionManifest::parse(StringView manifest_
 
     manifest.web_accessible_resources = TRY(parse_web_accessible_resources(object));
 
-    // Manifest version 2 mixes host patterns into "permissions"; version 3 keeps them in "host_permissions".
-    for (auto const& permission : TRY(parse_string_array(object, "permissions"sv))) {
-        if (permission == "<all_urls>"sv || permission.contains("://"sv))
-            manifest.host_permissions.append(permission);
-        else if (permission == "storage"sv || permission == "unlimitedStorage"sv || permission == "tabs"sv || permission == "activeTab"sv || permission == "alarms"sv)
-            manifest.permissions.append(permission);
-    }
+    // Manifest version 2 mixes host patterns into "permissions" and "optional_permissions"; version 3 keeps them in
+    // "host_permissions" and "optional_host_permissions".
+    auto is_supported_api_permission = [](String const& permission) {
+        return permission == "storage"sv || permission == "unlimitedStorage"sv || permission == "tabs"sv || permission == "activeTab"sv || permission == "alarms"sv;
+    };
+    auto sort_permissions = [&](Vector<String> const& listed, Vector<String>& api_permissions, Vector<String>& host_permissions) {
+        for (auto const& permission : listed) {
+            if (permission == "<all_urls>"sv || permission.contains("://"sv))
+                host_permissions.append(permission);
+            else if (is_supported_api_permission(permission))
+                api_permissions.append(permission);
+        }
+    };
+    sort_permissions(TRY(parse_string_array(object, "permissions"sv)), manifest.permissions, manifest.host_permissions);
+    sort_permissions(TRY(parse_string_array(object, "optional_permissions"sv)), manifest.optional_permissions, manifest.optional_host_permissions);
     manifest.host_permissions.extend(TRY(parse_string_array(object, "host_permissions"sv)));
+    manifest.optional_host_permissions.extend(TRY(parse_string_array(object, "optional_host_permissions"sv)));
 
     if (auto error = parse_content_security_policy(object, manifest.manifest_version, manifest.extension_pages_csp); error.has_value())
         return error.release_value();

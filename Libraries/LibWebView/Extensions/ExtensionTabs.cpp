@@ -64,7 +64,7 @@ bool may_see_tab_details(ExtensionTabViewer const& viewer, ExtensionTab const& t
         return true;
     if (viewer.active_tab_grants && viewer.active_tab_grants->contains(tab.id))
         return true;
-    return viewer.extension.host_permissions.contains([&](auto const& pattern) { return pattern.matches(tab.url); });
+    return viewer.extension.has_host_access(tab.url);
 }
 
 Optional<i64> last_focused_extension_window_for(ReadonlySpan<i64> focus_order, ReadonlySpan<ExtensionTab> tabs, bool allowed_in_private)

@@ -193,6 +193,19 @@ void ExtensionRegistry::set_allowed_in_private(StringView id, bool allowed)
     notify_changed();
 }
 
+void ExtensionRegistry::set_granted(StringView id, Vector<String> api_permissions, Vector<String> origins)
+{
+    auto extension = find(id);
+    if (!extension)
+        return;
+    auto grants = move(api_permissions);
+    grants.extend(move(origins));
+    quick_sort(grants);
+    m_settings.set_installed_extension_granted_permissions(id, grants);
+    extension->apply_permission_grants(grants);
+    notify_changed();
+}
+
 void ExtensionRegistry::restore_from_settings()
 {
     m_extensions.clear();
