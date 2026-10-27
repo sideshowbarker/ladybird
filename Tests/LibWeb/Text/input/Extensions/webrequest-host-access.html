@@ -1,0 +1,58 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-webrequest.js"></script>
+<body>
+    <script>
+        function askHostOnly(message) {
+            return new Promise(resolve => {
+                document.addEventListener(
+                    "host-only-reply",
+                    () => resolve(JSON.parse(document.documentElement.dataset.hostOnlyReply)),
+                    { once: true }
+                );
+                document.dispatchEvent(new CustomEvent("host-only-request", { detail: JSON.stringify(message) }));
+            });
+        }
+
+        // An extension hears a request only with host access to its URL and to the page that made it, and no extension
+        // hears the requests of an extension's own pages.
+        asyncTest(async done => {
+            await watchWebRequests();
+            if (document.documentElement.dataset.hostOnlyReady !== "1")
+                await new Promise(resolve => document.addEventListener("host-only-ready", resolve, { once: true }));
+            await askHostOnly({ type: "watch", token: webRequestToken });
+
+            const server = httpTestServer();
+            const noStore = { "Cache-Control": "no-store" };
+            const own = await server.createEcho("GET", echoPath("own.txt"), {
+                status: 200,
+                headers: noStore,
+                body: "own",
+            });
+            const loopbackPath = new URL(
+                await server.createEcho("GET", echoPath("loopback.txt"), { status: 200, headers: noStore, body: "x" })
+            ).pathname;
+            const loopback = `http://127.0.0.1:${location.port}${loopbackPath}`;
+            const fromBackgroundPath = new URL(
+                await server.createEcho("GET", echoPath("background.txt"), { status: 200, headers: noStore, body: "x" })
+            ).pathname;
+            const fromBackground = `http://127.0.0.1:${location.port}${fromBackgroundPath}`;
+
+            await fetch(own);
+            await fetch(loopback, { mode: "no-cors" });
+            await sendToBackground({ type: "fetch", url: fromBackground });
+            const events = await webRequestEvents(
+                events =>
+                    events.filter(e => e.event === "onCompleted" && (e.url === own || e.url === loopback)).length === 2
+            );
+            const heardBy = url => events.some(e => e.url === url && e.event === "onBeforeRequest");
+            println(`all-URLs extension heard the page's own-host fetch: ${heardBy(own)}`);
+            println(`all-URLs extension heard the page's loopback fetch: ${heardBy(loopback)}`);
+            println(`all-URLs extension heard its background's fetch: ${heardBy(fromBackground)}`);
+            const hostOnly = await askHostOnly({ type: "heard", token: webRequestToken });
+            println(`loopback-only extension heard: ${hostOnly.length}`);
+            done();
+        });
+    </script>
+</body>

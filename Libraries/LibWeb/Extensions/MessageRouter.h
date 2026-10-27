@@ -68,6 +68,8 @@ public:
     void dispatch_connect(Page&, u64 context_id, u64 channel_id, u64 port_id, String const& name, MessageSender const&);
     void complete_connect(Page&, u64 context_id, u64 port_id, u64 channel_id, Optional<String> const& error);
     void dispatch_port_message(Page&, u64 context_id, u64 channel_id, u64 port_id, String const& json);
+    // Calls each listed webRequest listener of the context with its own copy of the details.
+    void dispatch_web_request_event(Page&, u64 context_id, u64 dispatch_id, Vector<u64> const& listener_ids, String const& details_json, bool wants_answer);
     void dispatch_port_disconnect(Page&, u64 context_id, u64 port_id, Optional<String> const& error);
 
     void finished_dispatch(u64 dispatch_id);

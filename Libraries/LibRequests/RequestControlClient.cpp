@@ -57,6 +57,12 @@ void RequestControlClient::rejected_certificate(ByteString host, u16 port, ByteS
         on_rejected_certificate(host, port, fingerprint, errors, details);
 }
 
+void RequestControlClient::web_request_event(int client_id, u64 request_id, WebRequestEventDetails details, bool wants_answer)
+{
+    if (on_web_request_event)
+        on_web_request_event(client_id, request_id, move(details), wants_answer);
+}
+
 void RequestControlClient::client_disconnected(int client_id)
 {
     if (on_client_disconnected)

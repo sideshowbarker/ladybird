@@ -1,0 +1,37 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-webrequest.js"></script>
+<body>
+    <script>
+        // A request that redirects twice keeps one requestId through each hop, and completes once.
+        asyncTest(async done => {
+            await watchWebRequests();
+            const server = httpTestServer();
+            const noStore = { "Cache-Control": "no-store" };
+            const c = await server.createEcho("GET", echoPath("c.txt"), { status: 200, headers: noStore, body: "c" });
+            const b = await server.createEcho("GET", echoPath("b.txt"), {
+                status: 302,
+                headers: { Location: c, ...noStore },
+            });
+            const a = await server.createEcho("GET", echoPath("a.txt"), {
+                status: 302,
+                headers: { Location: b, ...noStore },
+            });
+            println(`body: ${await (await fetch(a)).text()}`);
+            const events = await webRequestEvents(events => events.some(e => e.event === "onCompleted"));
+            const name = url => url.slice(url.lastIndexOf("/") + 1);
+            println(`events: ${events.map(e => `${e.event}(${name(e.url)})`).join(" ")}`);
+            println(`one requestId: ${events.every(e => e.requestId === events[0].requestId)}`);
+            println(
+                `redirects: ${events
+                    .filter(e => e.event === "onBeforeRedirect")
+                    .map(e => `${name(e.url)} -> ${name(e.redirectUrl)} ${e.statusCode}`)
+                    .join(", ")}`
+            );
+            println(`onBeforeRequest: ${events.filter(e => e.event === "onBeforeRequest").length}`);
+            println(`onCompleted: ${events.filter(e => e.event === "onCompleted").length}`);
+            done();
+        });
+    </script>
+</body>

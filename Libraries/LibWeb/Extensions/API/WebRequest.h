@@ -29,6 +29,7 @@ public:
     void remove(WebRequestEvent, JS::FunctionObject const&);
     bool has(WebRequestEvent, JS::FunctionObject const&) const;
     GC::Ptr<JS::FunctionObject> callback_for(u64 listener_id) const;
+    WebRequestListener const* record_for(u64 listener_id) const;
     void revoke();
     bool is_active() const { return m_active; }
 

@@ -79,6 +79,15 @@ GC::Ptr<JS::FunctionObject> WebRequestListeners::callback_for(u64 listener_id) c
     return nullptr;
 }
 
+WebRequestListener const* WebRequestListeners::record_for(u64 listener_id) const
+{
+    for (auto const& entry : m_entries) {
+        if (entry.record.id == listener_id)
+            return &entry.record;
+    }
+    return nullptr;
+}
+
 void WebRequestListeners::revoke()
 {
     m_active = false;

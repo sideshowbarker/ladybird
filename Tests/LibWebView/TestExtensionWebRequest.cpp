@@ -15,6 +15,18 @@ using Web::Extensions::WebRequestListener;
 namespace {
 
 class TestEndpoint final : public WebView::ExtensionWebRequestRouter::Endpoint {
+public:
+    struct Dispatch {
+        u64 context_id;
+        Vector<u64> listener_ids;
+        String details_json;
+        bool wants_answer;
+    };
+    virtual void dispatch_extension_web_request_event(u64 context_id, u64, Vector<u64> listener_ids, String details_json, bool wants_answer) override
+    {
+        dispatches.append({ context_id, move(listener_ids), move(details_json), wants_answer });
+    }
+    Vector<Dispatch> dispatches;
 };
 
 }

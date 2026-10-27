@@ -4,6 +4,7 @@
 #include <LibRequests/CacheSizes.h>
 #include <LibRequests/CertificateError.h>
 #include <LibRequests/NetworkUsage.h>
+#include <LibRequests/WebRequest.h>
 #include <LibURL/URL.h>
 #include <RequestServer/IsPrivate.h>
 #include <RequestServer/RequestType.h>
@@ -19,6 +20,10 @@ endpoint RequestServerControlClient
 
     // Details describe unnamed errors.
     rejected_certificate(ByteString host, u16 port, ByteString fingerprint, Requests::CertificateError errors, ByteString details) =|
+
+    // An event of a request some extension's webRequest listener wants to hear about. When wants_answer is set, the
+    // request waits for web_request_decision.
+    web_request_event(int client_id, u64 request_id, Requests::WebRequestEventDetails details, bool wants_answer) =|
 
     network_usage(Vector<Requests::NetworkUsage> usage, u64 interval_microseconds) =|
 

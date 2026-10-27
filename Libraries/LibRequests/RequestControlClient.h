@@ -44,12 +44,14 @@ public:
     Function<void(int client_id, URL::URL const&, Optional<HTTP::Cookie::PartitionContext> const&, HTTP::Cookie::SameSiteContext, Vector<HTTP::Cookie::ParsedCookie> const&, Optional<HTTP::HSTS::ParsedHSTSPolicy> const&)> on_store_response_cookies_and_hsts_policy;
     Function<void()> on_request_server_died;
     Function<void(u64 size)> on_disk_cache_size_changed;
+    Function<void(int client_id, u64 request_id, WebRequestEventDetails, bool wants_answer)> on_web_request_event;
 
 private:
     virtual void die() override;
 
     virtual void network_usage(Vector<NetworkUsage> usage, u64 interval_microseconds) override;
     virtual void rejected_certificate(ByteString host, u16 port, ByteString fingerprint, CertificateError, ByteString details) override;
+    virtual void web_request_event(int client_id, u64 request_id, WebRequestEventDetails, bool wants_answer) override;
     virtual void client_disconnected(int client_id) override;
     virtual void retrieve_http_cookie(int client_id, u64 request_id, RequestServer::RequestType request_type, u64 cookie_request_id, URL::URL url, Optional<HTTP::Cookie::PartitionContext> partition_context, HTTP::Cookie::SameSiteContext same_site_context) override;
     virtual void store_response_cookies_and_hsts_policy(int client_id, u64 request_id, u64 store_request_id, URL::URL url, Optional<HTTP::Cookie::PartitionContext> partition_context, HTTP::Cookie::SameSiteContext same_site_context, Vector<HTTP::Cookie::ParsedCookie> cookies, Optional<HTTP::HSTS::ParsedHSTSPolicy> hsts_policy) override;
