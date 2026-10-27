@@ -246,6 +246,7 @@ if (NOT WIN32)
         TestCompositorInputRouting.cpp
         TestCrashOverlay.cpp
         TestCrashReportSubmission.cpp
+        TestExtensionActionRegistry.cpp
         TestExtensionsUserActivation.cpp
         TestExtensionTabs.cpp
         TestFavicon.cpp
