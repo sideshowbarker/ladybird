@@ -41,6 +41,7 @@
 #include <LibURL/InternalURLs.h>
 #include <LibURL/Parser.h>
 #include <LibWebCommon/CSS/PropertyList.h>
+#include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebCommon/Fetch/Infrastructure/HTTP/Statuses.h>
 #include <LibWebCommon/Loader/DownloadFilename.h>
 #include <LibWebCommon/Loader/UserAgent.h>
@@ -57,6 +58,7 @@
 #include <LibWebView/Extensions/ExtensionActionRegistry.h>
 #include <LibWebView/Extensions/ExtensionBackgroundHost.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
+#include <LibWebView/Extensions/ExtensionPopupHost.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Extensions/ExtensionStorageStore.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
@@ -233,6 +235,25 @@ Application::Application(Optional<ByteString> ladybird_binary_path)
 
     platform_init(move(ladybird_binary_path));
 }
+
+// Lets the popup host reach the frontend's popup surfaces through the Application's virtual functions.
+class Application::ExtensionPopupFrontend final : public ExtensionPopupHost::Frontend {
+    AK_ALLOC_WITH_KMALLOC;
+
+public:
+    explicit ExtensionPopupFrontend(Application& application)
+        : m_application(application)
+    {
+    }
+
+    virtual bool show_extension_popup(ExtensionPopupRequest const& request) override { return m_application.show_extension_popup(request); }
+    virtual void resize_extension_popup(i64 window_id, Gfx::IntSize size) override { m_application.resize_extension_popup(window_id, size); }
+    virtual void close_extension_popup(i64 window_id) override { m_application.close_extension_popup(window_id); }
+    virtual ViewImplementation* extension_popup_view(i64 window_id) const override { return m_application.extension_popup_view(window_id); }
+
+private:
+    Application& m_application;
+};
 
 class Application::ExtensionsObserver final : public ExtensionRegistryObserver {
     AK_ALLOC_WITH_KMALLOC;
@@ -726,6 +747,8 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_extension_registry->set_message_broker(*m_extension_message_broker);
     m_extension_background_host = make<ExtensionBackgroundHost>();
     m_extension_action_registry = make<ExtensionActionRegistry>();
+    m_extension_popup_frontend = make<ExtensionPopupFrontend>(*this);
+    m_extension_popup_host = make<ExtensionPopupHost>(*m_extension_popup_frontend);
     m_extension_action_registry->on_change = [this](String const& extension_id, Optional<i64> tab_id) { extension_action_changed(extension_id, tab_id); };
     m_extension_message_broker->wake_background = [this](String const& id) {
         if (m_extension_background_host)
@@ -3570,12 +3593,20 @@ void Application::sync_extension_actions()
             actions.set_extension(descriptor.id, descriptor.name, *extension->manifest().action);
     }
     for (auto const& id : actions.extensions_with_actions()) {
+        if (!revisions.contains(id) || m_extension_action_revisions.get(id) != revisions.get(id))
+            m_extension_popup_host->extension_gone(id);
         if (!revisions.contains(id))
             actions.remove_extension(id);
     }
     // Private windows show only the buttons of extensions allowed there, so a change of that permission changes them.
     auto private_access_changed = allowed_in_private.size() != m_extension_actions_allowed_in_private.size()
         || any_of(allowed_in_private, [&](auto const& id) { return !m_extension_actions_allowed_in_private.contains(id); });
+    if (private_access_changed) {
+        for (auto const& id : actions.extensions_with_actions()) {
+            if (allowed_in_private.contains(id) != m_extension_actions_allowed_in_private.contains(id))
+                m_extension_popup_host->extension_gone(id);
+        }
+    }
     auto list_changed = private_access_changed || revisions.size() != m_extension_action_revisions.size() || any_of(revisions, [&](auto const& entry) { return m_extension_action_revisions.get(entry.key) != entry.value; });
     m_extension_actions_allowed_in_private = move(allowed_in_private);
     m_extension_active_tab_grants.remove_all_matching([&](auto const& id, auto const&) { return m_extension_action_revisions.get(id) != revisions.get(id); });
@@ -3594,6 +3625,8 @@ void Application::extension_tab_activated_document(i64 tab_id, URL::URL const& u
 
 void Application::extension_tab_closed(i64 tab_id)
 {
+    if (m_extension_popup_host)
+        m_extension_popup_host->tab_closed(tab_id);
     if (m_extension_action_registry)
         m_extension_action_registry->clear_tab(tab_id);
     for (auto& [id, grants] : m_extension_active_tab_grants)
@@ -3627,8 +3660,12 @@ void Application::activate_extension_action(String const& extension_id, i64 tab_
     if (descriptor.has_permission("activeTab"sv))
         m_extension_active_tab_grants.ensure(extension_id).grant(tab_id, tab->url);
 
-    if (!state.popup.is_empty())
+    if (!state.popup.is_empty()) {
+        auto url = URL::Parser::basic_parse(MUST(String::formatted("{}://{}/{}", Web::Extensions::scheme, extension_id, state.popup)));
+        if (url.has_value())
+            m_extension_popup_host->toggle({ extension_id, tab_id, tab->window_id, url.release_value() });
         return;
+    }
     ExtensionTabViewer viewer { descriptor, m_extension_registry->is_allowed_in_private(extension_id), tab->window_id, tab->window_id, extension_active_tab_grants(extension_id) };
     JsonArray arguments;
     arguments.must_append(serialize_extension_tab(viewer, *tab));

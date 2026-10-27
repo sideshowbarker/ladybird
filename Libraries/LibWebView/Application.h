@@ -101,6 +101,7 @@ public:
     bool has_extension_message_broker() const { return m_extension_message_broker; }
     static ExtensionBackgroundHost& extension_background_host() { return *the().m_extension_background_host; }
     static ExtensionActionRegistry& extension_action_registry() { return *the().m_extension_action_registry; }
+    static ExtensionPopupHost& extension_popup_host() { return *the().m_extension_popup_host; }
     static Profile const& profile() { return *the().m_profile; }
     BrowserProcess& browser_process() { return *m_browser_process; }
     bool should_exit_after_profile_coordination() const { return m_should_exit_after_profile_coordination; }
@@ -311,6 +312,12 @@ public:
     // changes when an extension with an action is added, removed, enabled, or disabled, and one extension's state for
     // a tab (or globally, without a tab id) when it calls the action API.
     virtual void extension_action_list_changed() { }
+    // A frontend shows an extension's popup in a surface of its own, below the button, and loads the request's URL
+    // into its view; ExtensionPopupHost decides when it opens, closes, and how big it is.
+    virtual bool show_extension_popup(ExtensionPopupRequest const&) { return false; }
+    virtual void resize_extension_popup(i64, Gfx::IntSize) { }
+    virtual void close_extension_popup(i64) { }
+    virtual ViewImplementation* extension_popup_view(i64) const { return nullptr; }
     virtual void extension_action_changed(String const&, Optional<i64>) { }
     // The ids of the windows the user has focused, most recent first.
     virtual Vector<i64> extension_window_focus_order() const { return {}; }
@@ -642,6 +649,9 @@ private:
     OwnPtr<ExtensionMessageBroker> m_extension_message_broker;
     OwnPtr<ExtensionBackgroundHost> m_extension_background_host;
     OwnPtr<ExtensionActionRegistry> m_extension_action_registry;
+    class ExtensionPopupFrontend;
+    OwnPtr<ExtensionPopupFrontend> m_extension_popup_frontend;
+    OwnPtr<ExtensionPopupHost> m_extension_popup_host;
     HashMap<String, u64> m_extension_action_revisions;
     HashTable<String> m_extension_actions_allowed_in_private;
     HashMap<String, ExtensionActiveTabGrants> m_extension_active_tab_grants;

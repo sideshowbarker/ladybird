@@ -86,6 +86,8 @@ public:
     virtual Web::PageId routed_page_id() const override { return m_id; }
 
     CanonicalTraversable& traversable() const;
+    // Null once the page's view, and its traversable with it, is gone.
+    CanonicalTraversable* traversable_if_alive() const { return m_traversable.ptr(); }
     ViewImplementation& view() const;
     bool displays_tab() const;
     String dump_process_tree() const;

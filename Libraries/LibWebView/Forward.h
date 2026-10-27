@@ -57,6 +57,8 @@ class PermissionManager;
 class SessionStore;
 class Extension;
 class ExtensionActionRegistry;
+class ExtensionPopupHost;
+struct ExtensionPopupRequest;
 class ExtensionBackgroundHost;
 class ExtensionMessageBroker;
 class ExtensionRegistry;
