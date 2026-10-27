@@ -1672,6 +1672,16 @@ void Application::ask_user_for_extension_directory(Function<void(Optional<ByteSt
     callback(ak_byte_string_from_qstring(path));
 }
 
+void Application::ask_user_for_extension_file(Function<void(Optional<ByteString>)> callback) const
+{
+    auto path = QFileDialog::getOpenFileName(nullptr, "Choose an extension file", {}, "Extensions (*.xpi *.zip)");
+    if (path.isEmpty()) {
+        callback({});
+        return;
+    }
+    callback(ak_byte_string_from_qstring(path));
+}
+
 Optional<ByteString> Application::ask_user_for_download_path(ByteString const& file) const
 {
     auto default_path = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);

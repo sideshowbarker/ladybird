@@ -111,6 +111,10 @@ struct InstalledExtension {
     bool allowed_in_private { false };
     // The version runtime.onInstalled last saw, so a new one reports an update.
     Optional<String> last_seen_version {};
+    // An extension installed from an archive lives in a package directory Ladybird owns, and is known by the Gecko id
+    // its manifest gives, if any, so installing that archive again replaces it.
+    bool packed { false };
+    Optional<String> gecko_id {};
 };
 
 struct ContentBlockerList {
@@ -246,6 +250,7 @@ public:
     void set_installed_extension_allowed_in_private(StringView id, bool);
     void set_installed_extension_granted_permissions(StringView id, Vector<String>);
     void set_installed_extension_last_seen_version(StringView id, String version);
+    void set_installed_extension_package(StringView id, Optional<String> gecko_id);
     void remove_installed_extension(StringView id);
 
     static BrowsingDataSettings parse_browsing_data_settings(JsonValue const&);

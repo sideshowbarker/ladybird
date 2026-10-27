@@ -479,6 +479,8 @@ public:
     void apply_view_options(Badge<ViewImplementation>, ViewImplementation&, WebContentPage&);
 
     virtual void ask_user_for_extension_directory(Function<void(Optional<ByteString>)> callback) const { callback({}); }
+    // Asks for an .xpi or .zip file to install an extension from.
+    virtual void ask_user_for_extension_file(Function<void(Optional<ByteString>)> callback) const { callback({}); }
 
     ErrorOr<void> toggle_devtools_enabled();
     ErrorOr<void> launch_devtools_client();

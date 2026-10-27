@@ -73,7 +73,8 @@ void ExtensionsUI::register_interfaces()
         if (auto extension = Application::extension_registry().find(*id))
             (void)Application::the().open_extension_options_page(*extension, {});
     });
-    register_interface("loadUnpackedExtension"sv, [this](auto const&) { load_unpacked(); });
+    register_interface("loadUnpackedExtension"sv, [this](auto const&) { load(Source::Directory); });
+    register_interface("installExtensionFromFile"sv, [this](auto const&) { load(Source::Archive); });
     register_interface("installExtension"sv, [this](auto const& data) { install(data); });
     register_interface("cancelExtensionInstall"sv, [this](auto const& data) {
         if (!data.is_object())
@@ -166,31 +167,32 @@ void ExtensionsUI::send_result(StringView operation, String error)
     async_send_message("extensionOperationResult"sv, move(result));
 }
 
-void ExtensionsUI::load_unpacked()
+void ExtensionsUI::load(Source source)
 {
     if (!consume_user_activation())
         return;
     m_install_requests.clear();
     auto generation = ++m_picker_generation;
-    Application::the().ask_user_for_extension_directory([weak_this = WebUI::make_weak_ptr(), generation](Optional<ByteString> directory) {
+    auto chosen = [weak_this = WebUI::make_weak_ptr(), generation, source](Optional<ByteString> path) {
         if (!weak_this)
             return;
         auto& ui = static_cast<ExtensionsUI&>(*weak_this);
         if (!ui.is_active() || generation != ui.m_picker_generation)
             return;
-        if (!directory.has_value()) {
+        if (!path.has_value()) {
             ui.send_result("load"sv);
             return;
         }
-        auto result = Application::extension_registry().prepare_unpacked(directory.release_value());
+        auto& registry = Application::extension_registry();
+        auto result = source == Source::Archive ? registry.prepare_packed(path.release_value()) : registry.prepare_unpacked(path.release_value());
         if (result.is_error()) {
             ui.send_result("load"sv, result.release_error());
             return;
         }
         auto pending = result.release_value();
-        if (pending.newly_declared_permissions.is_empty() && pending.extension->descriptor().host_permissions.is_empty()) {
-            (void)Application::extension_registry().install(move(pending));
-            ui.send_result("load"sv);
+        if (!install_needs_confirmation(pending)) {
+            auto installed = Application::extension_registry().try_install(move(pending));
+            ui.send_result("load"sv, installed.is_error() ? installed.release_error() : String {});
             return;
         }
         JsonObject confirmation;
@@ -203,9 +205,14 @@ void ExtensionsUI::load_unpacked()
         for (auto const& pattern : pending.extension->descriptor().host_permissions)
             hosts.must_append(pattern.to_string());
         confirmation.set("hostPermissions"sv, move(hosts));
+        confirmation.set("replaces"sv, pending.replaces.value_or({}));
         confirmation.set("token"sv, ui.m_install_requests.begin(move(pending)));
         ui.async_send_message("confirmExtensionInstall"sv, move(confirmation));
-    });
+    };
+    if (source == Source::Archive)
+        Application::the().ask_user_for_extension_file(move(chosen));
+    else
+        Application::the().ask_user_for_extension_directory(move(chosen));
 }
 
 void ExtensionsUI::install(JsonValue const& data)
@@ -218,8 +225,8 @@ void ExtensionsUI::install(JsonValue const& data)
     auto pending = m_install_requests.take(*token);
     if (!pending.has_value())
         return;
-    (void)Application::extension_registry().install(pending.release_value());
-    send_result("load"sv);
+    auto installed = Application::extension_registry().try_install(pending.release_value());
+    send_result("load"sv, installed.is_error() ? installed.release_error() : String {});
 }
 
 }

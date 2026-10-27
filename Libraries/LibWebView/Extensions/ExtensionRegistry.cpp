@@ -6,11 +6,16 @@
 
 #include <AK/QuickSort.h>
 #include <AK/Random.h>
+#include <AK/ScopeGuard.h>
+#include <LibCore/Directory.h>
+#include <LibCore/File.h>
+#include <LibCore/StandardPaths.h>
 #include <LibFileSystem/FileSystem.h>
 #include <LibURL/URL.h>
 #include <LibWebCommon/Extensions/ResourcePath.h>
 #include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebCommon/Loader/UserAgent.h>
+#include <LibWebView/Extensions/ExtensionArchive.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionRegisteredScripts.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
@@ -70,7 +75,151 @@ ErrorOr<PendingExtensionInstall, String> ExtensionRegistry::prepare_unpacked(Byt
     return PendingExtensionInstall { move(extension), existing_id.has_value(), move(newly_declared_permissions) };
 }
 
+static constexpr auto staging_prefix = ".staging-"sv;
+static constexpr auto backup_prefix = ".backup-"sv;
+
+ByteString ExtensionRegistry::extensions_directory() const
+{
+    return LexicalPath::join(m_profile_data_directory.value_or(Core::StandardPaths::tempfile_directory()), "extensions"sv).string();
+}
+
+// At startup, a staged package no install took (left by a crash) is removed, and an extension whose reinstall was
+// interrupted gets back the package it had, from the backup set aside for it.
+void ExtensionRegistry::recover_interrupted_installs() const
+{
+    auto directory = extensions_directory();
+    if (!FileSystem::exists(directory))
+        return;
+    Vector<ByteString> extension_directories;
+    (void)Core::Directory::for_each_entry(directory, Core::DirIterator::SkipParentAndBaseDir, [&](auto const& entry, auto const&) {
+        auto path = LexicalPath::join(directory, entry.name).string();
+        if (entry.name.starts_with(staging_prefix))
+            (void)remove_extension_package(path);
+        else if (FileSystem::is_directory(path))
+            extension_directories.append(path);
+        return IterationDecision::Continue;
+    });
+    for (auto const& extension_directory : extension_directories) {
+        auto package = LexicalPath::join(extension_directory, "package"sv).string();
+        Vector<ByteString> backups;
+        (void)Core::Directory::for_each_entry(extension_directory, Core::DirIterator::SkipParentAndBaseDir, [&](auto const& entry, auto const&) {
+            if (entry.name.starts_with(backup_prefix))
+                backups.append(LexicalPath::join(extension_directory, entry.name).string());
+            return IterationDecision::Continue;
+        });
+        for (auto const& backup : backups) {
+            if (!FileSystem::exists(package) && !FileSystem::rename_without_replacing(package, backup).is_error())
+                continue;
+            (void)remove_extension_package(backup);
+        }
+    }
+}
+
+ErrorOr<PendingExtensionInstall, String> ExtensionRegistry::prepare_packed(ByteString archive_path)
+{
+    auto file = Core::File::open(archive_path, Core::File::OpenMode::Read);
+    if (file.is_error())
+        return MUST(String::formatted("Can't open the extension archive: {}", file.error()));
+    // An archive too large to hold an extension isn't read into memory at all.
+    auto size = FileSystem::size_from_stat(archive_path);
+    if (size.is_error() || static_cast<u64>(size.value()) > extension_archive_max_file_size)
+        return "The extension archive is too large to install"_string;
+    auto bytes = file.value()->read_until_eof();
+    if (bytes.is_error())
+        return MUST(String::formatted("Can't read the extension archive: {}", bytes.error()));
+    auto staging = LexicalPath::join(extensions_directory(), ByteString::formatted("{}{}", staging_prefix, AK::generate_random_uuid())).string();
+    TRY(extract_extension_archive(bytes.value(), staging));
+    ArmedScopeGuard remove_staging = [&] { (void)remove_extension_package(staging); };
+
+    auto manifest_file = Core::File::open(LexicalPath::join(staging, "manifest.json"sv).string(), Core::File::OpenMode::Read);
+    if (manifest_file.is_error())
+        return "The extension archive has no manifest.json"_string;
+    auto manifest_json = manifest_file.value()->read_until_eof();
+    auto manifest = manifest_json.is_error() ? ErrorOr<ExtensionManifest, String> { "Can't read manifest.json"_string } : ExtensionManifest::parse(StringView { manifest_json.value() });
+    if (manifest.is_error())
+        return manifest.release_error();
+
+    // An archive with a Gecko id replaces the packed extension that has it.
+    Optional<String> existing_id;
+    Vector<String> granted_permissions;
+    if (auto const& gecko_id = manifest.value().gecko_id; gecko_id.has_value()) {
+        for (auto const& installed : m_settings.installed_extensions()) {
+            if (installed.packed && installed.gecko_id == gecko_id) {
+                existing_id = installed.id;
+                granted_permissions = installed.granted_permissions;
+                break;
+            }
+        }
+    }
+    auto id = existing_id.value_or_lazy_evaluated([&] { return AK::generate_random_uuid(); });
+    auto extension = TRY(Extension::load_unpacked(staging, id, {}, extension_locale(m_settings)));
+    Vector<String> newly_declared_permissions;
+    for (auto const& permission : extension->descriptor().api_permissions) {
+        if (!granted_permissions.contains_slow(permission))
+            newly_declared_permissions.append(permission);
+    }
+    Optional<String> replaces;
+    if (existing_id.has_value()) {
+        auto installed = find(*existing_id);
+        replaces = installed ? installed->manifest().name : extension->manifest().name;
+    }
+    remove_staging.disarm();
+    return PendingExtensionInstall { move(extension), existing_id.has_value(), move(newly_declared_permissions), move(staging), move(replaces) };
+}
+
+bool install_needs_confirmation(PendingExtensionInstall const& pending)
+{
+    return !pending.newly_declared_permissions.is_empty() || !pending.extension->descriptor().host_permissions.is_empty() || pending.replaces.has_value();
+}
+
+void ExtensionRegistry::discard(PendingExtensionInstall const& pending)
+{
+    if (pending.staged_package.has_value() && FileSystem::exists(*pending.staged_package))
+        (void)remove_extension_package(*pending.staged_package);
+}
+
 NonnullRefPtr<Extension> ExtensionRegistry::install(PendingExtensionInstall pending)
+{
+    auto result = try_install(move(pending));
+    VERIFY(!result.is_error());
+    return result.release_value();
+}
+
+// Moves a staged package into the extension's package directory, keeping the one it replaces aside until the new one
+// loads; any failure puts the old one back. A crash in between leaves the old one as a backup that startup restores.
+static ErrorOr<NonnullRefPtr<Extension>, String> move_package_into_place(ByteString const& staged, ByteString const& extension_directory, String const& id, String const& locale)
+{
+    auto package = LexicalPath::join(extension_directory, "package"sv).string();
+    auto backup = LexicalPath::join(extension_directory, ByteString::formatted("{}{}", backup_prefix, AK::generate_random_uuid())).string();
+    auto io_error = [](StringView step, Error const& error) { return MUST(String::formatted("Unable to install the extension ({}): {}", step, error)); };
+    if (auto created = Core::Directory::create(extension_directory, Core::Directory::CreateDirectories::Yes, 0700); created.is_error())
+        return io_error("its directory"sv, created.error());
+    bool had_package = FileSystem::exists(package);
+    if (had_package) {
+        if (auto moved = FileSystem::rename_without_replacing(backup, package); moved.is_error())
+            return io_error("setting the old version aside"sv, moved.error());
+    }
+    auto restore = [&] {
+        if (FileSystem::exists(package))
+            (void)remove_extension_package(package);
+        if (had_package)
+            (void)FileSystem::rename_without_replacing(package, backup);
+    };
+    if (auto moved = FileSystem::rename_without_replacing(package, staged); moved.is_error()) {
+        restore();
+        return io_error("moving the new version in"sv, moved.error());
+    }
+    auto loaded = Extension::load_unpacked(package, id, {}, locale);
+    if (loaded.is_error()) {
+        restore();
+        return loaded.release_error();
+    }
+    if (had_package)
+        (void)remove_extension_package(backup);
+    return loaded.release_value();
+}
+
+ErrorOr<NonnullRefPtr<Extension>, String> ExtensionRegistry::try_install(PendingExtensionInstall pending)
 {
     auto extension = move(pending.extension);
     Vector<String> grants;
@@ -85,11 +234,24 @@ NonnullRefPtr<Extension> ExtensionRegistry::install(PendingExtensionInstall pend
             grants.append(permission);
     }
     quick_sort(grants);
+    // A packed extension's files move from where they were staged into its package directory, replacing any it had;
+    // nothing about the installed extension changes unless that works.
+    if (pending.staged_package.has_value()) {
+        auto moved = move_package_into_place(*pending.staged_package, LexicalPath::join(extensions_directory(), extension->id()).string(), extension->id(), extension_locale(m_settings));
+        if (moved.is_error()) {
+            if (FileSystem::exists(*pending.staged_package))
+                (void)remove_extension_package(*pending.staged_package);
+            return moved.release_error();
+        }
+        extension = moved.release_value();
+    }
     extension->apply_permission_grants(grants);
     apply_registered_scripts(*extension);
     if (m_message_broker)
         m_message_broker->close_channels_for(extension->id());
     m_settings.add_installed_extension(extension->directory(), extension->id(), move(grants));
+    if (pending.staged_package.has_value())
+        m_settings.set_installed_extension_package(extension->id(), extension->manifest().gecko_id);
     m_failed_extensions.remove_all_matching([&](auto const& failed) { return failed.id == extension->id(); });
     bool replaced = false;
     for (auto& loaded : m_extensions) {
@@ -144,9 +306,15 @@ ErrorOr<NonnullRefPtr<Extension>, String> ExtensionRegistry::reload(StringView i
 void ExtensionRegistry::remove(StringView id)
 {
     Optional<String> installed_id;
+    Optional<ByteString> package;
     for (auto const& installed : m_settings.installed_extensions()) {
         if (installed.id == id) {
             installed_id = installed.id;
+            // A packed extension's files are Ladybird's, but an unpacked extension's folder is the user's.
+            // Only the package directory Ladybird made for it, under the profile, is deleted.
+            auto expected = LexicalPath::join(extensions_directory(), installed.id, "package"sv).string();
+            if (installed.packed && installed.path == expected)
+                package = installed.path;
             break;
         }
     }
@@ -159,6 +327,10 @@ void ExtensionRegistry::remove(StringView id)
     m_settings.remove_installed_extension(*installed_id);
     if (m_registered_scripts)
         m_registered_scripts->delete_scripts(*installed_id);
+    if (package.has_value()) {
+        if (auto removed = remove_extension_package(*package); removed.is_error())
+            warnln("Unable to delete extension {} files: {}", *installed_id, removed.error());
+    }
     notify_changed();
     for (auto* store : m_storage_stores) {
         store->delete_storage(*installed_id, [id = *installed_id](ErrorOr<void> result) {
@@ -212,6 +384,7 @@ void ExtensionRegistry::set_granted(StringView id, Vector<String> api_permission
 
 void ExtensionRegistry::restore_from_settings()
 {
+    recover_interrupted_installs();
     m_extensions.clear();
     m_failed_extensions.clear();
     for (auto const& installed : m_settings.installed_extensions()) {
