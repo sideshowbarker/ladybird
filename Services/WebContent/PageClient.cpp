@@ -1225,6 +1225,11 @@ void PageClient::page_did_finish_extension_suspend(String const& extension_id, u
     client().async_did_finish_extension_suspend(m_id, extension_id, context_id);
 }
 
+void PageClient::page_did_change_extension_web_request_listeners(String const& extension_id, u64 context_id, Vector<Web::Extensions::WebRequestListener> listeners)
+{
+    client().async_did_change_extension_web_request_listeners(m_id, extension_id, context_id, move(listeners));
+}
+
 void PageClient::page_did_change_extension_event_listeners(String const& extension_id, u64 context_id, Vector<String> event_names)
 {
     client().async_did_change_extension_event_listeners(m_id, extension_id, context_id, move(event_names));

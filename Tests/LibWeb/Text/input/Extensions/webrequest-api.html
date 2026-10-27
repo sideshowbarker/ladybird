@@ -1,0 +1,20 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // The webRequest namespace: its enumerations, and the filters and options each event's addListener() takes.
+        asyncTest(async done => {
+            await contentScriptReady();
+            if (!document.documentElement.dataset.noPermissionWebRequest)
+                await new Promise(resolve => document.addEventListener("no-permission-ready", resolve, { once: true }));
+            println(`without the permission: ${document.documentElement.dataset.noPermissionWebRequest}`);
+            const results = await sendToBackground({ type: "probe" });
+            for (const [name, entries] of Object.entries(results.enums))
+                println(`${name}: ${entries === null ? "missing" : entries.join(" ")}`);
+            delete results.enums;
+            for (const [name, value] of Object.entries(results)) println(`${name}: ${value}`);
+            done();
+        });
+    </script>
+</body>

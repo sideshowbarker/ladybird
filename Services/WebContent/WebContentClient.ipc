@@ -25,6 +25,7 @@
 #include <LibWebCommon/Extensions/MessageSender.h>
 #include <LibWebCommon/Extensions/Injection.h>
 #include <LibWebCommon/Extensions/Storage.h>
+#include <LibWebCommon/Extensions/WebRequest.h>
 #include <LibWebCommon/Fetch/Infrastructure/HTTP/RequestPriority.h>
 #include <LibWebCommon/FileAPI/SerializedBlobURLEntry.h>
 #include <LibWebCommon/Fullscreen/FullscreenRequestType.h>
@@ -252,6 +253,7 @@ endpoint WebContentClient routed by Web::PageId page_id
     did_finish_extension_suspend(Web::PageId page_id, String extension_id, u64 context_id) =|
     did_execute_extension_injection(Web::PageId page_id, u64 request_id, Optional<String> result_json, Optional<String> error, bool frame_removed) =|
     did_change_extension_event_listeners(Web::PageId page_id, String extension_id, u64 context_id, Vector<String> event_names) =|
+    did_change_extension_web_request_listeners(Web::PageId page_id, String extension_id, u64 context_id, Vector<Web::Extensions::WebRequestListener> listeners) =|
     did_send_extension_tab_message(Web::PageId page_id, String extension_id, u64 request_id, u64 context_id, i64 tab_id, Optional<i64> frame_id, String message_json) =|
     did_reply_to_extension_runtime_message(Web::PageId page_id, u64 dispatch_id, Web::Extensions::MessageResult reply_json) =|
     did_request_color_picker(Web::PageId page_id, Color current_color) =|

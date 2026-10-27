@@ -1,0 +1,29 @@
+without the permission: background: undefined, content script: undefined
+ResourceType: MAIN_FRAME=main_frame SUB_FRAME=sub_frame STYLESHEET=stylesheet SCRIPT=script IMAGE=image OBJECT=object XMLHTTPREQUEST=xmlhttprequest XSLT=xslt PING=ping BEACON=beacon XML_DTD=xml_dtd FONT=font MEDIA=media WEBSOCKET=websocket CSP_REPORT=csp_report IMAGESET=imageset WEB_MANIFEST=web_manifest SPECULATIVE=speculative JSON=json OTHER=other
+OnBeforeRequestOptions: BLOCKING=blocking REQUESTBODY=requestBody
+OnBeforeSendHeadersOptions: REQUESTHEADERS=requestHeaders BLOCKING=blocking
+OnSendHeadersOptions: REQUESTHEADERS=requestHeaders
+OnHeadersReceivedOptions: BLOCKING=blocking RESPONSEHEADERS=responseHeaders
+OnAuthRequiredOptions: RESPONSEHEADERS=responseHeaders BLOCKING=blocking ASYNCBLOCKING=asyncBlocking
+OnResponseStartedOptions: RESPONSEHEADERS=responseHeaders
+OnBeforeRedirectOptions: RESPONSEHEADERS=responseHeaders
+OnCompletedOptions: RESPONSEHEADERS=responseHeaders
+events: onAuthRequired,onBeforeRedirect,onBeforeRequest,onBeforeSendHeaders,onCompleted,onErrorOccurred,onHeadersReceived,onResponseStarted,onSendHeaders
+maxCalls: 20
+filterResponseData: undefined
+noFilter: Incorrect argument types for webRequest.onBeforeRequest.addListener.
+noUrls: Type error for parameter filter (Property "urls" is required) for webRequest.onBeforeRequest.addListener.
+emptyUrls: Type error for parameter filter (Error processing urls: Array requires at least 1 items; you have 0) for webRequest.onBeforeRequest.addListener.
+invalidPattern: ok
+bogusType: Type error for parameter filter (Error processing types: Array requires at least 1 items; you have 0) for webRequest.onBeforeRequest.addListener.
+bogusTypeAmongOthers: ok
+blocking: Using webRequest.addListener with the blocking option requires the 'webRequestBlocking' permission.
+bogusOption: Type error for parameter extraInfoSpec (Error processing 0: Invalid enumeration value "bogus") for webRequest.onBeforeRequest.addListener.
+optionOfAnotherEvent: Type error for parameter extraInfoSpec (Error processing 0: Invalid enumeration value "requestHeaders") for webRequest.onBeforeRequest.addListener.
+requestBody: ok
+extraHeaders: ok
+ownPages: ok
+tabAndWindow: ok
+hasListener: true false
+handlerBehaviorChangedIsPromise: true
+handlerBehaviorChanged: undefined

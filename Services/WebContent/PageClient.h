@@ -392,6 +392,7 @@ private:
     virtual void page_did_click_extension_action(String const& extension_id) override;
     virtual void page_did_finish_extension_suspend(String const& extension_id, u64 context_id) override;
     virtual void page_did_change_extension_event_listeners(String const& extension_id, u64 context_id, Vector<String> event_names) override;
+    virtual void page_did_change_extension_web_request_listeners(String const& extension_id, u64 context_id, Vector<Web::Extensions::WebRequestListener> listeners) override;
     virtual void page_did_receive_reference_test_metadata(JsonValue) override;
     virtual void page_did_set_browser_zoom(double factor) override;
     virtual void page_did_set_device_pixel_ratio_for_testing(double ratio) override;

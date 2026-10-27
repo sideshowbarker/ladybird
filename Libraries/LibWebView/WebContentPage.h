@@ -434,6 +434,7 @@ private:
     virtual void did_click_extension_action(String extension_id) override;
     virtual void did_finish_extension_suspend(String extension_id, u64 context_id) override;
     virtual void did_change_extension_event_listeners(String extension_id, u64 context_id, Vector<String> event_names) override;
+    virtual void did_change_extension_web_request_listeners(String extension_id, u64 context_id, Vector<Web::Extensions::WebRequestListener> listeners) override;
     virtual void did_receive_reference_test_metadata(JsonValue) override;
     virtual void did_simulate_worker_request_server_connection_loss() override;
     Messages::WebContentTestClient::DidRequestUiProcessSessionHistoryForTestingResponse did_request_ui_process_session_history_for_testing();

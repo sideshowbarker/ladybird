@@ -73,6 +73,8 @@ void ExtensionDocumentContext::detach()
     m_detached = true;
     MessageRouter::the().unregister_context(*this);
     m_message_listeners->revoke();
+    if (auto listeners = web_request_listeners())
+        listeners->revoke();
 }
 
 }

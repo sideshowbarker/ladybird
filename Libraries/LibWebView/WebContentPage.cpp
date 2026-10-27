@@ -4088,6 +4088,10 @@ void WebContentPage::did_change_extension_event_listeners(String extension_id, u
         Application::extension_message_broker().set_event_listeners(*this, extension_id, context_id, move(event_names));
 }
 
+void WebContentPage::did_change_extension_web_request_listeners(String, u64, Vector<Web::Extensions::WebRequestListener>)
+{
+}
+
 void WebContentPage::did_click_extension_action(String extension_id)
 {
     if (!displays_tab())

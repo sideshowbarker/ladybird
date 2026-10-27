@@ -67,6 +67,7 @@
 #include <LibWebCommon/Extensions/MessageResult.h>
 #include <LibWebCommon/Extensions/MessageSender.h>
 #include <LibWebCommon/Extensions/Storage.h>
+#include <LibWebCommon/Extensions/WebRequest.h>
 #include <LibWebCommon/FileAPI/SerializedBlobURLEntry.h>
 #include <LibWebCommon/Fullscreen/FullscreenRequestType.h>
 #include <LibWebCommon/Gamepad/GamepadSnapshot.h>
@@ -936,6 +937,7 @@ public:
     virtual void page_did_click_extension_action([[maybe_unused]] String const& extension_id) { }
     virtual void page_did_finish_extension_suspend([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id) { }
     virtual void page_did_change_extension_event_listeners([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id, [[maybe_unused]] Vector<String> event_names) { }
+    virtual void page_did_change_extension_web_request_listeners([[maybe_unused]] String const& extension_id, [[maybe_unused]] u64 context_id, [[maybe_unused]] Vector<Extensions::WebRequestListener> listeners) { }
     virtual void page_did_receive_reference_test_metadata(JsonValue) { }
 
     virtual void page_did_set_browser_zoom([[maybe_unused]] double factor) { }
