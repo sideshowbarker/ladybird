@@ -10,6 +10,7 @@
 #include <AK/Vector.h>
 #include <LibGC/Cell.h>
 #include <LibGC/CellAllocator.h>
+#include <LibGC/Function.h>
 #include <LibGC/Ptr.h>
 #include <LibGC/RootVector.h>
 #include <LibJS/Forward.h>
@@ -34,6 +35,8 @@ public:
         clear();
     }
     bool is_active() const { return m_active; }
+    // Called when the list gains its first listener or loses its last through add() or remove().
+    void set_on_emptiness_change(GC::Ptr<GC::Function<void()>> callback) { m_on_emptiness_change = callback; }
 
     // A rooted copy keeps removed listeners alive across callbacks and collection.
     GC::RootVector<GC::Ref<JS::FunctionObject>> listeners() const;
@@ -43,6 +46,7 @@ private:
 
     Vector<GC::Ref<JS::FunctionObject>> m_listeners;
     bool m_active { true };
+    GC::Ptr<GC::Function<void()>> m_on_emptiness_change;
 };
 
 // An extension API event object: { addListener(f), removeListener(f), hasListener(f) } over the given list.

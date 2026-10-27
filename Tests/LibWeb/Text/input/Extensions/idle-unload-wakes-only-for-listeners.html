@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // A click on an unloaded event page's button wakes it only if its last run listened to action.onClicked.
+    asyncTest(async done => {
+        await contentScriptReady();
+        const listening = internals.extensionId("Wake Listening Fixture");
+        const notListening = internals.extensionId("Wake Not Listening Fixture");
+        const waitUntilStopped = async id => {
+            while (internals.extensionBackgroundState(id) !== "stopped")
+                await new Promise(resolve => setTimeout(resolve, 20));
+        };
+        internals.setExtensionIdleTimeout(listening, 50);
+        internals.setExtensionIdleTimeout(notListening, 50);
+        await waitUntilStopped(listening);
+        await waitUntilStopped(notListening);
+
+        internals.clickExtensionAction(notListening);
+        await new Promise(resolve => setTimeout(resolve, 200));
+        println(`not listening, after a click: ${internals.extensionBackgroundState(notListening)}`);
+
+        internals.clickExtensionAction(listening);
+        println(`listening, after a click: ${internals.extensionBackgroundState(listening)}`);
+        println(`clicks it heard: ${JSON.stringify(await sendToBackground({ type: "clicks" }))}`);
+
+        internals.setExtensionIdleTimeout(listening, 30000);
+        internals.setExtensionIdleTimeout(notListening, 30000);
+        done();
+    });
+</script>
+</body>

@@ -1,0 +1,24 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // A background page the manifest names, rather than one made for its scripts, wakes for a click that a listener in
+        // its frame registered for.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const id = internals.extensionId("Wake Background Page Fixture");
+            internals.setExtensionIdleTimeout(id, 50);
+            while (internals.extensionBackgroundState(id) !== "stopped")
+                await new Promise(resolve => setTimeout(resolve, 20));
+            internals.clickExtensionAction(id);
+            println(`after a click: ${internals.extensionBackgroundState(id)}`);
+            let clicks;
+            while (!(clicks = await sendToBackground({ type: "clicks" })).length)
+                await new Promise(resolve => setTimeout(resolve, 20));
+            println(`clicks it heard: ${JSON.stringify(clicks)}`);
+            internals.setExtensionIdleTimeout(id, 30000);
+            done();
+        });
+    </script>
+</body>

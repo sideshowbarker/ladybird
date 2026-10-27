@@ -21,11 +21,14 @@ void EventListenerList::add(JS::FunctionObject& listener)
     if (has(listener))
         return;
     m_listeners.append(listener);
+    if (m_listeners.size() == 1 && m_on_emptiness_change)
+        m_on_emptiness_change->function()();
 }
 
 void EventListenerList::remove(JS::FunctionObject const& listener)
 {
-    m_listeners.remove_all_matching([&](auto const& candidate) { return candidate.ptr() == &listener; });
+    if (m_listeners.remove_all_matching([&](auto const& candidate) { return candidate.ptr() == &listener; }) && m_listeners.is_empty() && m_on_emptiness_change)
+        m_on_emptiness_change->function()();
 }
 
 bool EventListenerList::has(JS::FunctionObject const& listener) const
@@ -42,6 +45,7 @@ void EventListenerList::visit_edges(Visitor& visitor)
 {
     Base::visit_edges(visitor);
     visitor.visit(m_listeners);
+    visitor.visit(m_on_emptiness_change);
 }
 
 static JS::ThrowCompletionOr<GC::Ref<JS::FunctionObject>> listener_argument(JS::VM& vm)

@@ -1,0 +1,24 @@
+{
+    "manifest_version": 2,
+    "name": "Wake Background Page Fixture",
+    "version": "1.0",
+    "description": "A manifest version 2 event page of its own, whose frame listens to browserAction.onClicked.",
+    "browser_action": {
+        "default_title": "Wake background page fixture"
+    },
+    "background": {
+        "page": "background.html",
+        "persistent": false
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/idle-unload-wakes-background-page.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

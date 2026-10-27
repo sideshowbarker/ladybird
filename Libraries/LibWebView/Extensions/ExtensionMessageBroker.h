@@ -90,8 +90,14 @@ public:
     // returns the contexts it reached.
     Vector<u64> dispatch_suspend(String const& extension_id, bool canceled);
     // Dispatches a named API event ("action.onClicked", e.g.) to the extension's background page, with its arguments as
-    // a JSON array. A stopped page wakes for it, and a starting one gets it once it has loaded.
+    // a JSON array. A starting page gets it once it has loaded, and a running one at once. A stopped page wakes for it
+    // only if its last run listened to the event, or if it hasn't run at all yet; otherwise the event is dropped.
     void dispatch_background_event(String const& extension_id, String event_name, String arguments_json);
+
+    // A context's named API events that have listeners, as it reports them whenever one gains its first listener or
+    // loses its last. Only a background page's contexts count, and their sets outlast the page until it runs again.
+    void set_event_listeners(Endpoint&, String const& extension_id, u64 context_id, Vector<String> event_names);
+    bool background_listens_for(StringView extension_id, StringView event_name) const;
 
     // The background host's hooks: wake_background starts an extension's stopped background page, so that what's sent
     // to it waits for it to load, and on_activity hears of every message, reply, port message, and storage request, and
@@ -193,6 +199,9 @@ private:
     };
     Vector<QueuedMessage> m_queued_messages;
     HashMap<String, u64> m_starting_backgrounds;
+    // The listened-to events of each context of an extension's current or last background run, by endpoint and context.
+    // An extension that isn't here hasn't run its background page yet.
+    HashMap<String, HashMap<Endpoint*, HashMap<u64, Vector<String>>>> m_background_listeners;
     u64 m_next_pending_id { 1 };
     u64 m_next_dispatch_id { 1 };
 };

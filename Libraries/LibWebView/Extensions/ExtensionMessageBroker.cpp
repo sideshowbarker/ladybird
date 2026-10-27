@@ -103,6 +103,10 @@ Vector<ExtensionMessageBroker::Target> ExtensionMessageBroker::background_target
 
 void ExtensionMessageBroker::dispatch_background_event(String const& extension_id, String event_name, String arguments_json)
 {
+    // Without this, every navigation in every tab would start every stopped event page.
+    auto is_up = m_starting_backgrounds.contains(extension_id) || !background_targets(extension_id).is_empty();
+    if (!is_up && !background_listens_for(extension_id, event_name))
+        return;
     if (wake_background)
         wake_background(extension_id);
     report_activity(extension_id, false);
@@ -217,9 +221,35 @@ void ExtensionMessageBroker::context_created(Endpoint& endpoint, String const& e
 {
     if (endpoint.extension_revision(extension_id) != revision || !endpoint.extension_message_sender(extension_id, document_id).has_value())
         return;
+    // A background page's first context starts a new run, and only that run's listeners count from then on.
+    if (is_background_endpoint(endpoint, extension_id, document_id) && background_targets(extension_id).is_empty())
+        m_background_listeners.set(extension_id, {});
     auto& contexts = m_contexts.ensure(&endpoint);
     if (!contexts.contains(context_id))
         contexts.set(context_id, Context { extension_id, document_id, revision, {} });
+}
+
+void ExtensionMessageBroker::set_event_listeners(Endpoint& endpoint, String const& extension_id, u64 context_id, Vector<String> event_names)
+{
+    auto registered = m_contexts.get(&endpoint);
+    auto context = registered.has_value() ? registered->get(context_id) : Optional<Context const&> {};
+    if (!context.has_value() || context->extension_id != extension_id || !is_background_endpoint(endpoint, extension_id, context->document_id))
+        return;
+    m_background_listeners.ensure(context->extension_id).ensure(&endpoint).set(context_id, move(event_names));
+}
+
+bool ExtensionMessageBroker::background_listens_for(StringView extension_id, StringView event_name) const
+{
+    auto listeners = m_background_listeners.get(extension_id);
+    if (!listeners.has_value())
+        return true;
+    for (auto const& [endpoint, contexts] : *listeners) {
+        for (auto const& [context_id, event_names] : contexts) {
+            if (event_names.contains_slow(event_name))
+                return true;
+        }
+    }
+    return false;
 }
 
 void ExtensionMessageBroker::context_destroyed(Endpoint& endpoint, String const& extension_id, u64 context_id)
