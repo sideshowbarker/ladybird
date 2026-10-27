@@ -350,9 +350,8 @@ void MessageRouter::dispatch_storage_changed(Page& page, String const& id, u64 c
         return;
     auto area_name = parsed.value().as_object().get_string("areaName"sv);
     auto changed_items = parsed.value().as_object().get("changes"sv);
-    if (!area_name.has_value() || (*area_name != "local"sv && *area_name != "session"sv) || !changed_items.has_value() || !changed_items->is_object())
+    if (!area_name.has_value() || !changed_items.has_value() || !changed_items->is_object())
         return;
-    auto is_session = *area_name == "session"sv;
     GC::RootVector<GC::Ref<MessagingContext>> targets;
     for (auto context : m_contexts) {
         // The UI process names each context that may hear of the change.
@@ -367,8 +366,7 @@ void MessageRouter::dispatch_storage_changed(Page& page, String const& id, u64 c
         auto changes = storage_value_from_json(realm, *changed_items);
         // storage.onChanged also gets the area's name, and the area's own onChanged doesn't.
         for (bool of_the_area : { false, true }) {
-            auto list = !of_the_area ? context->storage_listeners() : is_session ? context->session_storage_listeners()
-                                                                                 : context->local_storage_listeners();
+            auto list = of_the_area ? context->storage_area_listeners(*area_name) : context->storage_listeners();
             if (!list)
                 continue;
             auto listeners = list->listeners();

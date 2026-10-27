@@ -66,7 +66,8 @@ public:
     ErrorOr<NonnullRefPtr<Extension>, String> reload(StringView id);
     void remove(StringView id);
     void set_message_broker(ExtensionMessageBroker& broker) { m_message_broker = &broker; }
-    void set_storage_store(ExtensionStorageStore& store) { m_storage_store = &store; }
+    // Each store whose items a removed extension loses: storage.local's and storage.sync's.
+    void set_storage_store(ExtensionStorageStore& store) { m_storage_stores.append(&store); }
     void set_enabled(StringView id, bool enabled);
     void set_allowed_in_private(StringView id, bool);
     bool is_allowed_in_private(StringView id) const;
@@ -91,7 +92,7 @@ private:
 
     Settings& m_settings;
     ExtensionMessageBroker* m_message_broker { nullptr };
-    ExtensionStorageStore* m_storage_store { nullptr };
+    Vector<ExtensionStorageStore*> m_storage_stores;
     Vector<NonnullRefPtr<Extension>> m_extensions;
     Vector<FailedExtension> m_failed_extensions;
     Vector<WeakPtr<ExtensionRegistryObserver>> m_observers;

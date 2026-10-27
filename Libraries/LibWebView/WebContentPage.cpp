@@ -1863,7 +1863,17 @@ bool WebContentPage::extension_has_permission(String const& id, StringView permi
 
 void WebContentPage::did_request_extension_storage(u64 context_id, u64 request_id, Web::Extensions::StorageRequest request)
 {
-    auto& store = request.area == Web::Extensions::StorageRequest::Area::Session ? Application::extension_session_storage_store() : Application::extension_storage_store();
+    auto& store = [&]() -> ExtensionStorageStore& {
+        switch (request.area) {
+        case Web::Extensions::StorageRequest::Area::Session:
+            return Application::extension_session_storage_store();
+        case Web::Extensions::StorageRequest::Area::Sync:
+            return Application::extension_sync_storage_store();
+        case Web::Extensions::StorageRequest::Area::Local:
+            break;
+        }
+        return Application::extension_storage_store();
+    }();
     Application::extension_message_broker().request_storage(*this, context_id, request_id, request, store);
 }
 

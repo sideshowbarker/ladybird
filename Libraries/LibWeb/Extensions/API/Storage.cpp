@@ -66,7 +66,7 @@ static JS::ThrowCompletionOr<PreparedStorageRequest> prepare_request(JS::VM& vm,
     using Operation = StorageRequest::Operation;
     PreparedStorageRequest prepared { .request = { .operation = operation, .keys = {}, .items_json = {}, .area = area }, .defaults = {} };
     if (count > (operation == Operation::Clear ? 0u : 1u) || (!count && (operation == Operation::Set || operation == Operation::Remove || operation == Operation::SetAccessLevel)))
-        return vm.throw_completion<JS::TypeError>(area == StorageRequest::Area::Session ? "Invalid storage.session arguments"sv : "Invalid storage.local arguments"sv);
+        return vm.throw_completion<JS::TypeError>(Utf16String::formatted("Invalid storage.{} arguments", storage_area_name(area)));
     if (operation == Operation::Clear)
         return prepared;
     auto value = count ? vm.argument(0) : JS::js_undefined();
@@ -113,7 +113,16 @@ static GC::Ref<JS::Object> create_storage_area(JS::Realm& realm, MessagingContex
     auto object = JS::Object::create(realm, realm.intrinsics().object_prototype());
     auto attributes = JS::Attribute::Writable | JS::Attribute::Configurable;
     object->define_direct_property("onChanged"_utf16_fly_string, create_event(realm, listeners), attributes);
-    object->define_direct_property("QUOTA_BYTES"_utf16_fly_string, JS::Value(10485760), 0);
+    if (area == StorageRequest::Area::Sync) {
+        object->define_direct_property("QUOTA_BYTES"_utf16_fly_string, JS::Value(102400), 0);
+        object->define_direct_property("QUOTA_BYTES_PER_ITEM"_utf16_fly_string, JS::Value(8192), 0);
+        object->define_direct_property("MAX_ITEMS"_utf16_fly_string, JS::Value(512), 0);
+        // Exposed, as extensions read them, but not enforced: nothing syncs, so writing often costs nothing.
+        object->define_direct_property("MAX_WRITE_OPERATIONS_PER_HOUR"_utf16_fly_string, JS::Value(1800), 0);
+        object->define_direct_property("MAX_WRITE_OPERATIONS_PER_MINUTE"_utf16_fly_string, JS::Value(120), 0);
+    } else {
+        object->define_direct_property("QUOTA_BYTES"_utf16_fly_string, JS::Value(10485760), 0);
+    }
     struct Method {
         Utf16FlyString name;
         StorageRequest::Operation operation;
@@ -146,13 +155,15 @@ GC::Ref<JS::Object> create_storage(JS::Realm& realm, MessagingContext& context)
     auto storage = JS::Object::create(realm, realm.intrinsics().object_prototype());
     auto attributes = JS::Attribute::Writable | JS::Attribute::Configurable;
     auto global_listeners = realm.heap().allocate<EventListenerList>();
-    auto local_listeners = realm.heap().allocate<EventListenerList>();
-    auto session_listeners = realm.heap().allocate<EventListenerList>();
-    context.set_storage_listeners(global_listeners, local_listeners, session_listeners);
+    context.set_storage_listeners(global_listeners);
     storage->define_direct_property("onChanged"_utf16_fly_string, create_event(realm, global_listeners), attributes);
-    storage->define_direct_property("local"_utf16_fly_string, create_storage_area(realm, context, StorageRequest::Area::Local, local_listeners), attributes);
     // A content script has storage.session too, but the UI process refuses its calls until the extension allows them.
-    storage->define_direct_property("session"_utf16_fly_string, create_storage_area(realm, context, StorageRequest::Area::Session, session_listeners), attributes);
+    for (auto area : { StorageRequest::Area::Local, StorageRequest::Area::Session, StorageRequest::Area::Sync }) {
+        auto name = MUST(String::from_utf8(storage_area_name(area)));
+        auto listeners = realm.heap().allocate<EventListenerList>();
+        context.set_storage_area_listeners(name, listeners);
+        storage->define_direct_property(Utf16FlyString::from_utf8(name), create_storage_area(realm, context, area, listeners), attributes);
+    }
     return storage;
 }
 

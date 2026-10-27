@@ -156,8 +156,8 @@ void ExtensionRegistry::remove(StringView id)
     m_failed_extensions.remove_all_matching([&](auto const& failed) { return failed.id == *installed_id; });
     m_settings.remove_installed_extension(*installed_id);
     notify_changed();
-    if (m_storage_store) {
-        m_storage_store->delete_storage(*installed_id, [id = *installed_id](ErrorOr<void> result) {
+    for (auto* store : m_storage_stores) {
+        store->delete_storage(*installed_id, [id = *installed_id](ErrorOr<void> result) {
             if (result.is_error())
                 warnln("Unable to delete extension {} storage: {}", id, result.error());
         });

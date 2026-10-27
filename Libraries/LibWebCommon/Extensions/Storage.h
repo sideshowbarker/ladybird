@@ -23,13 +23,17 @@ struct StorageRequest {
         // storage.session.setAccessLevel(), whose level is the items.
         SetAccessLevel };
     enum class Area : u8 { Local,
-        Session };
+        Session,
+        Sync };
     Operation operation { Operation::Get };
     Optional<Vector<String>> keys;
     String items_json;
     Area area { Area::Local };
     bool operator==(StorageRequest const&) const = default;
 };
+
+// The name an area has in the API and in storage.onChanged: "local", "session", or "sync".
+WEBCOMMON_API StringView storage_area_name(StorageRequest::Area);
 
 struct StorageResult {
     enum class Type : u8 { Items,

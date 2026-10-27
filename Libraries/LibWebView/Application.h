@@ -99,6 +99,7 @@ public:
     static Settings& settings() { return *the().m_settings; }
     static ExtensionStorageStore& extension_storage_store() { return *the().m_extension_storage_store; }
     static ExtensionStorageStore& extension_session_storage_store() { return *the().m_extension_session_storage_store; }
+    static ExtensionStorageStore& extension_sync_storage_store() { return *the().m_extension_sync_storage_store; }
     static ExtensionAlarmManager& extension_alarm_manager() { return the().m_extension_alarm_manager; }
     // Sets the timer for the next alarm that comes due, after alarms change.
     void schedule_extension_alarms();
@@ -667,6 +668,7 @@ private:
     OwnPtr<ExtensionsObserver> m_extensions_observer;
     OwnPtr<ExtensionStorageStore> m_extension_storage_store;
     OwnPtr<ExtensionStorageStore> m_extension_session_storage_store;
+    OwnPtr<ExtensionStorageStore> m_extension_sync_storage_store;
     ExtensionAlarmManager m_extension_alarm_manager;
     RefPtr<Core::Timer> m_extension_alarm_timer;
     // The revision of each enabled extension; a new revision, or none, drops its session storage and alarms.
