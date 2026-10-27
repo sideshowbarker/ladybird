@@ -35,6 +35,8 @@ struct WEBCOMMON_API WebRequestListener {
     Vector<String> types;
     Optional<i64> tab_id;
     Optional<i64> window_id;
+    // Only private requests when true, only others when false.
+    Optional<bool> incognito;
     bool blocking { false };
     bool request_headers { false };
     bool response_headers { false };

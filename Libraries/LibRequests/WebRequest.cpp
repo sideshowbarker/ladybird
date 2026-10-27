@@ -33,6 +33,27 @@ ErrorOr<Requests::WebRequestInterest> decode(Decoder& decoder)
 }
 
 template<>
+ErrorOr<void> encode(Encoder& encoder, Requests::WebRequestDecision const& decision)
+{
+    TRY(encoder.encode(decision.cancel));
+    TRY(encoder.encode(decision.redirect_url));
+    TRY(encoder.encode(decision.request_headers));
+    TRY(encoder.encode(decision.response_headers));
+    return {};
+}
+
+template<>
+ErrorOr<Requests::WebRequestDecision> decode(Decoder& decoder)
+{
+    Requests::WebRequestDecision decision;
+    decision.cancel = TRY(decoder.decode<bool>());
+    decision.redirect_url = TRY(decoder.decode<Optional<URL::URL>>());
+    decision.request_headers = TRY(decoder.decode<Optional<Vector<HTTP::Header>>>());
+    decision.response_headers = TRY(decoder.decode<Optional<Vector<HTTP::Header>>>());
+    return decision;
+}
+
+template<>
 ErrorOr<void> encode(Encoder& encoder, Requests::WebRequestEventDetails const& details)
 {
     TRY(encoder.encode(details.event));

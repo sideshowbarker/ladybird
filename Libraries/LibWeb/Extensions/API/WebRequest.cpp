@@ -188,6 +188,7 @@ struct ParsedFilter {
     Vector<String> types;
     Optional<i64> tab_id;
     Optional<i64> window_id;
+    Optional<bool> incognito;
 };
 
 static JS::ThrowCompletionOr<Optional<String>> parse_filter(JS::VM& vm, JS::Realm& realm, JS::Object& object, ParsedFilter& filter)
@@ -241,8 +242,11 @@ static JS::ThrowCompletionOr<Optional<String>> parse_filter(JS::VM& vm, JS::Real
         target = static_cast<i64>(value.as_double());
     }
 
-    if (auto incognito = TRY(object.get("incognito"_utf16_fly_string)); !incognito.is_undefined() && !incognito.is_boolean())
-        return expected("incognito"sv, "boolean"sv, incognito);
+    if (auto incognito = TRY(object.get("incognito"_utf16_fly_string)); !incognito.is_undefined()) {
+        if (!incognito.is_boolean())
+            return expected("incognito"sv, "boolean"sv, incognito);
+        filter.incognito = incognito.as_bool();
+    }
 
     for (auto const& key : TRY(object.internal_own_property_keys())) {
         auto property_key = TRY(JS::PropertyKey::from_value(vm, key));
@@ -283,6 +287,7 @@ static JS::ThrowCompletionOr<JS::Value> add_listener(JS::VM& vm, MessagingContex
     record.types = move(filter.types);
     record.tab_id = filter.tab_id;
     record.window_id = filter.window_id;
+    record.incognito = filter.incognito;
 
     if (has_options) {
         for (auto [i, item] : enumerate(TRY(array_items(vm, options_value)))) {

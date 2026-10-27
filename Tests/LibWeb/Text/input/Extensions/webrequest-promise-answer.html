@@ -1,0 +1,25 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-webrequest.js"></script>
+<body>
+    <script>
+        // A request waits for a blocking listener's promise, and the promise's answer decides what happens to it.
+        asyncTest(async done => {
+            await watchWebRequests();
+            const server = httpTestServer();
+            const url = await server.createEcho("GET", echoPath("promise-cancel.js"), {
+                status: 200,
+                headers: { "Content-Type": "text/javascript", "Cache-Control": "no-store" },
+                body: "window.ran = true;",
+            });
+            const started = performance.now();
+            const outcome = await fetch(url).then(
+                () => "loaded",
+                error => error.name
+            );
+            println(`fetch: ${outcome}, waited for the promise: ${performance.now() - started >= 150}`);
+            done();
+        });
+    </script>
+</body>

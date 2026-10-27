@@ -30,6 +30,11 @@
             const completed = forOk.at(-1);
             println(`statusCode: ${completed.statusCode}, statusLine: ${completed.statusLine}`);
             println(`fromCache: ${completed.fromCache}`);
+            const started = forOk.find(e => e.event === "onResponseStarted");
+            println(
+                `ip on onResponseStarted and onCompleted: ${typeof started.ip === "string" && started.ip.length > 0 && completed.ip === started.ip}`
+            );
+            println(`initiator is the page's origin: ${first.initiator === location.origin}`);
             println(`request headers only where asked: ${forOk.map(e => "requestHeaders" in e).join(" ")}`);
             println(`response headers only where asked: ${forOk.map(e => "responseHeaders" in e).join(" ")}`);
 
@@ -73,9 +78,14 @@
                 body: "<p>page</p>",
             });
             const opened = await sendToBackground({ type: "openTab", url: pageURL });
-            const mainFrame = (
+            const mainFrameEvents = (
                 await webRequestEvents(events => events.some(e => e.url === pageURL && e.event === "onCompleted"))
-            ).find(e => e.url === pageURL);
+            ).filter(e => e.url === pageURL);
+            const mainFrame = mainFrameEvents[0];
+            println(`new tab's events: ${eventNames(mainFrameEvents)}`);
+            println(
+                `one requestId and tab throughout: ${mainFrameEvents.every(e => e.requestId === mainFrame.requestId && e.tabId === mainFrame.tabId)}`
+            );
             println(
                 `new tab: ${mainFrame.type}, documentUrl: ${mainFrame.documentUrl}, its tab: ${mainFrame.tabId === opened.tabId}, frameId: ${mainFrame.frameId}, parentFrameId: ${mainFrame.parentFrameId}`
             );

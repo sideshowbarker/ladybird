@@ -79,6 +79,7 @@ ErrorOr<void> encode(Encoder& encoder, Web::Extensions::WebRequestListener const
     TRY(encoder.encode(listener.types));
     TRY(encoder.encode(listener.tab_id));
     TRY(encoder.encode(listener.window_id));
+    TRY(encoder.encode(listener.incognito));
     TRY(encoder.encode(listener.blocking));
     TRY(encoder.encode(listener.request_headers));
     TRY(encoder.encode(listener.response_headers));
@@ -95,6 +96,7 @@ ErrorOr<Web::Extensions::WebRequestListener> decode(Decoder& decoder)
     listener.types = TRY(decoder.decode<Vector<String>>());
     listener.tab_id = TRY(decoder.decode<Optional<i64>>());
     listener.window_id = TRY(decoder.decode<Optional<i64>>());
+    listener.incognito = TRY(decoder.decode<Optional<bool>>());
     listener.blocking = TRY(decoder.decode<bool>());
     listener.request_headers = TRY(decoder.decode<bool>());
     listener.response_headers = TRY(decoder.decode<bool>());
