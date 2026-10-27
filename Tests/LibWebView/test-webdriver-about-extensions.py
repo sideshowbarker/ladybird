@@ -127,6 +127,8 @@ def run_test(webdriver_binary):
                 "version": "1.2",
                 "description": manifest["description"],
                 "hasOptions": False,
+                "hasAction": False,
+                "shownInToolbar": True,
                 "directory": str(good),
                 "enabled": True,
                 "allowedInPrivate": False,

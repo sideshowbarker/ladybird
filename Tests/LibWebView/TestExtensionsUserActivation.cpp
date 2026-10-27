@@ -47,7 +47,10 @@ public:
         callback({});
     }
 
+    virtual void open_url_in_new_tab(URL::URL const& url, Web::HTML::ActivateTab) const override { opened_urls.append(url); }
+
     mutable size_t picker_requests { 0 };
+    mutable Vector<URL::URL> opened_urls;
 };
 
 }
@@ -115,4 +118,65 @@ TEST_CASE(extensions_user_activation)
         return IterationDecision::Continue;
     });
     VERIFY(views == 1);
+
+    // The Show in toolbar switch needs no click to be read, so its message sets the extension's setting at once.
+    bool switched = false;
+    view->on_title_change = [&](auto const& title) {
+        if (title == "extensions-switched"sv)
+            switched = true;
+    };
+    view->run_javascript(MUST(String::formatted(R"(
+        document.addEventListener('WebUIMessage', function listener(event) {{
+            if (event.detail.name !== 'extensionsSnapshot') return;
+            document.removeEventListener('WebUIMessage', listener);
+            document.title = 'extensions-switched';
+        }});
+        ladybird.sendMessage('setExtensionShownInToolbar', {{ id: '{}', shown: false }});
+        ladybird.sendMessage('loadExtensions');
+    )",
+        id)));
+    Core::EventLoop::current().spin_until([&] { return switched; });
+    VERIFY(WebView::Application::settings().installed_extensions()[0].hidden_in_toolbar);
+
+    // Manage extension opens about:extensions at the extension's card, which the page highlights.
+    app->open_extension_management(id);
+    VERIFY(app->opened_urls.size() == 1);
+    VERIFY(app->opened_urls[0].serialize() == MUST(String::formatted("about:extensions#{}", id)));
+    bool highlighted = false;
+    view->on_title_change = [&](auto const& title) {
+        if (title == "extensions-highlighted"sv)
+            highlighted = true;
+    };
+    view->load(app->opened_urls[0]);
+    view->run_javascript(MUST(String::formatted(R"(
+        function highlighted() {{
+            const card = document.querySelector('[data-extension-id="{}"]');
+            if (!card || !card.classList.contains('highlighted')) return false;
+            document.title = 'extensions-highlighted';
+            return true;
+        }}
+        if (!highlighted()) {{
+            const observer = new MutationObserver(() => {{ if (highlighted()) observer.disconnect(); }});
+            observer.observe(document.documentElement, {{ attributes: true, childList: true, subtree: true }});
+        }}
+    )",
+        id)));
+    Core::EventLoop::current().spin_until([&] { return highlighted; });
+
+    // about:settings links to about:extensions from an Extensions card after Content.
+    bool settings_checked = false;
+    view->on_title_change = [&](auto const& title) {
+        if (title == "settings-checked"sv)
+            settings_checked = true;
+    };
+    size_t settings_loads = loads_finished;
+    view->load(URL::Parser::basic_parse("about:settings"sv).release_value());
+    Core::EventLoop::current().spin_until([&] { return loads_finished > settings_loads; });
+    view->run_javascript(R"(
+        const titles = [...document.querySelectorAll('.card-title')].map(title => title.textContent);
+        const link = document.getElementById('manage-extensions');
+        if (titles.indexOf('Extensions') === titles.indexOf('Content') + 1 && link && link.getAttribute('href') === 'about:extensions')
+            document.title = 'settings-checked';
+    )"_string);
+    Core::EventLoop::current().spin_until([&] { return settings_checked; });
 }

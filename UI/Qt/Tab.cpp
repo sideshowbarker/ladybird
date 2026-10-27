@@ -2530,18 +2530,52 @@ void Tab::update_extension_actions()
     m_extension_action_buttons.clear();
 
     for (auto const& id : registry.extensions_with_actions()) {
-        // A private window shows only the extensions allowed there.
-        if (is_private && !extensions.is_allowed_in_private(id))
+        // A private window shows only the extensions allowed there, and no window shows a button the user hid.
+        if ((is_private && !extensions.is_allowed_in_private(id)) || extensions.is_hidden_in_toolbar(id))
             continue;
         auto* button = new ExtensionActionButton(m_extension_actions);
         QObject::connect(button, &QToolButton::clicked, this, [this, id] {
             WebView::Application::the().activate_extension_action(id, m_extension_tab_id);
+        });
+        button->setContextMenuPolicy(Qt::CustomContextMenu);
+        QObject::connect(button, &QWidget::customContextMenuRequested, this, [this, button, id](QPoint const& position) {
+            show_extension_action_menu(*button, id, button->mapToGlobal(position));
         });
         m_extension_actions->layout()->addWidget(button);
         m_extension_action_buttons.append({ id, button });
         update_extension_action(id);
     }
     m_extension_actions->setVisible(!m_extension_action_buttons.is_empty());
+}
+
+void Tab::show_extension_action_menu(QWidget&, String const& extension_id, QPoint global_position)
+{
+    // The menu and the prompt open without a nested event loop, and own their copy of the id, since an extension can
+    // close this tab (and its toolbar) while either is showing.
+    auto* menu = new QMenu;
+    menu->setAttribute(Qt::WA_DeleteOnClose);
+    auto id = extension_id;
+    QObject::connect(menu->addAction("Manage extension"), &QAction::triggered, menu, [id] {
+        WebView::Application::the().open_extension_management(id);
+    });
+    QObject::connect(menu->addAction("Hide"), &QAction::triggered, menu, [id] {
+        WebView::Application::extension_registry().set_hidden_in_toolbar(id, true);
+    });
+    menu->addSeparator();
+    QObject::connect(menu->addAction("Remove"), &QAction::triggered, menu, [id, window = QPointer<QWidget> { window() }] {
+        auto extension = WebView::Application::extension_registry().find(id);
+        auto name = extension ? qstring_from_ak_string(extension->manifest().name) : QString("this extension");
+        auto* prompt = new QMessageBox(QMessageBox::Question, "Remove extension", QString("Remove \u2018%1\u2019?").arg(name), QMessageBox::NoButton, window.data());
+        prompt->setAttribute(Qt::WA_DeleteOnClose);
+        auto* confirm = prompt->addButton("Remove", QMessageBox::DestructiveRole);
+        prompt->setDefaultButton(prompt->addButton(QMessageBox::Cancel));
+        QObject::connect(prompt, &QMessageBox::buttonClicked, prompt, [id, confirm](QAbstractButton* clicked) {
+            if (clicked == confirm)
+                WebView::Application::extension_registry().remove(id);
+        });
+        prompt->open();
+    });
+    menu->popup(global_position);
 }
 
 void Tab::update_extension_action(String const& extension_id)

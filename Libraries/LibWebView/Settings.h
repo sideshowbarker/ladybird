@@ -115,6 +115,8 @@ struct InstalledExtension {
     // its manifest gives, if any, so installing that archive again replaces it.
     bool packed { false };
     Optional<String> gecko_id {};
+    // The user hid the extension's toolbar button, in every window.
+    bool hidden_in_toolbar { false };
 };
 
 struct ContentBlockerList {
@@ -251,6 +253,7 @@ public:
     void set_installed_extension_granted_permissions(StringView id, Vector<String>);
     void set_installed_extension_last_seen_version(StringView id, String version);
     void set_installed_extension_package(StringView id, Optional<String> gecko_id);
+    void set_installed_extension_hidden_in_toolbar(StringView id, bool);
     void remove_installed_extension(StringView id);
 
     static BrowsingDataSettings parse_browsing_data_settings(JsonValue const&);

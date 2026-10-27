@@ -3631,7 +3631,19 @@ void Application::sync_extension_actions()
                 m_extension_popup_host->extension_gone(id);
         }
     }
-    auto list_changed = private_access_changed || revisions.size() != m_extension_action_revisions.size() || any_of(revisions, [&](auto const& entry) { return m_extension_action_revisions.get(entry.key) != entry.value; });
+    // A hidden button leaves every toolbar, and its popup closes.
+    HashTable<String> hidden;
+    for (auto const& installed : settings().installed_extensions()) {
+        if (installed.hidden_in_toolbar)
+            hidden.set(installed.id);
+    }
+    auto hidden_changed = hidden.size() != m_extension_actions_hidden.size() || any_of(hidden, [&](auto const& id) { return !m_extension_actions_hidden.contains(id); });
+    for (auto const& id : hidden) {
+        if (!m_extension_actions_hidden.contains(id))
+            m_extension_popup_host->extension_gone(id);
+    }
+    m_extension_actions_hidden = move(hidden);
+    auto list_changed = hidden_changed || private_access_changed || revisions.size() != m_extension_action_revisions.size() || any_of(revisions, [&](auto const& entry) { return m_extension_action_revisions.get(entry.key) != entry.value; });
     m_extension_actions_allowed_in_private = move(allowed_in_private);
     m_extension_active_tab_grants.remove_all_matching([&](auto const& id, auto const&) { return m_extension_action_revisions.get(id) != revisions.get(id); });
     m_extension_action_revisions = move(revisions);
@@ -4214,6 +4226,13 @@ ErrorOr<ExtensionTab, String> Application::update_extension_tab(i64 tab_id, Exte
         tab.title = {};
     }
     return tab;
+}
+
+void Application::open_extension_management(StringView extension_id)
+{
+    auto url = URL::Parser::basic_parse(MUST(String::formatted("about:extensions#{}", extension_id)));
+    if (url.has_value())
+        open_url_in_new_tab(*url, Web::HTML::ActivateTab::Yes);
 }
 
 ErrorOr<void, String> Application::open_extension_options_page(Extension const& extension, Optional<i64> window_id)

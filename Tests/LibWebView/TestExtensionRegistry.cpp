@@ -937,6 +937,28 @@ TEST_CASE(a_bad_archive_installs_nothing)
     EXPECT_EQ(count_entries(LexicalPath::join(profile, "extensions"sv).string()), 0u);
 }
 
+TEST_CASE(hidden_in_toolbar_persists_and_survives_a_reload)
+{
+    TemporaryDirectory directory;
+    String id;
+    {
+        auto settings = WebView::Settings::create(directory.settings_path());
+        ExtensionRegistry registry { settings };
+        id = TRY_OR_FAIL(registry.load_unpacked(directory.extension("button"sv, R"({ "manifest_version": 3, "name": "Button", "version": "1", "action": {} })"sv)))->id();
+        EXPECT(!registry.is_hidden_in_toolbar(id));
+        registry.set_hidden_in_toolbar(id, true);
+        EXPECT(registry.is_hidden_in_toolbar(id));
+        (void)TRY_OR_FAIL(registry.reload(id));
+        EXPECT(registry.is_hidden_in_toolbar(id));
+    }
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    registry.restore_from_settings();
+    EXPECT(registry.is_hidden_in_toolbar(id));
+    registry.set_hidden_in_toolbar(id, false);
+    EXPECT(!WebView::Settings::create(directory.settings_path()).installed_extensions()[0].hidden_in_toolbar);
+}
+
 TEST_CASE(an_oversized_archive_is_refused_before_it_is_read)
 {
     TemporaryDirectory directory;

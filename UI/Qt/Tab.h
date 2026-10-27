@@ -186,6 +186,8 @@ public:
     // Rebuilds the extension buttons from the extensions with actions, or refreshes one extension's button.
     void update_extension_actions();
     void update_extension_action(String const& extension_id);
+    // The menu a right-click on an extension's toolbar button shows: Manage extension, Hide, and Remove.
+    void show_extension_action_menu(QWidget& button, String const& extension_id, QPoint global_position);
     QWidget* extension_action_button(StringView extension_id) const;
     // BrowserWindow pins and unpins tabs, since it keeps each window's pinned tabs at the start of its strip.
     void set_pinned(bool);

@@ -382,6 +382,19 @@ void ExtensionRegistry::set_granted(StringView id, Vector<String> api_permission
     notify_changed();
 }
 
+void ExtensionRegistry::set_hidden_in_toolbar(StringView id, bool hidden)
+{
+    if (is_hidden_in_toolbar(id) == hidden)
+        return;
+    m_settings.set_installed_extension_hidden_in_toolbar(id, hidden);
+    notify_changed();
+}
+
+bool ExtensionRegistry::is_hidden_in_toolbar(StringView id) const
+{
+    return any_of(m_settings.installed_extensions(), [&](auto const& installed) { return installed.id == id && installed.hidden_in_toolbar; });
+}
+
 void ExtensionRegistry::restore_from_settings()
 {
     recover_interrupted_installs();
