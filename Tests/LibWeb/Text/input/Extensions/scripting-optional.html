@@ -1,0 +1,31 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // Granted scripting reaches a page the background starts afterward; removing activeTab ends the tab's grant, and a
+        // call made through a kept scripting object after scripting is removed is rejected rather than left unanswered.
+        const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+        asyncTest(async done => {
+            await contentScriptReady();
+            const id = internals.extensionId("Scripting Optional Fixture");
+            internals.grantExtensionPermissions(id, ["scripting", "activeTab"], []);
+            while (!(await sendToBackground({ type: "has", permissions: ["scripting", "activeTab"] })).value)
+                await pause(20);
+            internals.setExtensionIdleTimeout(id, 50);
+            await pause(500);
+            internals.setExtensionIdleTimeout(id, 30000);
+            println(`a restarted background page: ${await sendToBackground({ type: "namespace" })}`);
+
+            internals.clickExtensionAction(id);
+            let run;
+            while ((run = await sendToBackground({ type: "run" })).failed) await pause(20);
+            println(`with activeTab: ${JSON.stringify(run.value.map(frame => frame.result))}`);
+            await sendToBackground({ type: "remove", permissions: ["activeTab"] });
+            println(`activeTab removed: ${(await sendToBackground({ type: "run" })).failed}`);
+            await sendToBackground({ type: "remove", permissions: ["scripting"] });
+            println(`scripting removed: ${(await sendToBackground({ type: "run" })).failed}`);
+            done();
+        });
+    </script>
+</body>

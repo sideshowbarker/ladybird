@@ -43,6 +43,7 @@
 #include <LibWebCommon/CSS/PropertyList.h>
 #include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebCommon/Fetch/Infrastructure/HTTP/Statuses.h>
+#include <LibWebCommon/HTML/BrowsingContext.h>
 #include <LibWebCommon/Loader/DownloadFilename.h>
 #include <LibWebCommon/Loader/UserAgent.h>
 #include <LibWebCommon/Page/InputEvent.h>
@@ -3699,6 +3700,185 @@ void Application::change_extension_grants(String const& extension_id, ExtensionP
     };
     dispatch("permissions.onAdded"sv, added);
     dispatch("permissions.onRemoved"sv, removed);
+}
+
+void Application::run_extension_injection(Extension const& extension, ExtensionTabViewer const& viewer, ExtensionInjectionRequest request, Function<void(ErrorOr<JsonValue, String>)> callback)
+{
+    auto const& target = request.target;
+    auto tabs = extension_tabs();
+    auto tab = tabs.find_if([&](auto const& tab) { return tab.id == target.tab_id && may_see_tab(viewer, tab); });
+    auto view = tab == tabs.end() || !tab->view_id.has_value() ? Optional<ViewImplementation&> {} : ViewImplementation::find_view_by_id(*tab->view_id);
+    if (!view.has_value()) {
+        callback(MUST(String::formatted("No tab with id: {}.", target.tab_id)));
+        return;
+    }
+
+    struct Candidate {
+        i64 frame_id;
+        Optional<i64> parent_frame_id;
+        NonnullRefPtr<WebContentPage> page;
+        Web::HTML::CrossProcessId navigable_id;
+        Web::HTML::CrossProcessId document_id;
+        URL::URL url;
+        Optional<URL::URL> matching_url;
+        URL::Origin origin;
+    };
+    Vector<Candidate> frames;
+    view->traversable().for_each_hosting_page([&](WebContentPage& page) {
+        page.for_each_active_frame([&](WebContentPage::ExtensionFrame const& frame) {
+            frames.append({ frame.frame_id, frame.parent_frame_id, page, frame.navigable.id(), frame.document.id(), frame.url, frame.matching_url, frame.document.origin() });
+        });
+    });
+    auto find_frame = [&](i64 frame_id) { return frames.find_if([&](auto const& frame) { return frame.frame_id == frame_id; }); };
+    auto missing_frame = [&](i64 frame_id) { return MUST(String::formatted("No frame with id {} in tab with id {}", frame_id, target.tab_id)); };
+    auto top = find_frame(0);
+    if (top == frames.end()) {
+        callback(MUST(String::formatted("No tab with id: {}.", target.tab_id)));
+        return;
+    }
+
+    // The frames the call names, or the top one, or with allFrames, every frame of the tab.
+    // Only frames the call names explicitly refuse it; any other frame the extension can't reach is passed over.
+    i64 primary_frame_id = 0;
+    struct Selected {
+        Candidate frame;
+        bool named;
+    };
+    Vector<Selected> selected;
+    if (target.frame_ids.has_value()) {
+        for (auto frame_id : *target.frame_ids) {
+            auto frame = find_frame(frame_id);
+            if (frame == frames.end()) {
+                callback(missing_frame(frame_id));
+                return;
+            }
+            selected.append({ *frame, true });
+        }
+    } else {
+        auto root = find_frame(primary_frame_id);
+        if (root == frames.end()) {
+            callback(missing_frame(primary_frame_id));
+            return;
+        }
+        selected.append({ *root, true });
+        auto in_subtree = [&](Candidate const& frame) {
+            for (auto parent = frame.parent_frame_id; parent.has_value();) {
+                if (*parent == primary_frame_id)
+                    return true;
+                auto ancestor = find_frame(*parent);
+                parent = ancestor == frames.end() ? Optional<i64> {} : ancestor->parent_frame_id;
+            }
+            return false;
+        };
+        if (target.all_frames) {
+            for (auto const& frame : frames) {
+                if (frame.frame_id != primary_frame_id && in_subtree(frame))
+                    selected.append({ frame, false });
+            }
+        }
+    }
+
+    // activeTab reaches the frames of the tab's own origin, which its grant follows; and an extension without the tabs
+    // permission doesn't learn a child frame's URL from a refusal.
+    auto has_active_tab = viewer.active_tab_grants && viewer.active_tab_grants->contains(target.tab_id);
+    Vector<Candidate> reachable;
+    for (auto const& [frame, named] : selected) {
+        auto is_about_blank = Web::HTML::url_matches_about_blank(frame.url) || Web::HTML::url_matches_about_srcdoc(frame.url);
+        if (is_about_blank && !target.match_about_blank && !named)
+            continue;
+        auto url = is_about_blank && target.match_about_blank ? frame.matching_url : Optional<URL::URL> { frame.url };
+        auto frame_has_active_tab = has_active_tab && (frame.frame_id == 0 || frame.origin.is_same_origin(top->origin));
+        auto may_see_url = frame.frame_id == 0 ? may_see_tab_details(viewer, *tab) : extension.descriptor().has_permission("tabs"sv);
+        auto refusal = url.has_value()
+            ? extension_injection_refusal(extension, *url, may_see_url, frame_has_active_tab)
+            : extension_injection_refusal(extension, frame.url, may_see_url, false);
+        if (!refusal.has_value()) {
+            reachable.append(frame);
+            continue;
+        }
+        if (named) {
+            callback(refusal.release_value());
+            return;
+        }
+    }
+
+    auto injection_id = m_next_extension_injection_id++;
+    PendingExtensionInjection pending { move(callback), {}, reachable.size(), primary_frame_id };
+    for (auto const& frame : reachable)
+        pending.frames.append({ frame.frame_id, {}, {} });
+    m_pending_extension_injections.set(injection_id, move(pending));
+    for (size_t i = 0; i < reachable.size(); ++i) {
+        auto request_id = m_next_extension_injection_id++;
+        m_extension_injection_requests.set(request_id, { .injection_id = injection_id, .index = i, .page = reachable[i].page.ptr() });
+        // A script injected into the extension's world may use the extension's APIs there, as a content script does.
+        if (!request.injection.js_sources.is_empty() || request.injection.function_source.has_value()) {
+            if (request.injection.world == Web::Extensions::ExecutionWorld::Isolated)
+                m_extension_injected_documents.ensure(extension.id()).set(reachable[i].document_id);
+        }
+        reachable[i].page->async_execute_extension_injection(request_id, extension.id(), reachable[i].navigable_id, reachable[i].document_id, request.injection);
+    }
+    if (reachable.is_empty())
+        finish_extension_injection(injection_id);
+}
+
+bool Application::extension_injected_into(String const& extension_id, Web::HTML::CrossProcessId document_id) const
+{
+    auto documents = m_extension_injected_documents.get(extension_id);
+    return documents.has_value() && documents->contains(document_id);
+}
+
+void Application::extension_injection_finished(WebContentPage const& page, u64 request_id, Optional<String> result_json, Optional<String> error, bool frame_removed)
+{
+    auto request = m_extension_injection_requests.get(request_id);
+    if (!request.has_value() || request->page != &page)
+        return;
+    auto injection_id = request->injection_id;
+    auto index = request->index;
+    m_extension_injection_requests.remove(request_id);
+    auto pending = m_pending_extension_injections.find(injection_id);
+    if (pending == m_pending_extension_injections.end())
+        return;
+    if (frame_removed)
+        error = MUST(String::formatted("Frame with ID {} was removed.", pending->value.frames[index].frame_id));
+    pending->value.frames[index].result_json = move(result_json);
+    pending->value.frames[index].error = move(error);
+    if (--pending->value.outstanding == 0)
+        finish_extension_injection(injection_id);
+}
+
+void Application::extension_injection_page_gone(WebContentPage const& page)
+{
+    Vector<u64> gone;
+    for (auto const& [request_id, request] : m_extension_injection_requests) {
+        if (request.page == &page)
+            gone.append(request_id);
+    }
+    for (auto request_id : gone)
+        extension_injection_finished(page, request_id, {}, {}, true);
+}
+
+void Application::finish_extension_injection(u64 injection_id)
+{
+    auto done = m_pending_extension_injections.take(injection_id).release_value();
+    // A single frame's error rejects the call; with more, a frame that failed is left out.
+    if (done.frames.size() == 1 && done.frames[0].error.has_value()) {
+        done.callback(done.frames[0].error.release_value());
+        return;
+    }
+    quick_sort(done.frames, [&](auto const& a, auto const& b) { return a.frame_id == done.primary_frame_id && b.frame_id != done.primary_frame_id; });
+    JsonArray results;
+    for (auto const& frame : done.frames) {
+        if (frame.error.has_value())
+            continue;
+        JsonObject result;
+        result.set("frameId"sv, frame.frame_id);
+        if (frame.result_json.has_value()) {
+            if (auto value = JsonValue::from_string(*frame.result_json); !value.is_error())
+                result.set("result"sv, value.release_value());
+        }
+        results.must_append(move(result));
+    }
+    done.callback(JsonValue { move(results) });
 }
 
 void Application::schedule_extension_alarms()

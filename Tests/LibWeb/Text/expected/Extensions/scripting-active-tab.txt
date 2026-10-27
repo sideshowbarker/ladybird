@@ -1,0 +1,2 @@
+before a click: Cannot access contents of the page. Extension manifest must request permission to access the respective host.
+after a click, allFrames: ["file:","about:"]

@@ -1,0 +1,4 @@
+a restarted background page: object
+with activeTab: ["file:"]
+activeTab removed: Cannot access contents of the page. Extension manifest must request permission to access the respective host.
+scripting removed: The extension doesn't have the scripting permission.

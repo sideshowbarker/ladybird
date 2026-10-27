@@ -176,6 +176,7 @@ WebContentPage::~WebContentPage()
 {
     if (Application::is_initialized())
         Application::extension_message_broker().endpoint_gone(*this);
+    extension_injection_target_gone();
 }
 
 WebContentServerProxy* WebContentPage::routed_proxy() const
@@ -666,6 +667,7 @@ void WebContentPage::close()
     // A closed page hosts no documents, so none of its extension contexts can receive anything.
     if (Application::is_initialized() && Application::the().has_extension_message_broker())
         Application::extension_message_broker().endpoint_gone(*this);
+    extension_injection_target_gone();
     if (m_client) {
         m_client->update_audio_capture_permission();
         if (auto* bidi = WebDriverBiDi::the())
@@ -1770,8 +1772,13 @@ Optional<Web::Extensions::MessageSender> WebContentPage::extension_message_sende
         if (document.id() != document_id)
             return IterationDecision::Continue;
         auto matching_url = extension_matching_url(navigable, document, url);
-        if (!matching_url.has_value() || !Application::extension_registry().may_create_context(extension_id, *matching_url, !navigable.parent(), url != *matching_url, client().is_private()))
-            return IterationDecision::Continue;
+        auto may_create_context = matching_url.has_value() && Application::extension_registry().may_create_context(extension_id, *matching_url, !navigable.parent(), url != *matching_url, client().is_private());
+        if (!may_create_context) {
+            auto& registry = Application::extension_registry();
+            auto allowed_here = registry.is_enabled(extension_id) && (client().is_private() == IsPrivate::No || registry.is_allowed_in_private(extension_id));
+            if (!allowed_here || !Application::the().extension_injected_into(extension_id, document_id))
+                return IterationDecision::Continue;
+        }
         sender = Web::Extensions::MessageSender {
             .extension_id = extension_id,
             .url = url.serialize(),
@@ -1920,6 +1927,56 @@ ExtensionTabViewer WebContentPage::extension_tab_viewer(String const& extension_
     return { extension, allowed_in_private, current_window_id, last_focused_window_id, Application::the().extension_active_tab_grants(extension_id) };
 }
 
+void WebContentPage::for_each_active_frame(Function<void(ExtensionFrame const&)> const& callback) const
+{
+    auto frame_id_of = [](CanonicalNavigable const& navigable) -> i64 { return navigable.parent() ? extension_frame_id_for(navigable.id()) : 0; };
+    for_each_extension_document([&](CanonicalNavigable const& navigable, CanonicalDocument const& document, URL::URL const& url) {
+        if (&document != &navigable.active_document())
+            return IterationDecision::Continue;
+        Optional<i64> parent_frame_id;
+        if (auto const* parent = navigable.parent())
+            parent_frame_id = frame_id_of(*parent);
+        callback({ frame_id_of(navigable), parent_frame_id, navigable, document, url, extension_matching_url(navigable, document, url) });
+        return IterationDecision::Continue;
+    });
+}
+
+void WebContentPage::call_extension_scripting_api(String const& extension_id, u64 request_id, StringView method, JsonArray const& arguments)
+{
+    auto extension = Application::extension_registry().find(extension_id);
+    if (!extension)
+        return;
+    auto complete = [page = NonnullRefPtr { *this }, request_id](ErrorOr<JsonValue, String> result) {
+        if (result.is_error())
+            page->complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
+        else
+            page->complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });
+    };
+    if (method != "executeScript"sv || arguments.size() != 1 || !arguments.at(0).is_object()) {
+        complete(MUST(String::formatted("scripting.{}() isn't supported", method)));
+        return;
+    }
+    auto request = parse_extension_injection(*extension, arguments.at(0).as_object());
+    if (request.is_error()) {
+        complete(request.release_error());
+        return;
+    }
+    auto tabs = Application::the().extension_tabs();
+    auto viewer = extension_tab_viewer(extension_id, extension->descriptor(), tabs);
+    Application::the().run_extension_injection(*extension, viewer, request.release_value(), move(complete));
+}
+
+void WebContentPage::extension_injection_target_gone()
+{
+    if (Application::is_initialized())
+        Application::the().extension_injection_page_gone(*this);
+}
+
+void WebContentPage::did_execute_extension_injection(u64 request_id, Optional<String> result_json, Optional<String> error, bool frame_removed)
+{
+    Application::the().extension_injection_finished(*this, request_id, move(result_json), move(error), frame_removed);
+}
+
 ErrorOr<JsonValue, String> WebContentPage::call_extension_permissions_api(String const& extension_id, StringView method, JsonArray const& arguments)
 {
     auto extension = Application::extension_registry().find(extension_id);
@@ -2027,6 +2084,19 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
     auto api_namespace = method.bytes_as_string_view().substring_view(0, *separator);
     auto name = method.bytes_as_string_view().substring_view(*separator + 1);
     auto const& call_arguments = arguments.value().as_array();
+
+    // Only the extension's own documents have scripting, and only with the permission; its calls complete later.
+    if (api_namespace == "scripting"sv) {
+        if (!context->is_extension_document)
+            return;
+        // A page keeps its scripting object after the permission is removed, but its calls fail from then on.
+        if (!extension->descriptor().has_permission("scripting"sv)) {
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { "The extension doesn't have the scripting permission."_string });
+            return;
+        }
+        call_extension_scripting_api(context->extension_id, request_id, name, call_arguments);
+        return;
+    }
 
     // Only the extension's own documents have the permissions API.
     if (api_namespace == "permissions"sv) {

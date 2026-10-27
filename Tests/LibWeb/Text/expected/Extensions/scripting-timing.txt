@@ -1,0 +1,2 @@
+by default, after parsing: true
+injectImmediately: loading

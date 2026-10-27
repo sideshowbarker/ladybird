@@ -1,0 +1,58 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <iframe
+        src="../../data/iframe-test-content-1.html"
+        onload="window.childLoads = (window.childLoads ?? 0) + 1"
+    ></iframe>
+    <script>
+        // A target names each frame once, can't mix allFrames with frameIds, and reaches about:blank children; results
+        // that JSON can't hold come back as null; and a refused child frame's URL stays hidden without the tabs permission.
+        async function waitForChildLoads(count) {
+            while ((window.childLoads ?? 0) < count) await new Promise(resolve => setTimeout(resolve, 20));
+        }
+
+        asyncTest(async done => {
+            await contentScriptReady();
+            await waitForChildLoads(1);
+            document.body.append(document.createElement("iframe"));
+
+            const twice = await sendToBackground({
+                type: "func",
+                run: "count",
+                world: "MAIN",
+                target: { frameIds: [0, 0] },
+            });
+            println(`frameIds [0, 0]: ${JSON.stringify(twice.value.map(frame => frame.result))}`);
+            const mixed = await sendToBackground({
+                type: "func",
+                run: "count",
+                target: { allFrames: true, frameIds: [0] },
+            });
+            println(`allFrames with frameIds: ${mixed.failed}`);
+            println(`frameIds of the wrong type: ${(await sendToBackground({ type: "bad-frame-ids" })).failed}`);
+            println(`after all that: ${window.injections}`);
+
+            for (const run of ["cyclic", "bigint", "nothing"])
+                println(`${run}: ${JSON.stringify((await sendToBackground({ type: "func", run })).value)}`);
+
+            const all = (await sendToBackground({ type: "func", run: "protocol", target: { allFrames: true } })).value;
+            println(`allFrames: ${JSON.stringify(all.map(frame => frame.result))}`);
+
+            const blank = all.find(frame => frame.result === "about:").frameId;
+            const pending = sendToBackground({ type: "func", run: "never", target: { frameIds: [blank] } });
+            setTimeout(() => document.querySelectorAll("iframe")[1].remove(), 50);
+            println(`a frame removed mid-injection: ${(await pending).failed.replace(String(blank), "N")}`);
+
+            const child = all.find(frame => frame.result === "file:" && frame.frameId !== 0).frameId;
+            const reply = await sendToBackground({ type: "func", run: "message", target: { frameIds: [child] } });
+            println(`messaging from an injected script: ${JSON.stringify(reply.value?.[0]?.result ?? reply.failed)}`);
+            document.querySelector("iframe").src = "data:text/html,private?token=secret";
+            await waitForChildLoads(2);
+            const refused = await sendToBackground({ type: "func", run: "protocol", target: { frameIds: [child] } });
+            println(`a refused child: ${refused.failed}`);
+            done();
+        });
+    </script>
+</body>

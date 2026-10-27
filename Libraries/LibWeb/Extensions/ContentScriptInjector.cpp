@@ -10,6 +10,7 @@
 #include <LibWeb/Extensions/ContentScriptInjector.h>
 #include <LibWeb/Extensions/ExtensionSet.h>
 #include <LibWeb/Extensions/ExtensionWorld.h>
+#include <LibWeb/Extensions/ScriptExecutor.h>
 #include <LibWeb/HTML/BrowsingContext.h>
 #include <LibWeb/HTML/LocalNavigable.h>
 #include <LibWeb/HTML/Navigable.h>
@@ -120,6 +121,9 @@ void run_content_scripts(DOM::Document& document, RunAt up_to)
             continue;
         document.set_content_scripts_ran_at(run_at);
         run_content_scripts_at(document, run_at);
+        if (!document.is_fully_active())
+            return;
+        run_pending_injections(document, run_at);
         if (!document.is_fully_active())
             return;
     }

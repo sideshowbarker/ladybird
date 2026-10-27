@@ -142,6 +142,7 @@
 #include <LibWeb/Extensions/ContentScriptInjector.h>
 #include <LibWeb/Extensions/ExtensionDocumentContext.h>
 #include <LibWeb/Extensions/ExtensionWorld.h>
+#include <LibWeb/Extensions/ScriptExecutor.h>
 #include <LibWeb/Fetch/Engine/NetworkTransportHandle.h>
 #include <LibWeb/Fetch/Fetching/Checks.h>
 #include <LibWeb/Fetch/Infrastructure/FetchController.h>
@@ -12654,6 +12655,7 @@ Extensions::ExtensionWorld& Document::ensure_extension_world(Extensions::Extensi
 
 void Document::detach_extension_worlds()
 {
+    Extensions::cancel_pending_injections(*this);
     for (auto const& world : m_extension_worlds)
         world.value->detach();
     m_extension_worlds.clear();

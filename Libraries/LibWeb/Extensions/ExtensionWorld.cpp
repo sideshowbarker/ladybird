@@ -90,14 +90,14 @@ void ExtensionWorld::visit_edges(Visitor& visitor)
         m_execution_context->visit_edges(visitor);
 }
 
-JS::Completion ExtensionWorld::run_script(ByteString filename, Utf16View source, URL::URL base_url)
+JS::Completion ExtensionWorld::run_script(ByteString filename, Utf16View source, URL::URL base_url, HTML::ClassicScript::RethrowErrors rethrow_errors)
 {
     if (m_detached)
         return JS::throw_completion(JS::js_undefined());
 
     auto& settings = Bindings::principal_host_defined_environment_settings_object(*m_realm);
     auto script = HTML::ClassicScript::create_in_realm(move(filename), source, settings, *m_realm, move(base_url));
-    return script->run();
+    return script->run(rethrow_errors);
 }
 
 void ExtensionWorld::detach()

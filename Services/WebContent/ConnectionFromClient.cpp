@@ -55,6 +55,7 @@
 #include <LibWeb/DOMURL/DOMURL.h>
 #include <LibWeb/Dump.h>
 #include <LibWeb/Extensions/ExtensionSet.h>
+#include <LibWeb/Extensions/ScriptExecutor.h>
 #include <LibWeb/Fetch/Fetching/Fetching.h>
 #include <LibWeb/FileAPI/BlobURLStore.h>
 #include <LibWeb/Gamepad/GamepadRegistry.h>
@@ -3222,6 +3223,24 @@ void ConnectionFromClient::extension_storage_reply(Web::PageId page_id, u64 requ
 {
     if (auto page = this->page(page_id); page.has_value())
         page->page().complete_extension_storage(request_id, result);
+}
+
+void ConnectionFromClient::execute_extension_injection(Web::PageId page_id, u64 request_id, String extension_id, Web::HTML::CrossProcessId navigable_id, Web::HTML::CrossProcessId document_id, Web::Extensions::ExtensionInjection injection)
+{
+    // A script can keep its promise pending past the connection, so the reply holds it weakly.
+    auto reply = [weak_this = make_weak_ptr<ConnectionFromClient>(), page_id, request_id](Optional<String> result_json, Optional<String> error, Web::Extensions::FrameRemoved frame_removed) {
+        if (weak_this)
+            weak_this->async_did_execute_extension_injection(page_id, request_id, move(result_json), move(error), frame_removed == Web::Extensions::FrameRemoved::Yes);
+    };
+    // The UI process picked the document; it has to be the one still showing in that navigable.
+    auto navigable = Web::HTML::local_navigable_with_id(navigable_id);
+    auto document = navigable ? navigable->active_document() : nullptr;
+    auto const* extension = Web::Extensions::ExtensionSet::the().find(extension_id);
+    if (!document || document->id() != document_id || !extension) {
+        reply({}, {}, Web::Extensions::FrameRemoved::Yes);
+        return;
+    }
+    Web::Extensions::execute_injection(*document, *extension, injection, move(reply));
 }
 
 void ConnectionFromClient::dispatch_extension_storage_changed(Web::PageId page_id, String extension_id, u64 context_id, String changes_json)

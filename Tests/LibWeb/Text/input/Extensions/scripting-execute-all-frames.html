@@ -1,0 +1,26 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <iframe src="../../data/iframe-test-content-1.html" onload="window.frameLoaded = true"></iframe>
+    <script>
+        // allFrames runs in the page and its frame (here in a process of its own), the top frame's result first; frameIds
+        // picks frames; an unknown frame id rejects.
+        asyncTest(async done => {
+            await contentScriptReady();
+            // The frame first shows its initial about:blank, which is already complete; this waits for its page.
+            while (!window.frameLoaded) await new Promise(resolve => setTimeout(resolve, 20));
+            const all = (await sendToBackground({ type: "func", run: "frameUrl", target: { allFrames: true } })).value;
+            println(
+                `allFrames: ${all.length} ${all[0].frameId === 0} ${all[0].result} ${all[1]?.frameId > 0} ${all[1]?.result}`
+            );
+            const picked = (
+                await sendToBackground({ type: "func", run: "frameUrl", target: { frameIds: [all[1]?.frameId] } })
+            ).value;
+            println(`frameIds: ${picked?.length} ${picked?.[0]?.result}`);
+            const missing = await sendToBackground({ type: "func", run: "frameUrl", target: { frameIds: [999999] } });
+            println(`an unknown frame: ${missing.failed.replace(/\d+$/, "N")}`);
+            done();
+        });
+    </script>
+</body>

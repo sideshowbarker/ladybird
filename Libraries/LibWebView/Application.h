@@ -52,6 +52,7 @@
 #include <LibWebView/DownloadStore.h>
 #include <LibWebView/Extensions/ExtensionAlarmManager.h>
 #include <LibWebView/Extensions/ExtensionPermissionsAPI.h>
+#include <LibWebView/Extensions/ExtensionScriptingAPI.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/Extensions/ExtensionTabsAPI.h>
 #include <LibWebView/ExternalURLHandler.h>
@@ -687,6 +688,29 @@ private:
     HashTable<i64> m_closing_extension_windows;
     // Tab ids are never reused, so a tab reported closed once stays closed.
     HashTable<i64> m_closed_extension_tabs;
+    struct ExtensionInjectionFrame {
+        i64 frame_id { 0 };
+        Optional<String> result_json;
+        Optional<String> error;
+    };
+    struct PendingExtensionInjection {
+        Function<void(ErrorOr<JsonValue, String>)> callback;
+        Vector<ExtensionInjectionFrame> frames;
+        size_t outstanding { 0 };
+        i64 primary_frame_id { 0 };
+    };
+    void finish_extension_injection(u64 injection_id);
+    HashMap<String, HashTable<Web::HTML::CrossProcessId>> m_extension_injected_documents;
+    HashMap<u64, PendingExtensionInjection> m_pending_extension_injections;
+    // Each frame's request, to the injection it belongs to, the frame's place in it, and the page it was sent to, which
+    // alone may answer it.
+    struct ExtensionInjectionRequestTarget {
+        u64 injection_id { 0 };
+        size_t index { 0 };
+        WebContentPage const* page { nullptr };
+    };
+    HashMap<u64, ExtensionInjectionRequestTarget> m_extension_injection_requests;
+    u64 m_next_extension_injection_id { 1 };
     HashMap<String, u64> m_extension_action_revisions;
     HashTable<String> m_extension_actions_allowed_in_private;
     HashMap<String, ExtensionActiveTabGrants> m_extension_active_tab_grants;
@@ -700,6 +724,16 @@ public:
     // Grants and takes away optional permissions, persists the result, and fires permissions.onAdded and onRemoved
     // with what actually changed.
     void change_extension_grants(String const& extension_id, ExtensionPermissionSet const& added, ExtensionPermissionSet const& removed);
+
+    // Runs an injection in the frames of a tab it targets, after checking that the extension may reach each one, and
+    // calls back with the frames' results, the top frame's first.
+    void run_extension_injection(Extension const&, ExtensionTabViewer const&, ExtensionInjectionRequest, Function<void(ErrorOr<JsonValue, String>)>);
+    // A frame removed before its injection finished reports that, as extensions compare, with the frame's id.
+    void extension_injection_finished(WebContentPage const&, u64 request_id, Optional<String> result_json, Optional<String> error, bool frame_removed = false);
+    void extension_injection_page_gone(WebContentPage const&);
+    // Whether a script of the extension's was injected into the document's extension world, whose messaging context
+    // is then the extension's like a content script's.
+    bool extension_injected_into(String const& extension_id, Web::HTML::CrossProcessId document_id) const;
 
 private:
     bool m_extension_background_pages_may_start { false };

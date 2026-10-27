@@ -1088,6 +1088,8 @@ public:
     void set_mute_iframe_load(bool value) { m_mute_iframe_load = value; }
 
     HTML::CrossProcessId id() const { return m_id.value(); }
+    // A document that isn't any navigable's, like an SVG image's, has no id.
+    bool has_id() const { return m_id.has_value(); }
     void set_id(HTML::CrossProcessId);
 
     // The URL that extension content scripts and resource checks match this document by: its own, or for about:blank

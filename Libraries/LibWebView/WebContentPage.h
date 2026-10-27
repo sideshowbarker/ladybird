@@ -77,6 +77,18 @@ class WEBVIEW_API WebContentPage final
 
 public:
     WebContentPage(WebContentClient&, Web::PageId, CanonicalTraversable&);
+
+    // Each frame this page shows its active document for, with the frame's id as extensions see it (0 for the top), its
+    // parent's, and the URL that extension URL patterns match it by (an about:blank frame's creator's, if any).
+    struct ExtensionFrame {
+        i64 frame_id { 0 };
+        Optional<i64> parent_frame_id;
+        CanonicalNavigable const& navigable;
+        CanonicalDocument const& document;
+        URL::URL url;
+        Optional<URL::URL> matching_url;
+    };
+    void for_each_active_frame(Function<void(ExtensionFrame const&)> const&) const;
     virtual ~WebContentPage() override;
 
     WebContentClient& client() const;
@@ -428,11 +440,15 @@ private:
     Messages::WebContentTestClient::DidRequestSiteIsolationProcessTreeForTestingResponse did_request_site_isolation_process_tree_for_testing();
     Messages::WebContentTestClient::DidRequestExtensionPopupStateForTestingResponse did_request_extension_popup_state_for_testing(String const& extension_id);
     Messages::WebContentTestClient::DidRequestExtensionBackgroundStateForTestingResponse did_request_extension_background_state_for_testing(String const& extension_id);
+    // Fails every injection still waiting on this page, which won't answer it now.
+    void extension_injection_target_gone();
+    virtual void did_execute_extension_injection(u64 request_id, Optional<String> result_json, Optional<String> error, bool frame_removed) override;
     void did_request_extension_grant_for_testing(String const& extension_id, Vector<String> permissions, Vector<String> origins);
 
     // How the extension sees the tabs from this page: from the window of its tab or popup, if it's in one.
     ExtensionTabViewer extension_tab_viewer(String const& extension_id, Web::Extensions::ExtensionDescriptor const&, ReadonlySpan<ExtensionTab>);
     ErrorOr<JsonValue, String> call_extension_alarms_api(String const& extension_id, StringView method, JsonArray const& arguments);
+    void call_extension_scripting_api(String const& extension_id, u64 request_id, StringView method, JsonArray const& arguments);
     ErrorOr<JsonValue, String> call_extension_permissions_api(String const& extension_id, StringView method, JsonArray const& arguments);
     ErrorOr<JsonValue, String> call_extension_tabs_api(String const& extension_id, Web::Extensions::ExtensionDescriptor const&, StringView method, JsonArray const& arguments);
     Messages::WebContentTestClient::DidRequestTabIsPlayingAudioForTestingResponse did_request_tab_is_playing_audio_for_testing();
