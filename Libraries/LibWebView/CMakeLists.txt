@@ -34,6 +34,7 @@ set(SOURCES
     DownloadStore.cpp
     Extensions/Extension.cpp
     Extensions/ExtensionActionAPI.cpp
+    Extensions/ExtensionArchive.cpp
     Extensions/ExtensionActionRegistry.cpp
     Extensions/ExtensionAlarmManager.cpp
     Extensions/ExtensionTabs.cpp
@@ -169,7 +170,7 @@ add_custom_target(generate_build_information DEPENDS ${build_information_stamp})
 ladybird_lib(LibWebView webview EXPLICIT_SYMBOL_EXPORT)
 add_dependencies(LibWebView generate_build_information)
 target_link_libraries(LibWebView PUBLIC LibCompositing LibSandbox LibWebCommon)
-target_link_libraries(LibWebView PRIVATE LibCore LibCrypto LibDatabase LibDevTools LibFileSystem LibGfx LibHTTP LibImageDecoderClient LibIPC LibRequests LibMedia LibMediaClient LibUnicode LibURL LibTextCodec LibThreading SDL3::SDL3)
+target_link_libraries(LibWebView PRIVATE LibCompress LibCore LibCrypto LibDatabase LibDevTools LibFileSystem LibGfx LibHTTP LibImageDecoderClient LibIPC LibRequests LibMedia LibMediaClient LibUnicode LibURL LibTextCodec LibThreading SDL3::SDL3)
 
 if (LINUX)
     # The connect broker asks the audio library where the daemon is before connecting a helper to it.
