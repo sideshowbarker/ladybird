@@ -235,6 +235,11 @@ public:
     void set_origin(OriginType origin) { m_origin = move(origin); }
 
     [[nodiscard]] Optional<URL::Origin> const& top_level_navigation_initiator_origin() const { return m_top_level_navigation_initiator_origin; }
+    // Extensions' webRequest listeners see one request id for every hop of a request that redirects, and the frame a
+    // navigation loads into.
+    [[nodiscard]] u64 web_request_serial() const { return m_web_request_serial; }
+    [[nodiscard]] Optional<HTML::CrossProcessId> const& web_request_navigable() const { return m_web_request_navigable; }
+    void set_web_request_navigable(HTML::CrossProcessId navigable) { m_web_request_navigable = navigable; }
     void set_top_level_navigation_initiator_origin(Optional<URL::Origin> top_level_navigation_initiator_origin) { m_top_level_navigation_initiator_origin = move(top_level_navigation_initiator_origin); }
 
     [[nodiscard]] PolicyContainerType const& policy_container() const { return m_policy_container; }
@@ -448,6 +453,9 @@ private:
     // https://fetch.spec.whatwg.org/#request-top-level-navigation-initiator-origin
     // A request has an associated top-level navigation initiator origin, which is an origin or null. Unless stated otherwise it is null.
     Optional<URL::Origin> m_top_level_navigation_initiator_origin;
+
+    u64 m_web_request_serial { 0 };
+    Optional<HTML::CrossProcessId> m_web_request_navigable;
 
     // https://fetch.spec.whatwg.org/#concept-request-policy-container
     // A request has an associated policy container, which is "client" or a policy container. Unless stated otherwise

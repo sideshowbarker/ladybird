@@ -13,6 +13,7 @@
 #include <LibHTTP/Cookie/IncludeCredentials.h>
 #include <LibHTTP/HeaderList.h>
 #include <LibHTTP/NetworkIsolationKey.h>
+#include <LibRequests/WebRequestContext.h>
 #include <LibURL/URL.h>
 #include <LibWeb/Export.h>
 #include <LibWeb/Fetch/Infrastructure/HTTP/Requests.h>
@@ -68,6 +69,9 @@ public:
     Optional<URL::URL> const& source_url() const { return m_source_url; }
     void set_source_url(URL::URL source_url) { m_source_url = move(source_url); }
 
+    Optional<Requests::WebRequestContext> const& web_request_context() const { return m_web_request_context; }
+    void set_web_request_context(Requests::WebRequestContext context) { m_web_request_context = move(context); }
+
     Optional<URL::URL> const& top_level_creation_url() const { return m_top_level_creation_url; }
     void set_top_level_creation_url(Optional<URL::URL> url) { m_top_level_creation_url = move(url); }
 
@@ -95,6 +99,7 @@ private:
     bool m_is_navigation_request { false };
     Fetch::Infrastructure::Request::Priority m_priority { Fetch::Infrastructure::Request::Priority::Auto };
     Optional<URL::URL> m_source_url;
+    Optional<Requests::WebRequestContext> m_web_request_context;
     Optional<URL::URL> m_top_level_creation_url;
     Optional<HTTP::NetworkIsolationKey> m_network_isolation_key;
 };

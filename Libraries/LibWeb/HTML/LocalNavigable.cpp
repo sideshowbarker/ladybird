@@ -2582,6 +2582,9 @@ static void create_navigation_params_by_fetching(
     request->set_browsing_context_group_has_multiple_contexts(source_snapshot_params->browsing_context_group_has_multiple_contexts);
     active_document.set_text_directive_user_activation(false);
 
+    // NB: Extensions' webRequest listeners are told which frame a navigation loads into.
+    request->set_web_request_navigable(navigable->id());
+
     // 4. If navigable is a top-level traversable, then set request's top-level navigation initiator origin to entry's
     //    document state's initiator origin.
     if (navigable->is_top_level_traversable())

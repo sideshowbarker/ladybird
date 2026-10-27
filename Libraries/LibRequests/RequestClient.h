@@ -19,6 +19,7 @@
 #include <LibRequests/ExportedRequest.h>
 #include <LibRequests/RequestTimingInfo.h>
 #include <LibRequests/RequestTransferLease.h>
+#include <LibRequests/WebRequestContext.h>
 #include <LibRequests/WebSocket.h>
 #include <LibWebSocket/WebSocket.h>
 #include <RequestServer/IsPrivate.h>
@@ -51,7 +52,7 @@ public:
     virtual ~RequestClient() override;
 
     // Best-effort index into the resolved address pool.
-    RefPtr<Request> start_request(ByteString const& method, URL::URL const&, Optional<HTTP::HeaderList const&> request_headers = {}, ReadonlyBytes request_body = {}, HTTP::CacheMode = HTTP::CacheMode::Default, HTTP::Cookie::IncludeCredentials = HTTP::Cookie::IncludeCredentials::Yes, TransferLease = TransferLease::No, Optional<u32> address_selection_hint = {}, CacheMissNotification = CacheMissNotification::No, u64 originating_page_id = 0, Optional<HTTP::NetworkIsolationKey> = {});
+    RefPtr<Request> start_request(ByteString const& method, URL::URL const&, Optional<HTTP::HeaderList const&> request_headers = {}, ReadonlyBytes request_body = {}, HTTP::CacheMode = HTTP::CacheMode::Default, HTTP::Cookie::IncludeCredentials = HTTP::Cookie::IncludeCredentials::Yes, TransferLease = TransferLease::No, Optional<u32> address_selection_hint = {}, CacheMissNotification = CacheMissNotification::No, u64 originating_page_id = 0, Optional<HTTP::NetworkIsolationKey> = {}, Optional<WebRequestContext> = {});
     RefPtr<Request> adopt_request(int source_client_id, u64 source_request_id, TransferLease = TransferLease::No);
 
     // Moves a response between RequestServers. The request leaves this client on export; the imported one is a new

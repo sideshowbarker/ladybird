@@ -24,10 +24,13 @@ NonnullRefPtr<Request> Request::create()
     return adopt_ref(*new Request(HTTP::HeaderList::create()));
 }
 
+static u64 s_next_web_request_serial { 0 };
+
 Request::Request(NonnullRefPtr<HTTP::HeaderList> header_list)
     : m_header_list(move(header_list))
     , m_request_time(UnixDateTime::now())
 {
+    m_web_request_serial = ++s_next_web_request_serial;
 }
 
 Request::~Request() = default;
@@ -225,6 +228,8 @@ NonnullRefPtr<Request> Request::clone() const
     new_request->set_initiator_type(m_initiator_type);
     new_request->set_service_workers_mode(m_service_workers_mode);
     new_request->set_initiator(m_initiator);
+    new_request->m_web_request_serial = m_web_request_serial;
+    new_request->m_web_request_navigable = m_web_request_navigable;
     new_request->set_destination(m_destination);
     new_request->set_priority(m_priority);
     new_request->set_origin(m_origin);
