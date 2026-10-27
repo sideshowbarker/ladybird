@@ -87,6 +87,12 @@ public:
     }
     void set_zoom_level(double zoom_level);
     void set_maximum_frames_per_second(double maximum_frames_per_second);
+    // A page that reports its content size tells the UI process the top-level document's scroll size, in CSS pixels,
+    // as laid out at the given viewport size: after each rendering update with a layout that changed it.
+    void set_reports_content_size(Optional<Gfx::IntSize> measured_at);
+    // A page whose top-level traversable its own scripts may close with window.close(), whatever its history holds.
+    void set_is_closable_by_script(bool closable) { m_is_closable_by_script = closable; }
+    virtual bool top_level_traversable_is_closable_by_script() const override { return m_is_closable_by_script; }
     void set_frame_rate_capped(bool capped) { m_frame_rate_capped = capped; }
     virtual double maximum_frames_per_second() const override { return m_maximum_frames_per_second; }
     void set_preferred_color_scheme(Web::CSS::PreferredColorScheme);
@@ -164,6 +170,11 @@ public:
     void schedule_accessibility_tree_update();
 
 private:
+    void report_content_size_if_changed();
+    Optional<Gfx::IntSize> m_content_size_measured_at;
+    u64 m_content_size_layout_count { 0 };
+    bool m_is_closable_by_script { false };
+    Optional<Gfx::IntSize> m_reported_content_size;
     struct PendingDOMMutation {
         GC::Ref<Web::DOM::Node> target;
         WebView::Mutation mutation;
@@ -214,6 +225,7 @@ private:
     virtual void forward_pinch_event_to_remote_navigable(Web::PageId, Web::HTML::CrossProcessId navigable_id, Web::PinchEvent) override;
     virtual void page_did_destroy_child_frame(Web::HTML::CrossProcessId frame_id) override;
     virtual String dump_site_isolation_process_tree_for_testing() override;
+    virtual String extension_popup_state_for_testing(String const& extension_id) override;
     virtual void crash_remote_frame_processes_for_testing() override;
     virtual void page_did_spoof_document_origin_for_testing(Web::HTML::EnvironmentSettingsObject const&, URL::Origin const&) override;
     virtual void stop_loading_through_ui_process_for_testing() override;

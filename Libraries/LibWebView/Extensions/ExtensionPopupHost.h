@@ -25,7 +25,9 @@ struct ExtensionPopupRequest {
     u64 generation { 0 };
 };
 
-// A popup is sized to its page's content, within these bounds.
+// A popup is sized to its page's content, within these bounds; its content is measured at the smallest size.
+inline constexpr Gfx::IntSize minimum_extension_popup_size { 25, 25 };
+inline constexpr Gfx::IntSize maximum_extension_popup_size { 800, 600 };
 WEBVIEW_API Gfx::IntSize clamp_extension_popup_size(Gfx::IntSize);
 
 // The popups of extensions' toolbar buttons: at most one per window, open until it loses focus, the user presses
@@ -71,6 +73,13 @@ public:
 
     bool is_open(i64 window_id) const { return m_popups.contains(window_id); }
     Optional<String> extension_in(i64 window_id) const;
+    // The popup open in a window, as test mode describes it: its extension, page, and size.
+    struct PopupState {
+        String extension_id;
+        URL::URL url;
+        Optional<Gfx::IntSize> size;
+    };
+    Optional<PopupState> state(i64 window_id) const;
 
     // The window whose button opened the popup a page is showing, and whether a page is an extension's popup.
     Optional<i64> window_for_page(WebContentPage const&) const;

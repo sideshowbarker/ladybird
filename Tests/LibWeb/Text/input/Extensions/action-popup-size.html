@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-action-popup.js"></script>
+<body>
+<script>
+    // A popup takes its content's size, from 25x25 up to 800x600, and follows the content when it grows.
+    asyncTest(async done => {
+        await contentScriptReady();
+        const sizeOf = () => `${popupState().width}x${popupState().height}`;
+        for (const [w, h, expected] of [[900, 700, "800x600"], [10, 10, "25x25"], [320, 180, "320x180"]]) {
+            await openPopup(`popup.html?w=${w}&h=${h}`);
+            await waitFor(() => sizeOf() === expected);
+            println(`${w}x${h} content: ${sizeOf()}`);
+            internals.clickExtensionAction(popupFixture());
+            await waitFor(() => !popupState().open);
+        }
+        await openPopup("popup.html?w=50&h=50");
+        await waitFor(() => sizeOf() === "50x50");
+        await sendToBackground({ type: "to-popup", command: "grow" });
+        await waitFor(() => sizeOf() === "300x200");
+        println(`after growing: ${sizeOf()}`);
+        await sendToBackground({ type: "to-popup", command: "shrink" });
+        await waitFor(() => sizeOf() === "60x40");
+        println(`after shrinking: ${sizeOf()}`);
+        await closePopup();
+
+        // A popup at its largest size still shrinks with its content.
+        await openPopup("popup.html?w=900&h=700");
+        await waitFor(() => sizeOf() === "800x600");
+        await sendToBackground({ type: "to-popup", command: "shrink" });
+        await waitFor(() => sizeOf() === "60x40");
+        println(`from its largest size, after shrinking: ${sizeOf()}`);
+        await closePopup();
+        done();
+    });
+</script>
+</body>

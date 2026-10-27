@@ -330,6 +330,7 @@ Application::~Application()
     }
 
     // The background pages are views, and a view's destructor reaches back into the Application, so they go first.
+    m_headless_extension_popups.clear();
     m_extension_background_host = nullptr;
     m_spare_web_content_process = nullptr;
 
@@ -3637,6 +3638,53 @@ ExtensionActiveTabGrants const* Application::extension_active_tab_grants(StringV
 {
     auto it = m_extension_active_tab_grants.find(extension_id);
     return it == m_extension_active_tab_grants.end() ? nullptr : &it->value;
+}
+
+bool Application::show_extension_popup(ExtensionPopupRequest const& request)
+{
+    auto theme = m_extension_background_host->theme();
+    if (theme.is_error())
+        return false;
+    // The view starts at the smallest popup size, so the content size it reports is what its content needs.
+    auto view = HeadlessWebView::create(theme.release_value(), { 25, 25 });
+    auto window_id = request.window_id;
+    auto generation = request.generation;
+    view->set_reports_content_size(minimum_extension_popup_size);
+    view->set_is_closable_by_script(true);
+    view->on_content_size_change = [window_id, generation](Gfx::IntSize size) {
+        extension_popup_host().content_size_changed(window_id, generation, size);
+    };
+    view->on_close = [window_id, generation] {
+        Core::deferred_invoke([window_id, generation] {
+            if (is_initialized())
+                extension_popup_host().close(window_id, generation, ExtensionPopupHost::CloseReason::WindowClose);
+        });
+    };
+    view->load(request.url);
+    m_headless_extension_popups.set(window_id, move(view));
+    return true;
+}
+
+void Application::resize_extension_popup(i64 window_id, Gfx::IntSize size)
+{
+    if (auto it = m_headless_extension_popups.find(window_id); it != m_headless_extension_popups.end())
+        it->value->reset_viewport_size(size.to_type<Web::DevicePixels>());
+}
+
+void Application::close_extension_popup(i64 window_id)
+{
+    // A popup can close from one of its view's own callbacks, so the view goes once that has returned.
+    if (auto view = m_headless_extension_popups.take(window_id); view.has_value()) {
+        (*view)->on_content_size_change = nullptr;
+        (*view)->on_close = nullptr;
+        Core::deferred_invoke([view = view.release_value()] { });
+    }
+}
+
+ViewImplementation* Application::extension_popup_view(i64 window_id) const
+{
+    auto it = m_headless_extension_popups.find(window_id);
+    return it == m_headless_extension_popups.end() ? nullptr : it->value.ptr();
 }
 
 void Application::activate_extension_action(String const& extension_id, i64 tab_id)

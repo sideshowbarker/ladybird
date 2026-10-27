@@ -1,0 +1,6 @@
+900x700 content: 800x600
+10x10 content: 25x25
+320x180 content: 320x180
+after growing: 300x200
+after shrinking: 60x40
+from its largest size, after shrinking: 60x40

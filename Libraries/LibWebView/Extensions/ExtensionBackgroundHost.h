@@ -29,6 +29,9 @@ class WEBVIEW_API ExtensionBackgroundHost {
     AK_ALLOC_WITH_KMALLOC;
 
 public:
+    // The system theme a hidden extension view renders with, loaded once.
+    ErrorOr<Core::AnonymousBuffer> theme();
+
     ExtensionBackgroundHost();
     ~ExtensionBackgroundHost();
 
@@ -70,8 +73,6 @@ private:
     void start_view(Background&);
     void destroy_view(Background&);
     void forget(String const& extension_id);
-
-    ErrorOr<Core::AnonymousBuffer> theme();
 
     HashMap<String, NonnullOwnPtr<Background>> m_backgrounds;
     bool m_views_may_start { false };

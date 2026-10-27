@@ -58,6 +58,7 @@ class SessionStore;
 class Extension;
 class ExtensionActionRegistry;
 class ExtensionPopupHost;
+class HeadlessWebView;
 struct ExtensionPopupRequest;
 class ExtensionBackgroundHost;
 class ExtensionMessageBroker;

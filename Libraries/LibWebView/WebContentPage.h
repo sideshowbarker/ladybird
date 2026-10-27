@@ -380,6 +380,7 @@ private:
     virtual void did_fail_download(u64 download_id, String error) override;
     virtual void did_finish_loading(Web::HTML::CrossProcessId navigable_id, Web::HTML::CrossProcessId document_id) override;
     virtual void did_change_title(Utf16String title) override;
+    virtual void did_change_content_size(Gfx::IntSize size) override;
     virtual void did_request_context_menu(Web::HTML::CrossProcessId local_root_id, Gfx::IntPoint content_position, Web::ContextMenuForInputEventsTarget for_input_events_target, Optional<Utf16String> misspelled_word, Optional<u64> text_fragment_generation_id) override;
     virtual void did_request_link_context_menu(Web::HTML::CrossProcessId local_root_id, Gfx::IntPoint content_position, Web::HTML::PreparedNavigationDescriptor navigation, ByteString, unsigned, Optional<u64> text_fragment_generation_id) override;
     virtual void did_generate_text_fragment_url(u64 request_id, Optional<URL::URL> url) override;
@@ -424,6 +425,7 @@ private:
     virtual void did_simulate_worker_request_server_connection_loss() override;
     Messages::WebContentTestClient::DidRequestUiProcessSessionHistoryForTestingResponse did_request_ui_process_session_history_for_testing();
     Messages::WebContentTestClient::DidRequestSiteIsolationProcessTreeForTestingResponse did_request_site_isolation_process_tree_for_testing();
+    Messages::WebContentTestClient::DidRequestExtensionPopupStateForTestingResponse did_request_extension_popup_state_for_testing(String const& extension_id);
     Messages::WebContentTestClient::DidRequestTabIsPlayingAudioForTestingResponse did_request_tab_is_playing_audio_for_testing();
     Messages::WebContentTestClient::DidRequestTabAudibilityChangeCountForTestingResponse did_request_tab_audibility_change_count_for_testing();
     virtual void did_request_crash_of_remote_frame_processes_for_testing() override;

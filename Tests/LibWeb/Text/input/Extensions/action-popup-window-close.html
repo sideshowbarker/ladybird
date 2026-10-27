@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-action-popup.js"></script>
+<body>
+<script>
+    // A popup that calls window.close() closes, even once its history has more than one entry.
+    asyncTest(async done => {
+        await contentScriptReady();
+        await openPopup("popup.html");
+        println(`open: ${popupState().open}`);
+        await sendToBackground({ type: "to-popup", command: "close" });
+        println(`after window.close(), open: ${(await waitFor(() => !popupState().open)) ? false : true}`);
+
+        await openPopup("popup.html");
+        await sendToBackground({ type: "to-popup", command: "push-state" });
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await sendToBackground({ type: "to-popup", command: "close" });
+        println(`after pushState() and window.close(), open: ${(await waitFor(() => !popupState().open)) ? false : true}`);
+
+        await openPopup("popup.html");
+        await sendToBackground({ type: "set-popup-report-pending" });
+        await sendToBackground({ type: "to-popup", command: "navigate" });
+        await waitFor(async () => (await popupState()).path === "/popup.html" && (await sendToBackground({ type: "popup-report" })));
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await sendToBackground({ type: "to-popup", command: "close" });
+        println(`after a navigation and window.close(), open: ${(await waitFor(() => !popupState().open)) ? false : true}`);
+        await closePopup();
+        done();
+    });
+</script>
+</body>

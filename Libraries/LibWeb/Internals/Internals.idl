@@ -32,6 +32,7 @@ interface Internals {
     DOMString extensionId(DOMString name);
     undefined setExtensionIdleTimeout(DOMString extensionId, double milliseconds);
     undefined clickExtensionAction(DOMString extensionId);
+    DOMString extensionPopupState(DOMString extensionId);
 
     undefined gc();
     [CreatesPromise] Promise<undefined> gcAsync();

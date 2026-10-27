@@ -893,6 +893,22 @@ void ViewImplementation::set_frame_rate_capped(bool capped)
     });
 }
 
+void ViewImplementation::set_reports_content_size(Optional<Gfx::IntSize> measured_at)
+{
+    m_content_size_measured_at = measured_at;
+    traversable().for_each_hosting_page([&](WebContentPage& page) {
+        page.async_set_reports_content_size(measured_at);
+    });
+}
+
+void ViewImplementation::set_is_closable_by_script(bool closable)
+{
+    m_is_closable_by_script = closable;
+    traversable().for_each_hosting_page([&](WebContentPage& page) {
+        page.async_set_is_closable_by_script(closable);
+    });
+}
+
 void ViewImplementation::update_compositor_display_metadata(WebContentPage& page)
 {
     Application::the().update_compositor_display_metadata(page.compositor_context_id(), m_display_id, m_maximum_frames_per_second);
@@ -1582,6 +1598,10 @@ void ViewImplementation::send_preferences_to_page(WebContentPage& page)
     page.async_set_preferred_contrast(m_preferred_contrast);
     page.async_set_preferred_motion(m_preferred_motion);
     page.async_set_preferred_languages(Application::settings().languages());
+    if (m_content_size_measured_at.has_value())
+        page.async_set_reports_content_size(m_content_size_measured_at);
+    if (m_is_closable_by_script)
+        page.async_set_is_closable_by_script(true);
     page.async_set_zoom_level(m_zoom_level);
     send_browsing_behavior(page);
     send_autoplay_settings(page);

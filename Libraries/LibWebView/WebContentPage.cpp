@@ -30,6 +30,7 @@
 #include <LibWebView/Extensions/ExtensionActionAPI.h>
 #include <LibWebView/Extensions/ExtensionActionRegistry.h>
 #include <LibWebView/Extensions/ExtensionBackgroundHost.h>
+#include <LibWebView/Extensions/ExtensionPopupHost.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/GamepadManager.h>
@@ -1671,7 +1672,8 @@ void WebContentPage::did_request_extension_resource(String extension_id, String 
     }
     // The page the background host made for the extension loads the extension's own files, the manifest's
     // "background.page" among them, though its first document is the initial about:blank one.
-    bool allowed = Application::extension_background_host().hosts_page(extension_id, *this);
+    bool allowed = Application::extension_background_host().hosts_page(extension_id, *this)
+        || Application::extension_popup_host().hosts_page(extension_id, *this);
     if (!allowed) {
         for_each_extension_document([&](CanonicalNavigable const&, CanonicalDocument const&, URL::URL const& url) {
             allowed = Application::extension_registry().may_access_resource(extension_id, path, url, client().is_private());
@@ -1875,6 +1877,9 @@ void WebContentPage::did_request_extension_tabs_query(u64 context_id, u64 reques
         if (auto tab = tabs.find_if([&](auto const& tab) { return tab.view_id == view->view_id(); }); tab != tabs.end())
             current_window_id = tab->window_id;
     }
+    // A popup isn't a tab; its current window is the one whose button opened it.
+    if (!current_window_id.has_value())
+        current_window_id = Application::extension_popup_host().window_for_page(*this);
     auto allowed_in_private = registry.is_allowed_in_private(context->extension_id);
     auto last_focused_window_id = last_focused_extension_window_for(Application::the().extension_window_focus_order(), tabs, allowed_in_private);
     ExtensionTabViewer viewer { extension->descriptor(), allowed_in_private, current_window_id, last_focused_window_id, Application::the().extension_active_tab_grants(context->extension_id) };
@@ -3077,6 +3082,13 @@ void WebContentPage::did_finish_loading(Web::HTML::CrossProcessId navigable_id, 
     }
 }
 
+void WebContentPage::did_change_content_size(Gfx::IntSize size)
+{
+    // Only the page showing the view's top-level document speaks for its content.
+    if (displays_tab() && view().on_content_size_change)
+        view().on_content_size_change(size);
+}
+
 void WebContentPage::did_change_title(Utf16String title)
 {
     if (auto process = WebView::Application::process_manager().find_child(client().child_id()); process.has_value())
@@ -3559,6 +3571,32 @@ Messages::WebContentTestClient::DidRequestUiProcessSessionHistoryForTestingRespo
     if (displays_tab())
         return { view().ui_process_session_history_for_testing({}) };
     return { "{}"_string };
+}
+
+Messages::WebContentTestClient::DidRequestExtensionPopupStateForTestingResponse WebContentPage::did_request_extension_popup_state_for_testing(String const& extension_id)
+{
+    JsonObject state;
+    state.set("open"sv, false);
+    Optional<i64> window_id;
+    if (displays_tab()) {
+        if (auto tab_id = view().extension_tab_id(); tab_id.has_value()) {
+            for (auto const& tab : Application::the().extension_tabs()) {
+                if (tab.id == *tab_id)
+                    window_id = tab.window_id;
+            }
+        }
+    }
+    if (window_id.has_value()) {
+        if (auto popup = Application::extension_popup_host().state(*window_id); popup.has_value() && popup->extension_id == extension_id) {
+            state.set("open"sv, true);
+            state.set("path"sv, popup->url.serialize_path());
+            if (popup->size.has_value()) {
+                state.set("width"sv, popup->size->width());
+                state.set("height"sv, popup->size->height());
+            }
+        }
+    }
+    return { state.serialized() };
 }
 
 Messages::WebContentTestClient::DidRequestSiteIsolationProcessTreeForTestingResponse WebContentPage::did_request_site_isolation_process_tree_for_testing()

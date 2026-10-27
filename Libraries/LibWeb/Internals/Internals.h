@@ -214,6 +214,7 @@ public:
     Utf16String extension_id(Utf16String const& name);
     void set_extension_idle_timeout(Utf16String const& extension_id, double milliseconds);
     void click_extension_action(Utf16String const& extension_id);
+    Utf16String extension_popup_state(Utf16String const& extension_id);
     bool headless();
     bool screen_wake_lock_active();
     Utf16String picture_in_picture_window_state();

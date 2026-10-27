@@ -1,0 +1,3 @@
+open: true, page: /popup.html
+the popup's messages carry a tab: false
+after a second click, open: false

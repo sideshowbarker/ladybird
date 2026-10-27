@@ -270,6 +270,11 @@ public:
     // Sends the display metadata to every page hosting documents of the tab.
     void set_display_metadata(Optional<u64> display_id, double maximum_frames_per_second);
     void set_frame_rate_capped(bool);
+    // The view asks for its content size as laid out at the given viewport size, or stops asking.
+    void set_reports_content_size(Optional<Gfx::IntSize> measured_at);
+    // A view whose page may close it with window.close() whatever its history holds, as an extension's popup may.
+    void set_is_closable_by_script(bool);
+    bool is_closable_by_script() const { return m_is_closable_by_script; }
 
     struct ScreenRects {
         Vector<Web::DevicePixelRect> rects;
@@ -561,6 +566,8 @@ public:
     Function<String(Web::HTML::ActivateTab, Web::HTML::WebViewHints, CanonicalTraversable&)> on_new_web_view;
     Function<void()> on_activate_tab;
     Function<void()> on_close;
+    // The top-level document's scroll size, reported after the rendering updates that change it once the view asks.
+    Function<void(Gfx::IntSize)> on_content_size_change;
     Function<void(URL::URL const&)> on_link_hover;
     Function<void()> on_link_unhover;
     Function<void(Utf16String const&)> on_title_change;
@@ -889,6 +896,8 @@ protected:
     Optional<u64> m_display_id;
     double m_maximum_frames_per_second { 60.0 };
     bool m_frame_rate_capped { false };
+    Optional<Gfx::IntSize> m_content_size_measured_at;
+    bool m_is_closable_by_script { false };
     bool m_scales_frames_to_fit { false };
 
     RefPtr<Menu> m_page_context_menu;

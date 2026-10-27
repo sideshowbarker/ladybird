@@ -877,6 +877,11 @@ bool LocalNavigable::is_script_closable()
     if (!is_top_level_traversable())
         return false;
 
+    // AD-HOC: A traversable the UI process marked, such as an extension's popup, is closable by its own scripts
+    //         whatever its history holds; HTML has no notion of one.
+    if (page().client().top_level_traversable_is_closable_by_script())
+        return true;
+
     return as<LocalTraversableNavigable>(this)->is_created_by_web_content()
         || as<LocalTraversableNavigable>(this)->session_history_entry_count() == 1;
 }
@@ -4677,6 +4682,22 @@ Optional<CSSPixelPoint> LocalNavigable::to_local_root_viewport_position(CSSPixel
         ancestor = parent ? &as<LocalNavigable>(*parent) : nullptr;
     }
     return position;
+}
+
+Optional<CSSPixelSize> LocalNavigable::measure_document_scroll_size_at(CSSPixelSize size)
+{
+    auto document = active_document();
+    if (!document || !document->document_element())
+        return {};
+    auto real_size = m_viewport_size;
+    m_viewport_size = size;
+    document->set_needs_layout_update(DOM::SetNeedsLayoutReason::NavigableSetViewportSize);
+    auto& root = *document->document_element();
+    CSSPixelSize measured { root.scroll_width(), root.scroll_height() };
+    m_viewport_size = real_size;
+    document->set_needs_layout_update(DOM::SetNeedsLayoutReason::NavigableSetViewportSize);
+    document->update_layout(DOM::UpdateLayoutReason::ElementScrollWidth);
+    return measured;
 }
 
 void LocalNavigable::set_viewport_size(CSSPixelSize size, InvalidateDisplayList invalidate_display_list)

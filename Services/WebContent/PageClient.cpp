@@ -853,9 +853,44 @@ bool PageClient::has_rendering_opportunity() const
     return m_rendering_opportunity_granted || m_rendering_opportunity_for_current_update;
 }
 
+void PageClient::set_reports_content_size(Optional<Gfx::IntSize> measured_at)
+{
+    m_content_size_measured_at = measured_at;
+    m_reported_content_size.clear();
+    if (measured_at.has_value())
+        report_content_size_if_changed();
+}
+
+void PageClient::report_content_size_if_changed()
+{
+    if (!m_content_size_measured_at.has_value() || !page().has_local_traversable())
+        return;
+    auto& traversable = *page().local_traversable();
+    auto document = traversable.active_document();
+    if (!document || !document->document_element())
+        return;
+    // A document measures again only after something laid it out anew; its own measuring layouts don't count.
+    auto layout_count = [&] { return document->full_layout_count() + document->partial_layout_count(); };
+    if (m_reported_content_size.has_value() && layout_count() == m_content_size_layout_count)
+        return;
+    // The root's scroll size is at least the viewport's, so the document is measured at a small viewport, apart from
+    // the one it shows in; that way, its size can shrink as well as grow.
+    auto measured = traversable.measure_document_scroll_size_at(m_content_size_measured_at->to_type<Web::CSSPixels>());
+    m_content_size_layout_count = layout_count();
+    if (!measured.has_value())
+        return;
+    Gfx::IntSize size { measured->width().to_int(), measured->height().to_int() };
+    if (m_reported_content_size == size)
+        return;
+    m_reported_content_size = size;
+    client().async_did_change_content_size(m_id, size);
+}
+
 void PageClient::did_finish_rendering_update()
 {
     m_rendering_opportunity_for_current_update = false;
+    if (m_content_size_measured_at.has_value())
+        report_content_size_if_changed();
     if (m_rendering_opportunity_granted) {
         deliver_granted_rendering_opportunity();
         return;
@@ -1877,6 +1912,13 @@ u64 PageClient::page_did_request_tab_audibility_change_count_for_testing()
     if (auto* test_connection = client().test_connection())
         return test_connection->did_request_tab_audibility_change_count_for_testing(m_id);
     return 0;
+}
+
+String PageClient::extension_popup_state_for_testing(String const& extension_id)
+{
+    if (auto* test_connection = client().test_connection())
+        return test_connection->did_request_extension_popup_state_for_testing(m_id, extension_id);
+    return "{}"_string;
 }
 
 String PageClient::dump_site_isolation_process_tree_for_testing()

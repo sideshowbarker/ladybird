@@ -714,6 +714,7 @@ public:
     virtual void page_did_update_frame_stats_displayed(HTML::CrossProcessId, bool) { }
     virtual void page_did_destroy_child_frame(HTML::CrossProcessId) { }
     virtual String dump_site_isolation_process_tree_for_testing() { return {}; }
+    virtual String extension_popup_state_for_testing(String const&) { return {}; }
     virtual void crash_remote_frame_processes_for_testing() { }
     virtual void page_did_spoof_document_origin_for_testing(HTML::EnvironmentSettingsObject const&, URL::Origin const&) { }
     virtual void stop_loading_through_ui_process_for_testing() { }
@@ -841,6 +842,7 @@ public:
     virtual void page_did_store_hsts_policy_for_testing(String const&, HTTP::HSTS::ParsedHSTSPolicy const&) { }
     virtual void page_did_request_clear_storage_for_testing(StorageAPI::StorageEndpointType, HTML::EnvironmentSettingsObject const&) { }
     virtual bool page_did_is_known_hsts_host(String const&) { return false; }
+    virtual bool top_level_traversable_is_closable_by_script() const { return false; }
     virtual u64 page_did_request_storage_usage([[maybe_unused]] Web::HTML::EnvironmentId const& environment_id) { return {}; }
 
     virtual URL::BlobURLEntry::Token page_did_add_blob_url_entry(HTML::EnvironmentSettingsObject const&, [[maybe_unused]] Utf16String const& url, [[maybe_unused]] FileAPI::SerializedBlobURLEntry const& entry) { return 0; }

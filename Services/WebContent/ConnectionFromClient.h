@@ -278,6 +278,8 @@ private:
     virtual void set_zoom_level(Web::PageId page_id, double zoom_level) override;
     virtual void set_maximum_frames_per_second(Web::PageId page_id, double) override;
     virtual void set_frame_rate_capped(Web::PageId page_id, bool) override;
+    virtual void set_reports_content_size(Web::PageId page_id, Optional<Gfx::IntSize>) override;
+    virtual void set_is_closable_by_script(Web::PageId page_id, bool) override;
     virtual void set_window_position(Web::PageId page_id, Web::DevicePixelPoint) override;
     virtual void set_window_size(Web::PageId page_id, Web::DevicePixelSize) override;
     virtual void did_complete_window_rect_request(Web::PageId page_id, u64 completion_id) override;

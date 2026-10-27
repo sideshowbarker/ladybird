@@ -243,6 +243,10 @@ public:
     CSSPixelRect viewport_rect() const { return { m_viewport_scroll_offset, m_viewport_size }; }
     CSSPixelSize viewport_size() const { return m_viewport_size; }
     void set_viewport_size(CSSPixelSize, InvalidateDisplayList = InvalidateDisplayList::No);
+    // Lays the active document out at another viewport size to measure its root's scroll size there, then lays it out
+    // at the real size again. Nothing of it is painted, and neither the compositor nor the resize steps see the other
+    // size.
+    Optional<CSSPixelSize> measure_document_scroll_size_at(CSSPixelSize);
 
     // The part of the viewport of a local root another process embeds that the top-level viewport shows, in this
     // viewport's coordinates, as its embedder last reported. None of it until then.
