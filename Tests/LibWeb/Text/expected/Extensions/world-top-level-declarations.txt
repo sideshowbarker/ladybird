@@ -1,0 +1,9 @@
+content script: declared(): object, string, undefined
+content script: window.declared: function
+content script: declaredVar: var
+content script: window.declaredVar: var
+content script: declaredLet: let
+content script: new DeclaredClass: object
+content script: asyncDeclared(): object, string, undefined
+page: window.declared: undefined
+page: window.declaredVar: undefined
