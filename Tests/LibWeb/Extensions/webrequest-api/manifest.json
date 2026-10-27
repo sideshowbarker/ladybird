@@ -1,0 +1,26 @@
+{
+    "manifest_version": 2,
+    "name": "WebRequest API Fixture",
+    "version": "1.0",
+    "description": "A background page that probes the webRequest namespace and its listener validation for the test page.",
+    "permissions": [
+        "webRequest",
+        "<all_urls>"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/webrequest-api.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}
