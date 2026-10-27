@@ -1,0 +1,27 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // The windows API describes the test page's window, with its tabs when asked; a background page's current window is
+        // the one last focused.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const window = (await sendToBackground({ type: "all" })).value;
+            println(
+                `getAll: ${window.type} ${window.state} ${window.incognito} ${window.alwaysOnTop} ${"tabs" in window}`
+            );
+            println(`populate: ${(await sendToBackground({ type: "populated" })).value}`);
+            const got = (await sendToBackground({ type: "get" })).value;
+            println(`get: ${got.id === window.id} ${got.type}`);
+            println(`an unknown window: ${(await sendToBackground({ type: "get", id: 999999 })).failed}`);
+            println(
+                `get(WINDOW_ID_CURRENT) is getCurrent(): ${(await sendToBackground({ type: "get-current" })).value}`
+            );
+            println(`getCurrent is getLastFocused: ${(await sendToBackground({ type: "current-and-last" })).value}`);
+            println(`constants: ${JSON.stringify(await sendToBackground({ type: "constants" }))}`);
+            println(`events: ${JSON.stringify(await sendToBackground({ type: "events" }))}`);
+            done();
+        });
+    </script>
+</body>

@@ -106,6 +106,37 @@ JsonObject serialize_extension_tab(ExtensionTabViewer const& viewer, ExtensionTa
     return object;
 }
 
+Vector<ExtensionWindow> extension_windows(ExtensionTabViewer const& viewer, ReadonlySpan<ExtensionTab> tabs)
+{
+    Vector<ExtensionWindow> windows;
+    for (auto const& tab : tabs) {
+        if (!may_see_tab(viewer, tab) || windows.contains([&](auto const& window) { return window.id == tab.window_id; }))
+            continue;
+        windows.append({ tab.window_id, tab.window_id == viewer.last_focused_window_id, tab.is_private, tab.in_popup_window });
+    }
+    return windows;
+}
+
+JsonObject serialize_extension_window(ExtensionTabViewer const& viewer, ExtensionWindow const& window, Optional<ReadonlySpan<ExtensionTab>> tabs)
+{
+    JsonObject object;
+    object.set("id"sv, window.id);
+    object.set("focused"sv, window.focused);
+    object.set("incognito"sv, window.is_private == IsPrivate::Yes);
+    object.set("type"sv, window.is_popup ? "popup"sv : "normal"sv);
+    object.set("state"sv, "normal"sv);
+    object.set("alwaysOnTop"sv, false);
+    if (tabs.has_value()) {
+        JsonArray window_tabs;
+        for (auto const& tab : *tabs) {
+            if (tab.window_id == window.id && may_see_tab(viewer, tab))
+                window_tabs.must_append(serialize_extension_tab(viewer, tab));
+        }
+        object.set("tabs"sv, move(window_tabs));
+    }
+    return object;
+}
+
 Optional<JsonObject> extension_tab_change_info(ExtensionTabViewer const& viewer, ExtensionTab const& before, ExtensionTab const& after)
 {
     if (!may_see_tab(viewer, after))

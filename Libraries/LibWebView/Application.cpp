@@ -3962,12 +3962,28 @@ void Application::for_each_extension_tab_viewer(Function<void(Extension const&, 
     }
 }
 
+Vector<i64> Application::extension_window_focus_order() const
+{
+    Vector<i64> order;
+    for (auto window_id : m_extension_tab_activation_windows) {
+        if (!order.contains_slow(window_id))
+            order.append(window_id);
+    }
+    for (auto const& tab : extension_tabs()) {
+        if (!order.contains_slow(tab.window_id))
+            order.append(tab.window_id);
+    }
+    return order;
+}
+
 void Application::extension_tab_activated(i64 tab_id)
 {
     auto tabs = extension_tabs();
     auto tab = tabs.find_if([&](auto const& tab) { return tab.id == tab_id; });
     if (tab == tabs.end())
         return;
+    m_extension_tab_activation_windows.remove_all_matching([&](auto id) { return id == tab->window_id; });
+    m_extension_tab_activation_windows.prepend(tab->window_id);
     JsonObject active_info;
     active_info.set("tabId"sv, tab_id);
     active_info.set("windowId"sv, tab->window_id);

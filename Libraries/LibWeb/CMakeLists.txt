@@ -362,6 +362,7 @@ set(SOURCES
     Extensions/API/Scripting.cpp
     Extensions/API/Storage.cpp
     Extensions/API/Tabs.cpp
+    Extensions/API/Windows.cpp
     Extensions/ContentScriptInjector.cpp
     Extensions/ExtensionDocumentContext.cpp
     Extensions/ExtensionSet.cpp

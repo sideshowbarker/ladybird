@@ -81,6 +81,18 @@ WEBVIEW_API Optional<i64> last_focused_extension_window_for(ReadonlySpan<i64> fo
 
 WEBVIEW_API JsonObject serialize_extension_tab(ExtensionTabViewer const&, ExtensionTab const&);
 
+// A browser window as extensions see it, made from the tabs it holds: A window exists for an extension when one of its
+// tabs does, and the focused one is the one the user last focused.
+struct ExtensionWindow {
+    i64 id { 0 };
+    bool focused { false };
+    IsPrivate is_private { IsPrivate::No };
+    bool is_popup { false };
+};
+WEBVIEW_API Vector<ExtensionWindow> extension_windows(ExtensionTabViewer const&, ReadonlySpan<ExtensionTab>);
+// With tabs, the window lists the extension's view of each of its tabs, as populate asks for.
+WEBVIEW_API JsonObject serialize_extension_window(ExtensionTabViewer const&, ExtensionWindow const&, Optional<ReadonlySpan<ExtensionTab>> tabs = {});
+
 // What tabs.onUpdated reports to the extension of a tab's change: the status, URL, title, and pin that changed, without
 // the URL and title when it may not see them. It's empty when the extension may not see the tab, or nothing it sees
 // changed.

@@ -2239,6 +2239,56 @@ ErrorOr<JsonValue, String> WebContentPage::call_extension_tabs_api(String const&
     return MUST(String::formatted("tabs.{}() isn't supported", method));
 }
 
+ErrorOr<JsonValue, String> WebContentPage::call_extension_windows_api(String const& extension_id, Web::Extensions::ExtensionDescriptor const& extension, StringView method, JsonArray const& arguments)
+{
+    auto tabs = Application::the().extension_tabs();
+    auto viewer = extension_tab_viewer(extension_id, extension, tabs);
+    auto windows = extension_windows(viewer, tabs);
+    // The query options say whether to list each window's tabs, and which types of window count.
+    auto options = arguments.is_empty() || !arguments.at(arguments.size() - 1).is_object() ? JsonObject {} : arguments.at(arguments.size() - 1).as_object();
+    auto populate = options.get_bool("populate"sv).value_or(false);
+    Optional<ReadonlySpan<ExtensionTab>> populated;
+    if (populate)
+        populated = tabs.span();
+    auto window_types = options.get_array("windowTypes"sv);
+    auto counts = [&](ExtensionWindow const& window) {
+        if (!window_types.has_value())
+            return true;
+        auto type = window.is_popup ? "popup"sv : "normal"sv;
+        return any_of(window_types->values(), [&](JsonValue const& name) { return name.is_string() && name.as_string() == type; });
+    };
+    // Extensions compare these errors' wording.
+    auto window_with_id = [&](Optional<i64> id, StringView missing) -> ErrorOr<JsonValue, String> {
+        auto window = windows.find_if([&](auto const& window) { return id.has_value() && window.id == *id && counts(window); });
+        if (window == windows.end())
+            return id.has_value() && missing.is_empty() ? MUST(String::formatted("No window with id: {}.", *id)) : MUST(String::from_utf8(missing));
+        return JsonValue { serialize_extension_window(viewer, *window, populated) };
+    };
+    if (method == "getAll"sv) {
+        JsonArray result;
+        for (auto const& window : windows) {
+            if (counts(window))
+                result.must_append(serialize_extension_window(viewer, window, populated));
+        }
+        return JsonValue { move(result) };
+    }
+    // A page in a tab's current window is that tab's; a background page's is the one the user last focused.
+    auto current_window_id = viewer.current_window_id.has_value() ? viewer.current_window_id : viewer.last_focused_window_id;
+    // windows.WINDOW_ID_CURRENT names the current window wherever a window id goes.
+    static constexpr i64 window_id_current = -2;
+    if (method == "get"sv && !arguments.is_empty()) {
+        auto id = arguments.at(0).get_integer<i64>().value_or(-1);
+        if (id == window_id_current)
+            return window_with_id(current_window_id, "No current window"sv);
+        return window_with_id(id, {});
+    }
+    if (method == "getCurrent"sv)
+        return window_with_id(current_window_id, "No current window"sv);
+    if (method == "getLastFocused"sv)
+        return window_with_id(viewer.last_focused_window_id, "No last-focused window"sv);
+    return MUST(String::formatted("windows.{}() isn't supported", method));
+}
+
 void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, String method, String arguments_json)
 {
     auto context = Application::extension_message_broker().current_context(*this, context_id);
@@ -2296,6 +2346,18 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
         else if (result.value().is_null())
             // A call with no result resolves with undefined, as alarms.get() does for a missing alarm.
             complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::NoReply {});
+        else
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });
+        return;
+    }
+
+    // Only the extension's own documents have windows.
+    if (api_namespace == "windows"sv) {
+        if (!context->is_extension_document)
+            return;
+        auto result = call_extension_windows_api(context->extension_id, extension->descriptor(), name, call_arguments);
+        if (result.is_error())
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
         else
             complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });
         return;

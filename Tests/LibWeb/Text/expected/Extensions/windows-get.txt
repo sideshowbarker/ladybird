@@ -1,0 +1,8 @@
+getAll: normal normal false false false
+populate: true
+get: true normal
+an unknown window: No window with id: 999999.
+get(WINDOW_ID_CURRENT) is getCurrent(): true
+getCurrent is getLastFocused: true
+constants: [-1,-2]
+events: ["function","function","function"]

@@ -1,0 +1,25 @@
+{
+    "manifest_version": 3,
+    "name": "Windows Fixture",
+    "version": "1.0",
+    "description": "Reports the windows the windows API describes to the test page.",
+    "permissions": [
+        "tabs"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/windows-get.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

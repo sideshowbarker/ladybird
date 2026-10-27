@@ -347,7 +347,9 @@ public:
     virtual ViewImplementation* extension_popup_view(i64 window_id) const;
     virtual void extension_action_changed(String const&, Optional<i64>) { }
     // The ids of the windows the user has focused, most recent first.
-    virtual Vector<i64> extension_window_focus_order() const { return {}; }
+    // The windows the user focused, the latest first. Without a frontend of its own, the order is that of tab activation,
+    // then that of the tabs' windows.
+    virtual Vector<i64> extension_window_focus_order() const;
     virtual Vector<ViewImplementation&> active_window_web_views() const { return {}; }
     virtual Optional<ViewImplementation&> activate_tab_with_url(URL::URL const&, URL::ExcludeFragment) const { return {}; }
 
@@ -693,6 +695,7 @@ private:
     HashTable<i64> m_closing_extension_windows;
     // Tab ids are never reused, so a tab reported closed once stays closed.
     HashTable<i64> m_closed_extension_tabs;
+    Vector<i64> m_extension_tab_activation_windows;
     struct ExtensionInjectionFrame {
         i64 frame_id { 0 };
         Optional<String> result_json;
