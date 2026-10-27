@@ -1,0 +1,6 @@
+{}
+{}
+0
+This is a read-only store.
+This is a read-only store.
+This is a read-only store.

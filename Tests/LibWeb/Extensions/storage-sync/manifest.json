@@ -14,7 +14,8 @@
     "content_scripts": [
         {
             "matches": [
-                "file:///*/Extensions/storage-sync.html"
+                "file:///*/Extensions/storage-sync.html",
+                "file:///*/Extensions/storage-managed.html"
             ],
             "js": [
                 "cs.js"

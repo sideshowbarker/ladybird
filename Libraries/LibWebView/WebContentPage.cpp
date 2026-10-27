@@ -1870,6 +1870,7 @@ void WebContentPage::did_request_extension_storage(u64 context_id, u64 request_i
         case Web::Extensions::StorageRequest::Area::Sync:
             return Application::extension_sync_storage_store();
         case Web::Extensions::StorageRequest::Area::Local:
+        case Web::Extensions::StorageRequest::Area::Managed:
             break;
         }
         return Application::extension_storage_store();

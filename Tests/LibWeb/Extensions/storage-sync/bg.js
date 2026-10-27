@@ -16,6 +16,23 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "get") return settle(sync.get(message.keys));
     if (message.type === "remove") return settle(sync.remove(message.keys));
     if (message.type === "local-get") return settle(browser.storage.local.get(message.keys));
+    if (message.type === "managed") {
+        const managed = browser.storage.managed;
+        const outcome = promise =>
+            promise.then(
+                value => JSON.stringify(value),
+                error => error.message
+            );
+        Promise.all([
+            outcome(managed.get()),
+            outcome(managed.get("anything")),
+            outcome(managed.getBytesInUse()),
+            outcome(managed.set({ key: 1 })),
+            outcome(managed.remove("key")),
+            outcome(managed.clear()),
+        ]).then(sendResponse);
+        return true;
+    }
     if (message.type === "areas") sendResponse(areas.splice(0));
     if (message.type === "limits")
         sendResponse([
