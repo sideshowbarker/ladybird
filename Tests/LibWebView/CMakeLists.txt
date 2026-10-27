@@ -185,6 +185,7 @@ set(TEST_SOURCES
     TestExtensionRegistry.cpp
     TestExtensionStorageStore.cpp
     TestExtensionsUI.cpp
+    TestExtensionWebRequest.cpp
     TestExternalURLHandler.cpp
     TestFaviconStore.cpp
     TestHelperProcessEnvironment.cpp

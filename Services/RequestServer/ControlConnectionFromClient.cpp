@@ -11,6 +11,7 @@
 #include <RequestServer/ControlConnectionFromClient.h>
 #include <RequestServer/Request.h>
 #include <RequestServer/Resolver.h>
+#include <RequestServer/WebRequestInterest.h>
 
 namespace RequestServer {
 
@@ -180,6 +181,11 @@ void ControlConnectionFromClient::set_use_system_dns()
 void ControlConnectionFromClient::set_proxy_configuration(HTTP::ProxyConfiguration proxy_configuration)
 {
     RequestServer::set_proxy_configuration(move(proxy_configuration));
+}
+
+void ControlConnectionFromClient::set_web_request_interest(Vector<Requests::WebRequestInterest> interest)
+{
+    WebRequestInterestSet::the().set(move(interest));
 }
 
 void ControlConnectionFromClient::set_performance_monitor_enabled(bool enabled)

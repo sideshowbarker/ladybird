@@ -176,6 +176,8 @@ WebContentPage::~WebContentPage()
 {
     if (Application::is_initialized())
         Application::extension_message_broker().endpoint_gone(*this);
+    if (Application::is_initialized() && Application::the().has_extension_web_request_router())
+        Application::extension_web_request_router().endpoint_destroyed(*this);
     extension_injection_target_gone();
 }
 
@@ -667,6 +669,8 @@ void WebContentPage::close()
     // A closed page hosts no documents, so none of its extension contexts can receive anything.
     if (Application::is_initialized() && Application::the().has_extension_message_broker())
         Application::extension_message_broker().endpoint_gone(*this);
+    if (Application::is_initialized() && Application::the().has_extension_web_request_router())
+        Application::extension_web_request_router().endpoint_destroyed(*this);
     extension_injection_target_gone();
     if (m_client) {
         m_client->update_audio_capture_permission();
@@ -1837,6 +1841,8 @@ void WebContentPage::did_create_extension_context(String extension_id, u64 conte
 void WebContentPage::did_destroy_extension_context(String extension_id, u64 context_id)
 {
     Application::extension_message_broker().context_destroyed(*this, extension_id, context_id);
+    if (Application::the().has_extension_web_request_router())
+        Application::extension_web_request_router().context_destroyed(*this, context_id);
 }
 
 void WebContentPage::did_send_extension_runtime_message(String extension_id, u64 request_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id)
@@ -4088,8 +4094,16 @@ void WebContentPage::did_change_extension_event_listeners(String extension_id, u
         Application::extension_message_broker().set_event_listeners(*this, extension_id, context_id, move(event_names));
 }
 
-void WebContentPage::did_change_extension_web_request_listeners(String, u64, Vector<Web::Extensions::WebRequestListener>)
+void WebContentPage::did_change_extension_web_request_listeners(String extension_id, u64 context_id, Vector<Web::Extensions::WebRequestListener> listeners)
 {
+    // Only the extension's own pages listen; a content script's world has no webRequest.
+    if (!Application::the().has_extension_web_request_router() || !Application::extension_message_broker().is_extension_page_context(*this, extension_id, context_id))
+        return;
+    auto& registry = Application::extension_registry();
+    auto extension = registry.find(extension_id);
+    if (!extension || !registry.is_enabled(extension_id) || !extension->descriptor().has_permission("webRequest"sv))
+        return;
+    Application::extension_web_request_router().listeners_changed(*this, extension_id, context_id, move(listeners));
 }
 
 void WebContentPage::did_click_extension_action(String extension_id)

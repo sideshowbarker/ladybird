@@ -64,6 +64,7 @@
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Extensions/ExtensionStorageStore.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
+#include <LibWebView/Extensions/ExtensionWebRequest.h>
 #include <LibWebView/FaviconStore.h>
 #include <LibWebView/FontService.h>
 #include <LibWebView/FontServiceHost.h>
@@ -768,6 +769,14 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_extension_registry->set_profile_data_directory(profile().paths().data);
     m_extension_message_broker = make<ExtensionMessageBroker>();
     m_extension_registry->set_message_broker(*m_extension_message_broker);
+    m_extension_web_request_router = make<ExtensionWebRequestRouter>();
+    m_extension_web_request_router->on_interest_changed = [this] {
+        auto interest = m_extension_web_request_router->interest();
+        request_server_manager().for_each_instance([&](RequestServerInstance& instance) {
+            instance.control_client().async_set_web_request_interest(interest);
+            return IterationDecision::Continue;
+        });
+    };
     m_extension_background_host = make<ExtensionBackgroundHost>();
     m_extension_action_registry = make<ExtensionActionRegistry>();
     m_extension_popup_frontend = make<ExtensionPopupFrontend>(*this);
@@ -2280,6 +2289,12 @@ void Application::configure_request_server_control_client(Requests::RequestContr
     };
 
     TabPerformanceMonitor::configure(control_client);
+
+    // A RequestServer that starts after extensions began listening learns what they listen for.
+    if (m_extension_web_request_router) {
+        if (auto interest = m_extension_web_request_router->interest(); !interest.is_empty())
+            control_client.async_set_web_request_interest(move(interest));
+    }
 }
 
 void Application::set_image_decoder_exit_handler(u64 child_id, Function<void()> handler)

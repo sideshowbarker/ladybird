@@ -110,6 +110,8 @@ public:
     static ExtensionRegistry& extension_registry() { return *the().m_extension_registry; }
     static ExtensionMessageBroker& extension_message_broker() { return *the().m_extension_message_broker; }
     bool has_extension_message_broker() const { return m_extension_message_broker; }
+    static ExtensionWebRequestRouter& extension_web_request_router() { return *the().m_extension_web_request_router; }
+    bool has_extension_web_request_router() const { return m_extension_web_request_router; }
     static ExtensionBackgroundHost& extension_background_host() { return *the().m_extension_background_host; }
     static ExtensionActionRegistry& extension_action_registry() { return *the().m_extension_action_registry; }
     static ExtensionPopupHost& extension_popup_host() { return *the().m_extension_popup_host; }
@@ -686,6 +688,7 @@ private:
     // The revision of each enabled extension; a new revision, or none, drops its session storage and alarms.
     HashMap<String, u64> m_extension_session_revisions;
     OwnPtr<ExtensionMessageBroker> m_extension_message_broker;
+    OwnPtr<ExtensionWebRequestRouter> m_extension_web_request_router;
     OwnPtr<ExtensionBackgroundHost> m_extension_background_host;
     OwnPtr<ExtensionActionRegistry> m_extension_action_registry;
     class ExtensionPopupFrontend;

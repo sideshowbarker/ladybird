@@ -10,6 +10,7 @@ set(TEST_SOURCES
     TestExportImport.cpp
     TestRequestTimingInfo.cpp
     TestSiteBinding.cpp
+    TestWebRequestInterest.cpp
     ${LADYBIRD_SOURCE_DIR}/Services/RequestServer/AIA.cpp
 )
 

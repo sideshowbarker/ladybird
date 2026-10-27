@@ -2,6 +2,7 @@
 #include <LibHTTP/Cache/DiskCacheSettings.h>
 #include <LibHTTP/Proxy.h>
 #include <LibIPC/TransportHandle.h>
+#include <LibRequests/WebRequest.h>
 #include <RequestServer/IsPrivate.h>
 #include <RequestServer/RequestType.h>
 #include <RequestServer/SiteBinding.h>
@@ -33,6 +34,9 @@ endpoint RequestServerControl
     // Supports the UI process's least-recently-used eviction across all RequestServer disk caches.
     retrieve_cache_access_profile(u64 access_profile_request_id, AK::Duration granularity) =|
     remove_cache_entries_accessed_before(UnixDateTime before) =|
+
+    // Which requests extensions' webRequest listeners want to hear about; RequestServer reports no others.
+    set_web_request_interest(Vector<Requests::WebRequestInterest> interest) =|
 
     retrieved_http_cookie(int client_id, u64 request_id, ::RequestServer::RequestType request_type, u64 cookie_request_id, String cookie) =|
     stored_response_cookies_and_hsts_policy(int client_id, u64 request_id, u64 store_request_id) =|

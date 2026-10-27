@@ -8,6 +8,7 @@ set(SOURCES
     RequestPipe.cpp
     Resolver.cpp
     ResourceSubstitutionMap.cpp
+    WebRequestInterest.cpp
     WebSocketImplCurl.cpp
 )
 
@@ -45,7 +46,7 @@ target_include_directories(requestserverservice PRIVATE ${LADYBIRD_SOURCE_DIR}/S
 
 target_link_libraries(RequestServer PRIVATE requestserverservice LibFileSystem)
 target_link_libraries(requestserverservice PUBLIC LibCore LibDNS LibHTTP LibIPC LibMain LibRequests LibSandbox LibTLS LibWebSocket LibURL LibTextCodec CURL::libcurl)
-target_link_libraries(requestserverservice PRIVATE OpenSSL::Crypto OpenSSL::SSL)
+target_link_libraries(requestserverservice PRIVATE LibWebCommon OpenSSL::Crypto OpenSSL::SSL)
 
 if (WIN32)
     ladybird_windows_bin(RequestServer CONSOLE)
