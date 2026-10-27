@@ -27,6 +27,9 @@ public:
     static constexpr u64 quota_bytes = 10485760;
     using Writer = Function<ErrorOr<void>(ByteString const&, String const&)>;
     explicit ExtensionStorageStore(ByteString profile_data, Writer = {});
+    // storage.session's store keeps each extension's items in memory alone, under the same quota, which
+    // unlimitedStorage doesn't lift.
+    static NonnullOwnPtr<ExtensionStorageStore> create_session_store();
     ~ExtensionStorageStore();
     void get(String const&, Optional<Vector<String>>, Function<void(ErrorOr<JsonObject>)>);
     void set(String const&, JsonObject, bool unlimited, Function<void(ErrorOr<StorageChanges>)>);

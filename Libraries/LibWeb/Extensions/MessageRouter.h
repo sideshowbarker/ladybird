@@ -58,7 +58,7 @@ public:
     // tabs.sendMessage(): like send(), but to the extension's content scripts in one tab.
     GC::Ref<JS::PromiseCapability> send_to_tab(MessagingContext&, i64 tab_id, Optional<i64> frame_id, JS::Value message);
     void complete_storage(Page&, u64, StorageResult const&);
-    void dispatch_storage_changed(Page&, String const&, String const&);
+    void dispatch_storage_changed(Page&, String const&, u64 context_id, String const&);
     // runtime.onSuspend, which acknowledges once its listeners have run, or runtime.onSuspendCanceled.
     void dispatch_suspend(Page&, String const& extension_id, u64 context_id, bool canceled);
     // Calls a context's listeners for a named API event with the arguments, a JSON array.

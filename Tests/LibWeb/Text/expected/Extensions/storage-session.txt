@@ -1,0 +1,6 @@
+set: {"value":null}
+get: {"value":{"token":"one"}}
+not in storage.local: {"value":{}}
+change areas: ["session"]
+content script, by default: Access to storage is not allowed from this context.
+content script, once allowed: {"value":{"token":"one"}}

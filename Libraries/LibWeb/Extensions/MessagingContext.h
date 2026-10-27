@@ -30,19 +30,21 @@ public:
     JS::Value last_error() const { return m_last_error; }
     void set_last_error(JS::Value value) { m_last_error = value; }
 
-    void set_storage_listeners(GC::Ref<EventListenerList> global, GC::Ref<EventListenerList> local)
+    void set_storage_listeners(GC::Ref<EventListenerList> global, GC::Ref<EventListenerList> local, GC::Ref<EventListenerList> session)
     {
         m_storage_listeners = global;
         m_local_storage_listeners = local;
+        m_session_storage_listeners = session;
     }
     GC::Ptr<EventListenerList> storage_listeners() { return m_storage_listeners; }
     GC::Ptr<EventListenerList> local_storage_listeners() { return m_local_storage_listeners; }
+    GC::Ptr<EventListenerList> session_storage_listeners() { return m_session_storage_listeners; }
     void revoke_storage_listeners()
     {
-        if (m_storage_listeners)
-            m_storage_listeners->revoke();
-        if (m_local_storage_listeners)
-            m_local_storage_listeners->revoke();
+        for (auto list : { m_storage_listeners, m_local_storage_listeners, m_session_storage_listeners }) {
+            if (list)
+                list->revoke();
+        }
     }
 
     void set_connect_listeners(GC::Ref<EventListenerList> listeners) { m_connect_listeners = listeners; }
@@ -87,6 +89,7 @@ protected:
         visitor.visit(m_last_error);
         visitor.visit(m_storage_listeners);
         visitor.visit(m_local_storage_listeners);
+        visitor.visit(m_session_storage_listeners);
         for (auto const& [name, listeners] : m_event_listeners)
             visitor.visit(listeners);
     }
@@ -105,6 +108,7 @@ private:
     HashMap<u64, GC::Ref<Port>> m_live_ports;
     GC::Ptr<EventListenerList> m_storage_listeners;
     GC::Ptr<EventListenerList> m_local_storage_listeners;
+    GC::Ptr<EventListenerList> m_session_storage_listeners;
     HashMap<String, GC::Ref<EventListenerList>> m_event_listeners;
     JS::Value m_last_error { JS::js_undefined() };
 };

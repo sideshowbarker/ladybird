@@ -19,10 +19,15 @@ struct StorageRequest {
         Set,
         Remove,
         Clear,
-        BytesInUse };
+        BytesInUse,
+        // storage.session.setAccessLevel(), whose level is the items.
+        SetAccessLevel };
+    enum class Area : u8 { Local,
+        Session };
     Operation operation { Operation::Get };
     Optional<Vector<String>> keys;
     String items_json;
+    Area area { Area::Local };
     bool operator==(StorageRequest const&) const = default;
 };
 

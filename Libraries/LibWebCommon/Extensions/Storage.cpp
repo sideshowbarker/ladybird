@@ -18,16 +18,22 @@ ErrorOr<void> encode(Encoder& encoder, StorageRequest const& request)
 {
     TRY(encoder.encode(to_underlying(request.operation)));
     TRY(encoder.encode(request.keys));
-    return encoder.encode(request.items_json);
+    TRY(encoder.encode(request.items_json));
+    return encoder.encode(to_underlying(request.area));
 }
 
 template<>
 ErrorOr<StorageRequest> decode(Decoder& decoder)
 {
     auto operation = TRY(decoder.decode<u8>());
-    if (operation > to_underlying(StorageRequest::Operation::BytesInUse))
+    if (operation > to_underlying(StorageRequest::Operation::SetAccessLevel))
         return Error::from_string_literal("Invalid extension storage operation");
-    return StorageRequest { static_cast<StorageRequest::Operation>(operation), TRY(decoder.decode<Optional<Vector<String>>>()), TRY(decoder.decode<String>()) };
+    auto keys = TRY(decoder.decode<Optional<Vector<String>>>());
+    auto items_json = TRY(decoder.decode<String>());
+    auto area = TRY(decoder.decode<u8>());
+    if (area > to_underlying(StorageRequest::Area::Session))
+        return Error::from_string_literal("Invalid extension storage area");
+    return StorageRequest { static_cast<StorageRequest::Operation>(operation), move(keys), move(items_json), static_cast<StorageRequest::Area>(area) };
 }
 
 template<>

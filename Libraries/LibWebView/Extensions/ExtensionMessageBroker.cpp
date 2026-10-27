@@ -45,11 +45,17 @@ void ExtensionMessageBroker::deliver_storage_changes(Endpoint& endpoint, u64 con
     if (context.has_value() && context->extension_id == extension_id && context->revision == revision
         && storage_context_is_current(&endpoint, context_id, *context)
         && endpoint.extension_has_permission(extension_id, "storage"sv))
-        endpoint.dispatch_extension_storage_changed(extension_id, changes);
+        endpoint.dispatch_extension_storage_changed(extension_id, context_id, changes);
 }
 
-void ExtensionMessageBroker::broadcast_storage_changes(String const& extension_id, u64 revision, String const& changes, bool written_by_background)
+void ExtensionMessageBroker::broadcast_storage_changes(String const& extension_id, u64 revision, String const& changed_items, bool written_by_background, StorageRequest::Area area)
 {
+    auto is_session = area == StorageRequest::Area::Session;
+    JsonObject payload;
+    payload.set("areaName"sv, is_session ? "session"sv : "local"sv);
+    payload.set("changes"sv, MUST(JsonValue::from_string(changed_items)));
+    auto changes = payload.serialized();
+
     // A change wakes a background page that has unloaded, and waits for one that's starting, since its listeners
     // aren't there yet. A change the page made itself doesn't wake it, so one written while it suspends can't start it
     // again.
@@ -63,9 +69,12 @@ void ExtensionMessageBroker::broadcast_storage_changes(String const& extension_i
     for (auto const& [endpoint, contexts] : m_contexts) {
         for (auto const& [id, context] : contexts) {
             if (context.extension_id == extension_id && context.revision == revision && storage_context_is_current(endpoint, id, context)) {
+                // A content script hears of session changes only once it may use storage.session.
+                if (is_session && !session_storage_is_open_to_content_scripts(extension_id) && !current_context(*endpoint, id)->is_extension_document)
+                    continue;
+                // Each context hears of the change on its own, since a page can hold some that may and some that may not.
                 if (!background_is_starting || !is_background_endpoint(*endpoint, extension_id, context.document_id))
                     targets.append({ endpoint, id });
-                break;
             }
         }
     }
@@ -182,11 +191,30 @@ void ExtensionMessageBroker::request_storage(Endpoint& source, u64 context_id, u
         source.complete_extension_storage(request_id, { StorageResult::Type::Error, "Missing the storage permission"_string });
         return;
     }
+    // Extensions compare this error's wording.
+    auto is_session = request.area == StorageRequest::Area::Session;
+    auto is_extension_document = current_context(source, context_id)->is_extension_document;
+    if (is_session && !is_extension_document && (request.operation == StorageRequest::Operation::SetAccessLevel || !session_storage_is_open_to_content_scripts(id))) {
+        source.complete_extension_storage(request_id, { StorageResult::Type::Error, "Access to storage is not allowed from this context."_string });
+        return;
+    }
+    if (request.operation == StorageRequest::Operation::SetAccessLevel) {
+        if (!is_session || (request.items_json != "TRUSTED_CONTEXTS"sv && request.items_json != "TRUSTED_AND_UNTRUSTED_CONTEXTS"sv)) {
+            source.complete_extension_storage(request_id, { StorageResult::Type::Error, "Invalid access level"_string });
+            return;
+        }
+        if (request.items_json == "TRUSTED_AND_UNTRUSTED_CONTEXTS"sv)
+            m_session_storage_open.set(id);
+        else
+            m_session_storage_open.remove(id);
+        source.complete_extension_storage(request_id, {});
+        return;
+    }
     auto complete = [weak = make_weak_ptr(), endpoint = &source, context_id, request_id, identity](StorageResult result) {
         if (weak && weak->storage_context_is_current(endpoint, context_id, identity))
             endpoint->complete_extension_storage(request_id, result);
     };
-    auto changed = [weak = make_weak_ptr(), id, revision = identity.revision, written_by_background, complete](ErrorOr<StorageChanges> result) {
+    auto changed = [weak = make_weak_ptr(), id, revision = identity.revision, written_by_background, complete, area = request.area](ErrorOr<StorageChanges> result) {
         if (result.is_error()) {
             complete({ StorageResult::Type::Error, MUST(String::formatted("{}", result.error())) });
             return;
@@ -201,7 +229,7 @@ void ExtensionMessageBroker::request_storage(Endpoint& source, u64 context_id, u
                     values.set("newValue"sv, *change.new_value);
                 changes.set(key, move(values));
             }
-            weak->broadcast_storage_changes(id, revision, changes.serialized(), written_by_background);
+            weak->broadcast_storage_changes(id, revision, changes.serialized(), written_by_background, area);
         }
         complete({});
     };
@@ -228,7 +256,7 @@ void ExtensionMessageBroker::request_storage(Endpoint& source, u64 context_id, u
             complete({ StorageResult::Type::Error, "Storage items must be a JSON object"_string });
             break;
         }
-        store.set(id, parsed.release_value().as_object(), source.extension_has_permission(id, "unlimitedStorage"sv), move(changed));
+        store.set(id, parsed.release_value().as_object(), !is_session && source.extension_has_permission(id, "unlimitedStorage"sv), move(changed));
         break;
     }
     case StorageRequest::Operation::Remove:
@@ -237,6 +265,8 @@ void ExtensionMessageBroker::request_storage(Endpoint& source, u64 context_id, u
     case StorageRequest::Operation::Clear:
         store.clear(id, move(changed));
         break;
+    case StorageRequest::Operation::SetAccessLevel:
+        VERIFY_NOT_REACHED();
     }
 }
 
