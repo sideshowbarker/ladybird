@@ -1,0 +1,4 @@
+all-URLs extension heard the page's own-host fetch: true
+all-URLs extension heard the page's loopback fetch: true
+all-URLs extension heard its background's fetch: false
+loopback-only extension heard: 0

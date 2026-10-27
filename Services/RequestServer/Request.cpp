@@ -19,6 +19,7 @@
 #include <LibHTTP/HSTS/ParsedHSTSPolicy.h>
 #include <LibHTTP/Status.h>
 #include <LibTextCodec/Decoder.h>
+#include <LibURL/Parser.h>
 #include <RequestServer/AIA.h>
 #include <RequestServer/CURL.h>
 #include <RequestServer/ConnectionFromClient.h>
@@ -26,6 +27,7 @@
 #include <RequestServer/Request.h>
 #include <RequestServer/Resolver.h>
 #include <RequestServer/ResourceSubstitutionMap.h>
+#include <RequestServer/WebRequestInterest.h>
 #include <openssl/ssl.h>
 #include <string.h>
 
@@ -673,6 +675,7 @@ bool Request::defer_until_response_cookies_and_hsts_policy_are_stored(Function<v
 
     switch (m_response_storage_state) {
     case ResponseStorageState::NotStarted:
+        report_web_request_headers_received();
         break;
     case ResponseStorageState::Pending:
         return true;
@@ -1031,6 +1034,8 @@ void Request::process()
 
 void Request::handle_initial_state()
 {
+    report_web_request_event(Requests::WebRequestEvent::BeforeRequest);
+
     // Check for resource substitution before anything else.
     if (g_resource_substitution_map) {
         if (g_resource_substitution_map->lookup(m_url).has_value()) {
@@ -1448,6 +1453,8 @@ void Request::handle_fetch_state()
 
     auto is_revalidation_request = this->is_revalidation_request();
 
+    report_web_request_send_headers();
+
     if (!is_revalidation_request && !m_informed_client_request_started) {
         if (inform_client_request_started().is_error())
             return;
@@ -1685,6 +1692,7 @@ void Request::handle_complete_state()
             if (cached_body_file.has_value())
                 m_client->async_request_cached_body_file_available(m_request_id, IPC::File::adopt_fd(cached_body_file->fd), cached_body_file->offset, cached_body_file->size);
 
+            report_web_request_completed();
             m_client->async_request_finished(m_request_id, m_bytes_transferred_to_client, timing_info, m_network_error);
         }
     }
@@ -1705,6 +1713,7 @@ void Request::handle_error_state()
     if (m_export.has_value()) {
         write_export_result();
     } else if (delivers_response_to_client()) {
+        report_web_request_error(Requests::web_request_error_name(m_network_error.value_or(Requests::NetworkError::Unknown)));
         // FIXME: Implement timing info for failed requests.
         m_client->async_request_finished(m_request_id, m_bytes_transferred_to_client, {}, m_network_error.value_or(Requests::NetworkError::Unknown));
     }
@@ -2222,6 +2231,9 @@ void Request::transfer_headers_to_client_if_needed()
     if (!m_status_code.has_value())
         m_status_code = acquire_status_code();
 
+    report_web_request_headers_received();
+    report_web_request_response_started();
+
     // https://httpwg.org/specs/rfc9111.html#invalidation
     // A cache MUST invalidate the target URI (Section 7.1 of [HTTP]) when it receives a non-error status code in
     // response to an unsafe request method (including methods whose safety is unknown).
@@ -2578,6 +2590,123 @@ void Request::sample_network_usage()
     m_sampled_download_bytes = download_bytes;
     m_sampled_upload_bytes = upload_bytes;
     m_performance_generation = s_performance_generation;
+}
+
+}
+
+namespace RequestServer {
+
+void Request::report_web_request_event(Requests::WebRequestEvent event, Function<void(Requests::WebRequestEventDetails&)> fill)
+{
+    if (!m_web_request_context.has_value() || m_web_request_ended)
+        return;
+    auto bit = static_cast<u16>(1u << to_underlying(event));
+    if (m_reported_web_request_events & bit)
+        return;
+    m_reported_web_request_events |= bit;
+    if (event == Requests::WebRequestEvent::Completed || event == Requests::WebRequestEvent::ErrorOccurred)
+        m_web_request_ended = true;
+
+    auto const& interest = WebRequestInterestSet::the();
+    if (!interest.should_report(event, m_url, m_web_request_context->type))
+        return;
+    auto connection = ControlConnectionFromClient::the();
+    if (!connection.has_value())
+        return;
+
+    Requests::WebRequestEventDetails details;
+    details.event = event;
+    details.url = m_url;
+    details.method = m_method;
+    details.context = *m_web_request_context;
+    if (fill)
+        fill(details);
+    connection->async_web_request_event(m_client->client_id(), m_request_id, move(details), false);
+}
+
+void Request::report_web_request_send_headers()
+{
+    for (auto event : { Requests::WebRequestEvent::BeforeSendHeaders, Requests::WebRequestEvent::SendHeaders })
+        report_web_request_event(event, [this](Requests::WebRequestEventDetails& details) { details.request_headers = m_request_headers->headers(); });
+}
+
+ByteString Request::web_request_status_line() const
+{
+    auto version = "HTTP/1.1"sv;
+    if (m_curl_easy_handle) {
+        long http_version = 0;
+        (void)curl_easy_getinfo(m_curl_easy_handle, CURLINFO_HTTP_VERSION, &http_version);
+        if (http_version == CURL_HTTP_VERSION_1_0)
+            version = "HTTP/1.0"sv;
+        else if (http_version == CURL_HTTP_VERSION_2_0)
+            version = "HTTP/2.0"sv;
+        else if (http_version == CURL_HTTP_VERSION_3)
+            version = "HTTP/3.0"sv;
+    }
+    return ByteString::formatted("{} {} {}", version, m_status_code.value_or(0), m_reason_phrase);
+}
+
+void Request::report_web_request_headers_received()
+{
+    if (!m_web_request_context.has_value())
+        return;
+    if (!m_status_code.has_value())
+        m_status_code = acquire_status_code();
+
+    // A redirect's Location ends this request's part, and the page's next request carries on under the same id.
+    if (*m_status_code >= 300 && *m_status_code < 400) {
+        if (auto location = m_response_headers->get("Location"sv); location.has_value())
+            m_web_request_redirected = URL::Parser::basic_parse(*location, m_url).has_value();
+    }
+
+    report_web_request_event(Requests::WebRequestEvent::HeadersReceived, [this](Requests::WebRequestEventDetails& details) {
+        details.status_code = m_status_code;
+        details.status_line = web_request_status_line();
+        details.response_headers = m_response_headers->headers();
+        details.from_cache = m_cache_status == CacheStatus::ReadFromCache;
+        if (m_curl_easy_handle) {
+            char* ip = nullptr;
+            if (curl_easy_getinfo(m_curl_easy_handle, CURLINFO_PRIMARY_IP, &ip) == CURLE_OK && ip && *ip)
+                details.ip = ByteString { ip };
+        }
+    });
+}
+
+void Request::report_web_request_response_started()
+{
+    if (!m_web_request_context.has_value())
+        return;
+    auto event = m_web_request_redirected ? Requests::WebRequestEvent::BeforeRedirect : Requests::WebRequestEvent::ResponseStarted;
+    report_web_request_event(event, [this](Requests::WebRequestEventDetails& details) {
+        details.status_code = m_status_code;
+        details.status_line = web_request_status_line();
+        details.response_headers = m_response_headers->headers();
+        details.from_cache = m_cache_status == CacheStatus::ReadFromCache;
+        if (m_web_request_redirected) {
+            if (auto location = m_response_headers->get("Location"sv); location.has_value())
+                details.redirect_url = URL::Parser::basic_parse(*location, m_url);
+        }
+    });
+    // The redirect's own response never completes as far as listeners can tell.
+    if (m_web_request_redirected)
+        m_web_request_ended = true;
+}
+
+void Request::report_web_request_completed()
+{
+    report_web_request_event(Requests::WebRequestEvent::Completed, [this](Requests::WebRequestEventDetails& details) {
+        details.status_code = m_status_code;
+        details.status_line = web_request_status_line();
+        details.response_headers = m_response_headers->headers();
+        details.from_cache = m_cache_status == CacheStatus::ReadFromCache;
+    });
+}
+
+void Request::report_web_request_error(StringView error_name)
+{
+    report_web_request_event(Requests::WebRequestEvent::ErrorOccurred, [&](Requests::WebRequestEventDetails& details) {
+        details.error = error_name;
+    });
 }
 
 }

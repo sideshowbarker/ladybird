@@ -1,0 +1,26 @@
+{
+    "manifest_version": 2,
+    "name": "WebRequest Host-Only Fixture",
+    "version": "1.0",
+    "description": "A background page with host access only to 127.0.0.1, which records the webRequest events it hears.",
+    "permissions": [
+        "webRequest",
+        "http://127.0.0.1/*"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "http://*/*Extensions/webrequest-host-access.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

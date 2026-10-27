@@ -32,6 +32,7 @@
 #include <LibRequests/NetworkError.h>
 #include <LibRequests/RequestTimingInfo.h>
 #include <LibRequests/RequestTransferLease.h>
+#include <LibRequests/WebRequest.h>
 #include <LibRequests/WebRequestContext.h>
 #include <LibURL/URL.h>
 #include <RequestServer/AlternativeServices.h>
@@ -110,6 +111,8 @@ public:
 
     u64 request_id() const { return m_request_id; }
     Optional<Requests::WebRequestContext> const& web_request_context() const { return m_web_request_context; }
+    // Tells listeners the page stopped waiting for this request.
+    void report_web_request_aborted() { report_web_request_error(Requests::web_request_aborted_error_name); }
     RequestType type() const { return m_type; }
     URL::URL const& url() const { return m_url; }
     bool is_complete() const { return m_state == State::Complete || m_state == State::Error; }
@@ -262,6 +265,16 @@ private:
     ErrorOr<void> send_transferred_body_file_to_client();
     void transfer_headers_to_client_if_needed();
 
+    // What extensions' webRequest listeners hear about this request: each event at most once, and only while some
+    // listener wants it.
+    void report_web_request_event(Requests::WebRequestEvent, Function<void(Requests::WebRequestEventDetails&)> fill = {});
+    void report_web_request_send_headers();
+    void report_web_request_headers_received();
+    void report_web_request_response_started();
+    void report_web_request_completed();
+    void report_web_request_error(StringView error_name);
+    ByteString web_request_status_line() const;
+
     // The cookies and HSTS policy of a network response are stored by the UI process before the client learns about the
     // response, so that the client can never observe the response without its cookies. Returns true if the response has
     // to wait for that, in which case the continuation runs once the UI process has stored them.
@@ -330,6 +343,9 @@ private:
     size_t m_aia_fetch_count { 0 };
     bool m_notify_on_cache_miss { false };
     Optional<Requests::WebRequestContext> m_web_request_context;
+    u16 m_reported_web_request_events { 0 };
+    bool m_web_request_redirected { false };
+    bool m_web_request_ended { false };
     bool m_informed_client_requires_network { false };
     bool m_informed_client_request_started { false };
     bool m_cache_entry_was_revalidated { false };

@@ -740,6 +740,7 @@ Messages::RequestServer::StopRequestResponse ConnectionFromClient::stop_request(
         dbgln("StopRequest: Request ID {} not found", request_id);
         return false;
     }
+    (*request)->report_web_request_aborted();
 
     if ((*request)->transfer_lease().has_value())
         m_request_transfer_leases.remove(*(*request)->transfer_lease());

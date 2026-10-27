@@ -1,0 +1,3 @@
+Cookie: true
+Referer is the page: true
+same headers before sending: true

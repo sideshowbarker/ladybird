@@ -437,6 +437,7 @@ public:
     void dispatch_extension_runtime_connect(u64 context_id, u64 channel_id, u64 port_id, String const& name, Extensions::MessageSender const& sender);
     void complete_extension_runtime_connect(u64 context_id, u64 port_id, u64 channel_id, Optional<String> const& error);
     void dispatch_extension_port_message(u64 context_id, u64 channel_id, u64 port_id, String const& json);
+    void dispatch_extension_web_request_event(u64 context_id, u64 dispatch_id, Vector<u64> const& listener_ids, String const& details_json, bool wants_answer);
     void dispatch_extension_port_disconnect(u64 context_id, u64 port_id, Optional<String> const& error);
     void dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Extensions::MessageSender const&, String const& message_json, u64 context_id);
     void complete_extension_storage(u64 request_id, Extensions::StorageResult const&);

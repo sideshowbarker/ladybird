@@ -3207,6 +3207,12 @@ void ConnectionFromClient::dispatch_extension_port_message(Web::PageId page_id, 
         page->page().dispatch_extension_port_message(context_id, channel_id, port_id, json);
 }
 
+void ConnectionFromClient::dispatch_extension_web_request_event(Web::PageId page_id, u64 context_id, u64 dispatch_id, Vector<u64> listener_ids, String details_json, bool wants_answer)
+{
+    if (auto page = this->page(page_id); page.has_value())
+        page->page().dispatch_extension_web_request_event(context_id, dispatch_id, listener_ids, details_json, wants_answer);
+}
+
 void ConnectionFromClient::dispatch_extension_port_disconnect(Web::PageId page_id, u64 context_id, u64 port_id, Optional<String> error)
 {
     if (auto page = this->page(page_id); page.has_value())

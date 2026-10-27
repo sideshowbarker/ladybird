@@ -1924,6 +1924,11 @@ void Page::dispatch_extension_port_message(u64 context_id, u64 channel_id, u64 p
     Extensions::MessageRouter::the().dispatch_port_message(*this, context_id, channel_id, port_id, json);
 }
 
+void Page::dispatch_extension_web_request_event(u64 context_id, u64 dispatch_id, Vector<u64> const& listener_ids, String const& details_json, bool wants_answer)
+{
+    Extensions::MessageRouter::the().dispatch_web_request_event(*this, context_id, dispatch_id, listener_ids, details_json, wants_answer);
+}
+
 void Page::dispatch_extension_port_disconnect(u64 context_id, u64 port_id, Optional<String> const& error)
 {
     Extensions::MessageRouter::the().dispatch_port_disconnect(*this, context_id, port_id, error);

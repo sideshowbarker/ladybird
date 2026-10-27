@@ -1,0 +1,16 @@
+fetch: onBeforeRequest onBeforeSendHeaders onSendHeaders onHeadersReceived onResponseStarted onCompleted
+one requestId: true
+type: xmlhttprequest
+tab is the page's: true
+frameId: 0, parentFrameId: -1
+documentUrl is the page: true
+originUrl is the page: true
+statusCode: 200, statusLine: HTTP/1.0 200 OK
+fromCache: false
+request headers only where asked: false true true false false false
+response headers only where asked: false false false true false false
+iframe document: sub_frame, documentUrl is the page: true, frameId > 0: true, parentFrameId: 0
+iframe's fetch: same frame: true, parentFrameId: 0, documentUrl is the frame: true
+refused: first onBeforeRequest, last onErrorOccurred NS_ERROR_CONNECTION_REFUSED
+new tab: main_frame, documentUrl: undefined, its tab: true, frameId: 0, parentFrameId: -1
+listener for another tab heard: 0

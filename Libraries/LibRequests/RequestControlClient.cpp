@@ -42,6 +42,12 @@ void RequestControlClient::network_usage(Vector<NetworkUsage> usage, u64 interva
         on_network_usage(move(usage), interval_microseconds);
 }
 
+void RequestControlClient::web_request_event(int client_id, u64 request_id, WebRequestEventDetails details, bool wants_answer)
+{
+    if (on_web_request_event)
+        on_web_request_event(client_id, request_id, move(details), wants_answer);
+}
+
 void RequestControlClient::client_disconnected(int client_id)
 {
     if (on_client_disconnected)

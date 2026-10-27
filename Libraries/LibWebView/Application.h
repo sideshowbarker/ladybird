@@ -242,6 +242,7 @@ public:
     // Installs what every RequestServer asks the UI process for: cookies, and where to put the HSTS policies and
     // cookies of responses.
     void configure_request_server_control_client(Requests::RequestControlClient&);
+    WebRequestPlace web_request_place(int client_id, Requests::WebRequestContext const&) const;
     RefPtr<BrowsingSession> session_for_request_server_client(int client_id) const;
     Vector<int> request_server_client_ids_for_testing(BrowsingSession const&) const;
 

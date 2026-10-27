@@ -548,6 +548,42 @@ void MessageRouter::complete_connect(Page& page, u64 context_id, u64 port_id, u6
         rooted_port->connected(channel_id);
 }
 
+void MessageRouter::dispatch_web_request_event(Page& page, u64 context_id, u64, Vector<u64> const& listener_ids, String const& details_json, bool)
+{
+    auto* context = context_for(page, context_id);
+    if (!context || context->is_detached())
+        return;
+    auto listeners = context->web_request_listeners();
+    if (!listeners)
+        return;
+    auto& realm = context->realm();
+    auto& vm = realm.vm();
+    HTML::TemporaryExecutionContext execution_context { realm, HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };
+    auto details_utf16 = Utf16String::from_utf8(details_json);
+    for (auto listener_id : listener_ids) {
+        if (context->is_detached())
+            break;
+        auto callback = listeners->callback_for(listener_id);
+        auto const* record = listeners->record_for(listener_id);
+        if (!callback || !record)
+            continue;
+        auto rooted_callback = GC::make_root(*callback);
+        auto parsed = JS::JSONObject::parse_json(vm, details_utf16);
+        if (parsed.is_error() || !parsed.value().is_object())
+            return;
+        auto details = parsed.release_value();
+        auto& object = details.as_object();
+        // Only a listener that asked for headers gets them.
+        if (!record->request_headers)
+            MUST(object.internal_delete("requestHeaders"_utf16_fly_string));
+        if (!record->response_headers)
+            MUST(object.internal_delete("responseHeaders"_utf16_fly_string));
+        auto result = JS::call(vm, JS::Value { rooted_callback.ptr() }, JS::js_undefined(), details);
+        if (result.is_error())
+            HTML::report_exception(result, realm);
+    }
+}
+
 void MessageRouter::dispatch_port_message(Page& page, u64 context_id, u64 channel_id, u64 port_id, String const& json)
 {
     auto* context = context_for(page, context_id);

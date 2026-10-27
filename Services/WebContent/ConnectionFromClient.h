@@ -250,6 +250,7 @@ private:
     virtual void dispatch_extension_runtime_connect(Web::PageId page_id, u64 context_id, u64 channel_id, u64 port_id, String name, Web::Extensions::MessageSender sender) override;
     virtual void extension_runtime_connect_result(Web::PageId page_id, u64 context_id, u64 port_id, u64 channel_id, Optional<String> error) override;
     virtual void dispatch_extension_port_message(Web::PageId page_id, u64 context_id, u64 channel_id, u64 port_id, String json) override;
+    virtual void dispatch_extension_web_request_event(Web::PageId page_id, u64 context_id, u64 dispatch_id, Vector<u64> listener_ids, String details_json, bool wants_answer) override;
     virtual void dispatch_extension_port_disconnect(Web::PageId page_id, u64 context_id, u64 port_id, Optional<String> error) override;
     virtual void dispatch_extension_runtime_message(Web::PageId page_id, String extension_id, u64 dispatch_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id) override;
     virtual void extension_storage_reply(Web::PageId, u64, Web::Extensions::StorageResult) override;

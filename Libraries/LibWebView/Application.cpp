@@ -770,6 +770,13 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_extension_message_broker = make<ExtensionMessageBroker>();
     m_extension_registry->set_message_broker(*m_extension_message_broker);
     m_extension_web_request_router = make<ExtensionWebRequestRouter>();
+    m_extension_web_request_router->descriptor_for = [this](StringView id) -> Web::Extensions::ExtensionDescriptor const* {
+        auto extension = m_extension_registry->find(id);
+        if (!extension || !m_extension_registry->is_enabled(id))
+            return nullptr;
+        return &extension->descriptor();
+    };
+    m_extension_web_request_router->allowed_in_private = [this](StringView id) { return m_extension_registry->is_allowed_in_private(id); };
     m_extension_web_request_router->on_interest_changed = [this] {
         auto interest = m_extension_web_request_router->interest();
         request_server_manager().for_each_instance([&](RequestServerInstance& instance) {
@@ -2290,11 +2297,58 @@ void Application::configure_request_server_control_client(Requests::RequestContr
 
     TabPerformanceMonitor::configure(control_client);
 
+    control_client.on_web_request_event = [](int client_id, u64, Requests::WebRequestEventDetails details, bool) {
+        auto& app = the();
+        if (!app.m_extension_web_request_router)
+            return;
+        app.m_extension_web_request_router->report(client_id, details, app.web_request_place(client_id, details.context));
+    };
+
     // A RequestServer that starts after extensions began listening learns what they listen for.
     if (m_extension_web_request_router) {
         if (auto interest = m_extension_web_request_router->interest(); !interest.is_empty())
             control_client.async_set_web_request_interest(move(interest));
     }
+}
+
+// Finds the tab and frame a RequestServer client's request belongs to, through the page that made it.
+WebRequestPlace Application::web_request_place(int client_id, Requests::WebRequestContext const& context) const
+{
+    WebRequestPlace place;
+    WebContentPage* page = nullptr;
+    WebContentClient::for_each_client([&](WebContentClient& client) {
+        if (!client.request_server_site_bindings().has_client(client_id))
+            return IterationDecision::Continue;
+        page = client.page(Web::PageId { context.page_id });
+        return IterationDecision::Break;
+    });
+    if (!page)
+        return place;
+
+    if (context.navigable.has_value()) {
+        Web::HTML::CrossProcessId id { context.navigable->namespace_id, context.navigable->local_id };
+        if (auto navigable = page->traversable().find(id); navigable.has_value()) {
+            if (auto const* parent = navigable->parent()) {
+                place.frame_id = extension_frame_id_for(navigable->id());
+                place.parent_frame_id = parent->parent() ? extension_frame_id_for(parent->id()) : 0;
+                place.parent_document_url = parent->active_document_url();
+            }
+        }
+    }
+
+    auto view = page->traversable().view();
+    if (!view.has_value())
+        return place;
+    auto view_id = view->view_id();
+    for (auto const& tab : extension_tabs()) {
+        if (tab.view_id != view_id)
+            continue;
+        place.tab_id = tab.id;
+        place.window_id = tab.window_id;
+        place.is_private = tab.is_private == IsPrivate::Yes;
+        break;
+    }
+    return place;
 }
 
 void Application::set_image_decoder_exit_handler(u64 child_id, Function<void()> handler)

@@ -1,0 +1,6 @@
+body: c
+events: onBeforeRequest(a.txt) onBeforeSendHeaders(a.txt) onSendHeaders(a.txt) onHeadersReceived(a.txt) onBeforeRedirect(a.txt) onBeforeRequest(b.txt) onBeforeSendHeaders(b.txt) onSendHeaders(b.txt) onHeadersReceived(b.txt) onBeforeRedirect(b.txt) onBeforeRequest(c.txt) onBeforeSendHeaders(c.txt) onSendHeaders(c.txt) onHeadersReceived(c.txt) onResponseStarted(c.txt) onCompleted(c.txt)
+one requestId: true
+redirects: a.txt -> b.txt 302, b.txt -> c.txt 302
+onBeforeRequest: 3
+onCompleted: 1
