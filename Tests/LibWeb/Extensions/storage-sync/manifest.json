@@ -1,0 +1,25 @@
+{
+    "manifest_version": 3,
+    "name": "Sync Storage Fixture",
+    "version": "1.0",
+    "description": "A background page that uses storage.sync for the test page, and records the area of each change.",
+    "permissions": [
+        "storage"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/storage-sync.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

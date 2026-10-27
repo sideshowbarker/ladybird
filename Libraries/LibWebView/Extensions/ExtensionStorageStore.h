@@ -30,6 +30,12 @@ public:
     // storage.session's store keeps each extension's items in memory alone, under the same quota, which
     // unlimitedStorage doesn't lift.
     static NonnullOwnPtr<ExtensionStorageStore> create_session_store();
+    // storage.sync's store keeps each extension's items in a file of their own, under sync's limits, which
+    // unlimitedStorage doesn't lift either. Nothing syncs them anywhere.
+    static constexpr u64 sync_quota_bytes = 102400;
+    static constexpr u64 sync_quota_bytes_per_item = 8192;
+    static constexpr size_t sync_max_items = 512;
+    static NonnullOwnPtr<ExtensionStorageStore> create_sync_store(ByteString profile_data, Writer = {});
     ~ExtensionStorageStore();
     void get(String const&, Optional<Vector<String>>, Function<void(ErrorOr<JsonObject>)>);
     void set(String const&, JsonObject, bool unlimited, Function<void(ErrorOr<StorageChanges>)>);
