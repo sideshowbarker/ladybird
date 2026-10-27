@@ -5,7 +5,7 @@ const named = (details, name) => new URL(details.url).pathname.endsWith(`/${name
 
 browser.webRequest.onBeforeRequest.addListener(
     details => {
-        if (named(details, "cancel.js")) return { cancel: true };
+        if (named(details, "cancel.js") || named(details, "cancel-socket")) return { cancel: true };
         if (named(details, "promise-cancel.js"))
             return new Promise(resolve => setTimeout(() => resolve({ cancel: true }), 200));
         if (named(details, "throws.js")) throw new Error("This listener gives no answer");

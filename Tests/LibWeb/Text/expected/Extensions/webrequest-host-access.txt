@@ -1,4 +1,6 @@
 all-URLs extension heard the page's own-host fetch: true
 all-URLs extension heard the page's loopback fetch: true
 all-URLs extension heard its background's fetch: false
+about:blank frame's fetch heard: true, documentUrl is the page: true
+srcdoc frame's fetch heard: true, documentUrl is the page: true
 loopback-only extension heard: 0

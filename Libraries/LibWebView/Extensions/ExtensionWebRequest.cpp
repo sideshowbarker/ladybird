@@ -10,11 +10,54 @@
 #include <AK/StringBuilder.h>
 #include <AK/Time.h>
 #include <AK/Utf8View.h>
+#include <LibCore/Timer.h>
 #include <LibURL/Parser.h>
 #include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebView/Extensions/ExtensionWebRequest.h>
 
 namespace WebView {
+
+ExtensionWebRequestStartupGate::ExtensionWebRequestStartupGate(AK::Duration timeout)
+    : m_timeout(timeout)
+{
+}
+
+ExtensionWebRequestStartupGate::~ExtensionWebRequestStartupGate() = default;
+
+void ExtensionWebRequestStartupGate::start(Vector<String> extension_ids)
+{
+    if (extension_ids.is_empty() || m_on)
+        return;
+    for (auto& id : extension_ids)
+        m_waiting_for.set(move(id));
+    m_on = true;
+    m_timer = Core::Timer::create_single_shot(m_timeout, [this] { open(); });
+    m_timer->start();
+    if (on_change)
+        on_change(true);
+}
+
+void ExtensionWebRequestStartupGate::background_settled(StringView extension_id)
+{
+    if (!m_on)
+        return;
+    m_waiting_for.remove(extension_id);
+    if (m_waiting_for.is_empty())
+        open();
+}
+
+void ExtensionWebRequestStartupGate::open()
+{
+    if (!m_on)
+        return;
+    m_on = false;
+    m_waiting_for.clear();
+    if (m_timer)
+        m_timer->stop();
+    m_timer = nullptr;
+    if (on_change)
+        on_change(false);
+}
 
 void ExtensionWebRequestRouter::notify_interest_changed()
 {
@@ -91,7 +134,7 @@ void ExtensionWebRequestRouter::settle_dispatch(u64 dispatch_id, Vector<String> 
         return;
     auto pending = m_pending_decisions.take(dispatch->decision_id).release_value();
     if (on_decision)
-        on_decision(pending.client_id, pending.request_id, merge_answers(pending.event, pending.answers, pending.initiator));
+        on_decision(pending.client_id, pending.request_id, pending.is_websocket, merge_answers(pending.event, pending.answers, pending.initiator));
 }
 
 static Optional<Vector<HTTP::Header>> headers_from_json(JsonValue const& value)
@@ -261,7 +304,7 @@ void ExtensionWebRequestRouter::report(int client_id, u64 request_id_in_client, 
     // A renderer whose claims about a request don't check out gets no listener to hear it, nor to hold it up.
     if (!place.is_verified) {
         if (wants_answer && on_decision)
-            on_decision(client_id, request_id_in_client, {});
+            on_decision(client_id, request_id_in_client, details.is_websocket, {});
         return;
     }
 
@@ -300,13 +343,13 @@ void ExtensionWebRequestRouter::report(int client_id, u64 request_id_in_client, 
     // Only a blocking listener's answer counts, so a request no blocking listener hears goes on at once.
     auto waits = wants_answer && any_of(deliveries, [](auto const& delivery) { return delivery.blocking; });
     if (wants_answer && !waits && on_decision)
-        on_decision(client_id, request_id_in_client, {});
+        on_decision(client_id, request_id_in_client, details.is_websocket, {});
     if (deliveries.is_empty())
         return;
     u64 decision_id = 0;
     if (waits) {
         decision_id = ++m_next_decision_id;
-        m_pending_decisions.set(decision_id, { client_id, request_id_in_client, details.event, 0, {}, document_url.has_value() ? document_url : context.origin_url });
+        m_pending_decisions.set(decision_id, { client_id, request_id_in_client, details.event, details.is_websocket, 0, {}, document_url.has_value() ? document_url : context.origin_url });
     }
 
     JsonObject base;

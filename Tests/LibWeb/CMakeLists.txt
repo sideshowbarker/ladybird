@@ -18,6 +18,7 @@ set(TEST_SOURCES
     TestCSSPropertyList.cpp
     TestEventLoop.cpp
     TestExtensionDescriptor.cpp
+    TestExtensionSet.cpp
     TestExtensionMatchPattern.cpp
     TestExtensionWorld.cpp
     TestFaviconDecoding.cpp

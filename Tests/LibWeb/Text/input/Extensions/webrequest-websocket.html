@@ -1,0 +1,50 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-webrequest.js"></script>
+<body>
+    <script>
+        function connect(url) {
+            return new Promise(resolve => {
+                const seen = [];
+                const socket = new WebSocket(url);
+                socket.onopen = () => {
+                    seen.push("open");
+                    socket.close();
+                };
+                socket.onerror = () => seen.push("error");
+                socket.onclose = () => {
+                    seen.push("close");
+                    resolve(seen.join(" "));
+                };
+            });
+        }
+
+        // A page's WebSocket is a request of type websocket: a blocking listener may cancel it, and one it lets through
+        // completes when it closes.
+        asyncTest(async done => {
+            await watchWebRequests();
+            const canceled = `ws://${location.host}/${webRequestToken}/cancel-socket`;
+            println(`canceled: ${await connect(canceled)}`);
+            const forCanceled = (
+                await webRequestEvents(events => events.some(e => e.url === canceled && e.event === "onErrorOccurred"))
+            ).filter(e => e.url === canceled);
+            println(
+                `canceled events: ${eventNames(forCanceled)}, type: ${forCanceled[0].type}, error: ${forCanceled.at(-1).error}`
+            );
+
+            const opened = `ws://${location.host}/${webRequestToken}/open-socket`;
+            println(`let through: ${await connect(opened)}`);
+            const forOpened = (
+                await webRequestEvents(events => events.some(e => e.url === opened && e.event === "onCompleted"))
+            ).filter(e => e.url === opened);
+            println(
+                `events: ${eventNames(forOpened)}, one requestId: ${forOpened.every(e => e.requestId === forOpened[0].requestId)}`
+            );
+            println(
+                `tab is the page's: ${forOpened[0].tabId >= 0}, documentUrl is the page: ${forOpened[0].documentUrl === location.href}`
+            );
+            done();
+        });
+    </script>
+</body>

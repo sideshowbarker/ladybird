@@ -5,6 +5,8 @@
  */
 
 #include <AK/JsonValue.h>
+#include <LibCore/EventLoop.h>
+#include <LibCore/Timer.h>
 #include <LibTest/TestCase.h>
 #include <LibURL/Parser.h>
 #include <LibWebView/Extensions/ExtensionWebRequest.h>
@@ -151,7 +153,7 @@ static void set_up(WebView::ExtensionWebRequestRouter& router, Vector<Web::Exten
         }
         return 0;
     };
-    router.on_decision = [&decisions](int, u64, Requests::WebRequestDecision decision) { decisions.decisions.append(move(decision)); };
+    router.on_decision = [&decisions](int, u64, bool, Requests::WebRequestDecision decision) { decisions.decisions.append(move(decision)); };
 }
 
 static JsonValue json(StringView text)
@@ -289,4 +291,59 @@ TEST_CASE(an_unverified_request_is_reported_to_no_one)
     EXPECT(endpoint.dispatches.is_empty());
     VERIFY(decisions.decisions.size() == 1);
     EXPECT(!decisions.decisions[0].cancel);
+}
+
+TEST_CASE(startup_gate_on_with_a_blocking_extension)
+{
+    WebView::ExtensionWebRequestStartupGate gate;
+    Vector<bool> changes;
+    gate.on_change = [&](bool on) { changes.append(on); };
+    gate.start({ "blocker"_string });
+    EXPECT(gate.is_on());
+    EXPECT_EQ(changes, (Vector { true }));
+    EXPECT_EQ(gate.timeout(), AK::Duration::from_seconds(10));
+}
+
+TEST_CASE(startup_gate_off_when_every_blocking_background_finishes)
+{
+    WebView::ExtensionWebRequestStartupGate gate;
+    Vector<bool> changes;
+    gate.on_change = [&](bool on) { changes.append(on); };
+    gate.start({ "first"_string, "second"_string });
+    gate.background_settled("first"sv);
+    EXPECT(gate.is_on());
+    // An extension that holds nothing back changes nothing.
+    gate.background_settled("other"sv);
+    EXPECT(gate.is_on());
+    gate.background_settled("second"sv);
+    EXPECT(!gate.is_on());
+    EXPECT_EQ(changes, (Vector { true, false }));
+}
+
+TEST_CASE(startup_gate_off_after_ten_seconds)
+{
+    Core::EventLoop loop;
+    WebView::ExtensionWebRequestStartupGate gate { AK::Duration::from_milliseconds(50) };
+    Vector<bool> changes;
+    gate.on_change = [&](bool on) {
+        changes.append(on);
+        if (!on)
+            loop.quit(0);
+    };
+    gate.start({ "never-loads"_string });
+    auto deadline = Core::Timer::create_single_shot(AK::Duration::from_seconds(5), [&] { loop.quit(1); });
+    deadline->start();
+    EXPECT_EQ(loop.exec(), 0);
+    EXPECT(!gate.is_on());
+    EXPECT_EQ(changes, (Vector { true, false }));
+}
+
+TEST_CASE(startup_gate_off_without_webRequestBlocking)
+{
+    WebView::ExtensionWebRequestStartupGate gate;
+    Vector<bool> changes;
+    gate.on_change = [&](bool on) { changes.append(on); };
+    gate.start({});
+    EXPECT(!gate.is_on());
+    EXPECT(changes.is_empty());
 }

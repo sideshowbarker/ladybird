@@ -4,8 +4,14 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <LibWeb/DOM/Document.h>
+#include <LibWeb/Extensions/ExtensionSet.h>
 #include <LibWeb/Extensions/WebRequestType.h>
+#include <LibWeb/Fetch/Fetching/ClientContextSnapshots.h>
 #include <LibWeb/Fetch/Infrastructure/HTTP/Requests.h>
+#include <LibWeb/HTML/LocalNavigable.h>
+#include <LibWeb/HTML/Scripting/Environments.h>
+#include <LibWeb/Page/Page.h>
 
 namespace Web::Extensions {
 
@@ -67,6 +73,43 @@ StringView web_request_type_for(Fetch::Infrastructure::Request const& request)
         return "other"sv;
     }
     VERIFY_NOT_REACHED();
+}
+
+Optional<Requests::WebRequestContext> web_request_context_for(Fetch::Infrastructure::Request& request, Page& page)
+{
+    auto extensions = ExtensionSet::the().extensions();
+    if (!any_of(extensions, [](auto const& extension) { return extension.has_permission("webRequest"sv); }))
+        return {};
+
+    auto to_navigable = [](HTML::CrossProcessId id) { return Requests::WebRequestNavigable { id.namespace_id, id.local_id }; };
+
+    Requests::WebRequestContext context;
+    context.serial = request.web_request_serial();
+    context.type = MUST(String::from_utf8(web_request_type_for(request)));
+    context.page_id = page.has_top_level_traversable() ? page.client().id().value() : 0;
+    context.is_navigation = request.mode() == Fetch::Infrastructure::Request::Mode::Navigate;
+
+    auto client = Fetch::Fetching::resolve_client(request);
+    auto document = client ? client->responsible_document() : nullptr;
+    // An about:blank or srcdoc document's requests are made on behalf of the document that created it, whose URL its
+    // fallback base URL is; so that's the document extensions see, and need host access to.
+    Optional<URL::URL> document_url;
+    if (document) {
+        document_url = document->url();
+        if (document_url->scheme() == "about"sv && document_url->serialize_path().is_one_of("blank"sv, "srcdoc"sv))
+            document_url = document->fallback_base_url();
+        context.origin_url = document_url;
+    }
+
+    if (context.is_navigation) {
+        if (auto const& navigable = request.web_request_navigable(); navigable.has_value())
+            context.navigable = to_navigable(*navigable);
+    } else if (document) {
+        context.document_url = document_url;
+        if (auto navigable = document->navigable())
+            context.navigable = to_navigable(navigable->id());
+    }
+    return context;
 }
 
 }

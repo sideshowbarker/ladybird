@@ -6,6 +6,7 @@
 
 #include <AK/NeverDestroyed.h>
 #include <LibURL/URL.h>
+#include <RequestServer/ControlConnectionFromClient.h>
 #include <RequestServer/WebRequestInterest.h>
 
 namespace RequestServer {
@@ -47,6 +48,18 @@ WebRequestInterestSet::Entry const* WebRequestInterestSet::find(Requests::WebReq
 bool WebRequestInterestSet::should_report(Requests::WebRequestEvent event, URL::URL const& url, StringView type) const
 {
     return find(event, url, type, false);
+}
+
+bool WebRequestInterestSet::send(int client_id, u64 request_id, Requests::WebRequestEventDetails details, bool may_wait) const
+{
+    if (!should_report(details.event, details.url, details.context.type))
+        return false;
+    auto connection = ControlConnectionFromClient::the();
+    if (!connection.has_value())
+        return false;
+    auto waits = may_wait && wants_answer(details.event, details.url, details.context.type);
+    connection->async_web_request_event(client_id, request_id, move(details), waits);
+    return waits;
 }
 
 bool WebRequestInterestSet::wants_answer(Requests::WebRequestEvent event, URL::URL const& url, StringView type) const
