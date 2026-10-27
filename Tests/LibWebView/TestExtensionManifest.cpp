@@ -416,3 +416,33 @@ TEST_CASE(only_supported_api_permissions_are_retained)
     EXPECT_EQ(manifest.permissions.size(), 3u);
     EXPECT(!manifest.permissions.contains_slow("unknownPermission"sv));
 }
+
+TEST_CASE(manifest_action)
+{
+    auto mv3 = parse(R"({ "manifest_version": 3, "name": "x", "version": "1", "action": { "default_popup": "/popup.html", "default_title": "Title", "default_icon": { "32": "icons/32.png", "16": "/icons/16.png" } } })"sv);
+    VERIFY(mv3.action.has_value());
+    EXPECT(!mv3.action->is_browser_action);
+    EXPECT_EQ(mv3.action->default_popup, "popup.html"sv);
+    EXPECT_EQ(mv3.action->default_title, "Title"sv);
+    VERIFY(mv3.action->default_icon.size() == 2);
+    EXPECT_EQ(mv3.action->default_icon[0].size, 16u);
+    EXPECT_EQ(mv3.action->default_icon[0].path, "icons/16.png"sv);
+    EXPECT_EQ(mv3.action->default_icon[1].size, 32u);
+
+    auto mv2 = parse(R"({ "manifest_version": 2, "name": "x", "version": "1", "browser_action": { "default_icon": "icon.png" } })"sv);
+    VERIFY(mv2.action.has_value());
+    EXPECT(mv2.action->is_browser_action);
+    EXPECT(!mv2.action->default_popup.has_value());
+    VERIFY(mv2.action->default_icon.size() == 1);
+    EXPECT_EQ(mv2.action->default_icon[0].size, 0u);
+    EXPECT_EQ(mv2.action->default_icon[0].path, "icon.png"sv);
+
+    // Each manifest version reads only its own key.
+    EXPECT(!parse(R"({ "manifest_version": 3, "name": "x", "version": "1", "browser_action": {} })"sv).action.has_value());
+    EXPECT(!parse(R"({ "manifest_version": 2, "name": "x", "version": "1", "action": {} })"sv).action.has_value());
+    EXPECT(!parse(R"({ "manifest_version": 3, "name": "x", "version": "1" })"sv).action.has_value());
+
+    EXPECT(parse_error(R"({ "manifest_version": 3, "name": "x", "version": "1", "action": [] })"sv).contains("action"sv));
+    EXPECT(parse_error(R"({ "manifest_version": 3, "name": "x", "version": "1", "action": { "default_popup": 1 } })"sv).contains("action.default_popup"sv));
+    EXPECT(parse_error(R"({ "manifest_version": 2, "name": "x", "version": "1", "browser_action": { "default_icon": { "16": 1 } } })"sv).contains("browser_action.default_icon"sv));
+}

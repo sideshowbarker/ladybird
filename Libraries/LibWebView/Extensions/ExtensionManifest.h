@@ -29,6 +29,21 @@ struct WEBVIEW_API ExtensionManifest {
         bool persistent { false };
     };
 
+    struct IconPath {
+        // The icon's size in pixels, or 0 for one icon meant for every size.
+        u32 size { 0 };
+        String path;
+    };
+
+    // The toolbar button an extension declares: "action" in manifest version 3, "browser_action" in version 2.
+    struct Action {
+        bool is_browser_action { false };
+        Optional<String> default_popup;
+        Optional<String> default_title;
+        // Sorted by size.
+        Vector<IconPath> default_icon;
+    };
+
     // Returns a user-facing error naming the offending key when the manifest is invalid.
     static ErrorOr<ExtensionManifest, String> parse(StringView manifest_json);
 
@@ -47,6 +62,7 @@ struct WEBVIEW_API ExtensionManifest {
     Vector<String> host_permissions;
     String extension_pages_csp;
     Optional<Background> background;
+    Optional<Action> action;
 };
 
 }
