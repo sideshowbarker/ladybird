@@ -1920,7 +1920,12 @@ GC::Ptr<PendingResponse> http_redirect_fetch(JS::Realm& realm, Infrastructure::F
     auto location_url = location_url_or_error.release_value().release_value();
 
     // 6. If locationURL’s scheme is not an HTTP(S) scheme, then return a network error.
-    if (!Infrastructure::is_http_or_https_scheme(location_url.scheme()))
+    // AD-HOC: An extension's webRequest listener may redirect a request to a data: URL or to one of its own resources,
+    //         which a server's redirect never may. Only RequestServer marks a redirect as one an extension asked for.
+    auto const& network_transport = internal_response->network_transport();
+    auto redirected_by_extension = network_transport.has_value() && network_transport->handle->was_redirected_by_extension()
+        && (location_url.scheme() == "data"sv || location_url.scheme() == Extensions::scheme);
+    if (!Infrastructure::is_http_or_https_scheme(location_url.scheme()) && !redirected_by_extension)
         return PendingResponse::create(fetch_params, Infrastructure::Response::network_error("Request redirect URL must have HTTP or HTTPS scheme"_string));
 
     // 7. If request’s redirect count is 20, then return a network error.

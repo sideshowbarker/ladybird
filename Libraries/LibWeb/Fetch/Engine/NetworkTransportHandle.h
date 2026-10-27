@@ -22,6 +22,7 @@ public:
     // The key another client adopts the request by, while this process holds its lease.
     [[nodiscard]] Optional<Requests::RequestTransferLeaseKey> const& transfer_lease() const { return m_request->transfer_lease(); }
     [[nodiscard]] ByteString const& http_version() const { return m_request->http_version(); }
+    [[nodiscard]] bool was_redirected_by_extension() const { return m_request->was_redirected_by_extension(); }
 
     [[nodiscard]] bool has_file_backed_response_body() const;
 

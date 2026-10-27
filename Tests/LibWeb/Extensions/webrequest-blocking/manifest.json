@@ -2,7 +2,7 @@
     "manifest_version": 2,
     "name": "WebRequest Blocking Fixture",
     "version": "1.0",
-    "description": "A background page whose blocking webRequest listeners cancel, delay, and rewrite the test pages' requests by the names their paths end in.",
+    "description": "A background page whose blocking webRequest listeners cancel, delay, rewrite, and redirect the test pages' requests by the names their paths end in.",
     "permissions": [
         "webRequest",
         "webRequestBlocking",
@@ -12,5 +12,8 @@
         "scripts": [
             "bg.js"
         ]
-    }
+    },
+    "web_accessible_resources": [
+        "noop.js"
+    ]
 }

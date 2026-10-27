@@ -1058,6 +1058,10 @@ void Request::handle_initial_state()
                 fail_by_extension();
                 return;
             }
+            if (decision.redirect_url.has_value()) {
+                serve_extension_redirect(decision.redirect_url.release_value());
+                return;
+            }
             transition_to_state(State::Init);
         })) {
         transition_to_state(State::WaitForWebRequest);
@@ -2694,6 +2698,33 @@ void Request::notify_web_request_decision(Badge<ControlConnectionFromClient>, Re
 {
     if (auto handler = move(m_web_request_decision_handler))
         handler(move(decision));
+}
+
+// Answers the request with a redirect to where an extension sent it, so the page's next request goes there under the
+// same id. A request that wasn't made by a page in CORS mode would otherwise fail the redirect's CORS check.
+void Request::serve_extension_redirect(URL::URL target)
+{
+    m_status_code = 307;
+    m_reason_phrase = "Internal Redirect"_string;
+    m_response_headers->clear();
+    m_response_headers->append({ "Location"sv, target.serialize().to_byte_string() });
+    if (auto origin = m_request_headers->get("Origin"sv); origin.has_value()) {
+        m_response_headers->append({ "Access-Control-Allow-Origin"sv, *origin });
+        m_response_headers->append({ "Access-Control-Allow-Credentials"sv, "true"sv });
+    } else {
+        m_response_headers->append({ "Access-Control-Allow-Origin"sv, "*"sv });
+    }
+    if (!first_is_one_of(target.scheme(), "http"sv, "https"sv))
+        m_client->async_request_redirected_by_extension(m_request_id);
+
+    // The redirect comes from no server, so listeners hear onBeforeRedirect without onHeadersReceived.
+    m_reported_web_request_events |= static_cast<u16>(1u << to_underlying(Requests::WebRequestEvent::HeadersReceived));
+    m_cache_status = CacheStatus::NotCached;
+    if (inform_client_request_started().is_error())
+        return;
+    transfer_headers_to_client_if_needed();
+    m_curl_result_code = CURLE_OK;
+    transition_to_state(State::Complete);
 }
 
 void Request::fail_by_extension()

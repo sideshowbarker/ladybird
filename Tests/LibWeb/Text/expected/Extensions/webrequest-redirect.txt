@@ -1,0 +1,9 @@
+to another URL: load, ran: true, original ran: false
+events: onBeforeRequest(redirect-to-echo.js) onBeforeRedirect(redirect-to-echo.js) onBeforeRequest(redirected.js) onBeforeSendHeaders(redirected.js) onSendHeaders(redirected.js) onHeadersReceived(redirected.js) onResponseStarted(redirected.js) onCompleted(redirected.js)
+one requestId: true
+onBeforeRedirect: 307 HTTP/1.1 307 Internal Redirect, to the new URL: true
+to a web-accessible resource: load, its script ran: true
+to a data: URL: load, naturalWidth: 1
+to a resource that isn't web-accessible: load, original ran: true, resource ran: false
+to a javascript: URL: load, original ran: true, target ran: false
+a frame's navigation: redirected page

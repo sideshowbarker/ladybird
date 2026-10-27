@@ -281,6 +281,7 @@ private:
     bool report_web_request_headers_received(MayWait = MayWait::No, Function<void(Requests::WebRequestDecision)> on_decision = {});
     void fail_by_extension();
     void send_cached_response();
+    void serve_extension_redirect(URL::URL target);
     void report_web_request_response_started();
     void report_web_request_completed();
     void report_web_request_error(StringView error_name);
