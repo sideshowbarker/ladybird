@@ -1,0 +1,12 @@
+before: rgb(0, 0, 0) / rgba(0, 0, 0, 0)
+insertCSS: {} rgb(1, 2, 3) / rgba(0, 0, 0, 0)
+a file: rgb(1, 2, 3) / rgb(4, 5, 6)
+removeCSS: rgb(0, 0, 0) / rgb(4, 5, 6)
+the file removed: rgb(0, 0, 0) / rgba(0, 0, 0, 0)
+neither: Exactly one of 'css' and 'files' must be specified.
+no tabs.executeScript in manifest version 3: undefined
+a content script's sheet stays: rgb(9, 9, 9)
+a file's sheet stays after removing the same text: rgb(0, 0, 0) / rgb(4, 5, 6)
+a USER sheet: rgb(20, 20, 20)
+removed as AUTHOR: rgb(20, 20, 20)
+removed as USER: rgb(10, 10, 10)

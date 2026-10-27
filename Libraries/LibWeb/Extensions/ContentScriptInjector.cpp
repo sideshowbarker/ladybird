@@ -70,7 +70,7 @@ static URL::URL script_url(ExtensionDescriptor const& extension, String const& p
 static void inject(DOM::Document& document, ExtensionDescriptor const& extension, ContentScriptDescriptor const& script)
 {
     for (size_t i = 0; i < script.css_sources.size(); ++i)
-        document.add_extension_style_sheet(Utf16String::from_utf8(script.css_sources[i]), script_url(extension, script.css_paths[i]));
+        document.add_extension_style_sheet(Utf16String::from_utf8(script.css_sources[i]), script_url(extension, script.css_paths[i]), { extension.id });
 
     if (script.js_sources.is_empty())
         return;

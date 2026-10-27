@@ -20,12 +20,22 @@
                 "file:///*/Extensions/scripting-execute.html",
                 "file:///*/Extensions/scripting-execute-all-frames.html",
                 "file:///*/Extensions/scripting-host-access.html",
+                "file:///*/Extensions/scripting-css.html",
                 "file:///*/Extensions/scripting-targets.html"
             ],
             "js": [
                 "cs.js"
             ],
             "run_at": "document_end"
+        },
+        {
+            "matches": [
+                "file:///*/Extensions/scripting-css.html"
+            ],
+            "css": [
+                "declared.css"
+            ],
+            "run_at": "document_start"
         }
     ]
 }
