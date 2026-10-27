@@ -49,6 +49,8 @@ struct WebRequestEventDetails {
     URL::URL url;
     ByteString method;
     WebRequestContext context;
+    // A WebSocket's id is its own, apart from the ids of the client's other requests.
+    bool is_websocket { false };
     Optional<u32> status_code;
     // "HTTP/1.1 200 OK", e.g.
     Optional<ByteString> status_line;

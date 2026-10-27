@@ -68,6 +68,7 @@ class ExtensionBackgroundHost;
 class ExtensionMessageBroker;
 class ExtensionRegistry;
 class ExtensionWebRequestRouter;
+class ExtensionWebRequestStartupGate;
 struct WebRequestPlace;
 struct ExtensionTab;
 struct ExtensionTabViewer;

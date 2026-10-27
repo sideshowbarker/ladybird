@@ -1,0 +1,41 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-webrequest.js"></script>
+<body>
+    <script>
+        // A worker's requests reach webRequest listeners too, and blocking ones may cancel them.
+        asyncTest(async done => {
+            await watchWebRequests();
+            const server = httpTestServer();
+            const noStore = { "Cache-Control": "no-store" };
+            const ok = await server.createEcho("GET", echoPath("from-worker.txt"), {
+                status: 200,
+                headers: noStore,
+                body: "x",
+            });
+            const canceled = await server.createEcho("GET", echoPath("cancel.js"), {
+                status: 200,
+                headers: noStore,
+                body: "x",
+            });
+            const source = `
+                onmessage = async event => {
+                    const outcome = url => fetch(url).then(() => "loaded", error => error.name);
+                    postMessage([await outcome(event.data.ok), await outcome(event.data.canceled)]);
+                };`;
+            const worker = new Worker(URL.createObjectURL(new Blob([source], { type: "text/javascript" })));
+            const [okOutcome, canceledOutcome] = await new Promise(resolve => {
+                worker.onmessage = event => resolve(event.data);
+                worker.postMessage({ ok, canceled });
+            });
+            println(`worker's fetch: ${okOutcome}, canceled: ${canceledOutcome}`);
+            const events = await webRequestEvents(events =>
+                events.some(e => e.url === ok && e.event === "onCompleted")
+            );
+            const heard = events.find(e => e.url === ok && e.event === "onBeforeRequest");
+            println(`heard: ${heard.type}, tabId: ${heard.tabId}`);
+            done();
+        });
+    </script>
+</body>

@@ -12,6 +12,7 @@
 #include <LibWebView/Application.h>
 #include <LibWebView/CanonicalEnvironmentSettingsObject.h>
 #include <LibWebView/CanonicalNavigable.h>
+#include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/HelperProcess.h>
 #include <LibWebView/PermissionManager.h>
 #include <LibWebView/RequestServerManager.h>
@@ -277,6 +278,7 @@ ErrorOr<NonnullRefPtr<WebWorkerClient>> WorkerAgentManager::create_worker_client
     client->async_set_user_agent(Application::the().user_agent_string());
     client->async_set_navigator_compatibility_mode(Application::the().navigator_compatibility_mode());
     client->async_set_preferred_languages(Application::settings().languages());
+    client->async_set_extensions(Application::extension_registry().enabled_descriptors(session.is_private()));
 
     m_clients.append(client);
     return client;
@@ -376,6 +378,12 @@ void WorkerAgentManager::update_navigator_compatibility_mode(Web::NavigatorCompa
         client.async_set_navigator_compatibility_mode(mode);
         return IterationDecision::Continue;
     });
+}
+
+void WorkerAgentManager::update_extensions()
+{
+    for (auto const& client : m_clients)
+        client->async_set_extensions(Application::extension_registry().enabled_descriptors(client->is_private()));
 }
 
 void WorkerAgentManager::update_preferred_languages(Vector<String> const& preferred_languages)

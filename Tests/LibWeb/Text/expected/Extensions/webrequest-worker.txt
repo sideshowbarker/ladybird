@@ -1,0 +1,2 @@
+worker's fetch: loaded, canceled: TypeError
+heard: xmlhttprequest, tabId: -1

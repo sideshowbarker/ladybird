@@ -113,6 +113,8 @@ public:
     // whether the background page itself made it.
     Function<void(String const& extension_id)> wake_background;
     Function<void(String const& extension_id, bool from_background)> on_activity;
+    // A background page that was starting loaded, or failed to.
+    Function<void(String const& extension_id)> on_background_settled;
 
 private:
     struct Context;

@@ -23,6 +23,7 @@
 #include <LibWeb/DOM/EventDispatcher.h>
 #include <LibWeb/DOM/IDLEventListener.h>
 #include <LibWeb/DOMURL/DOMURL.h>
+#include <LibWeb/Extensions/WebRequestType.h>
 #include <LibWeb/Fetch/Fetching/ClientContextSnapshots.h>
 #include <LibWeb/Fetch/Fetching/Fetching.h>
 #include <LibWeb/Fetch/Infrastructure/HTTP/Requests.h>
@@ -256,7 +257,12 @@ ErrorOr<void> WebSocket::establish_web_socket_connection(URL::URL const& url_rec
     auto& page = Bindings::principal_host_defined_page(client.realm());
     auto originating_page_id = page.has_top_level_traversable() ? page.client().id().value() : 0;
 
-    m_websocket = request_client->websocket_connect(connection_url, move(network_isolation_key), origin_string, protocol_byte_strings, {}, *request->header_list(), originating_page_id, { .status = request->same_site_status(), .is_safe_method = true });
+    // Extensions' webRequest listeners hear of the connection as a request of the page.
+    auto web_request_context = Extensions::web_request_context_for(request, page);
+    if (web_request_context.has_value())
+        web_request_context->type = "websocket"_string;
+
+    m_websocket = request_client->websocket_connect(connection_url, move(network_isolation_key), origin_string, protocol_byte_strings, {}, *request->header_list(), originating_page_id, { .status = request->same_site_status(), .is_safe_method = true }, move(web_request_context));
 
     m_websocket->on_open = GC::weak_callback(*this, [](auto& self) {
         self.on_open();

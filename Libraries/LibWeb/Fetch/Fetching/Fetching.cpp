@@ -3127,37 +3127,6 @@ Utf16String network_request_failed_error_message(Optional<StringView> error_mess
     return Utf16String::formatted("Load failed: {}", error_message.value_or("Unknown error"sv));
 }
 
-// What extensions' webRequest listeners are told about a request, when any enabled extension may have one.
-static Optional<Requests::WebRequestContext> web_request_context_for_request(Infrastructure::Request& request, Page& page)
-{
-    auto extensions = Extensions::ExtensionSet::the().extensions();
-    if (!any_of(extensions, [](auto const& extension) { return extension.has_permission("webRequest"sv); }))
-        return {};
-
-    auto to_navigable = [](HTML::CrossProcessId id) { return Requests::WebRequestNavigable { id.namespace_id, id.local_id }; };
-
-    Requests::WebRequestContext context;
-    context.serial = request.web_request_serial();
-    context.type = MUST(String::from_utf8(Extensions::web_request_type_for(request)));
-    context.page_id = page.has_top_level_traversable() ? page.client().id().value() : 0;
-    context.is_navigation = request.mode() == Infrastructure::Request::Mode::Navigate;
-
-    auto client = resolve_client(request);
-    auto document = client ? client->responsible_document() : nullptr;
-    if (document)
-        context.origin_url = document->url();
-
-    if (context.is_navigation) {
-        if (auto const& navigable = request.web_request_navigable(); navigable.has_value())
-            context.navigable = to_navigable(*navigable);
-    } else if (document) {
-        context.document_url = document->url();
-        if (auto navigable = document->navigable())
-            context.navigable = to_navigable(navigable->id());
-    }
-    return context;
-}
-
 // https://fetch.spec.whatwg.org/#concept-http-network-fetch
 // Drop-in replacement for 'HTTP-network fetch', but obviously non-standard :^)
 // It also handles file:// URLs since those can also go through ResourceLoader.
@@ -3200,7 +3169,7 @@ NonnullRefPtr<PendingResponse> nonstandard_resource_loader_file_or_http_network_
     load_request.set_priority(request->priority());
     load_request.set_source_url(content_blocker_source_url_for_request(*request));
     load_request.set_network_isolation_key(Infrastructure::determine_the_network_partition_key(*request));
-    if (auto context = web_request_context_for_request(*request, fetch_controller_of(fetch_params)->page()); context.has_value())
+    if (auto context = Extensions::web_request_context_for(*request, fetch_controller_of(fetch_params)->page()); context.has_value())
         load_request.set_web_request_context(context.release_value());
 
     if (auto const& reserved_client = request->reserved_client_snapshot())

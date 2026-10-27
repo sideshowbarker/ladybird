@@ -405,6 +405,8 @@ void ExtensionMessageBroker::background_starting(String const& extension_id, u64
 
 void ExtensionMessageBroker::background_finished(String const& extension_id, u64 revision, bool success)
 {
+    if (on_background_settled)
+        on_background_settled(extension_id);
     if (m_starting_backgrounds.get(extension_id) != revision)
         return;
     m_starting_backgrounds.remove(extension_id);

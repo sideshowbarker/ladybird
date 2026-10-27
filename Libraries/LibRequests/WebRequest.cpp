@@ -60,6 +60,7 @@ ErrorOr<void> encode(Encoder& encoder, Requests::WebRequestEventDetails const& d
     TRY(encoder.encode(details.url));
     TRY(encoder.encode(details.method));
     TRY(encoder.encode(details.context));
+    TRY(encoder.encode(details.is_websocket));
     TRY(encoder.encode(details.status_code));
     TRY(encoder.encode(details.status_line));
     TRY(encoder.encode(details.ip));
@@ -79,6 +80,7 @@ ErrorOr<Requests::WebRequestEventDetails> decode(Decoder& decoder)
     details.url = TRY(decoder.decode<URL::URL>());
     details.method = TRY(decoder.decode<ByteString>());
     details.context = TRY(decoder.decode<Requests::WebRequestContext>());
+    details.is_websocket = TRY(decoder.decode<bool>());
     details.status_code = TRY(decoder.decode<Optional<u32>>());
     details.status_line = TRY(decoder.decode<Optional<ByteString>>());
     details.ip = TRY(decoder.decode<Optional<ByteString>>());

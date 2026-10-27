@@ -1,0 +1,5 @@
+canceled: error close
+canceled events: onBeforeRequest onErrorOccurred, type: websocket, error: NS_ERROR_ABORT
+let through: open close
+events: onBeforeRequest onBeforeSendHeaders onSendHeaders onCompleted, one requestId: true
+tab is the page's: true, documentUrl is the page: true

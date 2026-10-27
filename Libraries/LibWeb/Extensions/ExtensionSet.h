@@ -17,7 +17,8 @@
 
 namespace Web::Extensions {
 
-// The enabled extensions this process knows about, as Hub last sent them.
+// The enabled extensions this thread knows about, as Hub last sent them over the connection the thread handles: a
+// page's for the main thread, a worker's for the worker's thread.
 class WEB_API ExtensionSet {
 public:
     AK_ALLOC_WITH_KMALLOC;

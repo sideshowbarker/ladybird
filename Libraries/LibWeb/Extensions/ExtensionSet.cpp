@@ -4,14 +4,18 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <AK/Diagnostics.h>
 #include <LibWeb/Extensions/ExtensionSet.h>
 
 namespace Web::Extensions {
 
 ExtensionSet& ExtensionSet::the()
 {
-    static ExtensionSet* set = new ExtensionSet;
-    return *set;
+    // One set per thread: a worker thread gets its own list over its own connection, and replaces it there, while the
+    // main thread's readers iterate the main thread's. Nothing is shared, so nothing has to be locked, and a worker
+    // thread's set goes with the thread.
+    AK_IGNORE_DIAGNOSTIC("-Wexit-time-destructors", static thread_local ExtensionSet set);
+    return set;
 }
 
 void ExtensionSet::set_extensions(Vector<ExtensionDescriptor> extensions)

@@ -63,7 +63,7 @@ struct TestServer {
     {
         auto message = make<Messages::RequestServer::WebsocketConnect>(
             websocket_id, move(url), Optional<HTTP::NetworkIsolationKey> {}, ByteString { "http://127.0.0.1" }, Vector<ByteString> {},
-            Vector<ByteString> {}, Vector<HTTP::Header> {}, originating_page_id, HTTP::Cookie::SameSiteContext {});
+            Vector<ByteString> {}, Vector<HTTP::Header> {}, originating_page_id, HTTP::Cookie::SameSiteContext {}, Optional<Requests::WebRequestContext> {});
         VERIFY(!MUST(static_cast<RequestServerEndpoint::Stub&>(*connection).handle(move(message))));
     }
 
