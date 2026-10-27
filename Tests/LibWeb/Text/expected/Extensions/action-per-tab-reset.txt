@@ -1,0 +1,2 @@
+after same-document navigations: {"sameTab":true,"badge":"child"}
+after loading another document: {"sameTab":true,"badge":"the global value"}
