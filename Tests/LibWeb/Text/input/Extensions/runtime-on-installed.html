@@ -1,0 +1,16 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // An extension loaded for the first time hears runtime.onInstalled with reason "install", and no runtime.onStartup.
+        asyncTest(async done => {
+            await contentScriptReady();
+            let events;
+            while (!(events = await sendToBackground({ type: "events" })).length)
+                await new Promise(resolve => setTimeout(resolve, 20));
+            println(JSON.stringify(events));
+            done();
+        });
+    </script>
+</body>

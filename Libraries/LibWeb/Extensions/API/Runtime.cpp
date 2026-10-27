@@ -83,6 +83,8 @@ GC::Ref<JS::Object> create_runtime(JS::Realm& realm, MessagingContext& context, 
         context.set_suspend_listeners(suspend_listeners, suspend_canceled_listeners);
         runtime->define_direct_property("onSuspend"_utf16_fly_string, create_event(realm, suspend_listeners), attributes);
         runtime->define_direct_property("onSuspendCanceled"_utf16_fly_string, create_event(realm, suspend_canceled_listeners), attributes);
+        runtime->define_direct_property("onInstalled"_utf16_fly_string, create_event(realm, context.event_listeners("runtime.onInstalled"_string)), attributes);
+        runtime->define_direct_property("onStartup"_utf16_fly_string, create_event(realm, context.event_listeners("runtime.onStartup"_string)), attributes);
     }
 
     auto connect_listeners = realm.heap().allocate<EventListenerList>();

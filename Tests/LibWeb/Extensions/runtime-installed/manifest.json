@@ -1,0 +1,25 @@
+{
+    "manifest_version": 3,
+    "name": "Installed Fixture",
+    "version": "2.5",
+    "description": "An event page that records runtime.onInstalled and runtime.onStartup in storage.session.",
+    "permissions": [
+        "storage"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/runtime-on-installed.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}
