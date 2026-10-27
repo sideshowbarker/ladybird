@@ -10,6 +10,21 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
         return;
     }
+    if (message.type === "child") {
+        handleChild(message.run, message.step, sender.tab.id).then(sendResponse);
+        return true;
+    }
+    if (message.type === "send-to-tab") {
+        browser.tabs.sendMessage(sender.tab.id, "hello").then(
+            () => sendResponse("delivered"),
+            error => sendResponse(`${error.name}: ${error.message}`)
+        );
+        return true;
+    }
+    if (message.type === "child-state") {
+        sendResponse(childStates.get(message.run) ?? {});
+        return;
+    }
     if (message.type === "throwing-color") {
         const color = [0, 0, 0, 255];
         Object.defineProperty(color, 0, {
@@ -34,3 +49,24 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         );
     return true;
 });
+
+// A child window that a test opens reports each step under the test's run token; its tab's badge is set at the first
+// step and read at the others.
+const childStates = new Map();
+async function handleChild(run, step, tabId) {
+    if (!childStates.has(run)) childStates.set(run, {});
+    const childState = childStates.get(run);
+    if (step === "loaded") {
+        await browser.action.setBadgeText({ tabId, text: "child" });
+        childState.tabId = tabId;
+    } else {
+        // Other tests may have set a global badge, which a tab without one of its own shows.
+        const badge = await browser.action.getBadgeText({ tabId: childState.tabId });
+        const global = await browser.action.getBadgeText({});
+        childState[step] = {
+            sameTab: tabId === childState.tabId,
+            badge: badge === global ? "the global value" : badge,
+        };
+    }
+    return true;
+}

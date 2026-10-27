@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+<script>
+    // A tab message sent after a window with a content script closed still reaches the open tabs, and none of the
+    // closed window's contexts. This page has no listener, so nobody receives it.
+    asyncTest(async done => {
+        await contentScriptReady();
+        // Tests run at once, sharing the fixture's background page, so this one's child window reports under a token.
+        const run = String(Math.random()).slice(2);
+        const child = window.open(`../../data/extension-child-window.html?first&run=${run}`);
+        for (let i = 0; i < 200; ++i) {
+            if ((await sendToBackground({ type: "child-state", run })).afterNavigation)
+                break;
+            await new Promise(resolve => setTimeout(resolve, 25));
+        }
+        child.close();
+        await new Promise(resolve => setTimeout(resolve, 100));
+        println(await sendToBackground({ type: "send-to-tab" }));
+        done();
+    });
+</script>
+</body>
