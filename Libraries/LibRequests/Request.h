@@ -113,6 +113,10 @@ public:
     // body delivery is paused.
     [[nodiscard]] bool is_finished() const { return m_finished; }
 
+    // Whether the response is a redirect an extension's webRequest listener asked for, rather than one from a server.
+    [[nodiscard]] bool was_redirected_by_extension() const { return m_redirected_by_extension; }
+    void set_redirected_by_extension(Badge<RequestClient>) { m_redirected_by_extension = true; }
+
     using BufferedRequestFinished = Function<void(u64 total_size, RequestTimingInfo const& timing_info, Optional<NetworkError> const& network_error, NonnullRefPtr<HTTP::HeaderList> response_headers, Optional<u32> response_code, Optional<String> reason_phrase, CacheState cache_state, Core::ImmutableBytes payload)>;
 
     // Configure the request such that the entirety of the response data is buffered. The callback receives that data and
@@ -219,6 +223,7 @@ private:
     Optional<NetworkError> m_body_delivery_error;
     bool m_body_delivery_paused { false };
     bool m_finished { false };
+    bool m_redirected_by_extension { false };
     ByteString m_http_version;
     Optional<URL::URL> m_response_url;
 };

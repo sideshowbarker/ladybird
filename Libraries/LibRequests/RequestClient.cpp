@@ -179,6 +179,12 @@ void RequestClient::request_upload_progress(u64 request_id, u64 bytes_sent)
     }
 }
 
+void RequestClient::request_redirected_by_extension(u64 request_id)
+{
+    if (auto request = m_requests.get(request_id); request.has_value())
+        request.value()->set_redirected_by_extension({});
+}
+
 void RequestClient::request_started(u64 request_id, IPC::File response_file)
 {
     auto request = m_requests.get(request_id);
