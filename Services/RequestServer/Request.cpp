@@ -442,11 +442,13 @@ NonnullOwnPtr<Request> Request::fetch(
     HTTP::Cookie::SameSiteContext same_site_context,
     Optional<Requests::RequestTransferLeaseKey> transfer_lease,
     Optional<u32> address_selection_hint,
-    bool notify_on_cache_miss)
+    bool notify_on_cache_miss,
+    Optional<Requests::WebRequestContext> web_request_context)
 {
     auto request = adopt_own(*new Request { request_id, RequestType::Fetch, disk_cache, move(network_isolation_key), cache_mode, client, curl_multi, resolver, move(url), move(method), move(request_headers), move(request_body), include_credentials, same_site_context, move(transfer_lease) });
     request->m_address_selection_hint = address_selection_hint;
     request->m_notify_on_cache_miss = notify_on_cache_miss;
+    request->m_web_request_context = move(web_request_context);
     request->process();
 
     return request;

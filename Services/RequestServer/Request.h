@@ -32,6 +32,7 @@
 #include <LibRequests/NetworkError.h>
 #include <LibRequests/RequestTimingInfo.h>
 #include <LibRequests/RequestTransferLease.h>
+#include <LibRequests/WebRequestContext.h>
 #include <LibURL/URL.h>
 #include <RequestServer/AlternativeServices.h>
 #include <RequestServer/CacheLevel.h>
@@ -65,7 +66,8 @@ public:
         HTTP::Cookie::SameSiteContext,
         Optional<Requests::RequestTransferLeaseKey>,
         Optional<u32> address_selection_hint,
-        bool notify_on_cache_miss);
+        bool notify_on_cache_miss,
+        Optional<Requests::WebRequestContext> = {});
 
     static NonnullOwnPtr<Request> connect(
         u64 request_id,
@@ -110,6 +112,7 @@ public:
     void sample_network_usage();
 
     u64 request_id() const { return m_request_id; }
+    Optional<Requests::WebRequestContext> const& web_request_context() const { return m_web_request_context; }
     RequestType type() const { return m_type; }
     URL::URL const& url() const { return m_url; }
     bool is_complete() const { return m_state == State::Complete || m_state == State::Error; }
@@ -343,6 +346,7 @@ private:
     RefPtr<AIACollector> m_aia_collector;
     size_t m_aia_fetch_count { 0 };
     bool m_notify_on_cache_miss { false };
+    Optional<Requests::WebRequestContext> m_web_request_context;
     bool m_informed_client_requires_network { false };
     bool m_informed_client_request_started { false };
     bool m_cache_entry_was_revalidated { false };

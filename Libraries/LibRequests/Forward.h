@@ -13,6 +13,7 @@ class RequestClient;
 class RequestControlClient;
 class ResponseData;
 class WebSocket;
+struct WebRequestContext;
 struct RequestTimingInfo;
 
 }

@@ -730,7 +730,7 @@ RefPtr<Requests::Request> ResourceLoader::start_network_request(LoadRequest cons
         : Requests::RequestClient::CacheMissNotification::No;
     auto originating_page_id = request.originating_page_id().map([](auto page_id) { return page_id.value(); }).value_or(0);
     auto headers = headers_with_normalized_values(request.headers());
-    auto protocol_request = request_client->start_request(request.method(), request.url().value(), request.same_site_context(), *headers, request.body(), request.cache_mode(), request.include_credentials(), transfer_lease, {}, cache_miss_notification, originating_page_id, request.network_isolation_key());
+    auto protocol_request = request_client->start_request(request.method(), request.url().value(), request.same_site_context(), *headers, request.body(), request.cache_mode(), request.include_credentials(), transfer_lease, {}, cache_miss_notification, originating_page_id, request.network_isolation_key(), request.web_request_context());
     if (!protocol_request) {
         log_failure(request, "Failed to initiate load"sv);
         return nullptr;
