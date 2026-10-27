@@ -3572,6 +3572,12 @@ void Application::sync_extension_actions()
     m_extension_action_revisions = move(revisions);
 }
 
+void Application::clear_extension_tab_state(i64 tab_id)
+{
+    if (m_extension_action_registry)
+        m_extension_action_registry->clear_tab(tab_id);
+}
+
 Vector<ExtensionTab> Application::extension_tabs() const
 {
     Vector<ExtensionTab> tabs;
