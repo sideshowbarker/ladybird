@@ -1,0 +1,7 @@
+<!doctype html>
+<body>
+    <script>
+        // Tells the page that loaded it if the registered content script marked this page before its own script ran.
+        parent.postMessage(document.documentElement.dataset.registered ?? "no", "*");
+    </script>
+</body>

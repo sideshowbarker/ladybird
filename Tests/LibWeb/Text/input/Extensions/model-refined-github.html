@@ -1,0 +1,36 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // An extension that starts up as Refined GitHub does by default changes the pages it matches, follows a change to
+        // its options, runs the content script it registered, and records no error while starting, or starting again.
+        const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+        const accent = () => getComputedStyle(document.documentElement).getPropertyValue("--model-accent").trim();
+        asyncTest(async done => {
+            await contentScriptReady();
+            println(`started: ${await sendToBackground({ type: "started" })}`);
+            while (!document.getElementById("model-badge") || !accent()) await pause(20);
+            println(`the page changed: ${document.getElementById("model-badge").textContent} ${accent()}`);
+            await sendToBackground({ type: "set-accent", accent: "rgb(40, 50, 60)" });
+            while (accent() !== "rgb(40, 50, 60)") await pause(20);
+            println(`an options change: ${accent()}`);
+            const marked = new Promise(resolve =>
+                window.addEventListener("message", event => resolve(event.data), { once: true })
+            );
+            const frame = document.createElement("iframe");
+            frame.src = "../../data/model-refined-github-target.html";
+            document.body.append(frame);
+            println(`the registered script: ${await marked}`);
+            println(`errors: ${JSON.stringify(await sendToBackground({ type: "errors" }))}`);
+            // A background page that idles out and starts again sets itself up again without an error.
+            const id = internals.extensionId("Refined GitHub Model Fixture");
+            internals.setExtensionIdleTimeout(id, 50);
+            await pause(500);
+            internals.setExtensionIdleTimeout(id, 30000);
+            println(`restarted: ${await sendToBackground({ type: "started" })}`);
+            println(`errors after a restart: ${JSON.stringify(await sendToBackground({ type: "errors" }))}`);
+            done();
+        });
+    </script>
+</body>
