@@ -1,0 +1,35 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // An extension that works the way Web Specs Companion does: Its event page badges a tab from tabs.onUpdated, an
+        // alarm writes to storage.session, and its popup reads the tab under it and opens another.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const id = internals.extensionId("Companion Model Fixture");
+            const stateWhere = async predicate => {
+                let state;
+                while (!predicate((state = await sendToBackground({ type: "state" }))))
+                    await new Promise(resolve => setTimeout(resolve, 20));
+                return state;
+            };
+            println(`badge once the page loaded: ${(await stateWhere(state => state.badge)).badge}`);
+
+            await sendToBackground({ type: "arm" });
+            println(`after the alarm: ${(await stateWhere(state => state.session.refreshed)).session.refreshed}`);
+
+            if (JSON.parse(internals.extensionPopupState(id)).open) internals.clickExtensionAction(id);
+            internals.clickExtensionAction(id);
+            const { popup } = (await stateWhere(state => state.session.popup)).session;
+            println(`the popup saw this page: ${popup.activeUrl.endsWith("/companion-model.html")}`);
+            println(`and opened a tab: ${typeof popup.created}`);
+
+            if (JSON.parse(internals.extensionPopupState(id)).open) internals.clickExtensionAction(id);
+            while ((await sendToBackground({ type: "status", id: popup.created })) !== "complete")
+                await new Promise(resolve => setTimeout(resolve, 20));
+            println(`closed it: ${await sendToBackground({ type: "close-opened-tab" })}`);
+            done();
+        });
+    </script>
+</body>

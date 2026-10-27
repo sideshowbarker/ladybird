@@ -1,0 +1,5 @@
+badge once the page loaded: 3
+after the alarm: refresh
+the popup saw this page: true
+and opened a tab: number
+closed it: true
