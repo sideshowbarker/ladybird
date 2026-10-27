@@ -52,6 +52,7 @@ set(TEST_SOURCES
     TestStructuredSerializeSharedArrayBuffer.cpp
     TestStyleEngineBridge.cpp
     TestWebIDLBuffers.cpp
+    TestWebRequestType.cpp
     TestWindowProxyWorld.cpp
     TestWorldCallback.cpp
     TestWrapperWorld.cpp

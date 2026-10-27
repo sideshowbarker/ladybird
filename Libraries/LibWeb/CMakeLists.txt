@@ -297,6 +297,7 @@ set(SOURCES
     Extensions/MessageRouter.cpp
     Extensions/MessagingContext.cpp
     Extensions/ScriptExecutor.cpp
+    Extensions/WebRequestType.cpp
     Extensions/Namespace.cpp
     Fetch/Body.cpp
     Fetch/BodyInit.cpp
