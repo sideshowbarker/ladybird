@@ -12,6 +12,7 @@ set(SOURCES
     Extensions/MessageResult.cpp
     Extensions/MessageSender.cpp
     Extensions/Storage.cpp
+    Extensions/UrlFilter.cpp
     Extensions/ResourcePath.cpp
     Extensions/WebRequest.cpp
     Fetch/Infrastructure/DataURL.cpp
@@ -170,7 +171,7 @@ endif()
 ladybird_lib(LibWebCommon webcommon EXPLICIT_SYMBOL_EXPORT)
 # NB: The enumerations of LibWeb's IDL modules are generated into LibWebCommon along with LibWeb's bindings.
 add_dependencies(LibWebCommon generate_bindings)
-target_link_libraries(LibWebCommon PRIVATE LibUnicode LibCore LibCrypto LibFileSystem LibGfx LibHTTP LibIPC LibRequests LibURL)
+target_link_libraries(LibWebCommon PRIVATE LibUnicode LibCore LibCrypto LibFileSystem LibGfx LibHTTP LibIPC LibRegex LibRequests LibURL)
 
 import_rust_crate(MANIFEST_PATH Rust/Cargo.toml CRATE_NAME libwebcommon_rust FEATURES allocator FFI_HEADER RustFFI.h)
 target_link_libraries(LibWebCommon PRIVATE libwebcommon_rust)
