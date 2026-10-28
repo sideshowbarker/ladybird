@@ -1,0 +1,7 @@
+Ladybird’s activeTab grant lasts until its tab navigates to another
+origin or closes, as in Chromium, whose ActiveTabPermissionGranter::
+DidFinishNavigation() keeps a grant across same-origin navigations.
+Gecko ties the grant to the document instead (activeTabWindowID, in
+ext-tabs-base.js, must equal the tab’s innerWindowID), so there any new
+document ends it. A click on an action without a popup dispatches
+onClicked with the tab, in all three engines.
