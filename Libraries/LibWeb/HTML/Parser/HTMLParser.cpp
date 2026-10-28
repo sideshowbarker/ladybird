@@ -38,6 +38,7 @@
 #include <LibWeb/DOM/StyleElementBase.h>
 #include <LibWeb/DOM/Text.h>
 #include <LibWeb/Extensions/ContentScriptInjector.h>
+#include <LibWeb/Extensions/ExtensionSet.h>
 #include <LibWeb/HTML/CustomElements/CustomElementDefinition.h>
 #include <LibWeb/HTML/CustomElements/CustomElementReactions.h>
 #include <LibWeb/HTML/CustomElements/CustomElementRegistry.h>
@@ -913,6 +914,10 @@ void HTMLParserEndState::advance_to_dom_content_loaded_phase()
             HighResolutionTime::current_high_resolution_time(relevant_global_object(*document)));
         content_loaded_event->set_bubbles(true);
         document->dispatch_event(content_loaded_event);
+
+        // NB: Extensions listening to webNavigation hear of DOMContentLoaded too.
+        if (auto navigable = document->navigable(); navigable && any_of(Extensions::ExtensionSet::the().extensions(), [](auto const& extension) { return extension.has_permission("webNavigation"sv); }))
+            navigable->page().client().page_did_fire_dom_content_loaded(navigable->id(), *document);
 
         // The document_end point of content scripts, and the start of the wait for their idle point.
         Extensions::run_content_scripts(*document, Extensions::RunAt::DocumentEnd);

@@ -243,6 +243,12 @@ public:
     // cookies of responses.
     void configure_request_server_control_client(Requests::RequestControlClient&);
     WebRequestPlace web_request_place(int client_id, Requests::WebRequestContext const&) const;
+
+    // Tells each extension with webNavigation that may see the navigable's tab of one of its navigation events, with the
+    // details every event has, the extra ones given, and nothing for a navigable in no tab.
+    void dispatch_web_navigation_event(StringView event, CanonicalNavigable const&, URL::URL const&, JsonObject extra = {});
+    // A view a page opened, and the tab and frame that opened it, until its first navigation is reported.
+    void extension_navigation_target_created(u64 view_id, CanonicalNavigable const& source);
     RefPtr<BrowsingSession> session_for_request_server_client(int client_id) const;
     Vector<int> request_server_client_ids_for_testing(BrowsingSession const&) const;
 
@@ -691,6 +697,11 @@ private:
     OwnPtr<ExtensionMessageBroker> m_extension_message_broker;
     OwnPtr<ExtensionWebRequestRouter> m_extension_web_request_router;
     OwnPtr<ExtensionWebRequestStartupGate> m_extension_web_request_startup_gate;
+    struct ExtensionNavigationSource {
+        i64 tab_id { -1 };
+        i64 frame_id { 0 };
+    };
+    HashMap<u64, ExtensionNavigationSource> m_extension_navigation_sources;
     OwnPtr<ExtensionBackgroundHost> m_extension_background_host;
     OwnPtr<ExtensionActionRegistry> m_extension_action_registry;
     class ExtensionPopupFrontend;

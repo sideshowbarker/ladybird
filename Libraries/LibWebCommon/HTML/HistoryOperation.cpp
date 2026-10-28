@@ -158,6 +158,7 @@ ErrorOr<void> IPC::encode(Encoder& encoder, Web::FinalizeSameDocumentNavigationH
     TRY(encoder.encode(parameters.previous_entry_persisted_state));
     TRY(encoder.encode(parameters.history_handling));
     TRY(encoder.encode(parameters.user_involvement));
+    TRY(encoder.encode(parameters.is_fragment_navigation));
     return {};
 }
 
@@ -171,6 +172,7 @@ ErrorOr<Web::FinalizeSameDocumentNavigationHistoryOperationParameters> IPC::deco
         .previous_entry_persisted_state = TRY(decoder.decode<Optional<Web::HTML::SessionHistoryEntryPersistedState>>()),
         .history_handling = TRY(decoder.decode<Web::HTML::HistoryHandlingBehavior>()),
         .user_involvement = TRY(decoder.decode<Web::HTML::UserNavigationInvolvement>()),
+        .is_fragment_navigation = TRY(decoder.decode<bool>()),
     };
 }
 

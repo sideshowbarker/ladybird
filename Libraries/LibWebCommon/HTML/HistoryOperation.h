@@ -81,6 +81,8 @@ struct FinalizeSameDocumentNavigationHistoryOperationParameters {
     Optional<HTML::SessionHistoryEntryPersistedState> previous_entry_persisted_state;
     HTML::HistoryHandlingBehavior history_handling;
     HTML::UserNavigationInvolvement user_involvement;
+    // A navigation to a fragment, rather than a history.pushState() or replaceState(), which extensions tell apart.
+    bool is_fragment_navigation { false };
 };
 
 struct CloseTopLevelTraversableHistoryOperationParameters {

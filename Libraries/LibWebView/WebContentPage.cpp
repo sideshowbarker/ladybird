@@ -34,6 +34,7 @@
 #include <LibWebView/Extensions/ExtensionPopupHost.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
+#include <LibWebView/Extensions/ExtensionWebNavigation.h>
 #include <LibWebView/GamepadManager.h>
 #include <LibWebView/HistoryStore.h>
 #include <LibWebView/NavigationLoader.h>
@@ -907,6 +908,20 @@ void WebContentPage::did_completely_finish_loading(Web::HTML::CrossProcessId nav
     if (!document || document->host() != this)
         return;
     navigable->document_completely_finished_loading(*document);
+    if (document == &navigable->active_document() && Application::is_initialized())
+        Application::the().dispatch_web_navigation_event("onCompleted"sv, *navigable, navigable->active_document_url());
+}
+
+void WebContentPage::did_fire_dom_content_loaded(Web::HTML::CrossProcessId navigable_id, Web::HTML::CrossProcessId document_id)
+{
+    auto navigable = traversable().find(navigable_id);
+    if (!navigable.has_value())
+        return;
+    auto document = navigable->document_with_id(document_id);
+    if (!document || document->host() != this || document != &navigable->active_document())
+        return;
+    if (Application::is_initialized())
+        Application::the().dispatch_web_navigation_event("onDOMContentLoaded"sv, *navigable, navigable->active_document_url());
 }
 
 void WebContentPage::did_create_populated_document_with_an_origin_of_its_own(Web::HTML::CrossProcessId navigable_id, Web::HTML::CrossProcessId document_id, Web::HTML::PopulatedDocumentOrigin origin, Web::HTML::EnvironmentId environment_id)
@@ -2440,6 +2455,28 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
         return;
     }
 
+    // The extension's own documents look up a tab's frames with webNavigation.
+    if (api_namespace == "webNavigation"sv) {
+        if (!context->is_extension_document || !extension->descriptor().has_permission("webNavigation"sv))
+            return;
+        auto details = call_arguments.size() > 0 && call_arguments.at(0).is_object() ? call_arguments.at(0).as_object() : JsonObject {};
+        auto tab_id = details.get_i64("tabId"sv).value_or(-1);
+        auto tabs = Application::the().extension_tabs();
+        auto viewer = extension_tab_viewer(context->extension_id, extension->descriptor(), tabs);
+        auto tab = tabs.find_if([&](auto const& tab) { return tab.id == tab_id; });
+        auto view = tab != tabs.end() && tab->view_id.has_value() && may_see_tab(viewer, *tab) ? ViewImplementation::find_view_by_id(*tab->view_id) : Optional<ViewImplementation&> {};
+        if (!view.has_value()) {
+            // Extensions compare this message, so its wording is fixed.
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { MUST(String::formatted("Invalid tab ID: {}", tab_id)) });
+            return;
+        }
+        auto result = name == "getFrame"sv
+            ? web_navigation_frame(view->traversable(), details.get_i64("frameId"sv).value_or(-1))
+            : JsonValue { web_navigation_all_frames(view->traversable()) };
+        complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.serialized() });
+        return;
+    }
+
     // Only the extension's own documents have windows.
     if (api_namespace == "windows"sv) {
         if (!context->is_extension_document)
@@ -3308,6 +3345,8 @@ void WebContentPage::did_complete_navigation_unload_check(Web::HTML::CrossProces
     population_request.target_snapshot_params.sandboxing_flags |= navigable->snapshot_target_snapshot_params().sandboxing_flags;
     ongoing_navigation->history_entry = MUST(CanonicalSessionHistoryEntry::create_from_descriptor(Web::HTML::create_session_history_entry_descriptor(population_request.history_entry, 0)));
     ongoing_navigation->state = CanonicalNavigation::CreatingNavigationParams { NavigationLoader::create(client().is_private(), move(population_request)) };
+    if (Application::is_initialized())
+        Application::the().dispatch_web_navigation_event("onBeforeNavigate"sv, *navigable, ongoing_navigation->loader()->request().history_entry.url);
     async_create_navigation_params(ongoing_navigation->loader()->request());
 
     // Requesting navigation params starts the fetch, so a view's top-level population begins its recorded
@@ -3338,6 +3377,15 @@ void WebContentPage::did_finish_navigation_params_creation(Web::HTML::CrossProce
     if (!result.has_value()) {
         navigable->did_cancel_navigation(navigation_id);
         return;
+    }
+
+    // A navigation whose fetch failed shows an error page in place of what it asked for.
+    if (result->navigation_params.has<Web::HTML::NavigationParamsNullOrError>()) {
+        JsonObject error;
+        error.set("error"sv, "NS_ERROR_FAILURE"sv);
+        auto const& url = creating->loader->request().history_entry.url;
+        if (Application::is_initialized())
+            Application::the().dispatch_web_navigation_event("onErrorOccurred"sv, *navigable, url, move(error));
     }
 
     // Steps 1-4 have produced final navigation params. Keep the pending entry in
@@ -3929,6 +3977,8 @@ Messages::WebContentClient::DidRequestNewWebViewResponse WebContentPage::did_req
         return { {}, {}, {}, {}, {}, {}, {}, Web::HTML::VisibilityState::Hidden, move(window_handle) };
     }
     traversable.represent_group_everywhere();
+    if (Application::is_initialized())
+        Application::the().extension_navigation_target_created(traversable.view()->view_id(), *current_navigable);
 
     auto environment_id = traversable.active_document().relevant_global_object().relevant_settings_object().id();
     Optional<u64> browsing_context_group_id = traversable.active_browsing_context().group()->id();

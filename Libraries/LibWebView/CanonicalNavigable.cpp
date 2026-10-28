@@ -8,6 +8,8 @@
 #include <LibWebView/CanonicalNavigable.h>
 
 #include <AK/AnyOf.h>
+#include <AK/JsonArray.h>
+#include <AK/JsonObject.h>
 #include <AK/Random.h>
 #include <LibCore/StatsLog.h>
 #include <LibHTTP/HeaderList.h>
@@ -1556,6 +1558,15 @@ void CanonicalNavigable::did_commit_navigation(CanonicalSessionHistoryEntry& ent
     }
 
     clear_ongoing_navigation();
+
+    // Extensions hear of the commit; a frame's counts as an auto_subframe transition, since no user starts it.
+    if (active_document_changed) {
+        JsonObject transition;
+        transition.set("transitionType"sv, parent() ? "auto_subframe"sv : "link"sv);
+        transition.set("transitionQualifiers"sv, JsonArray {});
+        if (Application::is_initialized())
+            Application::the().dispatch_web_navigation_event("onCommitted"sv, *this, active_document_url(), move(transition));
+    }
 }
 
 Optional<Utf16String const&> CanonicalNavigable::ongoing_navigation_id() const

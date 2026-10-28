@@ -421,6 +421,11 @@ void PageClient::page_did_completely_finish_loading(Web::HTML::CrossProcessId na
     client().async_did_completely_finish_loading(m_id, navigable_id, document.id());
 }
 
+void PageClient::page_did_fire_dom_content_loaded(Web::HTML::CrossProcessId navigable_id, Web::DOM::Document const& document)
+{
+    client().async_did_fire_dom_content_loaded(m_id, navigable_id, document.id());
+}
+
 void PageClient::page_did_change_navigable_container_state(Web::HTML::CrossProcessId navigable_id, Web::HTML::ReplicatedContainerState const& state)
 {
     client().async_did_change_navigable_container_state(m_id, navigable_id, state);

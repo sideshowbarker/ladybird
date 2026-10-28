@@ -1,0 +1,53 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-webrequest.js"></script>
+<body>
+    <script>
+        // getAllFrames() lists a tab's frames with their parents, getFrame() finds each, and an unknown frame is null.
+        asyncTest(async done => {
+            const { tabId } = await watchWebRequests();
+            const server = httpTestServer();
+            const frameURL = await server.createEcho("GET", echoPath("frame.html"), {
+                status: 200,
+                headers: { "Content-Type": "text/html", "Cache-Control": "no-store" },
+                body: "<p>frame</p>",
+            });
+            const iframe = document.createElement("iframe");
+            await new Promise(resolve => {
+                iframe.onload = resolve;
+                iframe.src = frameURL;
+                document.body.appendChild(iframe);
+            });
+            const frames = await sendToBackground({ type: "allFrames", tabId });
+            const top = frames.find(frame => frame.frameId === 0);
+            const child = frames.find(frame => frame.url === frameURL);
+            println(
+                `top: parentFrameId ${top.parentFrameId}, url is the page: ${top.url === location.href}, errorOccurred: ${top.errorOccurred}`
+            );
+            println(`frame: parentFrameId ${child.parentFrameId}, frameId > 0: ${child.frameId > 0}`);
+            const topFrame = await sendToBackground({ type: "frame", tabId, frameId: 0 });
+            const childFrame = await sendToBackground({ type: "frame", tabId, frameId: child.frameId });
+            println(
+                `getFrame(top): ${JSON.stringify(topFrame) === JSON.stringify({ errorOccurred: false, url: location.href, parentFrameId: -1 })}`
+            );
+            println(`getFrame(frame): ${childFrame.url === frameURL && childFrame.parentFrameId === 0}`);
+            println(
+                `getFrame(unknown): ${JSON.stringify(await sendToBackground({ type: "frame", tabId, frameId: 987654 }))}`
+            );
+
+            // A frame whose navigation failed reports the error.
+            const refused = `http://127.0.0.1:2/${webRequestToken}/refused`;
+            const failing = document.createElement("iframe");
+            await new Promise(resolve => {
+                failing.onload = resolve;
+                failing.src = refused;
+                document.body.appendChild(failing);
+            });
+            const afterFailure = await sendToBackground({ type: "allFrames", tabId });
+            const failed = afterFailure.find(frame => frame.frameId !== 0 && frame.url !== frameURL);
+            println(`failed frame: errorOccurred ${failed?.errorOccurred}`);
+            done();
+        });
+    </script>
+</body>

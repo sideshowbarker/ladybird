@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <AK/JsonArray.h>
+#include <AK/JsonObject.h>
 #include <AK/NeverDestroyed.h>
 #include <AK/NumericLimits.h>
 #include <AK/StringBuilder.h>
@@ -2325,6 +2327,13 @@ void CanonicalTraversable::finalize_a_same_document_navigation(HistoryOperation&
         finish_history_operation(operation.operation_id);
         return;
     }
+
+    // NB: Extensions listening to webNavigation hear of the same-document navigation.
+    JsonObject transition;
+    transition.set("transitionType"sv, "link"sv);
+    transition.set("transitionQualifiers"sv, JsonArray {});
+    if (Application::is_initialized())
+        Application::the().dispatch_web_navigation_event(request.is_fragment_navigation ? "onReferenceFragmentUpdated"sv : "onHistoryStateUpdated"sv, *target_navigable, request.target_entry.url, move(transition));
 
     // 3. Let targetStep be null.
     Optional<i32> target_step;

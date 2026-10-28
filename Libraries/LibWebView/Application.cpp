@@ -64,6 +64,7 @@
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/Extensions/ExtensionStorageStore.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
+#include <LibWebView/Extensions/ExtensionWebNavigation.h>
 #include <LibWebView/Extensions/ExtensionWebRequest.h>
 #include <LibWebView/FaviconStore.h>
 #include <LibWebView/FontService.h>
@@ -2404,6 +2405,77 @@ WebRequestPlace Application::web_request_place(int client_id, Requests::WebReque
         break;
     }
     return place;
+}
+
+void Application::extension_navigation_target_created(u64 view_id, CanonicalNavigable const& source)
+{
+    auto source_view = const_cast<CanonicalNavigable&>(source).top_level_traversable().view();
+    if (!source_view.has_value())
+        return;
+    auto tabs = extension_tabs();
+    auto tab = tabs.find_if([&](auto const& tab) { return tab.view_id == source_view->view_id(); });
+    if (tab == tabs.end())
+        return;
+    m_extension_navigation_sources.set(view_id, { tab->id, web_navigation_frame_ids(source).frame_id });
+}
+
+void Application::dispatch_web_navigation_event(StringView event, CanonicalNavigable const& navigable, URL::URL const& url, JsonObject extra)
+{
+    if (!m_extension_message_broker)
+        return;
+    auto view = const_cast<CanonicalNavigable&>(navigable).top_level_traversable().view();
+    if (!view.has_value())
+        return;
+    auto tabs = extension_tabs();
+    auto tab = tabs.find_if([&](auto const& tab) { return tab.view_id == view->view_id(); });
+    if (tab == tabs.end())
+        return;
+
+    // The error page shown in place of a failed navigation's document is no document of the page's, and neither is the
+    // initial about:blank a navigable starts with; extensions hear of neither committing or loading.
+    if (event.is_one_of("onCommitted"sv, "onDOMContentLoaded"sv, "onCompleted"sv)) {
+        auto const& document = navigable.active_document();
+        if (document.creation_url() == URL::about_error() || document.is_initial_about_blank())
+            return;
+    }
+
+    auto ids = web_navigation_frame_ids(navigable);
+    auto details = move(extra);
+    details.set("url"sv, url.serialize());
+    details.set("timeStamp"sv, static_cast<double>(UnixDateTime::now().milliseconds_since_epoch()));
+    details.set("tabId"sv, tab->id);
+    details.set("windowId"sv, tab->window_id);
+    details.set("frameId"sv, ids.frame_id);
+    details.set("parentFrameId"sv, ids.parent_frame_id);
+
+    // A view a page opened is reported as the page's navigation target once its first navigation, which has its
+    // URL, begins.
+    Optional<JsonObject> created_target;
+    if (event == "onBeforeNavigate"sv && ids.frame_id == 0) {
+        if (auto source = m_extension_navigation_sources.take(view->view_id()); source.has_value()) {
+            JsonObject target;
+            target.set("sourceTabId"sv, source->tab_id);
+            target.set("sourceFrameId"sv, source->frame_id);
+            target.set("url"sv, url.serialize());
+            target.set("tabId"sv, tab->id);
+            target.set("timeStamp"sv, static_cast<double>(UnixDateTime::now().milliseconds_since_epoch()));
+            created_target = move(target);
+        }
+    }
+
+    auto event_name = MUST(String::formatted("webNavigation.{}", event));
+    for_each_extension_tab_viewer([&](Extension const& extension, ExtensionTabViewer const& viewer) {
+        if (!viewer.extension.has_permission("webNavigation"sv) || !may_see_tab(viewer, *tab))
+            return;
+        if (created_target.has_value()) {
+            JsonArray arguments;
+            arguments.must_append(*created_target);
+            m_extension_message_broker->dispatch_extension_event(extension.id(), "webNavigation.onCreatedNavigationTarget"_string, arguments.serialized());
+        }
+        JsonArray arguments;
+        arguments.must_append(details);
+        m_extension_message_broker->dispatch_extension_event(extension.id(), event_name, arguments.serialized());
+    });
 }
 
 void Application::set_image_decoder_exit_handler(u64 child_id, Function<void()> handler)
