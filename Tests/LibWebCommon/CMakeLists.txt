@@ -4,6 +4,7 @@ set(TEST_SOURCES
     TestCSSPixels.cpp
     TestConsoleOutputBuffer.cpp
     TestExtensionLocalization.cpp
+    TestExtensionUrlFilter.cpp
     TestGamepadSharedState.cpp
     TestGamepadStateBuffer.cpp
     TestInsecureRequestsPolicy.cpp
