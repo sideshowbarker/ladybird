@@ -287,6 +287,7 @@ set(SOURCES
     Extensions/API/Scripting.cpp
     Extensions/API/Storage.cpp
     Extensions/API/Tabs.cpp
+    Extensions/API/WebNavigation.cpp
     Extensions/API/WebRequest.cpp
     Extensions/API/Windows.cpp
     Extensions/ContentScriptInjector.cpp

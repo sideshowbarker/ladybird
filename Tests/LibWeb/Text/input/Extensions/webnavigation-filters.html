@@ -1,0 +1,42 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-webrequest.js"></script>
+<body>
+    <script>
+        function loadFrame(url) {
+            return new Promise(resolve => {
+                const iframe = document.createElement("iframe");
+                iframe.onload = resolve;
+                iframe.src = url;
+                document.body.appendChild(iframe);
+            });
+        }
+
+        // A listener given URL filters hears only the navigations one of them matches, and addListener() rejects
+        // filters it can't use.
+        asyncTest(async done => {
+            await watchWebRequests();
+            const server = httpTestServer();
+            const page = {
+                status: 200,
+                headers: { "Content-Type": "text/html", "Cache-Control": "no-store" },
+                body: "x",
+            };
+            const own = await server.createEcho("GET", echoPath("own.html"), page);
+            const loopbackPath = new URL(await server.createEcho("GET", echoPath("loopback.html"), page)).pathname;
+            const loopback = `http://127.0.0.1:${location.port}${loopbackPath}`;
+            await loadFrame(own);
+            await loadFrame(loopback);
+            let heard;
+            while (!(heard = await sendToBackground({ type: "filtered", token: webRequestToken })).length)
+                await new Promise(resolve => setTimeout(resolve, 20));
+            println(
+                `filtered listener heard: ${heard.map(url => (url === loopback ? "loopback" : url === own ? "own" : url)).join(", ")}`
+            );
+            for (const [name, result] of Object.entries(await sendToBackground({ type: "invalidFilters" })))
+                println(`${name}: ${result}`);
+            done();
+        });
+    </script>
+</body>

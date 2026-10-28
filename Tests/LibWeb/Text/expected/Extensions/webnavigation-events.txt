@@ -1,0 +1,9 @@
+frame: onBeforeNavigate onCommitted onDOMContentLoaded onCompleted
+transitionType: auto_subframe, qualifiers: []
+tab is the page's: true
+one frameId, not the top's: true, parentFrameId: 0
+getAllFrames has it: true
+pushState: true, same frame: true, transitionType: link
+fragment: true, same frame: true
+failed frame: onBeforeNavigate onErrorOccurred
+created target: from the page's tab: true, sourceFrameId: 0, its own tab: true, url: true

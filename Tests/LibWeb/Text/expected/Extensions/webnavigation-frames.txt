@@ -1,0 +1,6 @@
+top: parentFrameId -1, url is the page: true, errorOccurred: false
+frame: parentFrameId 0, frameId > 0: true
+getFrame(top): true
+getFrame(frame): true
+getFrame(unknown): null
+failed frame: errorOccurred true
