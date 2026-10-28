@@ -1,0 +1,26 @@
+Ladybird resolves a message’s named placeholders once, as it parses
+the catalog, and fills in positional substitutions at each getMessage()
+call. Message names are case-insensitive, and a catalog may not
+define the six built-in names. Chromium does the same in MessageBundle::
+GetMessageValue(), GetPlaceholders(), and ReplaceVariables(), and
+its GetI18nMessage() runs base::ReplaceStringPlaceholders() even with no
+substitutions. Ladybird follows those two functions on every dollar-sign
+edge: single-digit indexes, a run of dollar signs losing one, a “$” and
+the character after it dropped, and nothing at all for more than nine
+substitutions. Since that drop works on bytes, Ladybird decodes what’s
+left as UTF-8 with replacement characters, which is what Chromium’s
+gin::StringToV8() makes of the same bytes.
+
+Gecko’s LocaleData.addLocale() replaces an undefined named
+placeholder with the empty string, and its localizeMessage()
+takes any number of substitutions, with multi-digit indexes, and
+keeps a “$” that precedes anything but a digit or another “$”. WebKit’s
+WebExtensionLocalization::localizedStringForKey() returns the empty
+string for more than nine substitutions. Ladybird deliberately follows
+Chromium on all these edges.
+
+For CSS, Ladybird keeps an unknown __MSG_ token as it is and goes
+on replacing the rest, as Gecko’s LocaleData.localize() does. Chromium’s
+ReplaceVariables() stops at the first unknown name, leaving every later
+token unreplaced, and WebKit’s localizedStringForString() replaces an
+unknown one with the empty string.
