@@ -1,0 +1,7 @@
+Ladybird’s action state resolves a tab’s value first, then the global
+value, then the manifest’s default, as all three engines do. The default
+badge background is #d90000, the badgeBackgroundColor default in Gecko’s
+ExtensionActions; a translucent background is drawn opaque, as in
+Chromium’s IconWithBadgeImageSource; and the default text color is black
+or white by WCAG contrast, as Gecko’s ExtensionActions computes it
+(Chromium takes both defaults from its color theme).
