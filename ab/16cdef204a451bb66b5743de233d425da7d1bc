@@ -1,0 +1,10 @@
+Ladybird holds a page’s requests at startup until the background
+pages of the extensions that may block them have loaded, or 10 seconds
+pass. Firefox does the same through the persisted and primed blocking
+listeners of its EventManager (startupBlocking in ext-toolkit.json),
+waiting for each such extension’s background to start before letting the
+request through; Chromium has no such wait for MV2 webRequest.
+
+Its WebSocket events follow Firefox’s (type websocket; onBeforeRequest
+may cancel; onBeforeSendHeaders and onSendHeaders carry the handshake’s
+headers) and Chromium’s WebRequestProxyingWebSocket.
