@@ -58,6 +58,7 @@
 #include <QShortcut>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QWindow>
 
 #if defined(AK_OS_WINDOWS)
 #    include <AK/Windows.h>
@@ -634,6 +635,11 @@ Core::EventLoop& Application::create_platform_event_loop()
         qputenv("NO_AT_BRIDGE", "1");
 #endif
         m_application = make<LadybirdQApplication>(arguments());
+        // Focus leaving every window of the browser is what extensions hear of as no window having it.
+        QObject::connect(m_application.ptr(), &QGuiApplication::focusWindowChanged, [](QWindow* window) {
+            if (!window)
+                WebView::Application::the().extension_window_focus_changed(WebView::ExtensionWindowFocus::no_window);
+        });
 #if defined(AK_OS_LINUX)
         QGuiApplication::setDesktopFileName(QStringLiteral("org.ladybird.Ladybird"));
         Ladybird::clip_translucent_windows_that_cannot_blend();
@@ -1535,6 +1541,7 @@ void Application::set_active_window(BrowserWindow& window)
     m_active_window = &window;
     m_extension_window_focus_order.remove_all_matching([&](auto id) { return id == window.extension_window_id(); });
     m_extension_window_focus_order.prepend(window.extension_window_id());
+    extension_window_focus_changed(window.extension_window_id());
 }
 
 Vector<WebView::BookmarkItem::Bookmark> Application::bookmarks_for_all_tabs_in_current_window() const

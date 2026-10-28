@@ -4195,6 +4195,22 @@ Vector<i64> Application::extension_window_focus_order() const
     return order;
 }
 
+void Application::extension_window_focus_changed(i64 window_id)
+{
+    auto changed = m_extension_window_focus.focus_changed(window_id);
+    if (!changed.has_value() || !m_extension_message_broker)
+        return;
+    // An extension that may not see a private window hears that no window has focus.
+    auto tabs = extension_tabs();
+    auto tab = tabs.find_if([&](auto const& tab) { return tab.window_id == window_id; });
+    for_each_extension_tab_viewer([&](Extension const& extension, ExtensionTabViewer const& viewer) {
+        auto seen = tab == tabs.end() || may_see_tab(viewer, *tab) ? window_id : ExtensionWindowFocus::no_window;
+        JsonArray arguments;
+        arguments.must_append(seen);
+        m_extension_message_broker->dispatch_extension_event(extension.id(), "windows.onFocusChanged"_string, arguments.serialized());
+    });
+}
+
 void Application::extension_tab_activated(i64 tab_id)
 {
     auto tabs = extension_tabs();
