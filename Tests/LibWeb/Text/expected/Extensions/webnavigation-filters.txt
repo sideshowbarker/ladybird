@@ -1,0 +1,5 @@
+filtered listener heard: loopback
+noUrl: Type error for parameter filters (Property "url" is required) for webNavigation.onCompleted.addListener.
+emptyUrl: Type error for parameter filters (Error processing url: Array requires at least 1 items; you have 0) for webNavigation.onCompleted.addListener.
+badKey: Type error for parameter filters (Error processing url.0: Unexpected property "hostname") for webNavigation.onCompleted.addListener.
+badType: Type error for parameter filters (Error processing url.0.hostEquals: Expected string instead of 1) for webNavigation.onCompleted.addListener.

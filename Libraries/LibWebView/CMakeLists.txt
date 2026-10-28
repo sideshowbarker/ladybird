@@ -37,6 +37,7 @@ set(SOURCES
     Extensions/ExtensionAlarmManager.cpp
     Extensions/ExtensionTabs.cpp
     Extensions/ExtensionTabsAPI.cpp
+    Extensions/ExtensionWebNavigation.cpp
     Extensions/ExtensionWebRequest.cpp
     Extensions/ExtensionBackgroundHost.cpp
     Extensions/ExtensionBackgroundLifetime.cpp

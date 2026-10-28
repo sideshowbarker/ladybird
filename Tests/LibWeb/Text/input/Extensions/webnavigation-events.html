@@ -1,0 +1,93 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-webrequest.js"></script>
+<body>
+    <script>
+        async function navigationEvents(until) {
+            for (;;) {
+                const events = await sendToBackground({ type: "events", token: webRequestToken });
+                if (until(events)) return events;
+                await new Promise(resolve => setTimeout(resolve, 20));
+            }
+        }
+
+        // The webNavigation events of a frame's navigation, a same-document navigation, a failed one, and a window the
+        // page opens.
+        asyncTest(async done => {
+            const { tabId } = await watchWebRequests();
+            const server = httpTestServer();
+            const noStore = { "Cache-Control": "no-store" };
+            const frameURL = await server.createEcho("GET", echoPath("frame.html"), {
+                status: 200,
+                headers: { "Content-Type": "text/html", ...noStore },
+                body: "<p>frame</p>",
+            });
+            const iframe = document.createElement("iframe");
+            iframe.src = frameURL;
+            document.body.appendChild(iframe);
+            const frameEvents = (
+                await navigationEvents(events => events.some(e => e.url === frameURL && e.event === "onCompleted"))
+            ).filter(e => e.url === frameURL);
+            println(`frame: ${frameEvents.map(e => e.event).join(" ")}`);
+            const committed = frameEvents.find(e => e.event === "onCommitted");
+            println(
+                `transitionType: ${committed.transitionType}, qualifiers: ${JSON.stringify(committed.transitionQualifiers)}`
+            );
+            println(`tab is the page's: ${frameEvents.every(e => e.tabId === tabId)}`);
+            println(
+                `one frameId, not the top's: ${frameEvents.every(e => e.frameId === committed.frameId) && committed.frameId > 0}, parentFrameId: ${committed.parentFrameId}`
+            );
+            const frames = await sendToBackground({ type: "allFrames", tabId });
+            println(
+                `getAllFrames has it: ${frames.some(frame => frame.frameId === committed.frameId && frame.url === frameURL)}`
+            );
+
+            // A frame's same-document navigations: history.pushState(), then a fragment.
+            const sameDocumentURL = await server.createEcho("GET", echoPath("same-document.html"), {
+                status: 200,
+                headers: { "Content-Type": "text/html", ...noStore },
+                body: `<script>history.pushState(null, "", location.pathname + "?pushed"); location.hash = "fragment";<\/script>`,
+            });
+            const sameDocumentFrame = document.createElement("iframe");
+            sameDocumentFrame.src = sameDocumentURL;
+            document.body.appendChild(sameDocumentFrame);
+            const sameDocument = (
+                await navigationEvents(events => events.some(e => e.event === "onReferenceFragmentUpdated"))
+            ).filter(e => e.url.startsWith(sameDocumentURL));
+            const loaded = sameDocument.find(e => e.event === "onCommitted");
+            const historyUpdate = sameDocument.find(e => e.event === "onHistoryStateUpdated");
+            println(
+                `pushState: ${historyUpdate.url === `${sameDocumentURL}?pushed`}, same frame: ${historyUpdate.frameId === loaded.frameId}, transitionType: ${historyUpdate.transitionType}`
+            );
+            const fragmentUpdate = sameDocument.find(e => e.event === "onReferenceFragmentUpdated");
+            println(
+                `fragment: ${fragmentUpdate.url === `${sameDocumentURL}?pushed#fragment`}, same frame: ${fragmentUpdate.frameId === loaded.frameId}`
+            );
+
+            const refused = `http://127.0.0.1:2/${webRequestToken}/refused`;
+            const failing = document.createElement("iframe");
+            failing.src = refused;
+            document.body.appendChild(failing);
+            const failure = (
+                await navigationEvents(events => events.some(e => e.url === refused && e.event === "onErrorOccurred"))
+            ).filter(e => e.url === refused);
+            println(`failed frame: ${failure.map(e => e.event).join(" ")}`);
+
+            const openedURL = await server.createEcho("GET", echoPath("opened.html"), {
+                status: 200,
+                headers: { "Content-Type": "text/html", ...noStore },
+                body: "<p>opened</p>",
+            });
+            window.open(openedURL);
+            const created = (
+                await navigationEvents(events => events.some(e => e.event === "onCreatedNavigationTarget"))
+            ).find(e => e.event === "onCreatedNavigationTarget");
+            println(
+                `created target: from the page's tab: ${created.sourceTabId === tabId}, sourceFrameId: ${created.sourceFrameId}, its own tab: ${created.tabId !== tabId}, url: ${created.url === openedURL}`
+            );
+            await sendToBackground({ type: "closeTab", tabId: created.tabId });
+            done();
+        });
+    </script>
+</body>

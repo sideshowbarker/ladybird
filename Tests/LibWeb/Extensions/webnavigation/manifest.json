@@ -1,0 +1,26 @@
+{
+    "manifest_version": 2,
+    "name": "WebNavigation Fixture",
+    "version": "1.0",
+    "description": "A background page that records the webNavigation events of the URLs a test page names, and looks up frames.",
+    "permissions": [
+        "webNavigation",
+        "tabs"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "http://*/*Extensions/webnavigation-*.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}
