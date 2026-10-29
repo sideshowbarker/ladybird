@@ -1,0 +1,9 @@
+Ladybird now gives a table laid out in fixed mode with a percentage
+width a max-content inline size of 1,000,000px. That matches WebKit,
+whose FixedTableLayout::applyContentLogicalWidthQuirks() raises such a
+table’s max width to tableMaxWidth (1000000), and Blink, whose
+TableLayoutAlgorithm::ComputeMinMaxSizes() sets its max size to
+TableTypes::kTableMaxInlineSize (also 1000000). Gecko goes further: Its
+FixedTableLayoutStrategy::GetPrefISize() returns nscoord_MAX for every
+fixed-layout table. The exact value is copied from WebKit and Blink, as
+it decides the width of any shrink-to-fit container wider than that.
