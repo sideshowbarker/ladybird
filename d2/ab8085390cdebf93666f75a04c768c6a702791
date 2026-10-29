@@ -1,0 +1,11 @@
+Ladybird revokes a removed extension, then deletes its storage directory
+on the storage worker, behind any pending writes. Disabling an extension
+keeps its storage, and a failed deletion is logged.
+
+Chromium deletes storage asynchronously too, with StorageFrontend::
+DeleteStorageSoon(), which posts the deletion to ValueStoreCache::
+DeleteStorageSoon() for each backend. Gecko clears both storage backends
+on uninstall, in Extension.sys.mjs’s onUninstalled handler, through
+ExtensionStorage.clear() and clearStoragesForPrincipal(). And WebKit’s
+WebExtensionController::removeStorage() deletes the SQLite database and
+reports any error to its completion handler, where Ladybird logs it.

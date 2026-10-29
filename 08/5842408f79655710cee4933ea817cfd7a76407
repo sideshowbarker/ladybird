@@ -1,0 +1,17 @@
+Ladybird’s removeCSS() takes away only a sheet that the same extension
+added with the same file or code and origin, never a content script’s.
+Chromium keys its sheets the same way, with its ScriptExecutor::
+ GenerateInjectionKey() (the extension and the file’s URL, or the
+code), and WebKit passes each sheet’s style level (author or user)
+through its insertCSS() and removeCSS(). A USER sheet joins the
+document’s user style sheet, so its !important rules beat the page’s,
+as in Chromium and WebKit.
+
+In manifest version 2, tabs.executeScript() follows Chromium’s
+ExecuteCodeFunction: A frameId with allFrames picks that frame’s
+subtree, an error in that root frame rejects the call, and “No source
+code or file specified.” and “Code and file should not be specified at
+the same time in the second argument.” keep Chromium’s wording. Gecko’s
+ext-tabs-base.js rejects frameId with allFrames as “mutually exclusive”
+instead; Ladybird takes Chromium’s reading, which Dark Reader’s Firefox
+build doesn’t depend on either way.

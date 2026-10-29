@@ -1,0 +1,30 @@
+Ladybird’s ExtensionRegistry keeps the loaded extensions in the UI
+process, persists them in Settings as id, directory, and enabled
+state, and gives each install a UUID that never changes. Blink’s
+ExtensionRegistry (extensions/browser/extension_registry.h) is the
+same browser-process set, split into enabled, disabled, terminated,
+and blocklisted ExtensionSets, with an observer list for load and
+unload; its ids are hashes of the extension’s public key or install
+path, so a page that can reach a chrome-extension:// URL learns a
+public identity. Gecko’s ExtensionPolicyService registers one
+WebExtensionPolicy per loaded extension in every process, and
+Extension.sys.mjs assigns each install a per-profile UUID that
+becomes the moz-extension:// host, so sites can’t fingerprint the
+installed set; Ladybird takes that design. WebKit leaves the registry
+to the embedder: WebExtensionController holds the loaded
+WebExtensionContexts, and each context’s uniqueIdentifier is whatever
+the embedder passes, which Safari persists per profile.
+
+Ladybird resolves an extension directory to its real, absolute path
+before comparing or storing it. Blink makes the path absolute too, with
+MakeAbsoluteFilePath() in UnpackedInstaller::LoadFromCommandLine();
+Gecko’s temporary add-on install takes an nsIFile, which rejects a
+relative path in InitWithNativePath(); and WebKit keeps a file resource
+URL, which is always absolute.
+
+A reload or a re-enable gives the extension a new revision, so the
+contexts of the old instance lose their authority. Blink tears them
+down in Dispatcher::UnloadExtension(), through ScriptContextSet::
+OnExtensionUnloaded(), and WebKit in WebExtensionContext::unload().
+Gecko’s ContentScriptContextChild::close() unloads the APIs and nukes
+the content script’s sandbox.

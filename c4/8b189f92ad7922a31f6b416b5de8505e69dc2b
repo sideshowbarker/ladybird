@@ -1,0 +1,24 @@
+Ladybird lists every installed extension, including failed loads, and
+updates every open management page when the registry changes. It uses a
+browser-owned directory picker and confirms removal with explicit notice
+that stored data is deleted. Chromium ExtensionsUI hosts its management
+page; Service.setItemEnabled() changes enabled state, and
+Service.deleteItem() confirms removal through management.uninstall().
+DeveloperPrivateLoadUnpackedFunction::ShowSelectFileDialog() chooses an
+existing folder in the browser. Ladybird matches these management and
+picker behaviors, but adds a permissions confirmation for unpacked
+installs.
+
+Gecko AddonCard.handleEvent() enables or disables through AddonManager,
+and asks BrowserAddonUI.promptRemoveExtension() before removal. Its
+installTemporaryExtension() uses a picker and reports loading errors
+separately. Ladybird shares the enable and removal behavior, but
+deliberately keeps unpacked installations across browser restarts, and
+combines loading and management on one page. Failed installed entries
+remain visible with their directory basename and a retry action.
+
+WebKit leaves the management interface to its embedding application.
+WebExtensionContext::setHasAccessToPrivateData() updates private access,
+while WebExtensionController::removeData() separately removes storage.
+Ladybird likewise keeps private access explicit and preserves storage on
+disable, deleting it only on confirmed removal from the profile.
