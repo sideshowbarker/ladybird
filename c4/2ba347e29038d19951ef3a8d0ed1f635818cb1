@@ -1,7 +1,0 @@
-Ladybird’s tabs.onUpdated reports what changed among a tab’s status,
-URL, title, and pin, with the URL and title only when the extension may
-see them, as Chromium’s TabsEventRouter does (it strips them without the
-tabs permission or a host permission), and as Gecko’s ext-tabs.js and
-WebKit’s WebExtensionContextAPITabsCocoa.mm do too. A private tab’s
-events reach only extensions allowed in private windows, as in all
-three. But Ladybird doesn’t report favIconUrl yet, which all three do.
