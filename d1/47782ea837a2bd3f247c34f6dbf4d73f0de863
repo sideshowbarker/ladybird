@@ -1,0 +1,5 @@
+Ladybird installs an archive with a Gecko id over the packed extension
+that has that id, keeping its data, as Gecko’s XPIInstall.sys.mjs takes
+an add-on with an installed id as an update of it. Gecko can trust that
+because add-ons are signed; Ladybird checks no signature, so it asks
+before every replacement, naming the extension it takes over.
