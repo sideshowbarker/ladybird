@@ -1,0 +1,15 @@
+Ladybird starts every enabled background page once, unloads a
+nonpersistent one after 30 seconds without activity, and starts it again
+for a runtime message, a port, or a storage change, queueing them until
+the page has loaded. Chromium’s LazyBackgroundTaskQueue queues work
+until a lazy background has loaded, and ProcessManager keeps a page with
+IncrementLazyKeepaliveCount() for open ports and pending messages;
+Gecko’s BackgroundBuilder and IdleManager in ext-backgroundPage.js do
+the same, with keepAlive for pending promises. Ladybird keeps a version
+2 event page loaded while it has an open port, as Chromium does with
+Activity::MESSAGE_PORT, but lets an idle port go on version 3, as
+Chromium’s ExtensionMessagePort::IsServiceWorkerActivity() and Gecko do.
+
+Chromium and Gecko wake a background page only for an event it has a
+listener for; Ladybird doesn’t track listeners yet, so it wakes for
+every storage change, except one the page made itself.
