@@ -1,0 +1,13 @@
+Ladybird gets the Trusted Types compliant string for a script’s
+insertHTML value in execCommand() itself, before the command runs,
+and never checks the HTML a user pastes. Blink does the same: Its
+Document::execCommand() calls TrustedTypesCheck() before EditorCommand::
+Execute(), for a command whose IsValueInterpretedAsHtml() is true.
+WebKit’s Document::execCommand() calls trustedTypeCompliantString()
+for insertHTML before it runs the command. And Gecko’s Document::
+ExecCommand() reaches GetTrustedTypesCompliantString() for Command::
+InsertHTML only, through Document::ConvertToInternalCommand(). All
+three take “(DOMString or TrustedHTML)” for the value, and none runs
+a Trusted Types check on the paste path (Blink’s clipboard_commands.cc
+and serialization.cc, WebKit’s Editor.cpp and markup.cpp, Gecko’s
+HTMLEditorDataTransfer.cpp).
