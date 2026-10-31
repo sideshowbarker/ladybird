@@ -14,6 +14,7 @@
 #include <AK/Vector.h>
 #include <AK/WeakPtr.h>
 #include <AK/Weakable.h>
+#include <LibURL/URL.h>
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
 #include <LibWebView/BrowsingSession.h>
 #include <LibWebView/Export.h>
@@ -22,6 +23,7 @@
 
 namespace WebView {
 
+class ExtensionContentScriptRegistrations;
 class ExtensionRegisteredScripts;
 
 class ExtensionRegistry;
@@ -90,6 +92,8 @@ public:
     void set_storage_store(ExtensionStorageStore& store) { m_storage_stores.append(&store); }
     void set_registered_scripts(ExtensionRegisteredScripts& scripts) { m_registered_scripts = &scripts; }
     ExtensionRegisteredScripts* registered_scripts() const { return m_registered_scripts; }
+    // The scripts contentScripts.register() adds, which an extension loses when it's disabled, reloaded, or removed.
+    void set_content_script_registrations(ExtensionContentScriptRegistrations& registrations) { m_content_script_registrations = &registrations; }
     // Puts the extension's registered scripts into its descriptor again, after they change.
     void registered_scripts_changed(StringView id);
     void set_enabled(StringView id, bool enabled);
@@ -108,7 +112,7 @@ public:
     RefPtr<Extension> find(StringView id) const;
     bool is_enabled(StringView id) const;
     bool may_access_resource(StringView id, StringView path, URL::URL const& document_url, IsPrivate = IsPrivate::No) const;
-    bool may_create_context(StringView id, URL::URL const& document_url, bool is_top_level, bool inherited = false, IsPrivate = IsPrivate::No) const;
+    bool may_create_context(StringView id, URL::URL const& document_url, bool is_top_level, bool inherited = false, IsPrivate = IsPrivate::No, Optional<URL::URL> const& creator_origin_url = {}) const;
     Vector<NonnullRefPtr<Extension>> const& extensions() const { return m_extensions; }
     Vector<Web::Extensions::ExtensionDescriptor> enabled_descriptors(IsPrivate = IsPrivate::No) const;
 
@@ -127,6 +131,7 @@ private:
     ExtensionMessageBroker* m_message_broker { nullptr };
     Vector<ExtensionStorageStore*> m_storage_stores;
     ExtensionRegisteredScripts* m_registered_scripts { nullptr };
+    ExtensionContentScriptRegistrations* m_content_script_registrations { nullptr };
     Optional<ByteString> m_profile_data_directory;
     Vector<NonnullRefPtr<Extension>> m_extensions;
     Vector<FailedExtension> m_failed_extensions;

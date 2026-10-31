@@ -14,8 +14,10 @@
 #include <LibURL/URL.h>
 #include <LibWebCommon/Extensions/ResourcePath.h>
 #include <LibWebCommon/Extensions/Scheme.h>
+#include <LibWebCommon/Extensions/UrlGlob.h>
 #include <LibWebCommon/Loader/UserAgent.h>
 #include <LibWebView/Extensions/ExtensionArchive.h>
+#include <LibWebView/Extensions/ExtensionContentScripts.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionRegisteredScripts.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
@@ -246,6 +248,8 @@ ErrorOr<NonnullRefPtr<Extension>, String> ExtensionRegistry::try_install(Pending
         extension = moved.release_value();
     }
     extension->apply_permission_grants(grants);
+    if (m_content_script_registrations)
+        m_content_script_registrations->remove_extension(extension->id());
     apply_registered_scripts(*extension);
     if (m_message_broker)
         m_message_broker->close_channels_for(extension->id());
@@ -327,6 +331,8 @@ void ExtensionRegistry::remove(StringView id)
     m_settings.remove_installed_extension(*installed_id);
     if (m_registered_scripts)
         m_registered_scripts->delete_scripts(*installed_id);
+    if (m_content_script_registrations)
+        m_content_script_registrations->remove_extension(*installed_id);
     if (package.has_value()) {
         if (auto removed = remove_extension_package(*package); removed.is_error())
             warnln("Unable to delete extension {} files: {}", *installed_id, removed.error());
@@ -348,6 +354,10 @@ void ExtensionRegistry::set_enabled(StringView id, bool enabled)
     if (m_message_broker)
         m_message_broker->close_channels_for(extension->id());
     extension->renew_instance();
+    if (m_content_script_registrations) {
+        m_content_script_registrations->remove_extension(extension->id());
+        apply_registered_scripts(*extension);
+    }
     m_settings.set_installed_extension_enabled(id, enabled);
     notify_changed();
 }
@@ -414,18 +424,22 @@ void ExtensionRegistry::restore_from_settings()
 
 void ExtensionRegistry::apply_registered_scripts(Extension& extension)
 {
-    if (!m_registered_scripts)
+    if (!m_registered_scripts && !m_content_script_registrations)
         return;
     Vector<Web::Extensions::ContentScriptDescriptor> scripts;
-    for (auto const& script : m_registered_scripts->scripts(extension.id())) {
-        // A file that went missing since registration leaves its script out until it's back.
-        auto descriptor = extension.registered_content_script(script);
-        if (descriptor.is_error()) {
-            warnln("Extension {} has a registered content script that won't load: {}", extension.id(), descriptor.error());
-            continue;
+    if (m_registered_scripts) {
+        for (auto const& script : m_registered_scripts->scripts(extension.id())) {
+            // A file that went missing since registration leaves its script out until it's back.
+            auto descriptor = extension.registered_content_script(script);
+            if (descriptor.is_error()) {
+                warnln("Extension {} has a registered content script that won't load: {}", extension.id(), descriptor.error());
+                continue;
+            }
+            scripts.append(descriptor.release_value());
         }
-        scripts.append(descriptor.release_value());
     }
+    if (m_content_script_registrations)
+        scripts.extend(m_content_script_registrations->scripts(extension.id()));
     extension.set_registered_content_scripts(move(scripts));
 }
 
@@ -476,21 +490,33 @@ bool ExtensionRegistry::may_access_resource(StringView id, StringView path, URL:
     return extension->is_web_accessible(path, document_url);
 }
 
-bool ExtensionRegistry::may_create_context(StringView id, URL::URL const& document_url, bool is_top_level, bool inherited, IsPrivate is_private) const
+bool ExtensionRegistry::may_create_context(StringView id, URL::URL const& document_url, bool is_top_level, bool inherited, IsPrivate is_private, Optional<URL::URL> const& creator_origin_url) const
 {
     auto extension = find(id);
     if (!extension || !is_enabled(id) || (is_private == IsPrivate::Yes && !is_allowed_in_private(id)))
         return false;
     if (!inherited && document_url.scheme() == Web::Extensions::scheme && document_url.serialized_host() == id)
         return true;
+    // An about:blank or about:srcdoc document comes here as its creator's URL, and a data: or blob: one as itself; a
+    // script that matches by creator origin is judged by that origin instead, as the page process judges it.
+    auto falls_back = inherited || document_url.scheme().is_one_of("data"sv, "blob"sv);
     for (auto const& script : extension->descriptor().content_scripts) {
-        if ((inherited && !script.match_about_blank) || (!is_top_level && !script.all_frames) || script.world != Web::Extensions::ExecutionWorld::Isolated)
+        if ((!is_top_level && !script.all_frames) || script.world != Web::Extensions::ExecutionWorld::Isolated)
             continue;
-        if (script.exclude_matches.contains([&](auto const& pattern) { return pattern.matches(document_url); }))
+        Optional<URL::URL> url = document_url;
+        if (falls_back && script.match_origin_as_fallback)
+            url = creator_origin_url;
+        else if (inherited && !script.match_about_blank)
+            url = {};
+        if (!url.has_value())
             continue;
-        if (script.id.has_value() && !extension->descriptor().has_host_access(document_url))
+        if (script.exclude_matches.contains([&](auto const& pattern) { return pattern.matches(*url); }))
             continue;
-        if (script.matches.contains([&](auto const& pattern) { return pattern.matches(document_url); }))
+        if (!Web::Extensions::url_matches_globs(script.include_globs, script.exclude_globs, *url))
+            continue;
+        if (script.id.has_value() && !extension->descriptor().has_host_access(*url))
+            continue;
+        if (script.matches.contains([&](auto const& pattern) { return pattern.matches(*url); }))
             return true;
     }
     return false;

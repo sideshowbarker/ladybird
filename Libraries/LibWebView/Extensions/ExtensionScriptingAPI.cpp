@@ -170,6 +170,76 @@ ErrorOr<ExtensionInjectionRequest, String> parse_extension_tabs_injection(Extens
     return request;
 }
 
+ErrorOr<Web::Extensions::ContentScriptDescriptor, String> parse_extension_content_scripts_options(Extension const& extension, JsonObject const& options)
+{
+    Web::Extensions::ContentScriptDescriptor script;
+    auto const& descriptor = extension.descriptor();
+    auto parse_patterns = [&](StringView key, Vector<Web::Extensions::MatchPattern>& patterns) -> ErrorOr<void, String> {
+        auto array = options.get_array(key);
+        if (!array.has_value())
+            return {};
+        for (auto const& value : array->values()) {
+            auto pattern = value.is_string() ? Web::Extensions::MatchPattern::parse(value.as_string()) : Error::from_string_literal("not a string");
+            if (pattern.is_error())
+                return MUST(String::formatted("Invalid match pattern in {}", key));
+            patterns.append(pattern.release_value());
+        }
+        return {};
+    };
+    TRY(parse_patterns("matches"sv, script.matches));
+    TRY(parse_patterns("excludeMatches"sv, script.exclude_matches));
+    for (size_t i = 0; i < script.matches.size(); ++i) {
+        auto const& pattern = script.matches[i];
+        auto covers = [&](auto const& permission) { return permission.contains(pattern); };
+        if (!any_of(descriptor.host_permissions, covers) && !any_of(descriptor.granted_origins, covers))
+            return MUST(String::formatted("Permission denied to register a content script for {}", options.get_array("matches"sv)->at(i).as_string()));
+    }
+    auto read_strings = [&](StringView key, Vector<String>& strings) {
+        if (auto array = options.get_array(key); array.has_value()) {
+            for (auto const& value : array->values()) {
+                if (value.is_string())
+                    strings.append(value.as_string());
+            }
+        }
+    };
+    read_strings("includeGlobs"sv, script.include_globs);
+    read_strings("excludeGlobs"sv, script.exclude_globs);
+    // Each entry is a file of the extension's or code, which counts as a path of its own.
+    auto read_sources = [&](StringView key, Vector<String>& paths, Vector<String>& sources) -> ErrorOr<void, String> {
+        auto array = options.get_array(key);
+        if (!array.has_value())
+            return {};
+        for (auto const& entry : array->values()) {
+            if (!entry.is_object())
+                continue;
+            if (auto code = entry.as_object().get_string("code"sv); code.has_value()) {
+                paths.append("code"_string);
+                sources.append(*code);
+                continue;
+            }
+            auto file = entry.as_object().get_string("file"sv);
+            if (!file.has_value())
+                continue;
+            auto source = read_extension_file(extension, *file);
+            if (!source.has_value())
+                return file_load_error(*file);
+            paths.append(*file);
+            sources.append(source.release_value());
+        }
+        return {};
+    };
+    TRY(read_sources("js"sv, script.js_paths, script.js_sources));
+    TRY(read_sources("css"sv, script.css_paths, script.css_sources));
+    auto run_at = options.get_string("runAt"sv);
+    script.run_at = run_at == "document_start"sv ? Web::Extensions::RunAt::DocumentStart : run_at == "document_end"sv ? Web::Extensions::RunAt::DocumentEnd
+                                                                                                                      : Web::Extensions::RunAt::DocumentIdle;
+    script.all_frames = options.get_bool("allFrames"sv).value_or(false);
+    script.match_about_blank = options.get_bool("matchAboutBlank"sv).value_or(false);
+    script.match_origin_as_fallback = options.get_bool("matchOriginAsFallback"sv).value_or(false);
+    script.world = options.get_string("world"sv) == "MAIN"sv ? Web::Extensions::ExecutionWorld::Main : Web::Extensions::ExecutionWorld::Isolated;
+    return script;
+}
+
 Optional<String> extension_injection_refusal(Extension const& extension, URL::URL const& url, bool may_see_url, bool has_active_tab)
 {
     auto refusal_for_host = [&] {
