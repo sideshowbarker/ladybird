@@ -1,0 +1,41 @@
+{
+    "manifest_version": 2,
+    "name": "Model uBlock Origin",
+    "version": "1.0",
+    "description": "A model, with code of its own, of what uBlock Origin's Firefox build does by default: blocking webRequest listeners that hold requests until its filters load, cancel and redirect by type, and rewrite a document's headers; scriptlets registered as a navigation begins; and cosmetic CSS inserted and removed by frame.",
+    "permissions": [
+        "webRequest",
+        "webRequestBlocking",
+        "webNavigation",
+        "tabs",
+        "storage",
+        "unlimitedStorage",
+        "privacy",
+        "<all_urls>"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ],
+        "persistent": true
+    },
+    "browser_action": {
+        "default_title": "Model uBlock Origin"
+    },
+    "web_accessible_resources": [
+        "noop.js"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "http://*/*Extensions/model-ublock-origin.html",
+                "http://*/*/ubo-*/target.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end",
+            "all_frames": true
+        }
+    ]
+}
