@@ -1,0 +1,25 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        function askLimited() {
+            return new Promise(resolve => {
+                document.addEventListener(
+                    "limited-reply",
+                    () => resolve(JSON.parse(document.documentElement.dataset.limitedReply)),
+                    { once: true }
+                );
+                document.dispatchEvent(new CustomEvent("limited-request"));
+            });
+        }
+
+        // With unlimitedStorage, storage.local keeps tens of megabytes intact; without it, a set over the quota fails.
+        asyncTest(async done => {
+            await contentScriptReady();
+            println(`24 MiB: ${JSON.stringify(await sendToBackground({ type: "large", megabytes: 8 }))}`);
+            println(`without unlimitedStorage: ${JSON.stringify(await askLimited())}`);
+            done();
+        });
+    </script>
+</body>

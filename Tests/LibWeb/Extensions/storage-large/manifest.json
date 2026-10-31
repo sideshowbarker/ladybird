@@ -1,0 +1,27 @@
+{
+    "manifest_version": 2,
+    "name": "Storage Large Fixture",
+    "version": "1.0",
+    "description": "A background page with unlimitedStorage that keeps tens of megabytes in storage.local, and uses IndexedDB, as an ad blocker does.",
+    "permissions": [
+        "storage",
+        "unlimitedStorage"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/storage-large.html",
+                "file:///*/Extensions/extension-indexeddb.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

@@ -1,0 +1,2 @@
+24 MiB: {"intact":true,"atLeast":true}
+without unlimitedStorage: {"rejected":"storage.local QUOTA_BYTES quota exceeded"}
