@@ -1,0 +1,66 @@
+<!doctype html>
+<script src="../include.js"></script>
+<body>
+    <script>
+        // Scriptlets an extension registers as a navigation begins, while its blocking listener holds the page's
+        // request, run before the page's first script, whatever the page's CSP, and in its about:blank and data:
+        // frames too.
+        const target = `
+            <!doctype html>
+            <script nonce="x">
+                const report = {
+                    main: window.scriptletRan === true,
+                    isolated: document.documentElement.dataset.isolatedRan === "1",
+                };
+                const blank = document.createElement("iframe");
+                document.documentElement.append(blank);
+                report.blank = blank.contentWindow.scriptletRan === true;
+                const reply = opener ?? parent;
+                // A data: frame whose script never runs says nothing, so the report goes out after a while anyway.
+                const send = data => {
+                    report.data = data;
+                    reply.postMessage(report, "*");
+                };
+                window.addEventListener("message", event => send(event.data), { once: true });
+                setTimeout(() => send("no report"), 2000);
+                const data = document.createElement("iframe");
+                data.src = "data:text/html,<script nonce=x>parent.postMessage(window.scriptletRan === true, '*')<\\/script>";
+                document.documentElement.append(data);
+            <\/script>`;
+
+        function reportOf(open) {
+            return new Promise(resolve => {
+                window.addEventListener("message", event => resolve(JSON.stringify(event.data)), { once: true });
+                open();
+            });
+        }
+
+        // Each case loads a URL of its own, so it gets only the scriptlets its own navigation registered.
+        const targetURL = name =>
+            httpTestServer().createEcho("GET", `/contentscripts-${crypto.randomUUID()}/${name}/timing-target.html`, {
+                status: 200,
+                headers: {
+                    "Content-Type": "text/html",
+                    "Content-Security-Policy": "script-src 'nonce-x'",
+                    "Cache-Control": "no-store",
+                },
+                body: target,
+            });
+
+        asyncTest(async done => {
+            const frameURL = await targetURL("frame");
+            const popupURL = await targetURL("popup");
+            println(
+                `a frame: ${await reportOf(() => {
+                    const frame = document.createElement("iframe");
+                    frame.src = frameURL;
+                    document.body.append(frame);
+                })}`
+            );
+            let popup;
+            println(`a top-level page: ${await reportOf(() => (popup = window.open(popupURL)))}`);
+            popup.close();
+            done();
+        });
+    </script>
+</body>

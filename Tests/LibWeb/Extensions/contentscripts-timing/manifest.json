@@ -1,0 +1,17 @@
+{
+    "manifest_version": 2,
+    "name": "Content Scripts Timing Fixture",
+    "version": "1.0",
+    "description": "A background page that registers scriptlets for a page as its navigation begins, and holds the page's request while it does, as an ad blocker does.",
+    "permissions": [
+        "webRequest",
+        "webRequestBlocking",
+        "webNavigation",
+        "<all_urls>"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    }
+}
