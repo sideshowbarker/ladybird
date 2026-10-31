@@ -1,0 +1,25 @@
+{
+    "manifest_version": 2,
+    "name": "Privacy Fixture",
+    "version": "1.0",
+    "description": "A background page that reads, sets, and clears privacy settings as the test page asks, and records their changes.",
+    "permissions": [
+        "privacy"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/privacy-api.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

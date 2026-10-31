@@ -1,0 +1,12 @@
+before: controllable_by_this_extension
+set: {"value":true}
+after set: {"value":{"levelOfControl":"controlled_by_this_extension","value":false}}
+clear: {"value":true}
+after clear: controllable_by_this_extension
+changes: ["controlled_by_this_extension","controllable_by_this_extension"]
+a policy: {"value":{"levelOfControl":"controlled_by_this_extension","value":"disable_non_proxied_udp"}}
+auditing set: {"value":false}
+auditing: {"value":{"levelOfControl":"not_controllable","value":false}}
+another scope: {"rejected":"Ladybird does not support the incognito_persistent settings scope."}
+a bad scope: {"thrown":"Type error for parameter details (Error processing scope: Invalid enumeration value \"bogus\") for privacy.network.networkPredictionEnabled.set."}
+no value: {"thrown":"Type error for parameter details (Property \"value\" is required) for privacy.network.networkPredictionEnabled.set."}

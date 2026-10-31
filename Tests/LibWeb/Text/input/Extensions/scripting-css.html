@@ -37,6 +37,7 @@
             println(
                 `no contentScripts in manifest version 3: ${await sendToBackground({ type: "no-contentScripts" })}`
             );
+            println(`no privacy without the permission: ${await sendToBackground({ type: "no-privacy" })}`);
 
             // removeCSS() takes away only what an insertCSS() call of the extension's added with the same CSS or
             // file, and the same origin; a USER sheet's !important rule beats the page's.

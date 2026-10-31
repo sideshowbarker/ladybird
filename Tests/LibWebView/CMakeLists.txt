@@ -73,6 +73,7 @@ set(TEST_SOURCES
     TestExtensionManifest.cpp
     TestExtensionMenus.cpp
     TestExtensionMessageBroker.cpp
+    TestExtensionPrivacySettings.cpp
     TestExtensionRegisteredScripts.cpp
     TestExtensionRegistry.cpp
     TestExtensionStorageStore.cpp

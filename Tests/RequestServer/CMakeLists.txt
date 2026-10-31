@@ -8,6 +8,7 @@ set(TEST_SOURCES
     TestCookieResponses.cpp
     TestDiskCacheWaiters.cpp
     TestExportImport.cpp
+    TestNetworkPrediction.cpp
     TestProxyHostResolution.cpp
     TestRequestTimingInfo.cpp
     TestSiteBinding.cpp
