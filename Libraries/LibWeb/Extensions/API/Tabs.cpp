@@ -549,6 +549,7 @@ GC::Ref<JS::Object> create_tabs(JS::Realm& realm, MessagingContext& context)
     if (context.descriptor().manifest_version < 3) {
         define_inject_method(realm, tabs, context, "executeScript"sv);
         define_inject_method(realm, tabs, context, "insertCSS"sv);
+        define_inject_method(realm, tabs, context, "removeCSS"sv);
     }
     return tabs;
 }

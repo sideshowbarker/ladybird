@@ -158,7 +158,8 @@ ErrorOr<ExtensionInjectionRequest, String> parse_extension_tabs_injection(Extens
     auto run_at = details.get_string("runAt"sv);
     request.injection.run_at = run_at == "document_start"sv ? Web::Extensions::RunAt::DocumentStart : run_at == "document_end"sv ? Web::Extensions::RunAt::DocumentEnd
                                                                                                                                  : Web::Extensions::RunAt::DocumentIdle;
-    if (kind == ExtensionTabsInjection::CSS) {
+    if (kind != ExtensionTabsInjection::Script) {
+        request.injection.remove_css = kind == ExtensionTabsInjection::RemoveCSS;
         request.injection.css_keys.append(file.has_value() ? MUST(String::formatted("file:{}", *file)) : MUST(String::formatted("code:{}", *source)));
         request.injection.css_sources.append(source.release_value());
         request.injection.css_user_origin = details.get_string("cssOrigin"sv) == "user"sv;

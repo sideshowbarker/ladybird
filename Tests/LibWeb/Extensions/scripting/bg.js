@@ -64,6 +64,10 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse(typeof browser.tabs.executeScript);
         return;
     }
+    if (message.type === "no-tabs-removeCSS") {
+        sendResponse(typeof browser.tabs.removeCSS);
+        return;
+    }
     if (message.type === "neither") return settle(browser.scripting.executeScript({ target }), sendResponse);
     if (message.type === "other-tab") {
         browser.tabs.create({ url: "data:text/html,unreachable", active: false }).then(async tab => {

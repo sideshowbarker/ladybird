@@ -46,11 +46,12 @@ enum class ExtensionCSSInjection {
 };
 WEBVIEW_API ErrorOr<ExtensionInjectionRequest, String> parse_extension_css_injection(Extension const&, JsonObject const& details, ExtensionCSSInjection);
 
-// Manifest version 2's tabs.executeScript() and tabs.insertCSS(): code or a file, in a tab's top frame, the frame
-// named by frameId, or all of its frames.
+// Manifest version 2's tabs.executeScript(), tabs.insertCSS(), and tabs.removeCSS(): code or a file, in a tab's top
+// frame, the frame named by frameId, or all of its frames.
 enum class ExtensionTabsInjection {
     Script,
     CSS,
+    RemoveCSS,
 };
 WEBVIEW_API ErrorOr<ExtensionInjectionRequest, String> parse_extension_tabs_injection(Extension const&, i64 tab_id, JsonObject const& details, ExtensionTabsInjection);
 
