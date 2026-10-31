@@ -1,0 +1,11 @@
+Ladybird’s contentScripts.register() keeps each registration with the
+context that made it, drops it when that context goes, and refuses a
+match outside the extension’s host permissions with “Permission denied
+to register a content script for <pattern>” — the message extensions
+see, kept exact. That’s Firefox’s ext-contentScripts.js: register()
+checks each pattern against extension.allowedOrigins, and the
+context’s callOnClose() unregisters every script it registered. Its
+argument errors follow Firefox’s Schemas.sys.mjs framing (“Type error
+for parameter contentScriptOptions (...) for contentScripts.register.”).
+Chromium and WebKit have only scripting.registerContentScripts(), with
+no per-context lifetime.

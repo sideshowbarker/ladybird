@@ -1,0 +1,8 @@
+Ladybird’s URL filters match as Firefox’s MatchURLFilters.sys.mjs does:
+hostContains tests the host with a dot in front, a query is compared
+without its question mark, Contains, Prefix, and Suffix never match
+an empty part, urlMatches runs on the URL without its fragment and
+originAndPathMatches without its query too, and a URL with no port uses
+its scheme’s default. Chromium’s URLMatcher (components/url_matcher)
+has the same key set and the same implicit dot for hostContains. Error
+messages use Firefox’s schema wording, which extensions may compare.
