@@ -1,0 +1,7 @@
+Ladybird’s UI process admits a content script’s context by the rules
+the page process injects it by — globs and creator-origin matching
+included — and keeps an admitted context until it’s destroyed. In
+Firefox, unregistering a contentScripts registration likewise stops
+only future injection: Scripts already running keep their context, and
+the extension policy’s permission checks, not the registration, decide
+what they may do.
