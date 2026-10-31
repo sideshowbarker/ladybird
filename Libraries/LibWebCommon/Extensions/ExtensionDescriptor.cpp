@@ -70,6 +70,9 @@ ErrorOr<void> encode(Encoder& encoder, Web::Extensions::ContentScriptDescriptor 
     TRY(encoder.encode(script.all_frames));
     TRY(encoder.encode(script.match_about_blank));
     TRY(encoder.encode(script.world));
+    TRY(encoder.encode(script.include_globs));
+    TRY(encoder.encode(script.exclude_globs));
+    TRY(encoder.encode(script.match_origin_as_fallback));
     return {};
 }
 
@@ -88,6 +91,9 @@ ErrorOr<Web::Extensions::ContentScriptDescriptor> decode(Decoder& decoder)
     script.all_frames = TRY(decoder.decode<bool>());
     script.match_about_blank = TRY(decoder.decode<bool>());
     script.world = TRY(decoder.decode<Web::Extensions::ExecutionWorld>());
+    script.include_globs = TRY(decoder.decode<Vector<String>>());
+    script.exclude_globs = TRY(decoder.decode<Vector<String>>());
+    script.match_origin_as_fallback = TRY(decoder.decode<bool>());
     return script;
 }
 

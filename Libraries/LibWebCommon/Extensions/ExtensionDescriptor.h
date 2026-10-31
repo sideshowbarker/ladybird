@@ -31,8 +31,9 @@ enum class ExecutionWorld : u8 {
     Main,
 };
 
-// One entry of a manifest's "content_scripts", or a script registered with scripting.registerContentScripts() (which
-// has an id), with the script and style sheet sources already read from disk.
+// One entry of a manifest's "content_scripts", or a script registered with scripting.registerContentScripts() or
+// contentScripts.register() (which has an id), with the script and style sheet sources already read from disk. Only
+// contentScripts.register() sets the globs and match_origin_as_fallback.
 struct WEBCOMMON_API ContentScriptDescriptor {
     Optional<String> id;
     Vector<MatchPattern> matches;
@@ -45,6 +46,10 @@ struct WEBCOMMON_API ContentScriptDescriptor {
     bool all_frames { false };
     bool match_about_blank { false };
     ExecutionWorld world { ExecutionWorld::Isolated };
+    Vector<String> include_globs;
+    Vector<String> exclude_globs;
+    // Whether an about:, data:, or blob: document is matched as its creator's origin.
+    bool match_origin_as_fallback { false };
 
     bool operator==(ContentScriptDescriptor const&) const = default;
 };

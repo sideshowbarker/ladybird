@@ -69,6 +69,9 @@ TEST_CASE(descriptor_round_trips_through_ipc)
         .all_frames = true,
         .match_about_blank = true,
         .world = ExecutionWorld::Main,
+        .include_globs = { "*/articles/*"_string },
+        .exclude_globs = { "*?print=1"_string, "*/amp/*"_string },
+        .match_origin_as_fallback = true,
     };
     ContentScriptDescriptor second_script {
         .id = {},
@@ -82,6 +85,9 @@ TEST_CASE(descriptor_round_trips_through_ipc)
         .all_frames = false,
         .match_about_blank = false,
         .world = ExecutionWorld::Isolated,
+        .include_globs = {},
+        .exclude_globs = {},
+        .match_origin_as_fallback = false,
     };
     ExtensionDescriptor descriptor {
         .id = "0f5c2a3e-9d3b-4c1a-8f7e-2b6d1c0a9e11"_string,

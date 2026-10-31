@@ -13,6 +13,7 @@ set(SOURCES
     Extensions/MessageSender.cpp
     Extensions/Storage.cpp
     Extensions/UrlFilter.cpp
+    Extensions/UrlGlob.cpp
     Extensions/ResourcePath.cpp
     Extensions/WebRequest.cpp
     Fetch/Infrastructure/DataURL.cpp

@@ -18,15 +18,42 @@
 #include <LibWeb/HTML/Scripting/Environments.h>
 #include <LibWeb/HTML/Window.h>
 #include <LibWebCommon/Extensions/Scheme.h>
+#include <LibWebCommon/Extensions/UrlGlob.h>
 
 namespace Web::Extensions {
 
+// For a script with match_origin_as_fallback, the URL that stands for an about:, data:, or blob: document: its
+// creator's origin with the path "/" (for blob:, the origin in the URL itself; for data:, the origin of the document
+// that holds its frame).
+static Optional<URL::URL> creator_origin_url(DOM::Document const& document)
+{
+    auto const& url = document.url();
+    Optional<URL::Origin> origin;
+    if (url.scheme() == "blob"sv) {
+        origin = url.origin();
+    } else if (url.scheme() == "data"sv) {
+        if (auto navigable = document.navigable(); navigable && navigable->parent()) {
+            if (auto parent_url = navigable->parent()->active_document_url(); parent_url.has_value())
+                origin = parent_url->origin();
+        }
+    } else if (auto creator_url = document.url_for_extension_matching(); creator_url.has_value()) {
+        origin = creator_url->origin();
+    }
+    if (!origin.has_value() || origin->is_opaque())
+        return {};
+    return URL::Parser::basic_parse(MUST(String::formatted("{}/", origin->serialize())));
+}
+
 // The URL a content script's patterns are matched against: the document's own, except that an about:blank or
-// about:srcdoc document stands in for the document that created it when the script opts in with match_about_blank.
+// about:srcdoc document stands in for the document that created it when the script opts in with match_about_blank,
+// and an about:, data:, or blob: document for its creator's origin with match_origin_as_fallback.
 static Optional<URL::URL> effective_url_for_matching(DOM::Document const& document, ContentScriptDescriptor const& script)
 {
     auto const& url = document.url();
-    if (!HTML::url_matches_about_blank(url) && !HTML::url_matches_about_srcdoc(url))
+    auto is_about_blank_or_srcdoc = HTML::url_matches_about_blank(url) || HTML::url_matches_about_srcdoc(url);
+    if (script.match_origin_as_fallback && (is_about_blank_or_srcdoc || url.scheme().is_one_of("data"sv, "blob"sv)))
+        return creator_origin_url(document);
+    if (!is_about_blank_or_srcdoc)
         return url;
     if (!script.match_about_blank)
         return {};
@@ -49,6 +76,8 @@ bool content_script_matches(DOM::Document const& document, ContentScriptDescript
         if (pattern.matches(*url))
             return false;
     }
+    if (!url_matches_globs(script.include_globs, script.exclude_globs, *url))
+        return false;
     for (auto const& pattern : script.matches) {
         if (pattern.matches(*url))
             return true;
