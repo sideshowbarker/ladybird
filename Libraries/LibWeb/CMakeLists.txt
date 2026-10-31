@@ -277,6 +277,7 @@ set(SOURCES
     Extensions/API/Arguments.cpp
     Extensions/API/Commands.cpp
     Extensions/API/Completion.cpp
+    Extensions/API/ContentScripts.cpp
     Extensions/API/ContextMenus.cpp
     Extensions/API/Event.cpp
     Extensions/API/ExtensionNamespace.cpp

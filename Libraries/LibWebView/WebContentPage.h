@@ -499,6 +499,9 @@ private:
     void call_extension_scripting_api(String const& extension_id, u64 request_id, StringView method, JsonArray const& arguments);
     void call_extension_tabs_injection_api(String const& extension_id, u64 request_id, StringView method, JsonArray const& arguments);
     ErrorOr<JsonValue, String> call_extension_registered_scripts_api(Extension const&, StringView method, JsonArray const& arguments);
+    void call_extension_content_scripts_api(Extension const&, u64 context_id, u64 request_id, StringView method, JsonArray const& arguments);
+    void drop_extension_content_script_registrations();
+    static Optional<URL::URL> extension_creator_origin_url(CanonicalNavigable const&, URL::URL const& url, URL::URL const& matching_url);
     ErrorOr<JsonValue, String> call_extension_permissions_api(String const& extension_id, StringView method, JsonArray const& arguments);
     ErrorOr<JsonValue, String> call_extension_menus_api(Extension const&, StringView method, JsonArray const& arguments);
     ErrorOr<JsonValue, String> call_extension_commands_api(Extension const&, StringView method, JsonArray const& arguments);
@@ -539,6 +542,12 @@ private:
     bool m_detached_close_pending { false };
     Optional<String> m_history_recorded_url_for_current_load;
     HashTable<u64> m_renderer_owned_downloads;
+    // The documents of this page's admitted extension contexts, by context id.
+    struct ExtensionContextDocument {
+        String extension_id;
+        Web::HTML::CrossProcessId document_id;
+    };
+    HashMap<u64, ExtensionContextDocument> m_extension_context_documents;
     HashTable<OwedReply> m_owed_replies;
     Optional<MonotonicTime> m_last_user_activation;
 

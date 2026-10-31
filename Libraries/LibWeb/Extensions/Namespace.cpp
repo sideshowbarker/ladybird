@@ -9,6 +9,7 @@
 #include <LibWeb/Extensions/API/Action.h>
 #include <LibWeb/Extensions/API/Alarms.h>
 #include <LibWeb/Extensions/API/Commands.h>
+#include <LibWeb/Extensions/API/ContentScripts.h>
 #include <LibWeb/Extensions/API/ContextMenus.h>
 #include <LibWeb/Extensions/API/ExtensionNamespace.h>
 #include <LibWeb/Extensions/API/I18n.h>
@@ -44,6 +45,10 @@ GC::Ref<JS::Object> install_namespace(JS::Realm& realm, MessagingContext& messag
     // Only manifest version 3 has scripting; version 2 injects with tabs.executeScript().
     if (context == NamespaceContext::ExtensionDocument && messaging_context.descriptor().manifest_version >= 3 && messaging_context.descriptor().has_permission("scripting"sv))
         namespace_object->define_direct_property("scripting"_utf16_fly_string, create_scripting(realm, messaging_context), attributes);
+
+    // contentScripts.register() is manifest version 2's; version 3 registers with scripting.
+    if (context == NamespaceContext::ExtensionDocument && messaging_context.descriptor().manifest_version == 2)
+        namespace_object->define_direct_property("contentScripts"_utf16_fly_string, create_content_scripts(realm, messaging_context), attributes);
 
     // Alarms wake the extension's own pages, so content scripts don't have them.
     if (context == NamespaceContext::ExtensionDocument && messaging_context.descriptor().has_permission("alarms"sv))

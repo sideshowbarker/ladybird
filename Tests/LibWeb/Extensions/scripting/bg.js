@@ -64,6 +64,10 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse(typeof browser.tabs.executeScript);
         return;
     }
+    if (message.type === "no-contentScripts") {
+        sendResponse(typeof browser.contentScripts);
+        return;
+    }
     if (message.type === "no-tabs-removeCSS") {
         sendResponse(typeof browser.tabs.removeCSS);
         return;

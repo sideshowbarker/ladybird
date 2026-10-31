@@ -1,0 +1,18 @@
+in content scripts: undefined
+before registering: main: false, isolated: -, page: -, top only: -, rgb(0, 0, 0)
+register: {"value":"function"}
+registered: main: true, isolated: i, page: -, top only: -, rgb(1, 2, 3)
+excludeMatches: main: true, isolated: -, page: -, top only: -, rgb(1, 2, 3)
+excludeGlobs: main: true, isolated: -, page: -, top only: -, rgb(1, 2, 3)
+includeGlobs: main: true, isolated: -, page: -, top only: -, rgb(1, 2, 3)
+unregister: {"value":null}
+again: {"value":null}
+unregistered: main: true, isolated: -, page: -, top only: -, rgb(1, 2, 3)
+a running script after unregister: still messaging
+from a page: main: true, isolated: -, page: p, top only: -, rgb(0, 0, 0)
+the page closed: main: true, isolated: -, page: -, top only: -, rgb(0, 0, 0)
+no matches: {"thrown":"Type error for parameter contentScriptOptions (Property \"matches\" is required) for contentScripts.register."}
+a bad world: {"thrown":"Type error for parameter contentScriptOptions (Error processing world: Invalid enumeration value \"bogus\") for contentScripts.register."}
+a bad pattern: true
+file and code: true
+without the host: {"rejected":"Permission denied to register a content script for https://example.com/*"}

@@ -41,6 +41,7 @@ set(SOURCES
     Extensions/ExtensionWebRequest.cpp
     Extensions/ExtensionBackgroundHost.cpp
     Extensions/ExtensionBackgroundLifetime.cpp
+    Extensions/ExtensionContentScripts.cpp
     Extensions/ExtensionLifecycle.cpp
     Extensions/ExtensionManifest.cpp
     Extensions/ExtensionPermissionsAPI.cpp

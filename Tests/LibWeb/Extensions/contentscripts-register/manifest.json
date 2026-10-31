@@ -1,0 +1,25 @@
+{
+    "manifest_version": 2,
+    "name": "Content Scripts Register Fixture",
+    "version": "1.0",
+    "description": "A background page, and a page of its own, that register content scripts for the test's frames with contentScripts.register().",
+    "permissions": [
+        "file:///*"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/contentscripts-register.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

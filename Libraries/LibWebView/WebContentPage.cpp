@@ -11,6 +11,7 @@
 #include <LibCore/EventLoop.h>
 #include <LibCore/StatsLog.h>
 #include <LibHTTP/Cookie/ParsedCookie.h>
+#include <LibURL/Parser.h>
 #include <LibWebCommon/Geolocation/GeolocationPositionErrorCode.h>
 #include <LibWebCommon/HTML/BrowsingContext.h>
 #include <LibWebCommon/Page/InputEvent.h>
@@ -182,6 +183,7 @@ WebContentPage::~WebContentPage()
     if (Application::is_initialized() && Application::the().has_extension_web_request_router())
         Application::extension_web_request_router().endpoint_destroyed(*this);
     extension_injection_target_gone();
+    drop_extension_content_script_registrations();
 }
 
 WebContentServerProxy* WebContentPage::routed_proxy() const
@@ -709,6 +711,7 @@ void WebContentPage::close()
     if (Application::is_initialized() && Application::the().has_extension_web_request_router())
         Application::extension_web_request_router().endpoint_destroyed(*this);
     extension_injection_target_gone();
+    drop_extension_content_script_registrations();
     if (m_client) {
         m_client->update_audio_capture_permission();
         if (auto* bidi = WebDriverBiDi::the())
@@ -1929,6 +1932,25 @@ static Optional<URL::URL> extension_matching_url(CanonicalNavigable const& navig
     return url;
 }
 
+// The URL "<origin>/" of the origin an about:, data:, or blob: document was created by, which a content script with
+// match_origin_as_fallback matches it as: the creator's for about:blank or about:srcdoc, the parent document's for a
+// data: frame, and the URL's own for blob:.
+Optional<URL::URL> WebContentPage::extension_creator_origin_url(CanonicalNavigable const& navigable, URL::URL const& url, URL::URL const& matching_url)
+{
+    Optional<URL::Origin> origin;
+    if (url.scheme() == "blob"sv) {
+        origin = url.origin();
+    } else if (url.scheme() == "data"sv) {
+        if (auto const* parent = navigable.parent())
+            origin = parent->active_document_url().origin();
+    } else if (url != matching_url) {
+        origin = matching_url.origin();
+    }
+    if (!origin.has_value() || origin->is_opaque())
+        return {};
+    return URL::Parser::basic_parse(MUST(String::formatted("{}/", origin->serialize())));
+}
+
 Optional<u64> WebContentPage::extension_revision(String const& extension_id) const
 {
     auto& registry = Application::extension_registry();
@@ -1945,11 +1967,11 @@ Optional<Web::Extensions::MessageSender> WebContentPage::extension_message_sende
         if (document.id() != document_id)
             return IterationDecision::Continue;
         auto matching_url = extension_matching_url(navigable, document, url);
-        auto may_create_context = matching_url.has_value() && Application::extension_registry().may_create_context(extension_id, *matching_url, !navigable.parent(), url != *matching_url, client().is_private());
+        auto may_create_context = matching_url.has_value() && Application::extension_registry().may_create_context(extension_id, *matching_url, !navigable.parent(), url != *matching_url, client().is_private(), extension_creator_origin_url(navigable, url, *matching_url));
         if (!may_create_context) {
             auto& registry = Application::extension_registry();
             auto allowed_here = registry.is_enabled(extension_id) && (client().is_private() == IsPrivate::No || registry.is_allowed_in_private(extension_id));
-            if (!allowed_here || !Application::the().extension_injected_into(extension_id, document_id))
+            if (!allowed_here || (!Application::the().extension_injected_into(extension_id, document_id) && !Application::the().extension_context_was_admitted(extension_id, document_id)))
                 return IterationDecision::Continue;
         }
         sender = Web::Extensions::MessageSender {
@@ -2005,13 +2027,38 @@ void WebContentPage::annotate_extension_sender(Web::Extensions::MessageSender& s
 void WebContentPage::did_create_extension_context(String extension_id, u64 context_id, Web::HTML::CrossProcessId document_id, u64 revision)
 {
     Application::extension_message_broker().context_created(*this, extension_id, context_id, document_id, revision);
+    if (extension_message_sender(extension_id, document_id).has_value()) {
+        m_extension_context_documents.set(context_id, { extension_id, document_id });
+        Application::the().extension_context_admitted(extension_id, document_id);
+    }
 }
 
 void WebContentPage::did_destroy_extension_context(String extension_id, u64 context_id)
 {
+    if (auto context = m_extension_context_documents.take(context_id); context.has_value())
+        Application::the().extension_context_gone(context->extension_id, context->document_id);
     Application::extension_message_broker().context_destroyed(*this, extension_id, context_id);
     if (Application::the().has_extension_web_request_router())
         Application::extension_web_request_router().context_destroyed(*this, context_id);
+    // What the context registered with contentScripts.register() goes with it.
+    if (Application::the().has_extension_content_script_registrations()) {
+        for (auto const& id : Application::extension_content_script_registrations().context_destroyed(this, context_id))
+            Application::extension_registry().registered_scripts_changed(id);
+    }
+}
+
+void WebContentPage::drop_extension_content_script_registrations()
+{
+    if (!Application::is_initialized())
+        return;
+    // A page that closes hosts none of the contexts it had.
+    for (auto const& [context_id, context] : m_extension_context_documents)
+        Application::the().extension_context_gone(context.extension_id, context.document_id);
+    m_extension_context_documents.clear();
+    if (!Application::the().has_extension_content_script_registrations())
+        return;
+    for (auto const& id : Application::extension_content_script_registrations().owner_destroyed(this))
+        Application::extension_registry().registered_scripts_changed(id);
 }
 
 void WebContentPage::did_send_extension_runtime_message(String extension_id, u64 request_id, Web::Extensions::MessageSender sender, String message_json, u64 context_id)
@@ -2306,6 +2353,33 @@ static Vector<JsonObject> scripts_argument(JsonArray const& arguments)
     return scripts;
 }
 
+// register() resolves with the registration's handle, which unregister() then names; unregistering twice changes
+// nothing.
+void WebContentPage::call_extension_content_scripts_api(Extension const& extension, u64 context_id, u64 request_id, StringView method, JsonArray const& arguments)
+{
+    auto& registrations = Application::extension_content_script_registrations();
+    if (method == "register"sv && arguments.size() == 1 && arguments.at(0).is_object()) {
+        auto script = parse_extension_content_scripts_options(extension, arguments.at(0).as_object());
+        if (script.is_error()) {
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { script.release_error() });
+            return;
+        }
+        auto handle = registrations.add(extension.id(), this, context_id, script.release_value());
+        // The extension set goes out now, before anything else this context sends is handled: a page whose request
+        // the context then lets through gets the script.
+        Application::extension_registry().registered_scripts_changed(extension.id());
+        complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { JsonValue { handle }.serialized() });
+        return;
+    }
+    if (method == "unregister"sv && arguments.size() == 1) {
+        if (auto handle = arguments.at(0).get_u64(); handle.has_value() && registrations.remove(extension.id(), *handle))
+            Application::extension_registry().registered_scripts_changed(extension.id());
+        complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::NoReply {});
+        return;
+    }
+    complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { MUST(String::formatted("contentScripts.{}() isn't supported", method)) });
+}
+
 ErrorOr<JsonValue, String> WebContentPage::call_extension_registered_scripts_api(Extension const& extension, StringView method, JsonArray const& arguments)
 {
     auto& registry = Application::extension_registry();
@@ -2590,6 +2664,14 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
             return;
         }
         call_extension_scripting_api(context->extension_id, request_id, name, call_arguments);
+        return;
+    }
+
+    // Only manifest version 2's own documents have contentScripts.
+    if (api_namespace == "contentScripts"sv) {
+        if (!context->is_extension_document || extension->descriptor().manifest_version != 2)
+            return;
+        call_extension_content_scripts_api(*extension, context_id, request_id, name, call_arguments);
         return;
     }
 

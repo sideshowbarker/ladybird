@@ -1,0 +1,17 @@
+<!doctype html>
+<body>
+    <script>
+        // Tells the page that loaded it what registered content scripts did before this, its first script, ran.
+        const root = document.documentElement.dataset;
+        const report = {
+            main: window.registerMain === true,
+            isolated: root.registerIsolated ?? "-",
+            page: root.registerPage ?? "-",
+            topOnly: root.registerTopOnly ?? "-",
+        };
+        window.addEventListener("load", () => {
+            report.color = getComputedStyle(document.body).color;
+            parent.postMessage(report, "*");
+        });
+    </script>
+</body>

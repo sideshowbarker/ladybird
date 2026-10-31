@@ -55,6 +55,11 @@ enum class ExtensionTabsInjection {
 };
 WEBVIEW_API ErrorOr<ExtensionInjectionRequest, String> parse_extension_tabs_injection(Extension const&, i64 tab_id, JsonObject const& details, ExtensionTabsInjection);
 
+// contentScripts.register()'s options, as the content script they register, its files read from the extension. Each
+// pattern in matches has to be within the extension's host permissions; the error says which isn't, as extensions
+// compare it.
+WEBVIEW_API ErrorOr<Web::Extensions::ContentScriptDescriptor, String> parse_extension_content_scripts_options(Extension const&, JsonObject const& options);
+
 // Why an extension may not inject into a document at the URL, as the error extensions compare: another extension's
 // page, or a host it has no access to (with the URL only when it may see the tab's URL).
 // A browser page (about:, other than about:blank and about:srcdoc) is never reachable, activeTab or not.

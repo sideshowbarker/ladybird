@@ -1,0 +1,84 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // contentScripts.register() adds content scripts to the frames loaded after it, by their patterns and globs,
+        // for as long as the registration and the page that made it last.
+        function loadTarget(query = "") {
+            return new Promise(resolve => {
+                const frame = document.createElement("iframe");
+                window.addEventListener(
+                    "message",
+                    event => {
+                        frame.remove();
+                        const { main, isolated, page, topOnly, color } = event.data;
+                        resolve(`main: ${main}, isolated: ${isolated}, page: ${page}, top only: ${topOnly}, ${color}`);
+                    },
+                    { once: true }
+                );
+                frame.src = `../../data/content-scripts-register-target.html${query}`;
+                document.body.append(frame);
+            });
+        }
+
+        const invalid = async options => JSON.stringify(await sendToBackground({ type: "invalid", options }));
+
+        asyncTest(async done => {
+            await contentScriptReady();
+            println(`in content scripts: ${document.documentElement.dataset.contentScriptsInContentScript}`);
+            println(`before registering: ${await loadTarget()}`);
+            const names = ["main", "isolated", "css", "topOnly"];
+            println(`register: ${JSON.stringify(await sendToBackground({ type: "register", names }))}`);
+            println(`registered: ${await loadTarget()}`);
+            println(`excludeMatches: ${await loadTarget("?exclude-match")}`);
+            println(`excludeGlobs: ${await loadTarget("?exclude-glob")}`);
+            println(`includeGlobs: ${await loadTarget("?include-out")}`);
+
+            println(`unregister: ${JSON.stringify(await sendToBackground({ type: "unregister", name: "isolated" }))}`);
+            println(`again: ${JSON.stringify(await sendToBackground({ type: "unregister", name: "isolated" }))}`);
+            println(`unregistered: ${await loadTarget("?unregister")}`);
+
+            // A script that's already running keeps its APIs once its registration goes, even when no other script of
+            // the extension matches its document.
+            await sendToBackground({ type: "unregister", name: "css" });
+            await sendToBackground({ type: "register", names: ["messenger"] });
+            const messenger = document.createElement("iframe");
+            messenger.src = "../../data/content-scripts-register-target.html?messenger";
+            document.body.append(messenger);
+            const pings = () => sendToBackground({ type: "pings" });
+            while ((await pings()) === 0) await new Promise(resolve => setTimeout(resolve, 20));
+            await sendToBackground({ type: "unregister", name: "messenger" });
+            const before = await pings();
+            await new Promise(resolve => setTimeout(resolve, 300));
+            println(`a running script after unregister: ${(await pings()) > before ? "still messaging" : "cut off"}`);
+            messenger.remove();
+
+            await sendToBackground({ type: "open-page" });
+            println(`from a page: ${await loadTarget("?page")}`);
+            await sendToBackground({ type: "close-page" });
+            let afterClose;
+            for (let i = 0; i < 50; ++i) {
+                afterClose = await loadTarget("?page");
+                if (afterClose.includes("page: -")) break;
+            }
+            println(`the page closed: ${afterClose}`);
+
+            println(`no matches: ${await invalid({ js: [{ code: "1" }] })}`);
+            println(`a bad world: ${await invalid({ matches: ["<all_urls>"], world: "bogus" })}`);
+            const pattern = await sendToBackground({ type: "invalid", options: { matches: ["bogus"] } });
+            println(
+                `a bad pattern: ${pattern.thrown.startsWith("Type error for parameter contentScriptOptions (Error processing matches.0")}`
+            );
+            const both = await sendToBackground({
+                type: "invalid",
+                options: { matches: ["<all_urls>"], js: [{ file: "main.js", code: "1" }] },
+            });
+            println(
+                `file and code: ${both.thrown.startsWith("Type error for parameter contentScriptOptions (Error processing js.0")}`
+            );
+            println(`without the host: ${await invalid({ matches: ["https://example.com/*"], js: [{ code: "1" }] })}`);
+            done();
+        });
+    </script>
+</body>

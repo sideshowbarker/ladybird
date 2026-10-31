@@ -51,6 +51,7 @@
 #include <LibWebView/BrowsingSession.h>
 #include <LibWebView/DownloadStore.h>
 #include <LibWebView/Extensions/ExtensionAlarmManager.h>
+#include <LibWebView/Extensions/ExtensionContentScripts.h>
 #include <LibWebView/Extensions/ExtensionMenus.h>
 #include <LibWebView/Extensions/ExtensionPermissionsAPI.h>
 #include <LibWebView/Extensions/ExtensionRegisteredScripts.h>
@@ -111,6 +112,8 @@ public:
     static ExtensionRegistry& extension_registry() { return *the().m_extension_registry; }
     static ExtensionMessageBroker& extension_message_broker() { return *the().m_extension_message_broker; }
     bool has_extension_message_broker() const { return m_extension_message_broker; }
+    static ExtensionContentScriptRegistrations& extension_content_script_registrations() { return *the().m_extension_content_script_registrations; }
+    bool has_extension_content_script_registrations() const { return m_extension_content_script_registrations; }
     static ExtensionWebRequestRouter& extension_web_request_router() { return *the().m_extension_web_request_router; }
     bool has_extension_web_request_router() const { return m_extension_web_request_router; }
     static ExtensionBackgroundHost& extension_background_host() { return *the().m_extension_background_host; }
@@ -715,6 +718,7 @@ private:
     OwnPtr<ExtensionStorageStore> m_extension_session_storage_store;
     OwnPtr<ExtensionStorageStore> m_extension_sync_storage_store;
     OwnPtr<ExtensionRegisteredScripts> m_extension_registered_scripts;
+    OwnPtr<ExtensionContentScriptRegistrations> m_extension_content_script_registrations;
     ExtensionAlarmManager m_extension_alarm_manager;
     RefPtr<Core::Timer> m_extension_alarm_timer;
     // The revision of each enabled extension; a new revision, or none, drops its session storage and alarms.
@@ -760,6 +764,7 @@ private:
     };
     void finish_extension_injection(u64 injection_id);
     HashMap<String, HashTable<Web::HTML::CrossProcessId>> m_extension_injected_documents;
+    HashMap<String, HashTable<Web::HTML::CrossProcessId>> m_extension_admitted_documents;
     HashMap<u64, PendingExtensionInjection> m_pending_extension_injections;
     // Each frame's request, to the injection it belongs to, the frame's place in it, and the page it was sent to, which
     // alone may answer it.
@@ -805,6 +810,11 @@ public:
     // Whether a script of the extension's was injected into the document's extension world, whose messaging context
     // is then the extension's like a content script's.
     bool extension_injected_into(String const& extension_id, Web::HTML::CrossProcessId document_id) const;
+    // A content script's context, once admitted, keeps its APIs until it's destroyed, even if the registration that
+    // put it there goes; disabling or removing the extension still ends them.
+    void extension_context_admitted(String const& extension_id, Web::HTML::CrossProcessId document_id) { m_extension_admitted_documents.ensure(extension_id).set(document_id); }
+    void extension_context_gone(String const& extension_id, Web::HTML::CrossProcessId document_id);
+    bool extension_context_was_admitted(String const& extension_id, Web::HTML::CrossProcessId document_id) const;
 
 private:
     bool m_extension_background_pages_may_start { false };

@@ -341,7 +341,9 @@ Application::~Application()
     }
 
     // The background pages, popups, and tabs extensions opened are views, and a view's destructor reaches back into the
-    // Application, so they go first.
+    // Application, so they go first. A closing view would hand back its contexts' content script registrations and
+    // change the extension set as it's torn down, so those go before them.
+    m_extension_content_script_registrations = nullptr;
     m_headless_extension_popups.clear();
     m_headless_extension_tabs.clear();
     m_closing_headless_extension_views.clear();
@@ -816,6 +818,8 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_extension_registry->set_storage_store(*m_extension_sync_storage_store);
     m_extension_registered_scripts = make<ExtensionRegisteredScripts>(profile().paths().data);
     m_extension_registry->set_registered_scripts(*m_extension_registered_scripts);
+    m_extension_content_script_registrations = make<ExtensionContentScriptRegistrations>();
+    m_extension_registry->set_content_script_registrations(*m_extension_content_script_registrations);
     m_extension_registry->set_profile_data_directory(profile().paths().data);
     m_extension_message_broker = make<ExtensionMessageBroker>();
     m_extension_registry->set_message_broker(*m_extension_message_broker);
@@ -4050,6 +4054,22 @@ void Application::run_extension_injection(Extension const& extension, ExtensionT
 bool Application::extension_injected_into(String const& extension_id, Web::HTML::CrossProcessId document_id) const
 {
     auto documents = m_extension_injected_documents.get(extension_id);
+    return documents.has_value() && documents->contains(document_id);
+}
+
+void Application::extension_context_gone(String const& extension_id, Web::HTML::CrossProcessId document_id)
+{
+    auto documents = m_extension_admitted_documents.find(extension_id);
+    if (documents == m_extension_admitted_documents.end())
+        return;
+    documents->value.remove(document_id);
+    if (documents->value.is_empty())
+        m_extension_admitted_documents.remove(documents);
+}
+
+bool Application::extension_context_was_admitted(String const& extension_id, Web::HTML::CrossProcessId document_id) const
+{
+    auto documents = m_extension_admitted_documents.get(extension_id);
     return documents.has_value() && documents->contains(document_id);
 }
 

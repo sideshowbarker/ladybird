@@ -82,6 +82,7 @@ set(TEST_SOURCES
     TestDownloadStore.cpp
     TestExtensionArchive.cpp
     TestExtensionBackgroundLifetime.cpp
+    TestExtensionContentScripts.cpp
     TestExtensionLocales.cpp
     TestExtensionManifest.cpp
     TestExtensionMenus.cpp
