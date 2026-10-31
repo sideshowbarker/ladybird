@@ -66,6 +66,7 @@ private:
     virtual void set_web_request_interest(Vector<Requests::WebRequestInterest>) override;
     virtual void web_request_decision(int client_id, u64 request_id, bool for_websocket, Requests::WebRequestDecision) override;
     virtual void set_web_request_startup_gate(bool on) override;
+    virtual void set_network_prediction_enabled(bool enabled) override;
 
     virtual void retrieved_http_cookie(int client_id, u64 request_id, RequestType request_type, u64 cookie_request_id, String cookie) override;
     virtual void stored_response_cookies_and_hsts_policy(int client_id, u64 request_id, u64 store_request_id) override;

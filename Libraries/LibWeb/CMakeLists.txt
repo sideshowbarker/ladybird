@@ -284,6 +284,7 @@ set(SOURCES
     Extensions/API/I18n.cpp
     Extensions/API/Permissions.cpp
     Extensions/API/Port.cpp
+    Extensions/API/Privacy.cpp
     Extensions/API/Runtime.cpp
     Extensions/API/Scripting.cpp
     Extensions/API/Storage.cpp

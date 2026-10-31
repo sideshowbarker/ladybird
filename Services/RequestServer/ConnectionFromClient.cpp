@@ -897,12 +897,22 @@ void ConnectionFromClient::resolve_host(u64 lookup_id, ByteString host)
         });
 }
 
+static bool s_network_prediction_enabled = true;
+
+void ConnectionFromClient::set_network_prediction_enabled(bool enabled)
+{
+    s_network_prediction_enabled = enabled;
+}
+
 void ConnectionFromClient::ensure_connection(u64 request_id, URL::URL url, ::RequestServer::CacheLevel cache_level)
 {
     if (is_live_request_id(request_id)) {
         did_misbehave("reused live request ID");
         return;
     }
+
+    if (!s_network_prediction_enabled)
+        return;
 
     if (!is_fetchable_url(url))
         return;

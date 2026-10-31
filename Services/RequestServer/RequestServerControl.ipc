@@ -49,6 +49,8 @@ endpoint RequestServerControl
     set_web_request_interest(Vector<Requests::WebRequestInterest> interest) =|
     // While on, every request a page makes waits before it starts, for the extensions that may block it to start.
     set_web_request_startup_gate(bool on) =|
+    // While off, no page's DNS prefetching or preconnecting does anything.
+    set_network_prediction_enabled(bool enabled) =|
     // Lets a request that waits on its extensions' answer for one event go on.
     web_request_decision(int client_id, u64 request_id, bool for_websocket, Requests::WebRequestDecision decision) =|
 

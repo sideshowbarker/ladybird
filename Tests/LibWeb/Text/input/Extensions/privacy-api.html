@@ -1,0 +1,40 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // privacy's BrowserSetting objects read, set, and clear a setting for the extension, say how much control it
+        // has over it, and report each change to its value in effect.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const call = (path, method, details = {}) => sendToBackground({ type: "call", path, method, details });
+            const show = value => JSON.stringify(value);
+            const prediction = "network.networkPredictionEnabled";
+            const level = async path => (await call(path, "get")).value.levelOfControl;
+
+            println(`before: ${await level(prediction)}`);
+            println(`set: ${show(await call(prediction, "set", { value: false }))}`);
+            println(`after set: ${show(await call(prediction, "get"))}`);
+            println(`clear: ${show(await call(prediction, "clear"))}`);
+            println(`after clear: ${await level(prediction)}`);
+            const changes = await sendToBackground({ type: "changes" });
+            println(`changes: ${show(changes.map(change => change.levelOfControl))}`);
+
+            const policy = "network.webRTCIPHandlingPolicy";
+            await call(policy, "set", { value: "disable_non_proxied_udp" });
+            println(`a policy: ${show(await call(policy, "get"))}`);
+            await call(policy, "clear");
+
+            const auditing = "websites.hyperlinkAuditingEnabled";
+            println(`auditing set: ${show(await call(auditing, "set", { value: true }))}`);
+            println(`auditing: ${show(await call(auditing, "get"))}`);
+
+            println(
+                `another scope: ${show(await call(prediction, "set", { value: false, scope: "incognito_persistent" }))}`
+            );
+            println(`a bad scope: ${show(await call(prediction, "set", { value: false, scope: "bogus" }))}`);
+            println(`no value: ${show(await call(prediction, "set", {}))}`);
+            done();
+        });
+    </script>
+</body>

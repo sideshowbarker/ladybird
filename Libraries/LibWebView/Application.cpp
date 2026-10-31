@@ -281,6 +281,16 @@ public:
                 enabled_revisions.set(extension->id(), extension->descriptor().revision);
         }
         app.m_extension_menus.extensions_changed(enabled_revisions);
+        // An extension that's reloaded, disabled, or removed, or that loses the privacy permission, loses the privacy
+        // settings it set.
+        app.m_extension_privacy_settings->retain_extensions([&](StringView id) {
+            auto extension = app.m_extension_registry->find(id);
+            auto revision = app.m_extension_privacy_setter_revisions.get(id);
+            return extension && extension->descriptor().has_permission("privacy"sv) && revision.has_value() && enabled_revisions.get(id) == *revision;
+        });
+        app.m_extension_privacy_setter_revisions.remove_all_matching([&](auto const& id, auto const&) {
+            return !app.m_extension_privacy_settings->setters().contains_slow(id);
+        });
         app.m_extension_commands.extensions_changed(installed_revisions);
         WebContentClient::for_each_client([&](WebContentClient& client) {
             client.async_set_extensions(app.m_extension_registry->enabled_descriptors(client.is_private()));
@@ -836,6 +846,14 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_extension_registry->set_registered_scripts(*m_extension_registered_scripts);
     m_extension_content_script_registrations = make<ExtensionContentScriptRegistrations>();
     m_extension_registry->set_content_script_registrations(*m_extension_content_script_registrations);
+    // Of the extensions that set a privacy setting, the most recently installed one decides it.
+    m_extension_privacy_settings = make<ExtensionPrivacySettings>([this] {
+        Vector<String> ids;
+        for (auto const& extension : m_extension_registry->extensions())
+            ids.append(extension->id());
+        return ids;
+    });
+    m_extension_privacy_settings->on_effective_value_change = [this](StringView name) { extension_privacy_setting_changed(name); };
     m_extension_registry->set_profile_data_directory(profile().paths().data);
     m_extension_message_broker = make<ExtensionMessageBroker>();
     m_extension_registry->set_message_broker(*m_extension_message_broker);
@@ -2722,6 +2740,9 @@ void Application::configure_request_server_control_client(Requests::RequestContr
     if (m_extension_web_request_startup_gate && m_extension_web_request_startup_gate->is_on())
         control_client.async_set_web_request_startup_gate(true);
 
+    if (m_extension_privacy_settings && !m_extension_privacy_settings->network_prediction_enabled())
+        control_client.async_set_network_prediction_enabled(false);
+
     // A RequestServer that starts after extensions began listening learns what they listen for.
     if (m_extension_web_request_router) {
         if (auto interest = m_extension_web_request_router->interest(); !interest.is_empty())
@@ -4218,6 +4239,52 @@ void Application::for_each_extension_tab_viewer(Function<void(Extension const&, 
             continue;
         ExtensionTabViewer viewer { extension->descriptor(), m_extension_registry->is_allowed_in_private(extension->id()), {}, {}, extension_active_tab_grants(extension->id()) };
         callback(*extension, viewer);
+    }
+}
+
+ErrorOr<JsonValue, String> Application::call_extension_privacy_api(Extension const& extension, StringView method, JsonArray const& arguments)
+{
+    if (arguments.size() != 2 || !arguments.at(0).is_string() || !arguments.at(1).is_object())
+        return "Invalid arguments"_string;
+    auto const& name = arguments.at(0).as_string();
+    auto const& details = arguments.at(1).as_object();
+    if (!ExtensionPrivacySettings::is_known(name))
+        return MUST(String::formatted("privacy.{} isn't supported", name));
+    auto& settings = *m_extension_privacy_settings;
+    if (method == "get"sv)
+        return JsonValue { settings.get(extension.id(), name) };
+    // Only the regular browsing scope's settings may change; private windows follow them.
+    if (auto scope = details.get_string("scope"sv); scope.has_value() && *scope != "regular"sv)
+        return MUST(String::formatted("Ladybird does not support the {} settings scope.", *scope));
+    if (method == "set"sv) {
+        m_extension_privacy_setter_revisions.set(extension.id(), extension.descriptor().revision);
+        return JsonValue { settings.set(extension.id(), name, details.get("value"sv).value_or({})) };
+    }
+    if (method == "clear"sv)
+        return JsonValue { settings.clear(extension.id(), name) };
+    return MUST(String::formatted("privacy.{}.{}() isn't supported", name, method));
+}
+
+// Every extension that may read the setting hears what it now is, as the extension sees it; RequestServer learns
+// whether pages may predict connections.
+void Application::extension_privacy_setting_changed(StringView name)
+{
+    if (m_extension_message_broker) {
+        auto event_name = MUST(String::formatted("privacy.{}.onChange", name));
+        for (auto const& extension : m_extension_registry->extensions()) {
+            if (!m_extension_registry->is_enabled(extension->id()) || !extension->descriptor().has_permission("privacy"sv))
+                continue;
+            JsonArray arguments;
+            arguments.must_append(m_extension_privacy_settings->get(extension->id(), name));
+            m_extension_message_broker->dispatch_extension_event(extension->id(), event_name, arguments.serialized());
+        }
+    }
+    if (name == "network.networkPredictionEnabled"sv && m_request_server_manager) {
+        auto enabled = m_extension_privacy_settings->network_prediction_enabled();
+        request_server_manager().for_each_instance([&](RequestServerInstance& instance) {
+            instance.control_client().async_set_network_prediction_enabled(enabled);
+            return IterationDecision::Continue;
+        });
     }
 }
 

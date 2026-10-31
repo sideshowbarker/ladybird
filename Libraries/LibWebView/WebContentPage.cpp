@@ -2667,6 +2667,18 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
         return;
     }
 
+    // Only the extension's own documents have privacy settings, and only with the permission.
+    if (api_namespace == "privacy"sv) {
+        if (!context->is_extension_document || !extension->descriptor().has_permission("privacy"sv))
+            return;
+        auto result = Application::the().call_extension_privacy_api(*extension, name, call_arguments);
+        if (result.is_error())
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
+        else
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });
+        return;
+    }
+
     // Only manifest version 2's own documents have contentScripts.
     if (api_namespace == "contentScripts"sv) {
         if (!context->is_extension_document || extension->descriptor().manifest_version != 2)

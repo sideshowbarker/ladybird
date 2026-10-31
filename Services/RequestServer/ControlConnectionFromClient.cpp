@@ -235,6 +235,11 @@ void ControlConnectionFromClient::set_web_request_startup_gate(bool on)
         RequestServer::ConnectionFromClient::release_requests_held_by_startup_gate(m_connections);
 }
 
+void ControlConnectionFromClient::set_network_prediction_enabled(bool enabled)
+{
+    RequestServer::ConnectionFromClient::set_network_prediction_enabled(enabled);
+}
+
 void ControlConnectionFromClient::set_performance_monitor_enabled(bool enabled)
 {
     Request::set_performance_monitor_enabled(enabled);

@@ -58,6 +58,8 @@ public:
     using ConnectionMap = HashMap<int, NonnullRefPtr<ConnectionFromClient>>;
     // Lets every request that waited for the extensions that may block it go on.
     static void release_requests_held_by_startup_gate(ConnectionMap&);
+    // Whether a page's ensure_connection() resolves or connects ahead of time, as an extension's privacy setting decides.
+    static void set_network_prediction_enabled(bool);
     bool holds_websocket_for_startup_gate(u64 websocket_id) const { return m_websockets_held_by_startup_gate.contains(websocket_id); }
 
     struct RequestTransferLease {

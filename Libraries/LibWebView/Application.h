@@ -54,6 +54,7 @@
 #include <LibWebView/Extensions/ExtensionContentScripts.h>
 #include <LibWebView/Extensions/ExtensionMenus.h>
 #include <LibWebView/Extensions/ExtensionPermissionsAPI.h>
+#include <LibWebView/Extensions/ExtensionPrivacySettings.h>
 #include <LibWebView/Extensions/ExtensionRegisteredScripts.h>
 #include <LibWebView/Extensions/ExtensionScriptingAPI.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
@@ -114,6 +115,8 @@ public:
     bool has_extension_message_broker() const { return m_extension_message_broker; }
     static ExtensionContentScriptRegistrations& extension_content_script_registrations() { return *the().m_extension_content_script_registrations; }
     bool has_extension_content_script_registrations() const { return m_extension_content_script_registrations; }
+    // privacy.<setting>.get(), set(), and clear(), for an extension with the privacy permission.
+    ErrorOr<JsonValue, String> call_extension_privacy_api(Extension const&, StringView method, JsonArray const& arguments);
     static ExtensionWebRequestRouter& extension_web_request_router() { return *the().m_extension_web_request_router; }
     bool has_extension_web_request_router() const { return m_extension_web_request_router; }
     static ExtensionBackgroundHost& extension_background_host() { return *the().m_extension_background_host; }
@@ -719,6 +722,10 @@ private:
     OwnPtr<ExtensionStorageStore> m_extension_sync_storage_store;
     OwnPtr<ExtensionRegisteredScripts> m_extension_registered_scripts;
     OwnPtr<ExtensionContentScriptRegistrations> m_extension_content_script_registrations;
+    OwnPtr<ExtensionPrivacySettings> m_extension_privacy_settings;
+    // The revision of each extension that set a privacy setting when it did, so a reload's values go with the old one.
+    HashMap<String, u64> m_extension_privacy_setter_revisions;
+    void extension_privacy_setting_changed(StringView name);
     ExtensionAlarmManager m_extension_alarm_manager;
     RefPtr<Core::Timer> m_extension_alarm_timer;
     // The revision of each enabled extension; a new revision, or none, drops its session storage and alarms.
