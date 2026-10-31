@@ -1,0 +1,55 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // A model of Bypass Paywalls Clean's default path blocks a paywall script by the page that loads it, sends an
+        // article's request with a search engine's referrer and no cookie, reads its update check whatever CORS headers
+        // it lacks, and removes the paywall once the page has loaded.
+        const target = `<!doctype html>
+            <div class="paywall">subscribe</div>
+            <script src="paywall.js" onerror="window.paywallFailed = true"><\/script>
+            <script src="other.js"><\/script>
+            <script>fetch("article").then(response => response.text()).then(text => (window.article = text));<\/script>`;
+
+        asyncTest(async done => {
+            await contentScriptReady();
+            const server = httpTestServer();
+            const base = `/bpc-${crypto.randomUUID()}`;
+            const serve = (name, type, body) =>
+                server.createEcho("GET", `${base}/${name}`, {
+                    status: 200,
+                    headers: { "Content-Type": type, "Cache-Control": "no-store" },
+                    body,
+                });
+            await serve("paywall.js", "text/javascript", "window.paywallRan = true;");
+            await serve("other.js", "text/javascript", "window.otherRan = true;");
+            const article = await serve("article", "text/plain", "the article");
+            const update = await serve("updates.json", "application/json", '{"version":"1.0"}');
+            const url = await serve("target.html", "text/html", target);
+
+            println(`the background page: ${JSON.stringify(await sendToBackground({ type: "state" }))}`);
+            println(`update check: ${JSON.stringify(await sendToBackground({ type: "update-check", url: update }))}`);
+
+            const token = `bpc-${crypto.randomUUID()}`;
+            document.cookie = `${token}=1; path=/`;
+            const page = window.open(url);
+            while (page.document?.documentElement?.dataset.bpcMessage !== "cleaned" || page.article === undefined)
+                await new Promise(resolve => setTimeout(resolve, 20));
+            println(`paywall.js: ran ${page.paywallRan === true}, failed ${page.paywallFailed === true}`);
+            println(`other.js: ran ${page.otherRan === true}`);
+            println(`the paywall: ${page.document.querySelectorAll(".paywall").length} left`);
+            println(`the article: ${page.article}`);
+            const headers = await (await fetch(server.recordedRequestHeadersURL(article))).json();
+            const values = name =>
+                Object.entries(headers)
+                    .filter(([key]) => key.toLowerCase() === name)
+                    .flatMap(([, value]) => value);
+            println(`its referrer: ${values("referer").join(", ")}`);
+            println(`its cookie: ${values("cookie").some(value => value.includes(token)) ? "sent" : "not sent"}`);
+            page.close();
+            document.cookie = `${token}=; path=/; max-age=0`;
+            done();
+        });
+    </script>
+</body>

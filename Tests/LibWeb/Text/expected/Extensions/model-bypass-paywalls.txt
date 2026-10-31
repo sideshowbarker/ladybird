@@ -1,0 +1,8 @@
+the background page: {"updateUrl":true,"installType":"development"}
+update check: {"status":200,"body":"{\"version\":\"1.0\"}"}
+paywall.js: ran false, failed true
+other.js: ran true
+the paywall: 0 left
+the article: the article
+its referrer: https://www.google.com/
+its cookie: not sent

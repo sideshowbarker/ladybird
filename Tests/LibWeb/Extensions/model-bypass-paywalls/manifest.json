@@ -1,0 +1,35 @@
+{
+    "manifest_version": 2,
+    "name": "Model Bypass Paywalls",
+    "version": "1.0",
+    "description": "A model, with code of its own, of what Bypass Paywalls Clean's Firefox build does by default: it checks its manifest and its install, blocks paywall scripts by the page that loads them, rewrites an article request's headers, checks for updates, and cleans up a page once it has loaded.",
+    "permissions": [
+        "webRequest",
+        "webRequestBlocking",
+        "tabs",
+        "storage",
+        "<all_urls>"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "model-bypass-paywalls@example.org",
+            "update_url": "https://example.org/model-bypass-paywalls/updates.json"
+        }
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "http://*/*Extensions/model-bypass-paywalls.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}
