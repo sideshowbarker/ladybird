@@ -1,0 +1,68 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <div id="ad-banner">an ad in the top frame</div>
+    <script>
+        // A model of uBlock Origin's default path blocks, redirects, and neuters a page's resources, appends a policy
+        // to its headers, runs its scriptlets before the page's first script, and hides and unhides an element by
+        // frame with cosmetic CSS.
+        const target = `<!doctype html>
+            <style>#styled { color: rgb(1, 2, 3); }</style>
+            <script>
+                window.firstScript = {
+                    scriptlet: window.uboScriptlet === true,
+                    isolated: document.documentElement.dataset.uboIsolated === "1",
+                };
+            <\/script>
+            <div id="styled">styled</div>
+            <div id="ad-banner">an ad</div>
+            <img id="pixel" src="pixel.gif">
+            <script src="ad.js" onerror="window.adFailed = true"><\/script>
+            <script src="tracker.js"><\/script>`;
+
+        asyncTest(async done => {
+            await contentScriptReady();
+            const server = httpTestServer();
+            const base = `/ubo-${crypto.randomUUID()}`;
+            const serve = (name, type, body) =>
+                server.createEcho("GET", `${base}/${name}`, {
+                    status: 200,
+                    headers: { "Content-Type": type, "Cache-Control": "no-store" },
+                    body,
+                });
+            await serve("ad.js", "text/javascript", "window.adRan = true;");
+            await serve("tracker.js", "text/javascript", "window.trackerRan = true;");
+            await serve("pixel.gif", "image/gif", "not a gif");
+            const url = await serve("target.html", "text/html", target);
+
+            const frame = document.createElement("iframe");
+            await new Promise(resolve => {
+                frame.onload = resolve;
+                frame.src = url;
+                document.body.append(frame);
+            });
+            const page = frame.contentWindow;
+            while (page.document.documentElement.dataset.cosmeticApplied !== "1")
+                await new Promise(resolve => setTimeout(resolve, 20));
+            const display = (document_, id) => getComputedStyle(document_.getElementById(id)).display;
+
+            println(`before the page's first script: ${JSON.stringify(page.firstScript)}`);
+            println(`ad.js: ran ${page.adRan === true}, failed ${page.adFailed === true}`);
+            println(`pixel.gif: ${page.document.getElementById("pixel").naturalWidth}px wide`);
+            println(`tracker.js: ran ${page.trackerRan === true}, neutered ${page.noopRan === true}`);
+            println(`the appended policy: ${getComputedStyle(page.document.getElementById("styled")).color}`);
+            println(`hidden: top ${display(document, "ad-banner")}, frame ${display(page.document, "ad-banner")}`);
+
+            await sendToBackground({ type: "uncosmetic" });
+            println(
+                `unhidden in the frame: top ${display(document, "ad-banner")}, frame ${display(page.document, "ad-banner")}`
+            );
+
+            println(`header records: ${JSON.stringify(await sendToBackground({ type: "records" }))}`);
+            println(`badge: ${await sendToBackground({ type: "badge" })}`);
+            println(`privacy: ${JSON.stringify(await sendToBackground({ type: "privacy" }))}`);
+            done();
+        });
+    </script>
+</body>

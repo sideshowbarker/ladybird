@@ -1,0 +1,10 @@
+before the page's first script: {"scriptlet":true,"isolated":true}
+ad.js: ran false, failed true
+pixel.gif: 1px wide
+tracker.js: ran false, neutered true
+the appended policy: rgb(0, 0, 0)
+hidden: top none, frame none
+unhidden in the frame: top none, frame block
+header records: {"open":0,"ip":true}
+badge: 3
+privacy: {"levelOfControl":"controlled_by_this_extension","value":false}
