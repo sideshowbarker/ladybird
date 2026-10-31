@@ -1,6 +1,6 @@
 Ladybird drops an extension’s privacy settings when it’s removed,
 disabled, reloaded, or loses the privacy permission, and announces the
 value then in effect. Firefox removes an extension’s settings on
-uninstall and, through ExtensionPreferencesManager, when the permission
-that granted them is revoked; Chromium’s ExtensionPrefValueMap drops
-an unloaded extension’s values the same way.
+uninstall, and when the permission that granted them is revoked, in
+ExtensionPreferencesManager.removeSettingsForPermissions(); Chromium’s
+ExtensionPrefValueMap drops an unloaded extension’s values too.
