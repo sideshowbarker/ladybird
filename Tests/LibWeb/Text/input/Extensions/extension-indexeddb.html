@@ -1,0 +1,14 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // A background page opens an IndexedDB database, keeps a megabyte in it, walks it with a cursor, deletes from
+        // it, and deletes it.
+        asyncTest(async done => {
+            await contentScriptReady();
+            println(JSON.stringify(await sendToBackground({ type: "indexeddb" })));
+            done();
+        });
+    </script>
+</body>

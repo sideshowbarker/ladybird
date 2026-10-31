@@ -1,0 +1,25 @@
+{
+    "manifest_version": 2,
+    "name": "Storage Limited Fixture",
+    "version": "1.0",
+    "description": "A background page without unlimitedStorage, which tries to keep more in storage.local than its quota allows.",
+    "permissions": [
+        "storage"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/storage-large.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}
