@@ -1,0 +1,17 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // management.getSelf() gives the calling extension its own ExtensionInfo, through a promise or a callback; it's
+        // the only part of management there is, and only the extension's own pages have it.
+        asyncTest(async done => {
+            await contentScriptReady();
+            println(`promise: ${JSON.stringify(await sendToBackground({ type: "promise" }))}`);
+            println(`callback: ${JSON.stringify(await sendToBackground({ type: "callback" }))}`);
+            println(`getAll: ${await sendToBackground({ type: "others" })}`);
+            println(`in content scripts: ${document.documentElement.dataset.managementInContentScript}`);
+            done();
+        });
+    </script>
+</body>

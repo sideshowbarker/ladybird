@@ -30,6 +30,7 @@
 #include <LibWebView/Extensions/ExtensionActionAPI.h>
 #include <LibWebView/Extensions/ExtensionActionRegistry.h>
 #include <LibWebView/Extensions/ExtensionBackgroundHost.h>
+#include <LibWebView/Extensions/ExtensionManagementAPI.h>
 #include <LibWebView/Extensions/ExtensionPermissionsAPI.h>
 #include <LibWebView/Extensions/ExtensionPopupHost.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
@@ -2664,6 +2665,15 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
             return;
         }
         call_extension_scripting_api(context->extension_id, request_id, name, call_arguments);
+        return;
+    }
+
+    // Only the extension's own documents have management, and it has getSelf() alone.
+    if (api_namespace == "management"sv) {
+        if (!context->is_extension_document || name != "getSelf"sv)
+            return;
+        auto info = extension_info_for(*extension, Application::extension_registry().is_packed(extension->id()));
+        complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { info.serialized() });
         return;
     }
 

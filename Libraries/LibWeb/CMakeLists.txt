@@ -282,6 +282,7 @@ set(SOURCES
     Extensions/API/Event.cpp
     Extensions/API/ExtensionNamespace.cpp
     Extensions/API/I18n.cpp
+    Extensions/API/Management.cpp
     Extensions/API/Permissions.cpp
     Extensions/API/Port.cpp
     Extensions/API/Privacy.cpp

@@ -1,0 +1,4 @@
+promise: {"ownId":true,"name":"Management Fixture","version":"2.5","enabled":true,"installType":"development","type":"extension","mayDisable":true,"permissions":["storage"],"hostPermissions":["file:///*/Extensions/management-*.html"]}
+callback: {"ownId":true,"name":"Management Fixture","version":"2.5","enabled":true,"installType":"development","type":"extension","mayDisable":true,"permissions":["storage"],"hostPermissions":["file:///*/Extensions/management-*.html"]}
+getAll: undefined
+in content scripts: undefined

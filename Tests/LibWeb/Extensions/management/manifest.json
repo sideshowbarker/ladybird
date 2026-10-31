@@ -1,0 +1,38 @@
+{
+    "manifest_version": 2,
+    "name": "Management Fixture",
+    "version": "2.5",
+    "description": "A background page that reports what management.getSelf() and runtime.getManifest() give it.",
+    "permissions": [
+        "storage",
+        "file:///*/Extensions/management-*.html"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "management@example.org",
+            "update_url": "https://example.org/updates.json"
+        }
+    },
+    "applications": {
+        "gecko": {
+            "id": "management@example.org"
+        }
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/management-*.html",
+                "file:///*/Extensions/runtime-get-manifest-as-written.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

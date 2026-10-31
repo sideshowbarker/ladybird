@@ -43,6 +43,7 @@ set(SOURCES
     Extensions/ExtensionBackgroundLifetime.cpp
     Extensions/ExtensionContentScripts.cpp
     Extensions/ExtensionLifecycle.cpp
+    Extensions/ExtensionManagementAPI.cpp
     Extensions/ExtensionManifest.cpp
     Extensions/ExtensionPermissionsAPI.cpp
     Extensions/ExtensionPrivacySettings.cpp

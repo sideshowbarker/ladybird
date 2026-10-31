@@ -21,6 +21,7 @@
 #include <LibWebView/CanonicalTraversable.h>
 #include <LibWebView/Extensions/ExtensionArchive.h>
 #include <LibWebView/Extensions/ExtensionBackgroundHost.h>
+#include <LibWebView/Extensions/ExtensionManagementAPI.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionPermissionsAPI.h>
 #include <LibWebView/Extensions/ExtensionRegisteredScripts.h>
@@ -1073,4 +1074,43 @@ TEST_CASE(a_declined_install_leaves_no_staging)
     registry.discard(move(pending));
     EXPECT(!FileSystem::exists(staged));
     EXPECT(settings.installed_extensions().is_empty());
+}
+
+// management.getSelf() reports an extension installed from an archive as a normal install, and one loaded from a
+// directory as a development one.
+TEST_CASE(install_type_is_normal_for_an_xpi_install)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    registry.set_profile_data_directory(LexicalPath::join(directory.path, "profile"sv).string());
+    auto extension = registry.install(TRY_OR_FAIL(registry.prepare_packed(write_xpi(directory, "packed.xpi"sv, gecko_manifest, ""sv))));
+    auto info = WebView::extension_info_for(*extension, registry.is_packed(extension->id()));
+    EXPECT_EQ(info.get_string("installType"sv), "normal"_string);
+    EXPECT_EQ(info.get_string("id"sv), extension->id());
+}
+
+TEST_CASE(install_type_is_development_for_an_unpacked_one)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    auto extension = TRY_OR_FAIL(registry.load_unpacked(directory.extension("one"sv, minimal_manifest)));
+    auto info = WebView::extension_info_for(*extension, registry.is_packed(extension->id()));
+    EXPECT_EQ(info.get_string("installType"sv), "development"_string);
+    EXPECT_EQ(info.get_string("name"sv), "Minimal"_string);
+    EXPECT_EQ(info.get_string("version"sv), "1"_string);
+}
+
+TEST_CASE(extension_info_lists_permissions_and_host_permissions)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    auto extension = TRY_OR_FAIL(registry.load_unpacked(directory.extension("hosts"sv, R"({ "manifest_version": 2, "name": "Hosts", "version": "2", "permissions": ["storage", "https://example.com/*"] })"sv)));
+    auto info = WebView::extension_info_for(*extension, false);
+    EXPECT_EQ(info.get_array("permissions"sv)->serialized(), R"(["storage"])"sv);
+    EXPECT_EQ(info.get_array("hostPermissions"sv)->serialized(), R"(["https://example.com/*"])"sv);
+    EXPECT_EQ(info.get_bool("enabled"sv), true);
+    EXPECT_EQ(info.get_string("type"sv), "extension"_string);
 }
