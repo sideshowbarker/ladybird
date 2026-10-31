@@ -6,6 +6,7 @@ set(TEST_SOURCES
     TestDownloadFilename.cpp
     TestExtensionLocalization.cpp
     TestExtensionUrlFilter.cpp
+    TestExtensionUrlGlob.cpp
     TestGamepadSharedState.cpp
     TestGamepadStateBuffer.cpp
     TestInsecureRequestsPolicy.cpp
