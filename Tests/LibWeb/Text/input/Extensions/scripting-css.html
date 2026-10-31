@@ -31,6 +31,9 @@
             println(
                 `no tabs.executeScript in manifest version 3: ${await sendToBackground({ type: "no-tabs-executeScript" })}`
             );
+            println(
+                `no tabs.removeCSS in manifest version 3: ${await sendToBackground({ type: "no-tabs-removeCSS" })}`
+            );
 
             // removeCSS() takes away only what an insertCSS() call of the extension's added with the same CSS or
             // file, and the same origin; a USER sheet's !important rule beats the page's.

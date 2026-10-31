@@ -1,0 +1,44 @@
+<!doctype html>
+<title>MV2 removeCSS page</title>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <div id="box"></div>
+    <iframe src="../../data/extension-css-frame.html"></iframe>
+    <script>
+        // Manifest version 2's tabs.removeCSS() takes away what tabs.insertCSS() added with the same code and origin, in
+        // the frames it names.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const color = () => getComputedStyle(document.getElementById("box")).color;
+            const call = (method, details, inFrame = false) =>
+                sendToBackground({ type: "css-call", method, details, inFrame });
+            const author = { code: "#box { color: rgb(1, 2, 3); }" };
+            const user = { code: "#box { color: rgb(4, 5, 6); }", cssOrigin: "user" };
+
+            await call("insertCSS", author);
+            println(`inserted: ${color()}`);
+            println(`removed: ${JSON.stringify(await call("removeCSS", author))}, ${color()}`);
+
+            await call("insertCSS", user);
+            println(`a user sheet: ${color()}`);
+            await call("removeCSS", { code: user.code });
+            println(`removed as an author sheet: ${color()}`);
+            await call("removeCSS", user);
+            println(`removed as a user sheet: ${color()}`);
+
+            while ((await sendToBackground({ type: "frame-id" })) === null)
+                await new Promise(resolve => setTimeout(resolve, 20));
+            const frameRule = { code: "body { color: rgb(7, 8, 9); }" };
+            await call("insertCSS", frameRule, true);
+            await call("insertCSS", { code: "#box { color: rgb(7, 8, 9); }" });
+            println(`the frame: ${JSON.stringify(await sendToBackground({ type: "frame-color" }))}`);
+            await call("removeCSS", frameRule, true);
+            println(`the frame after removal: ${JSON.stringify(await sendToBackground({ type: "frame-color" }))}`);
+            println(`the top frame keeps its own: ${color()}`);
+
+            println(`never inserted: ${JSON.stringify(await call("removeCSS", { code: "#nothing {}" }))}`);
+            done();
+        });
+    </script>
+</body>

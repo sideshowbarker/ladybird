@@ -2367,13 +2367,15 @@ void WebContentPage::call_extension_tabs_injection_api(String const& extension_i
         }
         tab_id = active->id;
     }
-    auto is_css = method == "insertCSS"sv;
-    auto request = parse_extension_tabs_injection(*extension, *tab_id, arguments.at(1).as_object(), is_css ? ExtensionTabsInjection::CSS : ExtensionTabsInjection::Script);
+    auto is_css = method == "insertCSS"sv || method == "removeCSS"sv;
+    auto kind = method == "insertCSS"sv ? ExtensionTabsInjection::CSS : method == "removeCSS"sv ? ExtensionTabsInjection::RemoveCSS
+                                                                                                : ExtensionTabsInjection::Script;
+    auto request = parse_extension_tabs_injection(*extension, *tab_id, arguments.at(1).as_object(), kind);
     if (request.is_error()) {
         fail(request.release_error());
         return;
     }
-    // executeScript() resolves with each frame's value alone; insertCSS() with nothing.
+    // executeScript() resolves with each frame's value alone; insertCSS() and removeCSS() with nothing.
     Application::the().run_extension_injection(*extension, viewer, request.release_value(), [page = NonnullRefPtr { *this }, request_id, is_css](ErrorOr<JsonValue, String> result) {
         if (result.is_error()) {
             page->complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
@@ -2700,7 +2702,7 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
             return;
         }
         // Manifest version 2 injects with tabs; version 3 has scripting instead. These complete later.
-        if (name == "executeScript"sv || name == "insertCSS"sv) {
+        if (name == "executeScript"sv || name == "insertCSS"sv || name == "removeCSS"sv) {
             if (extension->descriptor().manifest_version >= 3)
                 return;
             call_extension_tabs_injection_api(context->extension_id, request_id, name, call_arguments);

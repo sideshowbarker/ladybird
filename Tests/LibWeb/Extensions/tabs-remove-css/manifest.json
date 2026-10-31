@@ -1,0 +1,35 @@
+{
+    "manifest_version": 2,
+    "name": "Tabs Remove CSS Fixture",
+    "version": "1.0",
+    "description": "A manifest version 2 background page that inserts CSS into the test page's tab and its frames, and removes it.",
+    "permissions": [
+        "file:///*"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/tabs-remove-css.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        },
+        {
+            "matches": [
+                "file:///*/data/extension-css-frame.html"
+            ],
+            "js": [
+                "frame.js"
+            ],
+            "run_at": "document_end",
+            "all_frames": true
+        }
+    ]
+}
