@@ -7,3 +7,8 @@ EventHandler::MaybeHandleKeyboardEventBeforeDispatch() marks that
 Escape mOnlyChromeDispatch, so content never gets it. And in Chromium,
 ExclusiveAccessManager::HandleUserKeyEvent() takes the Escape in the
 browser process, before the renderer gets it.
+
+To decide if fullscreen is active, Ladybird checks the topmost ancestor
+document in its process rather than the focused document alone. Gecko
+does the same, with nsContentUtils::GetInProcessSubtreeRootDocument()
+and that root document’s GetFullscreenElement().
