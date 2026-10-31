@@ -1,0 +1,1 @@
+{"settings":{"gecko":{"id":"management@example.org","update_url":"https://example.org/updates.json"}},"applications":{"gecko":{"id":"management@example.org"}}}

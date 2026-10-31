@@ -362,6 +362,11 @@ void ExtensionRegistry::set_enabled(StringView id, bool enabled)
     notify_changed();
 }
 
+bool ExtensionRegistry::is_packed(StringView id) const
+{
+    return any_of(m_settings.installed_extensions(), [&](auto const& installed) { return installed.id == id && installed.packed; });
+}
+
 bool ExtensionRegistry::is_allowed_in_private(StringView id) const
 {
     for (auto const& installed : m_settings.installed_extensions()) {

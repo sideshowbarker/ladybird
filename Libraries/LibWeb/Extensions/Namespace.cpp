@@ -13,6 +13,7 @@
 #include <LibWeb/Extensions/API/ContextMenus.h>
 #include <LibWeb/Extensions/API/ExtensionNamespace.h>
 #include <LibWeb/Extensions/API/I18n.h>
+#include <LibWeb/Extensions/API/Management.h>
 #include <LibWeb/Extensions/API/Permissions.h>
 #include <LibWeb/Extensions/API/Privacy.h>
 #include <LibWeb/Extensions/API/Runtime.h>
@@ -46,6 +47,10 @@ GC::Ref<JS::Object> install_namespace(JS::Realm& realm, MessagingContext& messag
     // Only manifest version 3 has scripting; version 2 injects with tabs.executeScript().
     if (context == NamespaceContext::ExtensionDocument && messaging_context.descriptor().manifest_version >= 3 && messaging_context.descriptor().has_permission("scripting"sv))
         namespace_object->define_direct_property("scripting"_utf16_fly_string, create_scripting(realm, messaging_context), attributes);
+
+    // An extension's own pages may read its ExtensionInfo, with no permission.
+    if (context == NamespaceContext::ExtensionDocument)
+        namespace_object->define_direct_property("management"_utf16_fly_string, create_management(realm, messaging_context), attributes);
 
     // Privacy settings are the extension's own pages' to change.
     if (context == NamespaceContext::ExtensionDocument && messaging_context.descriptor().has_permission("privacy"sv))

@@ -1,0 +1,13 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // runtime.getManifest() keeps the browser-specific settings as manifest.json has them.
+        asyncTest(async done => {
+            await contentScriptReady();
+            println(JSON.stringify(await sendToBackground({ type: "manifest" })));
+            done();
+        });
+    </script>
+</body>

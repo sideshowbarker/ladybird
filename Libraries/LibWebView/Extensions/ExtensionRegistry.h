@@ -104,6 +104,8 @@ public:
     // declare counts for nothing.
     void set_granted(StringView id, Vector<String> api_permissions, Vector<String> origins);
     bool is_allowed_in_private(StringView id) const;
+    // Whether the extension was installed from an archive, rather than loaded from a directory of the user's.
+    bool is_packed(StringView id) const;
     // Whether the user hid the extension's toolbar button; a change rebuilds every window's toolbar.
     void set_hidden_in_toolbar(StringView id, bool hidden);
     bool is_hidden_in_toolbar(StringView id) const;
