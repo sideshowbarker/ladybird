@@ -1,0 +1,11 @@
+Ladybird sends each WebContent process a descriptor per enabled
+extension that carries the content-script source text itself. WebKit
+does the same: WebExtensionContext::addInjectedContent() reads every
+script with WebExtension::resourceStringForPath() in the UI process
+and ships it inside a WebCore::UserScript through the user content
+controller. Blink keeps the scripts in a shared memory region that
+UserScriptSet maps in each renderer. Gecko instead loads a content
+script in the content process through the moz-extension protocol and
+caches it in ExtensionContent.sys.mjs’s ScriptCache. Reading in the
+UI process keeps the extension directory out of the WebContent
+sandbox, which can’t read arbitrary files.
