@@ -1,0 +1,27 @@
+{
+    "manifest_version": 2,
+    "name": "CORS Exemption Fixture",
+    "version": "1.0",
+    "description": "A background page that fetches from hosts the extension has host access to and from one it hasn't, for a test page whose content script fetches too.",
+    "permissions": [
+        "http://localhost/*",
+        "http://127.0.0.1/*cors-allowed*"
+    ],
+    "background": {
+        "scripts": [
+            "fetch-result.js",
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "http://*/*Extensions/extension-cors-exemption.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

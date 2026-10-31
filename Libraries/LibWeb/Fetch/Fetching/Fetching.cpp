@@ -683,6 +683,18 @@ static bool is_request_from_an_svg_image(Infrastructure::Request const& request)
     return window && window->associated_document().is_decoded_svg();
 }
 
+// Whether an extension's own page, or a worker of one, makes the request to a URL the extension has host access to:
+// Such a request reads the response whatever CORS headers it has, and is never preflighted. A content script's
+// requests have the page's origin, so they never are.
+static bool is_exempt_from_cors_by_extension_host_access(Infrastructure::Request const& request)
+{
+    auto const* origin = request.origin().get_pointer<URL::Origin>();
+    if (!origin || origin->is_opaque() || origin->scheme() != Extensions::scheme)
+        return false;
+    auto const* extension = Extensions::ExtensionSet::the().find(origin->host().serialize());
+    return extension && extension->has_host_access(request.current_url());
+}
+
 // https://fetch.spec.whatwg.org/#concept-main-fetch
 // NB: This is step 10 of main fetch. The WebSocket opening handshake does not go through main fetch yet, so it runs this
 //     step on its own.
@@ -815,6 +827,14 @@ static NonnullRefPtr<PendingResponse> get_response(Infrastructure::FetchParams c
 
         // Return a network error.
         return PendingResponse::create(fetch_params, Infrastructure::Response::network_error("Request with 'cors' mode must have URL with HTTP or HTTPS scheme"_string));
+    }
+
+    // AD-HOC: An extension page's request to a URL its host permissions cover is never preflighted. Its response
+    //         tainting is still "cors", so it carries the page's origin and no credentials unless it asks for them,
+    //         but the CORS check below doesn't apply to it, and its response is filtered as a basic one.
+    if (is_exempt_from_cors_by_extension_host_access(request)) {
+        request->set_response_tainting(Infrastructure::Request::ResponseTainting::CORS);
+        return http_fetch(fetch_params);
     }
 
     // -> request’s use-CORS-preflight flag is set
@@ -1011,6 +1031,9 @@ void run_main_fetch_parallel_steps(Engine::MainFetchInput input, NonnullRefPtr<E
             // 2. Set response to the following filtered response with response as its internal response, depending
             //    on request’s response tainting:
             response = [&]() -> NonnullRefPtr<Infrastructure::Response> {
+                // AD-HOC: An extension page reads all of a response from a URL its host permissions cover.
+                if (request->response_tainting() == Infrastructure::Request::ResponseTainting::CORS && is_exempt_from_cors_by_extension_host_access(request))
+                    return Infrastructure::BasicFilteredResponse::create(*response);
                 switch (request->response_tainting()) {
                 // -> "basic"
                 case Infrastructure::Request::ResponseTainting::Basic:
@@ -2080,7 +2103,9 @@ NonnullRefPtr<PendingResponse> http_fetch(Infrastructure::FetchParams const& fet
             //    then return a network error.
             // NOTE: As the CORS check is not to be applied to responses whose status is 304 or 407, or responses from
             //       a service worker for that matter, it is applied here.
+            // AD-HOC: Not for an extension page's request to a URL its host permissions cover.
             if (request->response_tainting() == Infrastructure::Request::ResponseTainting::CORS
+                && !is_exempt_from_cors_by_extension_host_access(request)
                 && !cors_check(request, *response)) {
                 fetch_params->discard_response_body(*response);
                 returned_pending_response->resolve(Infrastructure::Response::network_error("Request with 'cors' response tainting failed CORS check"_string));

@@ -1,0 +1,25 @@
+{
+    "manifest_version": 2,
+    "name": "CORS No Host Access Fixture",
+    "version": "1.0",
+    "description": "A background page with host access to another host only, which fetches what the CORS exemption test asks for.",
+    "permissions": [
+        "http://example.invalid/*"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "http://*/*Extensions/extension-cors-exemption.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

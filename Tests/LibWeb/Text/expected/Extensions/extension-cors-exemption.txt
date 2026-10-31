@@ -1,0 +1,9 @@
+fetch: {"status":200,"body":"body","custom":"seen"}
+XMLHttpRequest: {"status":200,"body":"body","custom":"seen"}
+no preflight: {"status":200,"body":"body","custom":"seen"}
+the request: {"origin":["ladybird-extension"],"cookie":false}
+within host access: {"status":200,"body":"body","custom":"seen"}
+redirect out of host access: {"failed":"TypeError"}
+no host access: {"failed":"TypeError"}
+a content script: {"failed":"TypeError"}
+page fetch: {"failed":"TypeError"}

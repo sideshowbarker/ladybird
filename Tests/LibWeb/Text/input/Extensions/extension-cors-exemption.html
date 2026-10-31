@@ -1,0 +1,75 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        function askNoHost(message) {
+            return new Promise(resolve => {
+                document.addEventListener(
+                    "no-host-reply",
+                    () => resolve(JSON.parse(document.documentElement.dataset.noHostReply)),
+                    { once: true }
+                );
+                document.dispatchEvent(new CustomEvent("no-host-request", { detail: JSON.stringify(message) }));
+            });
+        }
+
+        // An extension page reads responses from hosts the extension has host access to whatever CORS headers those
+        // send, without a preflight, and without the host's cookies. Content scripts, web pages, and extensions without
+        // host access keep ordinary CORS.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const server = httpTestServer();
+            const token = crypto.randomUUID();
+            const echo = async (host, path, options) => {
+                const url = new URL(await server.createEcho(options.method ?? "GET", `/${path}/${token}`, options));
+                return `http://${host}:${location.port}${url.pathname}`;
+            };
+            const plain = { status: 200, headers: { "X-Custom": "seen", "Cache-Control": "no-store" }, body: "body" };
+            const show = result => JSON.stringify(result);
+
+            document.cookie = `cors-${token}=1; path=/`;
+            const own = await echo("localhost", "cors-own", plain);
+            println(`fetch: ${show(await sendToBackground({ type: "fetch", url: own }))}`);
+            println(`XMLHttpRequest: ${show(await sendToBackground({ type: "xhr", url: own }))}`);
+
+            const put = await echo("localhost", "cors-put", { ...plain, method: "PUT" });
+            const init = { method: "PUT", headers: { "X-Custom": "sent" } };
+            println(`no preflight: ${show(await sendToBackground({ type: "fetch", url: put, init }))}`);
+
+            const recorded = async url => {
+                const headers = await (await fetch(server.recordedRequestHeadersURL(url))).json();
+                const values = name =>
+                    Object.entries(headers)
+                        .filter(([key]) => key.toLowerCase() === name)
+                        .flatMap(([, value]) => value);
+                return {
+                    origin: values("origin").map(value => value.split(":")[0]),
+                    cookie: values("cookie").some(value => value.includes(`cors-${token}`)),
+                };
+            };
+            println(`the request: ${show(await recorded(own))}`);
+            document.cookie = `cors-${token}=; path=/; max-age=0`;
+
+            const allowed = await echo("127.0.0.1", "cors-allowed", plain);
+            const elsewhere = await echo("127.0.0.1", "cors-other", plain);
+            const redirect = await echo("127.0.0.1", "cors-allowed/redirect", {
+                status: 302,
+                headers: { Location: elsewhere, "Cache-Control": "no-store" },
+                body: "",
+            });
+            println(`within host access: ${show(await sendToBackground({ type: "fetch", url: allowed }))}`);
+            println(`redirect out of host access: ${show(await sendToBackground({ type: "fetch", url: redirect }))}`);
+            println(`no host access: ${show(await askNoHost({ url: own }))}`);
+            println(`a content script: ${show(await sendToBackground({ type: "cs-fetch", url: allowed }))}`);
+            let pageFetch;
+            try {
+                pageFetch = { status: (await fetch(allowed)).status };
+            } catch (error) {
+                pageFetch = { failed: error.name };
+            }
+            println(`page fetch: ${show(pageFetch)}`);
+            done();
+        });
+    </script>
+</body>
