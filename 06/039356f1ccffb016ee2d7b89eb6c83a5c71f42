@@ -16,4 +16,5 @@ UpdateIndividualTransform() makes the backface visible again for any
 element that establishes a new rendering context, so Chrome keeps
 nested contexts painted under a flipped hidden backface — which its
 Preserve3DUnderBackfaceHiddenWithout3DTransforms test pins down. The
-CSSWG hasn’t settled which behavior is right.
+CSSWG hasn’t settled which behavior is right:
+https://github.com/w3c/csswg-drafts/issues/918
