@@ -1,0 +1,5 @@
+Ladybird’s toolbar button menu offers Manage extension, Hide, and
+Remove (which asks first), as Chromium’s ExtensionContextMenuModel
+offers managing the extension, its kToggleVisibility (pin or unpin),
+and removal after a confirmation; Gecko’s offers Manage Extension and
+Remove Extension as well.
