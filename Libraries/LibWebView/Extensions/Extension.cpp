@@ -351,8 +351,7 @@ ErrorOr<Web::Extensions::ContentScriptDescriptor, String> Extension::registered_
 
 void Extension::set_registered_content_scripts(Vector<Web::Extensions::ContentScriptDescriptor> scripts)
 {
-    m_descriptor.content_scripts.remove_all_matching([](auto const& script) { return script.id.has_value(); });
-    m_descriptor.content_scripts.extend(move(scripts));
+    m_descriptor.set_registered_content_scripts(move(scripts));
 }
 
 Extension::Extension(ByteString directory, Core::Directory resource_directory, String id, ExtensionManifest manifest, Web::Extensions::ExtensionDescriptor descriptor)

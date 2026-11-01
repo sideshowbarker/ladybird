@@ -899,3 +899,36 @@ TEST_CASE(disconnected_ports_allow_listener_cleanup)
         world->detach();
     }
 }
+
+// Scripts an extension registers reach the set on their own, and leave its live contexts attached.
+TEST_CASE(registered_scripts_replace_only_their_own_part_of_the_set)
+{
+    TestPage test_page;
+    auto descriptor = test_descriptor();
+    Web::Extensions::ContentScriptDescriptor declared;
+    declared.matches = { Web::Extensions::MatchPattern::all_urls() };
+    declared.js_sources = { "window.declared = true;"_string };
+    descriptor.content_scripts = { declared };
+    auto& extensions = Web::Extensions::ExtensionSet::the();
+    extensions.set_extensions({ descriptor });
+    GC::Ref world = test_page.document->ensure_extension_world(descriptor);
+    auto generation = extensions.generation();
+
+    auto registered = declared;
+    registered.id = "registered"_string;
+    extensions.set_registered_content_scripts(descriptor.id, { registered });
+    EXPECT_EQ(extensions.generation(), generation + 1);
+    EXPECT_EQ(extensions.find(descriptor.id)->content_scripts, (Vector { declared, registered }));
+    EXPECT(!world->is_detached());
+
+    extensions.set_registered_content_scripts(descriptor.id, {});
+    EXPECT_EQ(extensions.find(descriptor.id)->content_scripts, (Vector { declared }));
+    EXPECT(!world->is_detached());
+
+    // An extension the set doesn't hold changes nothing.
+    extensions.set_registered_content_scripts("11111111-2222-3333-4444-555555555555"sv, { registered });
+    EXPECT_EQ(extensions.generation(), generation + 2);
+
+    extensions.set_extensions({});
+    EXPECT(world->is_detached());
+}

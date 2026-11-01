@@ -26,6 +26,19 @@ void ExtensionSet::set_extensions(Vector<ExtensionDescriptor> extensions)
         on_changed();
 }
 
+void ExtensionSet::set_registered_content_scripts(StringView id, Vector<ContentScriptDescriptor> scripts)
+{
+    for (auto& extension : m_extensions) {
+        if (extension.id != id)
+            continue;
+        extension.set_registered_content_scripts(move(scripts));
+        ++m_generation;
+        if (on_changed)
+            on_changed();
+        return;
+    }
+}
+
 ExtensionDescriptor const* ExtensionSet::find(StringView id) const
 {
     for (auto const& extension : m_extensions) {

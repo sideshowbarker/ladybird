@@ -94,6 +94,9 @@ struct WEBCOMMON_API ExtensionDescriptor {
     // Whether the descriptors differ in what has been granted or registered alone, which changes at runtime without a
     // reload.
     [[nodiscard]] bool differs_only_at_runtime(ExtensionDescriptor const&) const;
+    // The scripts registered at runtime, which follow the manifest's own in content_scripts.
+    [[nodiscard]] Vector<ContentScriptDescriptor> registered_content_scripts() const;
+    void set_registered_content_scripts(Vector<ContentScriptDescriptor>);
     // Whether a host permission, required or granted, matches the URL.
     [[nodiscard]] bool has_host_access(URL::URL const&) const;
 

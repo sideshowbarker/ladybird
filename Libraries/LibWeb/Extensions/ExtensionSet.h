@@ -26,13 +26,15 @@ public:
     static ExtensionSet& the();
 
     void set_extensions(Vector<ExtensionDescriptor>);
+    // Replaces the content scripts an extension in the set registered at runtime, which change without the rest of it.
+    void set_registered_content_scripts(StringView id, Vector<ContentScriptDescriptor>);
     Function<void()> on_changed;
 
     ExtensionDescriptor const* find(StringView id) const;
     ExtensionDescriptor const* find_by_name(StringView name) const;
     ReadonlySpan<ExtensionDescriptor> extensions() const { return m_extensions; }
 
-    // Bumps every time the set is replaced, so a holder of per-extension state can tell it is stale.
+    // Bumps every time the set or an extension in it changes, so a holder of per-extension state can tell it is stale.
     u64 generation() const { return m_generation; }
 
 private:
