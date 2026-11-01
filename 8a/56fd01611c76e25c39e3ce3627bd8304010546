@@ -1,0 +1,8 @@
+Ladybird gives each Fetch request a serial that every hop of a
+redirect shares, the way Firefox’s WebRequest.sys.mjs keys requests
+by the channel’s id across redirects (ChannelWrapper) and Chromium’s
+WebRequestEventRouter keeps one request id for a request’s whole life.
+The resource types and their mapping follow Firefox’s list, including
+imageset for an image-set candidate and xmlhttprequest for both fetch()
+and XMLHttpRequest; Firefox’s object_subrequest is gone from its
+ResourceType, so Ladybird doesn’t have it either.
