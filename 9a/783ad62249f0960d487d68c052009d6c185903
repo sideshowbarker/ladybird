@@ -1,0 +1,12 @@
+Ladybird merges blocking answers the way Chromium’s
+MergeCancelOfResponses and MergeOnBeforeRequestResponses do: any
+cancel wins, and otherwise the most recently installed extension’s
+answer counts. Firefox applies listeners one after another in
+WebRequest.sys.mjs, where a cancel also ends the request. A listener’s
+promise is awaited as in both. A canceled request’s onErrorOccurred
+reports NS_ERROR_ABORT, Firefox’s name for it.
+
+As in Firefox, a blocking onHeadersReceived can replace Set-Cookie and
+Content-Security-Policy before they take effect, since RequestServer
+pauses the transfer before it stores cookies and HSTS; Chromium gets the
+same through its extraHeaders option.
