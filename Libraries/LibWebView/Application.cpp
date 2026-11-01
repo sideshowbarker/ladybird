@@ -298,6 +298,22 @@ public:
         }
     }
 
+    // Only the extension's registered scripts go to the page processes that know of it — not every enabled extension
+    // again. Workers inject no content scripts, so they aren't told.
+    virtual void registered_scripts_changed(Extension const& extension) override
+    {
+        auto& registry = *m_application.m_extension_registry;
+        if (!registry.is_enabled(extension.id()))
+            return;
+        auto scripts = extension.descriptor().registered_content_scripts();
+        auto allowed_in_private = registry.is_allowed_in_private(extension.id());
+        WebContentClient::for_each_client([&](WebContentClient& client) {
+            if (client.is_private() == IsPrivate::No || allowed_in_private)
+                client.async_set_registered_content_scripts(extension.id(), scripts);
+            return IterationDecision::Continue;
+        });
+    }
+
 private:
     Application& m_application;
 };

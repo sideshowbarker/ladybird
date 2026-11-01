@@ -33,6 +33,8 @@ public:
     explicit ExtensionRegistryObserver(ExtensionRegistry&);
     virtual ~ExtensionRegistryObserver();
     virtual void extensions_changed() = 0;
+    // Only the extension's registered content scripts changed — which extensions_changed() isn't called for.
+    virtual void registered_scripts_changed(Extension const&) { }
 
 private:
     WeakPtr<ExtensionRegistry> m_registry;

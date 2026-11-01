@@ -23,6 +23,22 @@ bool ExtensionDescriptor::differs_only_at_runtime(ExtensionDescriptor const& oth
     return as_installed(*this) == as_installed(other);
 }
 
+Vector<ContentScriptDescriptor> ExtensionDescriptor::registered_content_scripts() const
+{
+    Vector<ContentScriptDescriptor> scripts;
+    for (auto const& script : content_scripts) {
+        if (script.id.has_value())
+            scripts.append(script);
+    }
+    return scripts;
+}
+
+void ExtensionDescriptor::set_registered_content_scripts(Vector<ContentScriptDescriptor> scripts)
+{
+    content_scripts.remove_all_matching([](auto const& script) { return script.id.has_value(); });
+    content_scripts.extend(move(scripts));
+}
+
 bool ExtensionDescriptor::has_host_access(URL::URL const& url) const
 {
     auto matches = [&](auto const& pattern) { return pattern.matches(url); };

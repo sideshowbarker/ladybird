@@ -449,7 +449,11 @@ void ExtensionRegistry::registered_scripts_changed(StringView id)
     if (!extension)
         return;
     apply_registered_scripts(*extension);
-    notify_changed();
+    auto observers = m_observers;
+    for (auto& observer : observers) {
+        if (observer)
+            observer->registered_scripts_changed(*extension);
+    }
 }
 
 RefPtr<Extension> ExtensionRegistry::find(StringView id) const

@@ -3470,6 +3470,11 @@ void ConnectionFromClient::set_extensions(Vector<Web::Extensions::ExtensionDescr
     Web::Extensions::ExtensionSet::the().set_extensions(move(extensions));
 }
 
+void ConnectionFromClient::set_registered_content_scripts(String extension_id, Vector<Web::Extensions::ContentScriptDescriptor> scripts)
+{
+    Web::Extensions::ExtensionSet::the().set_registered_content_scripts(extension_id, move(scripts));
+}
+
 void ConnectionFromClient::dispatch_extension_runtime_connect(Web::PageId page_id, u64 context_id, u64 channel_id, u64 port_id, String name, Web::Extensions::MessageSender sender)
 {
     if (auto page = this->page(page_id); page.has_value())

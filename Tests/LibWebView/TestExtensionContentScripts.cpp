@@ -190,3 +190,36 @@ TEST_CASE(contexts_are_admitted_by_creator_origin)
     EXPECT(!registry.may_create_context(id, url("data:text/html,hi"sv), false, false, WebView::IsPrivate::No, url("https://other.example/"sv)));
     EXPECT(!registry.may_create_context(id, url("data:text/html,hi"sv), false, false));
 }
+
+namespace {
+
+struct ScriptsObserver final : WebView::ExtensionRegistryObserver {
+    AK_ALLOC_WITH_KMALLOC;
+
+    using ExtensionRegistryObserver::ExtensionRegistryObserver;
+    virtual void extensions_changed() override { ++changes; }
+    virtual void registered_scripts_changed(WebView::Extension const& extension) override { scripts_changed.append(extension.id()); }
+
+    size_t changes { 0 };
+    Vector<String> scripts_changed;
+};
+
+}
+
+// A registration changes the extension's registered scripts alone, so observers hear of just that, not of a new set.
+TEST_CASE(registering_scripts_tells_observers_of_the_scripts_alone)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(LexicalPath::join(directory.path, "Settings.json"sv).string());
+    WebView::ExtensionRegistry registry { settings };
+    ExtensionContentScriptRegistrations registrations;
+    registry.set_content_script_registrations(registrations);
+    auto id = TRY_OR_FAIL(registry.load_unpacked(directory.extension("one"sv, R"({ "manifest_version": 2, "name": "One", "version": "1" })"sv)))->id();
+    ScriptsObserver observer { registry };
+
+    registrations.add(id, &s_first_owner, 1, script("1"sv));
+    registry.registered_scripts_changed(id);
+    EXPECT_EQ(observer.changes, 0u);
+    EXPECT_EQ(observer.scripts_changed, (Vector { id }));
+    EXPECT_EQ(registry.find(id)->descriptor().registered_content_scripts().size(), 1u);
+}
