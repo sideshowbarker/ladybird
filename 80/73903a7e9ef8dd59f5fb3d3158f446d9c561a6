@@ -1,0 +1,8 @@
+Ladybird matches a content script’s include and exclude globs against
+the whole serialized URL, with * for any run of characters and ? for
+one, and matches an about:, data:, or blob: document as its creator’s
+origin for a script with matchOriginAsFallback. Firefox does both in
+MozDocumentMatcher::Matches() and MatchesURI() (WebExtensionPolicy.cpp),
+with its MatchGlob for the globs. Chromium has no include or exclude
+globs for registered scripts, but matches by origin for
+match_origin_as_fallback the same way, and WebKit has neither.

@@ -1,0 +1,14 @@
+Ladybird parses a content script in the extension world’s realm
+while the script keeps the document’s settings object, through
+ClassicScript::create_in_realm(). WebKit does the equivalent in
+LocalFrame::injectUserScriptImmediately(), which hands the source
+to ScriptController::evaluateInWorldIgnoringException(source, world),
+so the script compiles and runs against that world’s
+JSDOMWindow while the frame’s own ScriptController owns the run.
+Blink’s ScriptInjection::InjectJs() calls
+WebLocalFrame::RequestExecuteScript(world_id, sources, …), which
+compiles each source in the isolated world’s v8::Context of the
+same frame. Gecko’s ExtensionContent.sys.mjs compiles a content
+script as a Script bound to the sandbox and runs it with
+executeInGlobal(sandbox), the sandbox being a separate global that
+shares the content window as its prototype.

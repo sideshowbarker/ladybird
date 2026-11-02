@@ -1,0 +1,9 @@
+Ladybird dispatches runtime.onSuspend before an idle page unloads, waits
+up to a second for the page to acknowledge that its listeners have run,
+and dispatches runtime.onSuspendCanceled if outside activity arrives
+first. Chromium’s ProcessManager does the same in two steps,
+OnShouldSuspendAck() and then OnSuspendAck(), with CancelSuspend() for
+activity in between. Gecko’s ext-backgroundPage.js calls
+runtime.onSuspend in its SUSPENDING state, and notes that what the
+onSuspend listeners do shouldn’t cancel the suspension — the rule
+Ladybird follows for the page’s own activity while it suspends.
