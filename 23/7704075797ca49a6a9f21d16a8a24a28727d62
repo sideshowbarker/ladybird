@@ -1,0 +1,6 @@
+Ladybird’s archive reader refuses entries whose names leave the
+destination, symbolic links, case-only duplicates, and archives past
+its size and count limits, and it checks every entry’s CRC. Gecko reads
+an .xpi with its nsIZipReader in XPIInstall.sys.mjs, and Chromium’s
+zip reader (third_party/zlib/google/zip_reader.cc) likewise refuses a
+“..” part in an entry’s path.

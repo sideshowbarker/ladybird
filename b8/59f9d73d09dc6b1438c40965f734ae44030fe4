@@ -1,0 +1,4 @@
+The Refined GitHub model test’s fixture creates its context menu item
+in its runtime.onInstalled listener — since Chromium and Gecko both keep
+an extension’s menu items while an idle background page stops and starts
+again, so creating a fixed id again at startup fails as a duplicate.
