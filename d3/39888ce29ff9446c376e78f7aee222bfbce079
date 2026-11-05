@@ -1,0 +1,12 @@
+When the HTML parser needs a byte that a late encoding declaration
+would change, Ladybird first looks ahead in the bytes received for one,
+as far as the end of the head. Blink and WebKit look ahead the same
+way, holding back decoding meanwhile: Blink’s HTMLMetaCharsetParser::
+CheckForMetaCharset() tokenizes ahead until a tag that can’t be in the
+head, once at least 1024 bytes are in. WebKit’s TextResourceDecoder::
+checkForHeadCharset() does the same. Gecko’s nsHtml5StreamParser keeps
+looking for a meta charset until the head ends past the first kilobyte
+(TemplatePushedOrHeadPopped()), and decodes the buffered bytes again
+with the declared encoding. Ladybird stops at the end of the head by the
+tree builder’s rules, without also scanning on to the 1024th byte, since
+the prescan has covered those bytes already.
