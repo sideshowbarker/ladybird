@@ -22,3 +22,7 @@ PresShell::ScrollFrameIntoView() follows only GetNextContinuation()
 and leaves out the block, while WebKit centers the rect from its
 RenderElement::absoluteAnchorRectWithScrollMargin(), which spans from
 the top of the block to the bottom of the inline’s last text.
+
+Ladybird reports each empty piece at the start of its anonymous line,
+before the block’s top margin or after its bottom margin. That’s
+where Blink reports them too.
