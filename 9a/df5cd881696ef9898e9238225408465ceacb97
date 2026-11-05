@@ -42,9 +42,11 @@ isContinuedTranslationEnabled and _previousPageHighLevelDomain, while
 Chromium’s LanguageState::InTranslateNavigation() continues on any link
 the user follows to a page in the same language, whatever its site.
 
-The language sample is up to 4,096 UTF-16 code units of the page’s
-rendered text, Gecko’s #TEXT_SAMPLE_TARGET_CODE_UNITS. And a detection
-counts only with at least 25 characters of text and a probability above
-0.7: Chromium’s kMinimumContentLengthBytes and kTFLiteReliability-
-Threshold. Chromium’s page translation itself runs in a script it
-downloads, so how it extracts and rebuilds text isn’t in its source.
+The language sample is up to 4,096 UTF-16 code units of the text in the
+page’s tree, the length of Gecko’s #TEXT_SAMPLE_TARGET_CODE_UNITS. But
+Gecko samples the rendered text, and Ladybird the text in the tree, so
+taking the sample never lays the page out. A detection counts only with
+at least 25 characters of text and a probability above 0.7: Chromium’s
+kMinimumContentLengthBytes and kTFLiteReliabilityThreshold. Chromium’s
+page translation itself runs in a script it downloads, so how it
+extracts and rebuilds text isn’t in its source.
