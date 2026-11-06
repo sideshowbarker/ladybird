@@ -1,5 +1,5 @@
 For a row flex container’s intrinsic width, Ladybird follows the flexbox
-spec’s web-compatible algorithm: It sums the items’ min-content or
+spec’s “web-compatible” algorithm: It sums the items’ min-content or
 max-content contributions, except that an item that can’t move toward
 its contribution, and whose flex basis is definite, contributes its
 hypothetical main size. That’s what Blink’s FlexLayoutAlgorithm::
