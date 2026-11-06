@@ -23,3 +23,14 @@ through UserContentURLPattern, rejects credentials, ports, and
 malformed IPv6 brackets, but doesn’t canonicalize. And Gecko’s
 MatchPatternCore copies the host as written (dropping IPv6 brackets),
 so it accepts more host text than Ladybird does.
+
+A file match pattern’s host is ignored: Ladybird parses “file://*/*” and
+“file://localhost/*” as “file:///*”, since a file URL has no host for
+the pattern to match. Blink’s URLPattern::Parse() does the same, taking
+whatever follows “file://” up to the first “/” as a hostname that its
+matching never looks at. Gecko’s MatchPatternCore lets the host be empty
+for the file scheme alone, and otherwise keeps what it finds there: “*”
+sets mMatchSubdomain, so “file://*/*” matches every file URL there too,
+but a named host becomes mDomain and then matches no file URL at all.
+WebKit’s UserContentURLPattern allows an empty host for file alone, maps
+a “localhost” host to the empty one, and matches every host for “*”.
