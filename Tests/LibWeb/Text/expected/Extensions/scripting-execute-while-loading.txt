@@ -1,0 +1,2 @@
+injections that failed: 0
+the frame ran injected scripts: true
