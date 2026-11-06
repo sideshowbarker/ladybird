@@ -1,0 +1,29 @@
+{
+    "manifest_version": 3,
+    "name": "Scripting Loading Fixture",
+    "version": "1.0",
+    "description": "Injects into a tab it opens, over and over, while that tab's page is still loading.",
+    "permissions": [
+        "scripting",
+        "tabs"
+    ],
+    "host_permissions": [
+        "http://*/*"
+    ],
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "http://*/*Extensions/scripting-execute-while-loading.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

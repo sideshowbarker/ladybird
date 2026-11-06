@@ -1,0 +1,40 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // An immediate injection that reaches a document after it became the active one but before scripts may run in
+        // it (that update is a task of its own) waits until they may, rather than running a script the page sees too
+        // early. The page floods its task queue while a frame of it navigates, so that the frame's document stays in
+        // that state long enough for the background page's injections to reach it.
+        if (location.search === "?target") {
+            document.title = "target";
+        } else {
+            asyncTest(async done => {
+                await contentScriptReady();
+                const iframe = document.createElement("iframe");
+                document.body.append(iframe);
+                await sendToBackground({ type: "start" });
+                let loaded = false;
+                let pending = 0;
+                const flood = () => {
+                    for (let i = 0; i < 500; ++i) {
+                        ++pending;
+                        window.postMessage("flood", "*");
+                    }
+                };
+                window.addEventListener("message", () => {
+                    if (--pending === 0 && !loaded) flood();
+                });
+                iframe.src = location.href + "?target";
+                flood();
+                await new Promise(resolve => (iframe.onload = resolve));
+                loaded = true;
+                const reply = await sendToBackground({ type: "stop" });
+                println(`injections that failed: ${reply.failed}`);
+                println(`the frame ran injected scripts: ${reply.frameRan > 0}`);
+                done();
+            });
+        }
+    </script>
+</body>

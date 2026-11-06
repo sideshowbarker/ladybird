@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<body>
+<script>
+    // A document_start content script may append a script element to the page, which runs in the page's world at once.
+    asyncTest(async done => {
+        await new Promise(resolve => window.addEventListener("load", resolve));
+        println(`appended script: ${document.documentElement.dataset.appendedScript}`);
+        done();
+    });
+</script>
+</body>

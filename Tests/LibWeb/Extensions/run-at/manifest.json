@@ -9,6 +9,7 @@
         { "matches": ["file:///*/Extensions/run-at-order.html", "file:///*/Extensions/idle-timer-after-document-destroyed.html?child"], "js": ["idle.js"], "run_at": "document_idle", "all_frames": true },
         { "matches": ["file:///*/Extensions/css-injection.html"], "css": ["style.css"], "js": ["css-done.js"], "run_at": "document_end" },
         { "matches": ["file:///*/Extensions/svg-image-content-script.html", "file:///*/Extensions/run-at/image.svg"], "js": ["start.js"], "run_at": "document_start", "all_frames": true },
-        { "matches": ["file:///*/Extensions/idle-callback-after-world-detached.html"], "js": ["idle-callback.js"], "run_at": "document_start" }
+        { "matches": ["file:///*/Extensions/idle-callback-after-world-detached.html"], "js": ["idle-callback.js"], "run_at": "document_start" },
+        { "matches": ["file:///*/Extensions/document-start-appends-script.html"], "js": ["append-script.js"], "run_at": "document_start" }
     ]
 }
