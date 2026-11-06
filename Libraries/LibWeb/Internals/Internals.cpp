@@ -1958,6 +1958,11 @@ void Internals::grant_extension_permissions(Utf16String const& extension_id, Vec
     page().client().grant_extension_permissions_for_testing(extension_id.to_utf8_but_should_be_ported_to_utf16(), to_utf8(permissions), to_utf8(origins));
 }
 
+void Internals::reload_extension(Utf16String const& extension_id)
+{
+    page().client().reload_extension_for_testing(extension_id.to_utf8_but_should_be_ported_to_utf16());
+}
+
 Utf16String Internals::extension_background_state(Utf16String const& extension_id)
 {
     return Utf16String::from_utf8(page().client().extension_background_state_for_testing(extension_id.to_utf8_but_should_be_ported_to_utf16()));

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<body>
+<script>
+    // A content script's idle callbacks stop once its world is detached: the fixture's script keeps one pending, and
+    // reloading the extension detaches the world it runs in while this page lives on.
+    asyncTest(async done => {
+        const root = document.documentElement;
+        const ticks = () => Number(root.dataset.idleTicks || 0);
+        while (ticks() < 2)
+            await new Promise(resolve => setTimeout(resolve, 10));
+        internals.reloadExtension(internals.extensionId("Run At Fixture"));
+        // The reload lands as a message from Hub; the ticks stop once it has.
+        let last = ticks();
+        let quiet = 0;
+        while (quiet < 5) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            if (ticks() === last)
+                quiet++;
+            else {
+                last = ticks();
+                quiet = 0;
+            }
+        }
+        await new Promise(resolve => requestIdleCallback(resolve));
+        println("idle callbacks stopped with the world");
+        done();
+    });
+</script>
+</body>

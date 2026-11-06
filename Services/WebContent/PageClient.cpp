@@ -2210,6 +2210,12 @@ void PageClient::grant_extension_permissions_for_testing(String const& extension
         test_connection->async_did_request_extension_grant_for_testing(m_id, extension_id, move(permissions), move(origins));
 }
 
+void PageClient::reload_extension_for_testing(String const& extension_id)
+{
+    if (auto* test_connection = client().test_connection())
+        test_connection->async_did_request_extension_reload_for_testing(m_id, extension_id);
+}
+
 String PageClient::extension_background_state_for_testing(String const& extension_id)
 {
     if (auto* test_connection = client().test_connection())

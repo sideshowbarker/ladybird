@@ -4886,6 +4886,13 @@ void WebContentPage::did_request_extension_grant_for_testing(String const& exten
     Application::the().change_extension_grants(extension_id, added, {});
 }
 
+void WebContentPage::did_request_extension_reload_for_testing(String const& extension_id)
+{
+    // A test stands in for the user who chooses Reload on about:extensions.
+    if (auto result = Application::extension_registry().reload(extension_id); result.is_error())
+        dbgln("Reloading extension {} for a test failed: {}", extension_id, result.error());
+}
+
 Messages::WebContentTestClient::DidRequestExtensionBackgroundStateForTestingResponse WebContentPage::did_request_extension_background_state_for_testing(String const& extension_id)
 {
     return Application::extension_background_host().is_hosting(extension_id) ? "running"_string : "stopped"_string;

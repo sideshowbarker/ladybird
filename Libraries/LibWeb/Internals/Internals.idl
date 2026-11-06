@@ -43,6 +43,9 @@ interface Internals {
     undefined unloadExtensionBackground(DOMString extensionId);
     // Grants optional permissions as a user would, firing permissions.onAdded.
     undefined grantExtensionPermissions(DOMString extensionId, sequence<DOMString> permissions, sequence<DOMString> origins);
+    // Reloads the extension from disk as the Reload button on about:extensions does, which detaches its worlds in
+    // every page.
+    undefined reloadExtension(DOMString extensionId);
 
     undefined gc();
 

@@ -492,6 +492,7 @@ private:
     void extension_injection_target_gone();
     virtual void did_execute_extension_injection(u64 request_id, Optional<String> result_json, Optional<String> error, bool frame_removed) override;
     void did_request_extension_grant_for_testing(String const& extension_id, Vector<String> permissions, Vector<String> origins);
+    void did_request_extension_reload_for_testing(String const& extension_id);
 
     // How the extension sees the tabs from this page: from the window of its tab or popup, if it's in one.
     ExtensionTabViewer extension_tab_viewer(String const& extension_id, Web::Extensions::ExtensionDescriptor const&, ReadonlySpan<ExtensionTab>);

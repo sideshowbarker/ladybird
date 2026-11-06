@@ -232,6 +232,7 @@ public:
     Utf16String extension_background_state(Utf16String const& extension_id);
     void unload_extension_background(Utf16String const& extension_id);
     void grant_extension_permissions(Utf16String const& extension_id, Vector<Utf16String> const& permissions, Vector<Utf16String> const& origins);
+    void reload_extension(Utf16String const& extension_id);
     bool headless();
     bool screen_wake_lock_active();
     Utf16String picture_in_picture_window_state();

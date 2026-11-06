@@ -42,6 +42,7 @@ private:
     virtual Messages::WebContentTestClient::DidRequestExtensionBackgroundStateForTestingResponse did_request_extension_background_state_for_testing(Web::PageId page_id, String extension_id) override;
     virtual void did_request_extension_background_unload_for_testing(Web::PageId page_id, String extension_id) override;
     virtual void did_request_extension_grant_for_testing(Web::PageId page_id, String extension_id, Vector<String> permissions, Vector<String> origins) override;
+    virtual void did_request_extension_reload_for_testing(Web::PageId page_id, String extension_id) override;
     virtual Messages::WebContentTestClient::DidRequestTabIsPlayingAudioForTestingResponse did_request_tab_is_playing_audio_for_testing(Web::PageId page_id) override;
     virtual Messages::WebContentTestClient::DidRequestTabIsHeardPlayingAudioForTestingResponse did_request_tab_is_heard_playing_audio_for_testing(Web::PageId page_id) override;
     virtual Messages::WebContentTestClient::DidRequestTabIsUsingMicrophoneForTestingResponse did_request_tab_is_using_microphone_for_testing(Web::PageId page_id) override;
