@@ -1,0 +1,20 @@
+Ladybird’s tabs.sendMessage() reaches only the extension’s content
+scripts in the tab, in every frame or in the one options.frameId names,
+and rejects with the no-receiver error when nothing there can receive
+it, including a tab or frame that doesn’t exist. Chromium routes it the
+same way: TabsHooksDelegate::HandleSendMessage() builds
+MessageTarget::ForTab() for the messaging service, which errors when no
+frame has a receiver. Gecko’s child ext-tabs.js passes tabId and frameId
+to Messenger.sendRuntimeMessage(), and the parent resolves the tab’s
+frames. WebKit’s WebExtensionContext::tabsSendMessage() can resolve
+successfully with nothing when a tab has no listener; Ladybird follows
+Chromium and Gecko there.
+
+The sender a receiver sees carries tab and frameId, filled in by the UI
+process from its own view of the sending document. Chromium’s frame ids
+are 0 for the top frame and otherwise per-frame ids from
+ExtensionApiFrameIdMap::GetFrameId(); Gecko’s getFrameId() in
+WebNavigationFrames.sys.mjs uses 0 for the top frame and the browsing
+context id for others. Ladybird uses 0 for the top-level navigable and a
+positive per-process id for each other navigable, never reused.
+documentId isn’t supported, since no Ladybird API hands one out yet.
