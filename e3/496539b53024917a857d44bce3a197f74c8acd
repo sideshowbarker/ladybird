@@ -1,0 +1,16 @@
+Ladybird keeps extensions out of private windows unless a saved
+allowed_in_private setting, false by default, lets them in.
+The registry filters the descriptors each private process gets, and
+the UI process rejects private context and resource requests without the
+opt-in. One background page, in the normal profile, serves both kinds of
+windows, with one storage.
+
+Chromium saves the opt-in as the kPrefIncognitoEnabled preference, which
+ExtensionPrefs::IsIncognitoEnabled() reads and SetIsIncognitoEnabled()
+sets. Gecko checks PRIVATE_ALLOWED_PERMISSION in its Extension class’s
+_setupStartupPermissions(), and saves it through ExtensionPermissions.
+WebKit updates m_hasAccessToPrivateData in WebExtensionContext::
+setHasAccessToPrivateData(), which also adds or removes injected
+content in private pages. Ladybird matches that opt-in gate
+in all three. Its single shared background matches Chromium’s default
+“spanning” incognito mode.

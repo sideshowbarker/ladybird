@@ -1,0 +1,20 @@
+Ladybird’s privacy settings let the most recently installed extension
+that set a value decide it, and report levelOfControl the way
+Firefox’s ExtensionSettingsStore::getLevelOfControl() does
+(controlled_by_this_extension, controlled_by_other_extensions, or
+controllable_by_this_extension for a later install). Turning
+networkPredictionEnabled off stops DNS prefetching and preconnecting,
+as Firefox’s ext-privacy.js turns off network.dns.disablePrefetch’s
+counterpart, the speculative connection limit, and link prefetching.
+Chromium keeps the same precedence in
+ExtensionPrefValueMap::GetEffectivePrefValue() and maps the setting
+through its NetworkPredictionTransformer. The non-regular-scope error
+names Ladybird instead of Firefox’s “Firefox does not support the ...
+settings scope.”; no extension compares it. WebKit has no privacy API.
+
+Ladybird drops an extension’s privacy settings when it’s removed,
+disabled, reloaded, or loses the privacy permission, and announces the
+value then in effect. Firefox removes an extension’s settings on
+uninstall, and when the permission that granted them is revoked, in
+ExtensionPreferencesManager.removeSettingsForPermissions(); Chromium’s
+ExtensionPrefValueMap drops an unloaded extension’s values too.
