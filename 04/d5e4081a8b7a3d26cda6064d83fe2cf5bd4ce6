@@ -1,12 +1,16 @@
-When the HTML parser needs a byte that a late encoding declaration
-would change, Ladybird first looks ahead in the bytes received for one,
-as far as the end of the head. Blink and WebKit look ahead the same
-way, holding back decoding meanwhile: Blink’s HTMLMetaCharsetParser::
-CheckForMetaCharset() tokenizes ahead until a tag that can’t be in the
-head, once at least 1024 bytes are in. WebKit’s TextResourceDecoder::
-checkForHeadCharset() does the same. Gecko’s nsHtml5StreamParser keeps
-looking for a meta charset until the head ends past the first kilobyte
-(TemplatePushedOrHeadPopped()), and decodes the buffered bytes again
-with the declared encoding. Ladybird stops at the end of the head by the
-tree builder’s rules, without also scanning on to the 1024th byte, since
-the prescan has covered those bytes already.
+Before the HTML parser starts, Ladybird looks for a meta charset
+by tokenizing the page’s bytes through the first 1024, and on until
+the head ends or a template starts, as whatwg/html#6962 proposes.
+Blink’s HTMLMetaCharsetParser::CheckForMetaCharset() and WebKit’s
+TextResourceDecoder::checkForHeadCharset() tokenize ahead in the same
+way, holding back decoding meanwhile, and stop at a tag that can’t be
+in the head once at least 1024 bytes have arrived. Gecko implements
+the proposal: Its nsHtml5StreamParser keeps looking for a meta charset
+(mLookingForMetaCharset) until TemplatePushedOrHeadPopped() past
+UNCONDITIONAL_META_SCAN_BOUNDARY, and holds the parse’s tree operations
+in a speculation meanwhile, which it drops (DiscardMetaSpeculation())
+when it finds one. But Gecko also lets a token that’s open at that
+boundary finish (IsInTokenStartedAtKilobyteBoundary()), and Ladybird
+doesn’t: Once the head has ended, it stops at byte 1024, even inside
+a long comment — so a page whose head ends early doesn’t wait on
+the rest of that comment.
