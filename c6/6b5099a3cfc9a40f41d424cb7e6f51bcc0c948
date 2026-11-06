@@ -1,0 +1,12 @@
+Ladybird’s permissions.remove() refuses to remove a required permission,
+and an origin that overlaps a required host pattern or a manifest
+content script’s match, with “You cannot remove required permissions.”
+and changes nothing. That’s Chromium’s PermissionsRemoveFunction::
+ Run(), which classifies the requested origins against the required
+explicit and scriptable hosts first. Gecko’s ext-permissions.js
+refuses only origins a required one subsumes, and only under an
+enterprise policy, and WebKit’s WebExtensionContext::permissionsRemove()
+removes whatever matches.
+
+With no prompt yet, Ladybird’s permissions.request() resolves with
+false, the answer a user declining gives in Chromium, Gecko, and WebKit.
