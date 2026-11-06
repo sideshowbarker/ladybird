@@ -1,0 +1,14 @@
+Ladybird exempts an extension page’s request to a URL the extension
+has host access to from CORS: no preflight, no CORS check, and a basic
+filtered response, while the request keeps CORS tainting, so it goes
+out with the extension’s Origin and without cookies under the default
+credentials mode; each redirect hop is judged again. Firefox reaches a
+similar result through nsCORSListenerProxy::UpdateChannel(), which
+skips CORS when the requesting principal’s CheckMayLoad() succeeds —
+for an extension, through BasePrincipal::AddonAllowsLoad() — though
+it then treats the request as same-origin, cookies included. Chromium
+adds the extension’s host permissions to the network service’s
+OriginAccessList (CreateCorsOriginAccessAllowList() in cors_util.cc),
+and WebKit sets the extension’s pages’ _corsDisablingPatterns from
+WebExtensionContext::corsDisablingPatterns(). Content scripts get no
+exemption in any of them.
