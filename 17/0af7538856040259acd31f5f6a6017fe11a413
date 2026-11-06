@@ -1,0 +1,8 @@
+Ladybird sizes an audio element with controls from its controls, in
+flex layout as in block layout. Gecko does the same: nsVideoFrame::
+ComputeSize() sends an audio frame through nsContainerFrame::
+ComputeSize(), and nsVideoFrame::Reflow() takes the controls’ block
+size as the frame’s. Blink and WebKit instead give the element a fixed
+height in their UA stylesheets: Blink’s html.css sets 54px, and WebKit’s
+modern media controls set a 31px height and minimum height on the host.
+None of the three gives it the 150px fallback height.
