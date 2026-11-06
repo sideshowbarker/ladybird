@@ -1,0 +1,13 @@
+Ladybird sizes a popup by measuring its document at 25×25 and taking
+the root’s scroll size, up to 800×600, again after each layout that
+changed something. Blink measures the same way when its feature
+AutoSizeUsesScrollWidthForOverflow is on: FrameViewAutoSizeInfo::
+AutoSizeIfNeeded() resets the frame to its minimum size and reads the
+scroll width, at the first autosize, after loading, and on layout or
+overflow changes, within the bounds Chromium’s ExtensionPopup sets.
+
+A popup closes itself with window.close() whatever its history holds.
+Chromium does that for all of an extension’s pages, since
+extension_webkit_preferences.cc sets allow_scripts_to_close_windows for
+them, and ExtensionHost::CloseContents() then closes the host; Ladybird
+does it for an extension’s popups, and not yet for its other pages.

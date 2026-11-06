@@ -1,0 +1,13 @@
+Ladybird rejects a runtime message that reaches no listener with “Could
+not establish connection. Receiving end does not exist.” MessageRouter
+reports NoListener for a context with no listeners and NoReply for
+listeners that decline, and ExtensionMessageBroker rejects only when no
+target had a listener, or when the background page failed to start.
+
+Chromium rejects with the same message, kReceivingEndDoesntExistError
+in message_service.cc, when no receiver exists. Gecko does
+the same with ERROR_NO_RECEIVERS in ExtensionParent.sys.mjs, rejecting
+in recvRuntimeMessage() when raceResponses() finds no receiver. WebKit
+differs: WebExtensionContext::runtimeSendMessage() completes with a
+null reply when nobody responds, which resolves with undefined. Ladybird
+matches Chromium and Gecko.
