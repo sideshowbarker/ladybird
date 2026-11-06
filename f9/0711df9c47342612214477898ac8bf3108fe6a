@@ -1,0 +1,9 @@
+Ladybird’s storage.session keeps its values in memory, under the
+10,485,760-byte quota, and opens itself to content scripts only after
+setAccessLevel(). Until then, it refuses their calls with Chromium’s
+“Access to storage is not allowed from this context.” in the same
+wording, since extensions compare it. Chromium’s SettingsFunction::
+PreRunValidation() makes that same check, WebKit keeps the level per
+extension (WebExtensionStorageAccessLevel, which its
+WebExtensionContextAPIStorage.cpp checks), and Gecko’s ext-storage.js
+keeps the session area in memory as well.

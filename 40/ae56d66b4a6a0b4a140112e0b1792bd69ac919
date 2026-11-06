@@ -1,0 +1,5 @@
+The Dark Reader model makes the calls Dark Reader’s background makes
+at startup — runtime.setUninstallURL(), contextMenus.removeAll() then
+create(), commands.getAll(), and runtime.getPlatformInfo() — and runs
+its content scripts in both worlds at document_start in every frame, as
+Dark Reader’s Firefox manifest declares them.

@@ -1,0 +1,22 @@
+Ladybird’s tabs.query() needs no permission, and returns a tab’s url and
+title only with the tabs permission or a host permission matching the
+URL, so a url or title filter never matches a tab whose details the
+caller can’t see. Chromium does the same: TabsQueryFunction::Run()
+filters with MatchesTab(), which consults
+ExtensionTabUtil::GetScrubTabBehavior() before comparing url or title.
+Gecko’s TabBase.hasTabPermission() gates the same properties on the tabs
+permission, an activeTab grant, or a host permission, and its query()
+skips url and title matches the extension can’t see. WebKit’s
+WebExtensionContext::tabsQuery() also hides url and title without
+access, but can ask the user for access mid-query; Ladybird doesn’t
+prompt, as Chromium and Gecko don’t.
+
+The schema errors (an unexpected property, a wrong type, an enum value
+outside its list) and the bad-pattern error ("Invalid url pattern
+'<pattern>'") are worded exactly as Chromium’s api_invocation_errors.cc
+and url_pattern_set.cc word them, since extensions see and compare them.
+Chromium’s filters that Ladybird can’t answer yet (audible, muted,
+autoDiscardable, frozen, splitViewId) reject with Ladybird’s own message
+rather than matching every tab. The tab object follows Chromium’s
+ExtensionTabUtil::CreateTabObject(): selected and highlighted follow
+active, and groupId is -1.
