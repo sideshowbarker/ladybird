@@ -1,0 +1,21 @@
+Ladybird validates every locale catalog as the extension loads,
+and merges the user’s first preferred language, that language’s
+shorter tags, and default_locale, the earliest winning for
+each message. Chromium also validates catalogs no fallback
+uses, in ValidateExtensionLocales(), and builds its chain in
+GetAllFallbackLocales() from the application locale’s lineage.
+Gecko’s ExtensionData.initLocale() loads the preferred locale’s
+variations and the default, and WebKit’s WebExtensionLocalization::
+loadRegionalLocalization() merges regional, language-only, and
+default catalogs. Ladybird has no separate application language, so its
+Accept-Language list stands in for one.
+
+Ladybird localizes only name, short_name, description, and the
+action titles of the manifest, a field list like the one in Chromium’s
+LocalizeManifest(). Gecko localizes the fields its schemas mark as
+localizable, and WebKit’s localizedJSONforJSON() walks every string in
+the manifest. All three engines make the extension id and the UI locale
+and direction messages available without any catalog, which is what lets
+content-script CSS name the extension’s own URLs. Ladybird localizes
+declared content-script CSS before it goes to WebContent, as WebKit’s
+WebExtensionContext::localizedResourceString() does for injected CSS.
