@@ -37,3 +37,14 @@ or opener, as Blink’s ContentScriptInjectionUrlGetter::Get() does;
 Gecko’s MozDocumentMatcher::Matches() uses the principal’s URL,
 and WebKit’s LocalFrame::injectUserScript() the parent document’s.
 None of them ever uses a base URL.
+
+Content scripts never run in the document that decodes an SVG image: It
+belongs to no tab, so a script there would have nothing to talk to, and
+Ladybird skips it at injection time. Blink’s IsolatedSVGDocumentHost
+gives that document a Page with an EmptyLocalFrameClient and no
+RenderFrame, and ScriptInjectionManager injects per RenderFrame, so it
+never sees the image’s document. WebKit’s SVGImage builds its Page from
+pageConfigurationWithEmptyClients() with scripts disabled, so no user
+script reaches it. Gecko’s SVGDocumentWrapper gives the document it
+wraps no DocShell and marks it with SetIsBeingUsedAsImage(), and no
+script of any kind runs in it.
