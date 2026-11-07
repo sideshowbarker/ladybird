@@ -1,0 +1,7 @@
+Ladybird’s tabs.get(), tabs.remove(), and tabs.reload() fail with
+“No tab with id: N.” for a tab the extension can’t see, as Chromium’s
+TabsGetFunction, TabsRemoveFunction, and TabsReloadFunction do; and
+tabs.remove() closes nothing when any id in its list is unknown. A tab
+closes the way the user closing it would, so its page’s beforeunload
+handler runs first, which is what Gecko’s ext-tabs.js remove() does
+through gBrowser.removeTab() and removeTabs().

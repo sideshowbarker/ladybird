@@ -1,0 +1,24 @@
+Ladybird gives every extension context i18n.getMessage() and
+getUILanguage(), both answered from the extension’s descriptor
+without IPC. Chromium’s GetI18nMessage() reads its SharedL10nMap,
+and HandleGetUILanguage() returns base::i18n::GetConfiguredLocale();
+Gecko’s ext-i18n.js uses LocaleData.localizeMessage() and uiLocale,
+and WebKit’s WebExtensionAPILocalization::getMessage() reads the
+context’s localization data.
+
+A message name that isn’t a string, or options that aren’t an
+object, make getMessage() throw a TypeError, as Chromium’s APISignature
+checks do. Gecko’s schema checks throw too, but a plain Error.
+Past those checks, Ladybird follows GetI18nMessage(): An array of more
+than nine substitutions returns undefined, an element whose conversion
+throws is skipped, a getter that throws returns undefined, and escapeLt
+applies before substitution.
+
+Ladybird localizes a text/css response after ResourceLoader::
+handle_extension_load_request() reads its bytes, so a sheet pulled in
+by @import is localized the same way, exactly once. Chromium does it in
+ExtensionLocalizationThrottle, through SharedL10nMap::ReplaceMessages();
+Gecko’s ExtensionProtocolHandler::SubstituteChannel() runs
+its CSS through a localization stream converter; and WebKit’s
+WebExtensionContext::localizedResourceString() handles served
+CSS as well as injected CSS.

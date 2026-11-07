@@ -1,0 +1,17 @@
+Ladybird’s UI process pushes the enabled extensions’ descriptors to
+each WebContent process at launch and on every change, and a
+process-wide ExtensionSet in WebContent keeps the latest set. WebKit
+does the same through WebExtensionControllerProxy: the UI process’s
+WebExtensionController sends each WebProcessProxy a
+WebExtensionControllerParameters with every loaded context, and
+WebExtensionContextProxy mirrors one context per process. Blink’s
+ExtensionRegistry notifies every RenderProcessHost through
+RendererStartupHelper::OnExtensionLoaded() and OnExtensionUnloaded(),
+which send mojom::Renderer LoadExtensions and UnloadExtension, and
+the renderer’s Dispatcher keeps the RendererExtensionRegistry. Gecko
+registers a WebExtensionPolicy per extension in every process through
+ExtensionPolicyService, with the parent’s ExtensionProcessScript
+broadcasting the policies to content processes. The test-web flag
+that loads fixture extensions for a run mirrors Chromium’s
+--load-extension switch, which the extension browser tests use for
+the same purpose.
