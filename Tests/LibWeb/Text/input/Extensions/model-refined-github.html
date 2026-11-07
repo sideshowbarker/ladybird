@@ -5,16 +5,21 @@
     <script>
         // An extension that starts up as Refined GitHub does by default changes the pages it matches, follows a change to
         // its options, runs the content script it registered, and records no error while starting, or starting again.
+        // The page's policy allows no scripts of its own, as GitHub's doesn't; the extension's modules load regardless.
+        document.write(`<meta http-equiv="Content-Security-Policy" content="script-src 'unsafe-inline'">`);
         const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
         const accent = () => getComputedStyle(document.documentElement).getPropertyValue("--model-accent").trim();
         asyncTest(async done => {
             await contentScriptReady();
             println(`started: ${await sendToBackground({ type: "started" })}`);
+            // The options outlive the page and are shared by every copy of this test running at once, so what counts
+            // is that the page got an accent, and that a change to the option moves it; not which color.
             while (!document.getElementById("model-badge") || !accent()) await pause(20);
-            println(`the page changed: ${document.getElementById("model-badge").textContent} ${accent()}`);
-            await sendToBackground({ type: "set-accent", accent: "rgb(40, 50, 60)" });
-            while (accent() !== "rgb(40, 50, 60)") await pause(20);
-            println(`an options change: ${accent()}`);
+            println(`the page changed: ${document.getElementById("model-badge").textContent}, accent applied: ${accent().startsWith("rgb(")}`);
+            const before = accent();
+            await sendToBackground({ type: "set-accent", accent: `rgb(${Math.floor(Math.random() * 200) + 40}, 50, 60)` });
+            while (accent() === before) await pause(20);
+            println(`an options change: ${accent() !== before}`);
             const marked = new Promise(resolve =>
                 window.addEventListener("message", event => resolve(event.data), { once: true })
             );

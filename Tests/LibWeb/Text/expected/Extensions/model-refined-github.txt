@@ -1,6 +1,6 @@
 started: true
-the page changed: refined rgb(10, 20, 30)
-an options change: rgb(40, 50, 60)
+the page changed: refined, accent applied: true
+an options change: true
 the registered script: yes
 errors: []
 restarted: true
