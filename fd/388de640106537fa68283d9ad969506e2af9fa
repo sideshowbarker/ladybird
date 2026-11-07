@@ -1,0 +1,11 @@
+Ladybird looks up the record of each animation sample by a key of what
+it holds, and shares one record among the samples that hold the same
+style. The other engines never look up a sample by what it holds, so
+nothing like the cost this fixes arises in them. Blink applies animated
+values in StyleResolver::ApplyAnimatedStyle(), after its
+MatchedPropertiesCache lookup by matched declarations. WebKit’s
+TreeResolver::createAnimatedElementUpdate() applies an element’s
+animations to a style it has already resolved. And Gecko’s
+StyleSharingCache::insert_if_possible() leaves out any element with
+running animations, while its test_candidate() refuses to share a style
+with or from an element that has them.
