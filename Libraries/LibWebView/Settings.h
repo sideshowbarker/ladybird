@@ -443,7 +443,10 @@ private:
 
     void persist_settings();
 
+    void persist_installed_extensions();
+
     ByteString m_settings_path;
+    ByteString m_installed_extensions_path;
     Vector<InstalledExtension> m_installed_extensions;
     bool m_dns_override_by_command_line { false };
 

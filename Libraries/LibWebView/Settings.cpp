@@ -9,11 +9,13 @@
 #include <AK/JsonArray.h>
 #include <AK/JsonObject.h>
 #include <AK/JsonValue.h>
+#include <AK/LexicalPath.h>
 #include <AK/NumericLimits.h>
 #include <AK/Random.h>
 #include <AK/Utf16String.h>
 #include <LibCore/GeolocationProvider.h>
 #include <LibCore/StandardPaths.h>
+#include <LibFileSystem/FileSystem.h>
 #include <LibURL/InternalURLs.h>
 #include <LibURL/Parser.h>
 #include <LibUnicode/Locale.h>
@@ -766,6 +768,60 @@ void Settings::apply_changes(JsonObject& settings, JsonObject const& changes)
     });
 }
 
+static Vector<InstalledExtension> parse_installed_extensions(JsonArray const& extensions)
+{
+    Vector<InstalledExtension> installed;
+    for (auto const& value : extensions.values()) {
+        if (!value.is_object())
+            continue;
+        auto id = value.as_object().get_string(EXTENSION_ID_KEY);
+        auto path = value.as_object().get_string(EXTENSION_PATH_KEY);
+        if (!id.has_value() || id->is_empty() || !path.has_value() || path->is_empty())
+            continue;
+        Vector<String> granted_permissions;
+        if (auto permissions = value.as_object().get_array(EXTENSION_GRANTED_PERMISSIONS_KEY); permissions.has_value()) {
+            for (auto const& permission : permissions->values()) {
+                if (permission.is_string())
+                    granted_permissions.append(permission.as_string());
+            }
+        }
+        Optional<String> last_seen_version;
+        if (auto version = value.as_object().get_string(EXTENSION_LAST_SEEN_VERSION_KEY); version.has_value())
+            last_seen_version = *version;
+        Optional<String> gecko_id;
+        if (auto gecko = value.as_object().get_string(EXTENSION_GECKO_ID_KEY); gecko.has_value())
+            gecko_id = *gecko;
+        installed.append({ *id, path->to_byte_string(), value.as_object().get_bool(EXTENSION_ENABLED_KEY).value_or(true), move(granted_permissions), value.as_object().get_bool(EXTENSION_ALLOWED_IN_PRIVATE_KEY).value_or(false), move(last_seen_version), value.as_object().get_bool(EXTENSION_PACKED_KEY).value_or(false), move(gecko_id), value.as_object().get_bool(EXTENSION_HIDDEN_IN_TOOLBAR_KEY).value_or(false) });
+    }
+    return installed;
+}
+
+static JsonArray serialize_installed_extensions(Vector<InstalledExtension> const& installed)
+{
+    JsonArray extensions;
+    for (auto const& extension : installed) {
+        JsonObject object;
+        object.set(EXTENSION_ID_KEY, extension.id);
+        object.set(EXTENSION_PATH_KEY, MUST(String::from_byte_string(extension.path)));
+        object.set(EXTENSION_ENABLED_KEY, extension.enabled);
+        object.set(EXTENSION_ALLOWED_IN_PRIVATE_KEY, extension.allowed_in_private);
+        if (extension.last_seen_version.has_value())
+            object.set(EXTENSION_LAST_SEEN_VERSION_KEY, *extension.last_seen_version);
+        if (extension.packed)
+            object.set(EXTENSION_PACKED_KEY, true);
+        if (extension.gecko_id.has_value())
+            object.set(EXTENSION_GECKO_ID_KEY, *extension.gecko_id);
+        if (extension.hidden_in_toolbar)
+            object.set(EXTENSION_HIDDEN_IN_TOOLBAR_KEY, true);
+        JsonArray permissions;
+        for (auto const& permission : extension.granted_permissions)
+            permissions.must_append(permission);
+        object.set(EXTENSION_GRANTED_PERMISSIONS_KEY, move(permissions));
+        extensions.must_append(move(object));
+    }
+    return extensions;
+}
+
 Settings Settings::create(ByteString settings_path, Vector<String> platform_languages)
 {
     Settings settings { move(settings_path) };
@@ -789,28 +845,19 @@ Settings Settings::create(ByteString settings_path, Vector<String> platform_lang
     }
 
     settings.load_from_json(settings_json.value());
-    if (auto extensions = settings_json.value().get_array(EXTENSIONS_KEY); extensions.has_value()) {
-        for (auto const& value : extensions->values()) {
-            if (!value.is_object())
-                continue;
-            auto id = value.as_object().get_string(EXTENSION_ID_KEY);
-            auto path = value.as_object().get_string(EXTENSION_PATH_KEY);
-            if (!id.has_value() || id->is_empty() || !path.has_value() || path->is_empty())
-                continue;
-            Vector<String> granted_permissions;
-            if (auto permissions = value.as_object().get_array(EXTENSION_GRANTED_PERMISSIONS_KEY); permissions.has_value()) {
-                for (auto const& permission : permissions->values()) {
-                    if (permission.is_string())
-                        granted_permissions.append(permission.as_string());
-                }
-            }
-            Optional<String> last_seen_version;
-            if (auto version = value.as_object().get_string(EXTENSION_LAST_SEEN_VERSION_KEY); version.has_value())
-                last_seen_version = *version;
-            Optional<String> gecko_id;
-            if (auto gecko = value.as_object().get_string(EXTENSION_GECKO_ID_KEY); gecko.has_value())
-                gecko_id = *gecko;
-            settings.m_installed_extensions.append({ *id, path->to_byte_string(), value.as_object().get_bool(EXTENSION_ENABLED_KEY).value_or(true), move(granted_permissions), value.as_object().get_bool(EXTENSION_ALLOWED_IN_PRIVATE_KEY).value_or(false), move(last_seen_version), value.as_object().get_bool(EXTENSION_PACKED_KEY).value_or(false), move(gecko_id), value.as_object().get_bool(EXTENSION_HIDDEN_IN_TOOLBAR_KEY).value_or(false) });
+    // The installed extensions live in a file of their own: a build without extension support writes the settings
+    // file whole from its own model, and took the list with it while the list lived there. A list the settings file
+    // still carries is taken from there once, when the extensions file doesn't exist yet, and written to it.
+    bool installed_extensions_file_exists = FileSystem::exists(settings.m_installed_extensions_path);
+    if (auto installed_extensions_json = read_json_file(settings.m_installed_extensions_path); installed_extensions_json.is_error())
+        warnln("Unable to read the installed extensions: {}", installed_extensions_json.error());
+    else if (auto extensions = installed_extensions_json.value().get_array(EXTENSIONS_KEY); extensions.has_value())
+        settings.m_installed_extensions = parse_installed_extensions(*extensions);
+
+    if (!installed_extensions_file_exists) {
+        if (auto extensions = settings_json.value().get_array(EXTENSIONS_KEY); extensions.has_value() && !extensions->is_empty()) {
+            settings.m_installed_extensions = parse_installed_extensions(*extensions);
+            settings.persist_installed_extensions();
         }
     }
 
@@ -819,6 +866,7 @@ Settings Settings::create(ByteString settings_path, Vector<String> platform_lang
 
 Settings::Settings(ByteString settings_path)
     : m_settings_path(move(settings_path))
+    , m_installed_extensions_path(LexicalPath { m_settings_path }.parent().append("Extensions.json"sv).string())
 {
     reset_to_defaults();
 }
@@ -988,29 +1036,6 @@ JsonValue Settings::serialize_json() const
         setting.set(SITE_SETTING_POLICY_KEY, permission_policy(name) == PermissionPolicy::Block ? "block"_string : "ask"_string);
         settings.set(Web::Permissions::to_string(name), move(setting));
     }
-
-    JsonArray extensions;
-    for (auto const& extension : m_installed_extensions) {
-        JsonObject object;
-        object.set(EXTENSION_ID_KEY, extension.id);
-        object.set(EXTENSION_PATH_KEY, MUST(String::from_byte_string(extension.path)));
-        object.set(EXTENSION_ENABLED_KEY, extension.enabled);
-        object.set(EXTENSION_ALLOWED_IN_PRIVATE_KEY, extension.allowed_in_private);
-        if (extension.last_seen_version.has_value())
-            object.set(EXTENSION_LAST_SEEN_VERSION_KEY, *extension.last_seen_version);
-        if (extension.packed)
-            object.set(EXTENSION_PACKED_KEY, true);
-        if (extension.gecko_id.has_value())
-            object.set(EXTENSION_GECKO_ID_KEY, *extension.gecko_id);
-        if (extension.hidden_in_toolbar)
-            object.set(EXTENSION_HIDDEN_IN_TOOLBAR_KEY, true);
-        JsonArray permissions;
-        for (auto const& permission : extension.granted_permissions)
-            permissions.must_append(permission);
-        object.set(EXTENSION_GRANTED_PERMISSIONS_KEY, move(permissions));
-        extensions.must_append(move(object));
-    }
-    settings.set(EXTENSIONS_KEY, move(extensions));
 
     settings.set(GLOBAL_PRIVACY_CONTROL_KEY, m_global_privacy_control == GlobalPrivacyControl::Yes);
     settings.set(CRASH_REPORT_SENDING_KEY, crash_report_sending_to_string(m_crash_report_sending));
@@ -1602,7 +1627,7 @@ String Settings::add_installed_extension(ByteString path, Optional<String> id, V
         if (extension.path != path || extension.granted_permissions != granted_permissions) {
             extension.path = move(path);
             extension.granted_permissions = move(granted_permissions);
-            persist_settings();
+            persist_installed_extensions();
         }
         return extension.id;
     }
@@ -1610,7 +1635,7 @@ String Settings::add_installed_extension(ByteString path, Optional<String> id, V
     if (!id.has_value())
         id = AK::generate_random_uuid();
     m_installed_extensions.append({ *id, move(path), true, move(granted_permissions) });
-    persist_settings();
+    persist_installed_extensions();
 
     return *id;
 }
@@ -1621,7 +1646,7 @@ void Settings::set_installed_extension_enabled(StringView id, bool enabled)
         if (extension.id != id || extension.enabled == enabled)
             continue;
         extension.enabled = enabled;
-        persist_settings();
+        persist_installed_extensions();
         return;
     }
 }
@@ -1632,7 +1657,7 @@ void Settings::set_installed_extension_allowed_in_private(StringView id, bool al
         if (extension.id != id || extension.allowed_in_private == allowed)
             continue;
         extension.allowed_in_private = allowed;
-        persist_settings();
+        persist_installed_extensions();
         return;
     }
 }
@@ -1643,7 +1668,7 @@ void Settings::set_installed_extension_granted_permissions(StringView id, Vector
         if (extension.id != id || extension.granted_permissions == granted_permissions)
             continue;
         extension.granted_permissions = move(granted_permissions);
-        persist_settings();
+        persist_installed_extensions();
         return;
     }
 }
@@ -1654,7 +1679,7 @@ void Settings::set_installed_extension_last_seen_version(StringView id, String v
         if (extension.id != id || extension.last_seen_version == version)
             continue;
         extension.last_seen_version = move(version);
-        persist_settings();
+        persist_installed_extensions();
         return;
     }
 }
@@ -1666,7 +1691,7 @@ void Settings::set_installed_extension_package(StringView id, Optional<String> g
             continue;
         extension.packed = true;
         extension.gecko_id = move(gecko_id);
-        persist_settings();
+        persist_installed_extensions();
         return;
     }
 }
@@ -1677,7 +1702,7 @@ void Settings::set_installed_extension_hidden_in_toolbar(StringView id, bool hid
         if (extension.id != id || extension.hidden_in_toolbar == hidden)
             continue;
         extension.hidden_in_toolbar = hidden;
-        persist_settings();
+        persist_installed_extensions();
         return;
     }
 }
@@ -1687,7 +1712,7 @@ void Settings::remove_installed_extension(StringView id)
     auto removed = m_installed_extensions.remove_all_matching([&](auto const& extension) { return extension.id == id; });
     if (!removed)
         return;
-    persist_settings();
+    persist_installed_extensions();
 }
 
 void Settings::set_global_privacy_control(GlobalPrivacyControl global_privacy_control)
@@ -1931,6 +1956,15 @@ void Settings::persist_settings()
 
     if (on_persist)
         on_persist(settings);
+}
+
+void Settings::persist_installed_extensions()
+{
+    JsonObject file;
+    file.set(EXTENSIONS_KEY, serialize_installed_extensions(m_installed_extensions));
+
+    if (auto result = write_json_file(m_installed_extensions_path, file); result.is_error())
+        warnln("Unable to persist the installed extensions: {}", result.error());
 }
 
 void Settings::add_observer(Badge<SettingsObserver>, SettingsObserver& observer)

@@ -5,6 +5,7 @@
  */
 
 #include "ExtensionArchiveTestHelpers.h"
+#include <AK/JsonObject.h>
 #include <AK/LexicalPath.h>
 #include <AK/ScopeGuard.h>
 #include <LibCore/Directory.h>
@@ -59,6 +60,7 @@ struct TemporaryDirectory {
     }
 
     ByteString settings_path() const { return LexicalPath::join(path, "Settings.json"sv).string(); }
+    ByteString extensions_path() const { return LexicalPath::join(path, "Extensions.json"sv).string(); }
 
     ByteString path;
     static inline int s_counter = 0;
@@ -159,6 +161,71 @@ TEST_CASE(load_unpacked_assigns_a_uuid_and_persists)
     auto reloaded_settings = WebView::Settings::create(directory.settings_path());
     EXPECT_EQ(reloaded_settings.installed_extensions().size(), 2u);
     EXPECT_EQ(reloaded_settings.installed_extensions()[0].id, first_id);
+}
+
+static JsonObject read_json(ByteString const& path)
+{
+    auto file = MUST(Core::File::open(path, Core::File::OpenMode::Read));
+    auto json = MUST(JsonValue::from_string(MUST(file->read_until_eof())));
+    return json.as_object();
+}
+
+static void write_text(ByteString const& path, StringView text)
+{
+    auto file = MUST(Core::File::open(path, Core::File::OpenMode::Write));
+    MUST(file->write_until_depleted(text.bytes()));
+}
+
+TEST_CASE(installed_extensions_live_in_their_own_file)
+{
+    // A build without extension support writes Settings.json whole from its own model. The installed list is kept
+    // in Extensions.json beside it, where such a build leaves it alone.
+    TemporaryDirectory directory;
+    auto path = directory.extension("own-file"sv, minimal_manifest);
+
+    String id;
+    {
+        auto settings = WebView::Settings::create(directory.settings_path());
+        id = settings.add_installed_extension(path);
+        settings.set_restore_previous_session(true);
+    }
+    EXPECT(!read_json(directory.settings_path()).has("extensions"sv));
+    EXPECT_EQ(read_json(directory.extensions_path()).get_array("extensions"sv)->size(), 1u);
+
+    write_text(directory.settings_path(), R"({"firstRunComplete":true})"sv);
+    auto settings = WebView::Settings::create(directory.settings_path());
+    EXPECT_EQ(settings.installed_extensions().size(), 1u);
+    EXPECT_EQ(settings.installed_extensions()[0].id, id);
+    EXPECT_EQ(settings.installed_extensions()[0].path, path);
+}
+
+TEST_CASE(installed_extensions_move_out_of_the_settings_file)
+{
+    // A list the settings file still carries is taken from there once, into the extensions file; what the settings
+    // file says afterwards doesn't bring back an extension removed since.
+    TemporaryDirectory directory;
+    auto path = directory.extension("moved"sv, minimal_manifest);
+    auto legacy = MUST(String::formatted(R"({{"extensions":[{{"id":"44444444-4444-4444-8444-444444444444","path":"{}","enabled":false,"granted_permissions":["storage"]}}]}})", path));
+    write_text(directory.settings_path(), legacy);
+
+    {
+        auto settings = WebView::Settings::create(directory.settings_path());
+        EXPECT_EQ(settings.installed_extensions().size(), 1u);
+        EXPECT(!settings.installed_extensions()[0].enabled);
+        EXPECT_EQ(settings.installed_extensions()[0].granted_permissions, Vector { "storage"_string });
+        EXPECT(FileSystem::exists(directory.extensions_path()));
+        settings.set_restore_previous_session(true);
+    }
+    EXPECT(!read_json(directory.settings_path()).has("extensions"sv));
+
+    {
+        auto settings = WebView::Settings::create(directory.settings_path());
+        EXPECT_EQ(settings.installed_extensions().size(), 1u);
+        settings.remove_installed_extension("44444444-4444-4444-8444-444444444444"sv);
+    }
+    write_text(directory.settings_path(), legacy);
+    auto settings = WebView::Settings::create(directory.settings_path());
+    EXPECT(settings.installed_extensions().is_empty());
 }
 
 TEST_CASE(restore_keeps_failed_entries)
@@ -453,7 +520,7 @@ TEST_CASE(private_access_defaults_to_false_in_settings)
     ExtensionRegistry registry { settings };
     auto extension = TRY_OR_FAIL(registry.load_unpacked(directory.extension("private"sv, minimal_manifest)));
     EXPECT(!extension->id().is_empty());
-    auto file = TRY_OR_FAIL(Core::File::open(directory.settings_path(), Core::File::OpenMode::Read));
+    auto file = TRY_OR_FAIL(Core::File::open(directory.extensions_path(), Core::File::OpenMode::Read));
     auto bytes = TRY_OR_FAIL(file->read_until_eof());
     auto json = TRY_OR_FAIL(JsonValue::from_string(bytes));
     auto const& entry = json.as_object().get_array("extensions"sv)->at(0).as_object();

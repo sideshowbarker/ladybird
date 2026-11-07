@@ -20,6 +20,8 @@ def run_test(webdriver_binary):
         root = Path(temporary).resolve()
         config = root / "config" / "Settings.json"
         config.parent.mkdir()
+        # The browser moves the list the settings file carries into Extensions.json beside it, and keeps it there.
+        extensions_file = root / "config" / "Extensions.json"
         good_id = "11111111-1111-4111-8111-111111111111"
         missing_id = "22222222-2222-4222-8222-222222222222"
         removed_id = "33333333-3333-4333-8333-333333333333"
@@ -104,7 +106,12 @@ def run_test(webdriver_binary):
 
             def installed(identifier):
                 return next(
-                    (entry for entry in json.loads(config.read_text())["extensions"] if entry["id"] == identifier), None
+                    (
+                        entry
+                        for entry in json.loads(extensions_file.read_text())["extensions"]
+                        if entry["id"] == identifier
+                    ),
+                    None,
                 )
 
             def installed_entry(identifier):
