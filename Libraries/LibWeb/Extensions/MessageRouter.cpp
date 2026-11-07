@@ -270,6 +270,16 @@ void MessageRouter::complete_storage(Page& page, u64 request_id, StorageResult c
     JS::Value value = JS::js_undefined();
     if (result.type == StorageResult::Type::Bytes)
         value = JS::Value(result.bytes);
+    if (result.type == StorageResult::Type::Keys) {
+        auto parsed = JsonValue::from_string(result.json_or_error);
+        if (parsed.is_error() || !parsed.value().is_array()) {
+            WebIDL::reject_promise(realm, *pending->sender.promise, JS::Error::create(realm, "Invalid storage response"_utf16));
+            return;
+        }
+        GC::RootVector<JS::Value> keys;
+        parsed.value().as_array().for_each([&](auto const& key) { keys.append(JS::PrimitiveString::create(realm.vm(), Utf16String::from_utf8(key.as_string()))); });
+        value = JS::Array::create_from(realm, keys);
+    }
     if (result.type == StorageResult::Type::Items) {
         auto parsed = JsonValue::from_string(result.json_or_error);
         if (parsed.is_error() || !parsed.value().is_object()) {

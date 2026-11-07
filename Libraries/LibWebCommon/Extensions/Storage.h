@@ -16,6 +16,7 @@ namespace Web::Extensions {
 
 struct StorageRequest {
     enum class Operation : u8 { Get,
+        GetKeys,
         Set,
         Remove,
         Clear,
@@ -39,6 +40,8 @@ WEBCOMMON_API StringView storage_area_name(StorageRequest::Area);
 
 struct StorageResult {
     enum class Type : u8 { Items,
+        // getKeys(): json_or_error holds a JSON array of the keys.
+        Keys,
         Bytes,
         Empty,
         Error };

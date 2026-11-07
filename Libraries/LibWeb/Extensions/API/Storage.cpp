@@ -65,9 +65,10 @@ static JS::ThrowCompletionOr<PreparedStorageRequest> prepare_request(JS::VM& vm,
 {
     using Operation = StorageRequest::Operation;
     PreparedStorageRequest prepared { .request = { .operation = operation, .keys = {}, .items_json = {}, .area = area }, .defaults = {} };
-    if (count > (operation == Operation::Clear ? 0u : 1u) || (!count && (operation == Operation::Set || operation == Operation::Remove || operation == Operation::SetAccessLevel)))
+    auto takes_no_arguments = operation == Operation::Clear || operation == Operation::GetKeys;
+    if (count > (takes_no_arguments ? 0u : 1u) || (!count && (operation == Operation::Set || operation == Operation::Remove || operation == Operation::SetAccessLevel)))
         return vm.throw_completion<JS::TypeError>(Utf16String::formatted("Invalid storage.{} arguments", storage_area_name(area)));
-    if (operation == Operation::Clear)
+    if (takes_no_arguments)
         return prepared;
     auto value = count ? vm.argument(0) : JS::js_undefined();
     // setAccessLevel({ accessLevel }) sends the level alone.
@@ -127,7 +128,7 @@ static GC::Ref<JS::Object> create_storage_area(JS::Realm& realm, MessagingContex
         Utf16FlyString name;
         StorageRequest::Operation operation;
     };
-    Vector<Method> methods { { "get"_utf16_fly_string, StorageRequest::Operation::Get }, { "set"_utf16_fly_string, StorageRequest::Operation::Set }, { "remove"_utf16_fly_string, StorageRequest::Operation::Remove }, { "clear"_utf16_fly_string, StorageRequest::Operation::Clear }, { "getBytesInUse"_utf16_fly_string, StorageRequest::Operation::BytesInUse } };
+    Vector<Method> methods { { "get"_utf16_fly_string, StorageRequest::Operation::Get }, { "getKeys"_utf16_fly_string, StorageRequest::Operation::GetKeys }, { "set"_utf16_fly_string, StorageRequest::Operation::Set }, { "remove"_utf16_fly_string, StorageRequest::Operation::Remove }, { "clear"_utf16_fly_string, StorageRequest::Operation::Clear }, { "getBytesInUse"_utf16_fly_string, StorageRequest::Operation::BytesInUse } };
     if (area == StorageRequest::Area::Session)
         methods.append({ "setAccessLevel"_utf16_fly_string, StorageRequest::Operation::SetAccessLevel });
     for (auto const& method : methods) {
@@ -145,7 +146,7 @@ static GC::Ref<JS::Object> create_storage_area(JS::Realm& realm, MessagingContex
             auto promise = prepared.is_error()
                 ? WebIDL::create_rejected_promise(operation_realm, prepared.release_error().value())
                 : MessageRouter::the().request_storage(*context, prepared.value().request, move(prepared.value().defaults));
-            return settle_api_call(*context, callback, promise); }), method.operation == StorageRequest::Operation::Clear ? 0 : 1, attributes);
+            return settle_api_call(*context, callback, promise); }), method.operation == StorageRequest::Operation::Clear || method.operation == StorageRequest::Operation::GetKeys ? 0 : 1, attributes);
     }
     return object;
 }
