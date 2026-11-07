@@ -1,0 +1,8 @@
+import error: undefined
+module's namespace: object
+module saw window.pageSecret as: undefined
+module's relative import: 42
+module's import.meta.url ends in: modules/entry.js
+same module instance on a second import: true
+script element for the page's world: loaded, ran in the page: true
+policy violations: 0

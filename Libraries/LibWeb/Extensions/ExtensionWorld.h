@@ -8,7 +8,6 @@
 
 #include <LibWeb/HTML/Scripting/ClassicScript.h>
 
-#include <AK/OwnPtr.h>
 #include <AK/String.h>
 #include <LibGC/Cell.h>
 #include <LibGC/CellAllocator.h>
@@ -23,9 +22,12 @@
 
 namespace Web::Extensions {
 
+class ExtensionWorldEnvironmentSettingsObject;
+
 // One extension's world in one document: a realm whose global is another wrapper of the document's Window, with its
 // own wrapper cache, so a content script sees the live DOM through its own wrappers and nothing the page put on its
-// objects. The realm carries the "browser" namespace, and the scripts run with the document's settings object.
+// objects. The realm carries the "browser" namespace, and the scripts run with a settings object of the world's own,
+// so the modules they import are parsed in the world's realm and kept apart from the page's.
 class WEB_API ExtensionWorld final : public MessagingContext {
     GC_CELL(ExtensionWorld, MessagingContext);
     GC_DECLARE_ALLOCATOR(ExtensionWorld);
@@ -58,7 +60,7 @@ private:
 
     GC::Ref<DOM::Document> m_document;
     ExtensionDescriptor m_descriptor;
-    OwnPtr<JS::ExecutionContext> m_execution_context;
+    GC::Ptr<ExtensionWorldEnvironmentSettingsObject> m_settings;
     GC::Ptr<JS::Realm> m_realm;
     GC::Ptr<Bindings::WrapperWorld> m_wrapper_world;
     GC::Ptr<EventListenerList> m_message_listeners;

@@ -37,6 +37,9 @@ public:
     // Principal realms point this at themselves via PrincipalHostDefined's construction path. Non-principal realms must
     // point at an already-created principal realm with a PrincipalHostDefined.
     GC::Ref<JS::Realm> principal_realm;
+    // A non-principal realm whose scripts carry a settings object of their own (an extension world's) keeps it here,
+    // and its realm execution context is that object's. Null for every other realm.
+    GC::Ptr<HTML::EnvironmentSettingsObject> own_settings_object;
 
 protected:
     HostDefined(GC::Ref<Intrinsics> intrinsics, GC::Ref<WrapperWorld> wrapper_world, GC::Ref<JS::Realm> principal_realm, PrincipalRealmUnderConstruction principal_realm_under_construction = PrincipalRealmUnderConstruction::No);

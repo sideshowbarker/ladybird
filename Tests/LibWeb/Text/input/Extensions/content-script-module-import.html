@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script>
+    // A page's Content Security Policy doesn't govern an extension's own resources: a content script's dynamic import
+    // of the extension's modules goes through, and so does a script element it adds for the page's world. The modules
+    // run in the content script's world, once each, with the extension's namespace and none of the page's objects.
+    document.write(`<meta http-equiv="Content-Security-Policy" content="script-src 'unsafe-inline'">`);
+    window.pageSecret = 1;
+    const violations = [];
+    document.addEventListener("securitypolicyviolation", event => violations.push(event.blockedURI));
+    asyncTest(async done => {
+        const root = document.documentElement;
+        while (!root.dataset.report) await new Promise(resolve => setTimeout(resolve, 10));
+        const report = JSON.parse(root.dataset.report);
+        println(`import error: ${report.error}`);
+        println(`module's namespace: ${report.entry?.browser}`);
+        println(`module saw window.pageSecret as: ${report.entry?.pageSecret}`);
+        println(`module's relative import: ${report.entry?.helper}`);
+        println(`module's import.meta.url ends in: ${report.entry?.metaUrl}`);
+        println(`same module instance on a second import: ${report.sameInstance}`);
+        println(`script element for the page's world: ${report.pageScript}, ran in the page: ${window.extensionPageScriptRan === true}`);
+        println(`policy violations: ${violations.length}`);
+        done();
+    });
+</script>
