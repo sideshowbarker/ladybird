@@ -1,0 +1,6 @@
+Text after an atomic inline can wrap away from it, except when it
+starts with a character of the GL (other than U+00A0), WJ, or ZWJ line
+breaking class. Blink does the same: Its InlineItemsBuilder puts U+FFFC
+OBJECT REPLACEMENT CHARACTER in the text for each atomic inline, and
+UAX #14 allows a break on either side of that character, except where
+one of those classes is next to it.
