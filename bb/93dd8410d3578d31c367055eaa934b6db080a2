@@ -1,0 +1,9 @@
+Ladybird’s storage.<area>.getKeys() lists the area’s keys in insertion
+order and takes no arguments. Chromium exposes it on every area through
+StorageStorageAreaGetKeysFunction (extensions/browser/api/storage/
+storage_api.cc), which asks StorageFrontend::GetKeys() for the keys
+alone. Gecko’s ext-storage.js routes storage.local to
+ExtensionStorage.getKeys() (or ExtensionStorageIDB’s getKeys()) and
+storage.session to extensionStorageSession.getKeys(), which returns the
+bucket’s keys. WebKit declares getKeys() in
+WebExtensionAPIStorageArea.idl and reads the keys from its SQLite store.
