@@ -1,0 +1,7 @@
+Ladybird’s storage.managed is always empty: get() resolves with an
+empty object and getBytesInUse() with 0, and every write fails with
+“This is a read-only store.” That’s Chromium’s behavior for an extension
+without a managed-storage policy, from its ManagedValueStoreCache. Gecko
+instead rejects get() with “Managed storage manifest not found” when
+there’s no managed-storage manifest, and WebKit’s storage namespace
+has no managed area at all.
