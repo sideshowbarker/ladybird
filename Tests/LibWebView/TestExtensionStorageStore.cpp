@@ -164,6 +164,22 @@ TEST_CASE(remove_clear_and_reopen)
     EXPECT(get(f, reopened).is_empty());
 }
 
+TEST_CASE(keys_follow_insertion_order_and_skip_nothing)
+{
+    Fixture f;
+    ExtensionStorageStore store(f.root);
+    auto keys = [&] { return MUST(wait_for<Vector<String>>(f.loop, [&](auto callback) { store.keys("one"_string, move(callback)); })); };
+    EXPECT(keys().is_empty());
+    JsonObject items;
+    items.set("zebra"sv, 1);
+    items.set("apple"sv, JsonValue {});
+    items.set("__proto__"sv, "data"sv);
+    EXPECT(!set(f, store, move(items)).is_error());
+    EXPECT_EQ(keys(), (Vector<String> { "zebra"_string, "apple"_string, "__proto__"_string }));
+    TRY_OR_FAIL(wait_for<StorageChanges>(f.loop, [&](auto callback) { store.remove("one"_string, { "zebra"_string }, move(callback)); }));
+    EXPECT_EQ(keys(), (Vector<String> { "apple"_string, "__proto__"_string }));
+}
+
 TEST_CASE(write_failure_keeps_old_map)
 {
     Fixture f;

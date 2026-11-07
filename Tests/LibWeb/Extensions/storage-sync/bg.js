@@ -26,6 +26,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         Promise.all([
             outcome(managed.get()),
             outcome(managed.get("anything")),
+            outcome(managed.getKeys()),
             outcome(managed.getBytesInUse()),
             outcome(managed.set({ key: 1 })),
             outcome(managed.remove("key")),

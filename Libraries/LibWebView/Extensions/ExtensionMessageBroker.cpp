@@ -204,6 +204,9 @@ void ExtensionMessageBroker::request_storage(Endpoint& source, u64 context_id, u
         case StorageRequest::Operation::Get:
             source.complete_extension_storage(request_id, { StorageResult::Type::Items, "{}"_string });
             return;
+        case StorageRequest::Operation::GetKeys:
+            source.complete_extension_storage(request_id, { StorageResult::Type::Keys, "[]"_string });
+            return;
         case StorageRequest::Operation::BytesInUse:
             source.complete_extension_storage(request_id, { StorageResult::Type::Bytes, {}, 0 });
             return;
@@ -254,6 +257,18 @@ void ExtensionMessageBroker::request_storage(Endpoint& source, u64 context_id, u
                 complete({ StorageResult::Type::Error, MUST(String::formatted("{}", result.error())) });
             else
                 complete({ StorageResult::Type::Items, result.value().serialized() });
+        });
+        break;
+    case StorageRequest::Operation::GetKeys:
+        store.keys(id, [complete](ErrorOr<Vector<String>> result) {
+            if (result.is_error()) {
+                complete({ StorageResult::Type::Error, MUST(String::formatted("{}", result.error())) });
+                return;
+            }
+            JsonArray keys;
+            for (auto const& key : result.value())
+                keys.must_append(key);
+            complete({ StorageResult::Type::Keys, keys.serialized() });
         });
         break;
     case StorageRequest::Operation::BytesInUse:

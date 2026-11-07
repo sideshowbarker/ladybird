@@ -12,12 +12,14 @@
         log(await local.get({ a: 9, fallback: 2, nil: "default" }));
         log(await local.get([]));
         log(await local.get({}));
+        log(await local.getKeys());
         log(await local.getBytesInUse(["a", "a"]));
         await local.remove(["a", "missing"]);
         log(await local.get("a"));
         log(await local.get("nil"));
         await local.remove("nil");
         await local.clear();
+        log(await local.getKeys());
         log(await local.getBytesInUse(null));
         log(local.QUOTA_BYTES);
     } catch (error) {

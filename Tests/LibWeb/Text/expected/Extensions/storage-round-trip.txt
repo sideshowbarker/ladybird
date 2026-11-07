@@ -5,8 +5,10 @@
 {"a":1,"fallback":2,"nil":null}
 {}
 {}
+["a","nil","nested"]
 2
 {}
 {"nil":null}
+[]
 0
 10485760

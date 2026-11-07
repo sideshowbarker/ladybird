@@ -41,6 +41,7 @@ public:
     static NonnullOwnPtr<ExtensionStorageStore> create_sync_store(ByteString profile_data, Writer = {});
     ~ExtensionStorageStore();
     void get(String const&, Optional<Vector<String>>, Function<void(ErrorOr<JsonObject>)>);
+    void keys(String const&, Function<void(ErrorOr<Vector<String>>)>);
     void set(String const&, JsonObject, bool unlimited, Function<void(ErrorOr<StorageChanges>)>);
     void remove(String const&, Vector<String>, Function<void(ErrorOr<StorageChanges>)>);
     void clear(String const&, Function<void(ErrorOr<StorageChanges>)>);

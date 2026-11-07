@@ -334,6 +334,16 @@ void ExtensionStorageStore::get(String const& id, Optional<Vector<String>> keys,
     m_impl->enqueue<JsonObject>([impl = m_impl.ptr(), id, keys = move(keys)]() -> ErrorOr<JsonObject> { return Impl::select(*TRY(impl->load(id))->items, keys); }, move(callback));
 }
 
+void ExtensionStorageStore::keys(String const& id, Function<void(ErrorOr<Vector<String>>)> callback)
+{
+    m_impl->enqueue<Vector<String>>([impl = m_impl.ptr(), id]() -> ErrorOr<Vector<String>> {
+        Vector<String> keys;
+        TRY(impl->load(id))->items->for_each_member([&](auto const& key, auto const&) { keys.append(key); });
+        return keys;
+    },
+        move(callback));
+}
+
 void ExtensionStorageStore::set(String const& id, JsonObject items, bool unlimited, Function<void(ErrorOr<StorageChanges>)> callback)
 {
     m_impl->enqueue<StorageChanges>([impl = m_impl.ptr(), id, items = move(items), unlimited]() -> ErrorOr<StorageChanges> {

@@ -130,6 +130,7 @@ The `storage` permission exposes `browser.storage` and `chrome.storage`. Grantin
 - `get()` and `get(null)` return every item. A string selects one key, an array selects those keys, and an object supplies default values for missing keys. Empty arrays and objects select nothing. A stored `null` remains distinct from a missing key.
 - `set(object)` updates the supplied keys atomically. Values follow JSON serialization; cycles and other serialization failures reject the call before any request is sent. Keys such as `__proto__` are ordinary data properties.
 - `remove(stringOrArray)` deletes selected keys atomically; missing keys have no effect. `clear()` removes every item.
+- `getKeys()` returns every key, in insertion order.
 - `getBytesInUse()` and `getBytesInUse(null)` report total usage. A string or array selects keys. Each key is counted once, using its UTF-8 bytes plus its serialized JSON value’s bytes.
 - `QUOTA_BYTES` is 10,485,760. The granted `unlimitedStorage` permission lifts that limit. An over-quota update changes nothing.
 
