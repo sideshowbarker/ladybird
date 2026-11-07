@@ -12,6 +12,7 @@
 #include <LibWeb/Fetch/Infrastructure/HTTP/Requests.h>
 #include <LibWeb/Fetch/Infrastructure/HTTP/Responses.h>
 #include <LibWeb/HTML/PolicyContainers.h>
+#include <LibWebCommon/Extensions/Scheme.h>
 
 namespace Web::ContentSecurityPolicy {
 
@@ -103,6 +104,12 @@ void report_content_security_policy_violations_for_request(Fetch::Infrastructure
 // https://w3c.github.io/webappsec-csp/#should-block-request
 Directives::Directive::Result should_request_be_blocked_by_content_security_policy(Fetch::Infrastructure::Request const& request, ViolationReporter const& report_violation)
 {
+    // AD-HOC: A page's policy doesn't govern an extension's own resources: a content script loads the extension's
+    //         modules, images and frames into the page, and the extension's web-accessible list decides which pages
+    //         may load them. The spec knows no extension scheme.
+    if (request.current_url().scheme() == Extensions::scheme)
+        return Directives::Directive::Result::Allowed;
+
     // 1. Let CSP list be request’s policy container's CSP list.
     auto const& csp_list = csp_list_governing_request(request);
 
@@ -136,6 +143,10 @@ Directives::Directive::Result should_request_be_blocked_by_content_security_poli
 // https://w3c.github.io/webappsec-csp/#should-block-response
 Directives::Directive::Result should_response_to_request_be_blocked_by_content_security_policy(Fetch::Infrastructure::Response const& response, Fetch::Infrastructure::Request const& request, ViolationReporter const& report_violation)
 {
+    // AD-HOC: An extension's own resources are exempt, as above.
+    if (request.current_url().scheme() == Extensions::scheme)
+        return Directives::Directive::Result::Allowed;
+
     // 1. Let CSP list be request’s policy container's CSP list.
     auto const& csp_list = csp_list_governing_request(request);
 

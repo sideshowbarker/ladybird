@@ -1,0 +1,12 @@
+{
+    "manifest_version": 3,
+    "name": "Module Import Fixture",
+    "version": "1.0",
+    "description": "A content script that loads the extension's own modules into a page whose policy allows no scripts of its own.",
+    "content_scripts": [
+        { "matches": ["file:///*/Extensions/content-script-module-import.html"], "js": ["cs.js"], "run_at": "document_end" }
+    ],
+    "web_accessible_resources": [
+        { "resources": ["modules/*"], "matches": ["<all_urls>"] }
+    ]
+}

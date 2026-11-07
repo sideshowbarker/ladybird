@@ -297,6 +297,7 @@ set(SOURCES
     Extensions/ExtensionDocumentContext.cpp
     Extensions/ExtensionSet.cpp
     Extensions/ExtensionWorld.cpp
+    Extensions/ExtensionWorldEnvironmentSettingsObject.cpp
     Extensions/MessageRouter.cpp
     Extensions/MessagingContext.cpp
     Extensions/ScriptExecutor.cpp

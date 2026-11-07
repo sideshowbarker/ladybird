@@ -660,7 +660,11 @@ JS::Realm& entry_realm()
     auto entry_execution_context = vm.last_execution_context_matching([](JS::ExecutionContext* context) {
         if (!context->realm())
             return false;
-        return &principal_realm_settings_object(*context->realm()).realm_execution_context() == context;
+        // A realm's realm execution context is its settings object's: the realm's own, where it has one of its own, and
+        // otherwise its principal realm's.
+        auto& host_defined = Bindings::host_defined_of(*context->realm());
+        auto& settings = host_defined.own_settings_object ? *host_defined.own_settings_object : principal_realm_settings_object(*context->realm());
+        return &settings.realm_execution_context() == context;
     });
 
     VERIFY(entry_execution_context.has_value());

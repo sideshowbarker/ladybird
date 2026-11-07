@@ -8,12 +8,12 @@
 #include <LibWeb/Bindings/HostDefined.h>
 #include <LibWeb/Bindings/Intrinsics.h>
 #include <LibWeb/Bindings/MainThreadVM.h>
-#include <LibWeb/Bindings/PrincipalHostDefined.h>
 #include <LibWeb/Bindings/Wrappable.h>
 #include <LibWeb/Bindings/WrapperWorld.h>
 #include <LibWeb/DOM/Document.h>
 #include <LibWeb/Extensions/API/Event.h>
 #include <LibWeb/Extensions/ExtensionWorld.h>
+#include <LibWeb/Extensions/ExtensionWorldEnvironmentSettingsObject.h>
 #include <LibWeb/Extensions/MessageRouter.h>
 #include <LibWeb/Extensions/Namespace.h>
 #include <LibWeb/HTML/BrowsingContext.h>
@@ -38,7 +38,7 @@ GC::Ref<ExtensionWorld> ExtensionWorld::create(DOM::Document& document, Extensio
 
     // The global is this world's wrapper of the document's own Window, and the global "this" is this world's proxy
     // for the browsing context, so the script sees the same window the page does through wrappers of its own.
-    world->m_execution_context = Bindings::create_a_new_javascript_realm(
+    auto execution_context = Bindings::create_a_new_javascript_realm(
         vm,
         document.relevant_settings_object().agent_cluster_cross_origin_isolation_mode(),
         [&](JS::Realm& realm) -> GC::Ref<JS::Object> {
@@ -47,11 +47,13 @@ GC::Ref<ExtensionWorld> ExtensionWorld::create(DOM::Document& document, Extensio
         [&](JS::Realm& realm) -> GC::Ref<JS::Object> {
             return browsing_context->window_proxy_for(*world->m_wrapper_world, realm)->object();
         });
-    auto& realm = *world->m_execution_context->realm();
+    auto& realm = *execution_context->realm();
     world->m_realm = realm;
+    world->m_settings = ExtensionWorldEnvironmentSettingsObject::create(document, move(execution_context));
 
     auto intrinsics = realm.create<Bindings::Intrinsics>(realm);
     realm.set_host_defined(realm.heap().allocate<Bindings::HostDefined>(intrinsics, *world->m_wrapper_world, window->principal_realm()));
+    Bindings::host_defined_of(realm).own_settings_object = world->m_settings;
     Bindings::cache_global_object_wrapper(realm);
     MUST(Bindings::initialize_window_web_interfaces(*window, realm));
 
@@ -86,8 +88,7 @@ void ExtensionWorld::visit_edges(Visitor& visitor)
     visitor.visit(m_realm);
     visitor.visit(m_wrapper_world);
     visitor.visit(m_message_listeners);
-    if (m_execution_context)
-        m_execution_context->visit_edges(visitor);
+    visitor.visit(m_settings);
 }
 
 JS::Completion ExtensionWorld::run_script(ByteString filename, Utf16View source, URL::URL base_url, HTML::ClassicScript::RethrowErrors rethrow_errors)
@@ -95,8 +96,7 @@ JS::Completion ExtensionWorld::run_script(ByteString filename, Utf16View source,
     if (m_detached)
         return JS::throw_completion(JS::js_undefined());
 
-    auto& settings = Bindings::principal_host_defined_environment_settings_object(*m_realm);
-    auto script = HTML::ClassicScript::create_in_realm(move(filename), Utf16String::from_utf16(source), settings, *m_realm, move(base_url));
+    auto script = HTML::ClassicScript::create_in_realm(move(filename), Utf16String::from_utf16(source), *m_settings, *m_realm, move(base_url));
     return script->run(rethrow_errors);
 }
 
@@ -108,7 +108,7 @@ void ExtensionWorld::detach()
     MessageRouter::the().unregister_context(*this);
     m_wrapper_world->detach();
     m_message_listeners->revoke();
-    m_execution_context = nullptr;
+    m_settings = nullptr;
     m_realm = nullptr;
 }
 
