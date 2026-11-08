@@ -4597,6 +4597,12 @@ void Application::activate_extension_action(String const& extension_id, i64 tab_
     if (descriptor.has_permission("activeTab"sv))
         m_extension_active_tab_grants.ensure(extension_id).grant(tab_id, tab->url);
 
+    // An extension that asked for it has its button toggle its side panel rather than open its popup.
+    if (m_extension_side_panel_host->opens_on_action_click(extension_id)) {
+        m_extension_side_panel_host->toggle(extension_id, tab->window_id);
+        return;
+    }
+
     if (!state.popup.is_empty()) {
         auto url = URL::Parser::basic_parse(MUST(String::formatted("{}://{}/{}", Web::Extensions::scheme, extension_id, state.popup)));
         if (url.has_value())

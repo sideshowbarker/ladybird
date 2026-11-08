@@ -1,0 +1,41 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script>
+    sidePanelFixtureName = "Side Panel Click Fixture";
+</script>
+<script src="support-side-panel.js"></script>
+<body>
+    <script>
+        // With openPanelOnActionClick set, the extension's toolbar button toggles its side panel instead of opening its
+        // popup. The switch is the extension's, so copies of this test running at once all turn it on and leave it on,
+        // and the test learns its window from the panel rather than from a popup, which a click no longer opens.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const show = value => JSON.stringify(value);
+            if (panelState().open) {
+                internals.closeExtensionSidePanel();
+                await waitFor(() => !panelState().open);
+            }
+            seenReports = (await sendToBackground({ type: "reports" })).length;
+            println(`set: ${show(await callApi("sidePanel", "setPanelBehavior", { openPanelOnActionClick: true }))}`);
+            println(`behavior: ${show((await callApi("sidePanel", "getPanelBehavior")).value)}`);
+
+            const before = document.documentElement.dataset.panelHello;
+            internals.clickExtensionAction(sidePanelFixture());
+            println(`a click opens the panel: ${await waitFor(() => panelState().open)}, popup: ${popupOpen()}`);
+            const panelHello = JSON.parse(
+                await waitFor(() => {
+                    const hello = document.documentElement.dataset.panelHello;
+                    return hello && hello !== before ? hello : null;
+                })
+            );
+            myWindowId = panelHello.windowId;
+            const hello = await nextReport("hello");
+            println(`the panel's page: ${hello.path}, sees this tab: ${hello.activeTab === panelHello.tabId}`);
+            internals.clickExtensionAction(sidePanelFixture());
+            println(`another click closes it: ${(await waitFor(() => !panelState().open)) ? "closed" : "still open"}`);
+            done();
+        });
+    </script>
+</body>

@@ -1,0 +1,5 @@
+set: {"value":null}
+behavior: {"openPanelOnActionClick":true}
+a click opens the panel: true, popup: false
+the panel's page: /panel.html, sees this tab: true
+another click closes it: closed

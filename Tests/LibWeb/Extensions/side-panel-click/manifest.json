@@ -1,0 +1,36 @@
+{
+    "manifest_version": 3,
+    "name": "Side Panel Click Fixture",
+    "version": "1.0",
+    "description": "The Side Panel Fixture again, for the test of openPanelOnActionClick, which changes what the extension's button does.",
+    "permissions": [
+        "sidePanel"
+    ],
+    "side_panel": {
+        "default_path": "panel.html"
+    },
+    "sidebar_action": {
+        "default_panel": "panel.html",
+        "default_title": "Fixture Panel"
+    },
+    "action": {
+        "default_title": "Side panel click fixture",
+        "default_popup": "popup.html"
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/side-panel-action-click.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}
