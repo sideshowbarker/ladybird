@@ -44,7 +44,7 @@ void ExtensionSidePanelHost::set_extension(String id, String name, ExtensionMani
 {
     remove_extension(id);
     ExtensionSidePanelOptions global { absolute_path(declaration.path), true };
-    m_entries.append({ move(id), move(name), move(declaration), move(global), {}, false });
+    m_entries.append({ move(id), move(name), move(declaration), move(global), {}, false, {}, {} });
 }
 
 void ExtensionSidePanelHost::remove_extension(StringView id)
@@ -107,6 +107,91 @@ ExtensionSidePanelOptions ExtensionSidePanelHost::options(StringView id, Optiona
     return options;
 }
 
+bool ExtensionSidePanelHost::has_override(StringView id, i64 tab_id) const
+{
+    auto const* entry = find(id);
+    return entry && entry->per_tab.contains(tab_id);
+}
+
+void ExtensionSidePanelHost::clear_override(StringView id, i64 tab_id)
+{
+    auto* entry = find(id);
+    if (!entry || !entry->per_tab.remove(tab_id))
+        return;
+    resolve_open_panels_showing(id);
+}
+
+void ExtensionSidePanelHost::reset_options(StringView id)
+{
+    auto* entry = find(id);
+    if (!entry)
+        return;
+    entry->global = { absolute_path(entry->declaration.path), true };
+    resolve_open_panels_showing(id);
+}
+
+Optional<String> ExtensionSidePanelHost::panel_url(StringView id, Optional<i64> tab_id) const
+{
+    auto resolved = options(id, tab_id);
+    if (!resolved.path.has_value())
+        return {};
+    return url_for(id, *resolved.path).to_string();
+}
+
+void ExtensionSidePanelHost::set_title(StringView id, Optional<i64> tab_id, Optional<String> title)
+{
+    auto* entry = find(id);
+    if (!entry)
+        return;
+    if (!tab_id.has_value()) {
+        entry->title = move(title);
+        return;
+    }
+    auto& override = entry->per_tab.ensure(*tab_id);
+    override.title = move(title);
+    override.source = OverrideSource::SidebarAction;
+}
+
+String ExtensionSidePanelHost::title(StringView id, Optional<i64> tab_id) const
+{
+    auto const* entry = find(id);
+    if (!entry)
+        return {};
+    if (tab_id.has_value()) {
+        if (auto override = entry->per_tab.get(*tab_id); override.has_value() && override->title.has_value())
+            return *override->title;
+    }
+    if (entry->title.has_value())
+        return *entry->title;
+    return entry->declaration.title.value_or(entry->name);
+}
+
+void ExtensionSidePanelHost::set_icon(StringView id, Optional<i64> tab_id, Optional<Vector<ExtensionManifest::IconPath>> icon)
+{
+    auto* entry = find(id);
+    if (!entry)
+        return;
+    if (!tab_id.has_value()) {
+        entry->icon = move(icon);
+        return;
+    }
+    auto& override = entry->per_tab.ensure(*tab_id);
+    override.icon = move(icon);
+    override.source = OverrideSource::SidebarAction;
+}
+
+Vector<ExtensionManifest::IconPath> ExtensionSidePanelHost::icon(StringView id, Optional<i64> tab_id) const
+{
+    auto const* entry = find(id);
+    if (!entry)
+        return {};
+    if (tab_id.has_value()) {
+        if (auto override = entry->per_tab.get(*tab_id); override.has_value() && override->icon.has_value())
+            return *override->icon;
+    }
+    return entry->icon.value_or(entry->declaration.icon);
+}
+
 void ExtensionSidePanelHost::set_opens_on_action_click(StringView id, bool opens)
 {
     if (auto* entry = find(id))
@@ -136,7 +221,8 @@ Optional<URL::URL> ExtensionSidePanelHost::resolved_url(Entry const& entry, i64 
 
 void ExtensionSidePanelHost::show(Entry const& entry, i64 window_id, Optional<i64> tab_id, URL::URL url)
 {
-    ExtensionSidePanelRequest request { entry.id, window_id, url, entry.declaration.title.value_or(entry.name), entry.declaration.icon, m_next_generation++ };
+    auto active_tab = m_frontend.extension_active_tab_of_window(window_id);
+    ExtensionSidePanelRequest request { entry.id, window_id, url, title(entry.id, active_tab), icon(entry.id, active_tab), m_next_generation++ };
     if (!m_frontend.show_extension_side_panel(request))
         return;
     m_panels.set(window_id, { entry.id, move(url), tab_id, request.generation });
@@ -294,8 +380,7 @@ Optional<ExtensionSidePanelHost::PanelState> ExtensionSidePanelHost::state(i64 w
     auto panel = m_panels.get(window_id);
     if (!panel.has_value())
         return {};
-    auto const* entry = find(panel->extension_id);
-    return PanelState { panel->extension_id, panel->url, entry ? entry->declaration.title.value_or(entry->name) : String {} };
+    return PanelState { panel->extension_id, panel->url, title(panel->extension_id, m_frontend.extension_active_tab_of_window(window_id)) };
 }
 
 Optional<i64> ExtensionSidePanelHost::window_showing(WebContentPage const& page) const

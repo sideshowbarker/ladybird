@@ -1,0 +1,26 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-side-panel.js"></script>
+<body>
+    <script>
+        // The sidePanel namespace comes with the sidePanel permission, and sidebarAction with the manifest's sidebar_action
+        // key; both drive the same panel. A content script has neither, and neither does an extension without the key.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const show = value => JSON.stringify(value);
+            const namespaces = await sendToBackground({ type: "namespaces" });
+            println(`sidePanel methods: ${show(namespaces.sidePanel?.methods)}`);
+            println(`sidePanel events: ${show(namespaces.sidePanel?.events)}`);
+            println(`sidebarAction methods: ${show(namespaces.sidebarAction?.methods)}`);
+            println(`sidebarAction events: ${show(namespaces.sidebarAction?.events)}`);
+            println(`in a content script: ${document.documentElement.dataset.contentScriptNamespaces}`);
+            println(
+                `layout: ${show(await sendToBackground({ type: "call", namespace: "sidePanel", method: "getLayout" }))}`
+            );
+            await waitFor(() => document.documentElement.dataset.sidebarActionOnlyNamespaces);
+            println(`sidebar_action alone: ${document.documentElement.dataset.sidebarActionOnlyNamespaces}`);
+            done();
+        });
+    </script>
+</body>

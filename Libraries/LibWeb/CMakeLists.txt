@@ -288,6 +288,8 @@ set(SOURCES
     Extensions/API/Privacy.cpp
     Extensions/API/Runtime.cpp
     Extensions/API/Scripting.cpp
+    Extensions/API/SidePanel.cpp
+    Extensions/API/SidebarAction.cpp
     Extensions/API/Storage.cpp
     Extensions/API/Tabs.cpp
     Extensions/API/WebNavigation.cpp

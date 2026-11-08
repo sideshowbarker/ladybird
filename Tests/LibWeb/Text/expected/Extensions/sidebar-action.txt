@@ -1,0 +1,13 @@
+panel: /panel.html
+title: "Sidebar"
+for this tab: /other.html, "Renamed"
+both ids: {"rejected":"Only one of tabId and windowId can be specified."}
+restored: /panel.html, "Sidebar"
+setIcon: {"value":null}, imageData: {"rejected":"imageData isn't supported yet"}
+isOpen: false
+open from the background: {"rejected":"sidebarAction.open may only be called from a user input handler"}
+open from the popup: {"value":null}
+open: true, title: Beside the page
+isOpen for the window: true
+toggle from the popup: {"value":null}
+open after toggle: false

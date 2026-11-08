@@ -924,6 +924,23 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_extension_popup_host = make<ExtensionPopupHost>(*m_extension_popup_frontend);
     m_extension_side_panel_frontend = make<ExtensionSidePanelFrontend>(*this);
     m_extension_side_panel_host = make<ExtensionSidePanelHost>(*m_extension_side_panel_frontend);
+    // sidePanel.onOpened and onClosed tell the extension's pages which panel opened or closed, where.
+    auto dispatch_side_panel_event = [this](StringView event_name, String const& extension_id, i64 window_id, Optional<i64> tab_id, String const& path) {
+        JsonObject info;
+        info.set("windowId"sv, window_id);
+        if (tab_id.has_value())
+            info.set("tabId"sv, *tab_id);
+        info.set("path"sv, path);
+        JsonArray arguments;
+        arguments.must_append(move(info));
+        m_extension_message_broker->dispatch_extension_event(extension_id, MUST(String::formatted("sidePanel.{}", event_name)), arguments.serialized());
+    };
+    m_extension_side_panel_host->on_opened = [dispatch_side_panel_event](String const& extension_id, i64 window_id, Optional<i64> tab_id, String const& path) {
+        dispatch_side_panel_event("onOpened"sv, extension_id, window_id, tab_id, path);
+    };
+    m_extension_side_panel_host->on_closed = [dispatch_side_panel_event](String const& extension_id, i64 window_id, Optional<i64> tab_id, String const& path) {
+        dispatch_side_panel_event("onClosed"sv, extension_id, window_id, tab_id, path);
+    };
     m_extension_action_registry->on_change = [this](String const& extension_id, Optional<i64> tab_id) { extension_action_changed(extension_id, tab_id); };
     m_extension_message_broker->wake_background = [this](String const& id) {
         if (m_extension_background_host)

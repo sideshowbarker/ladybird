@@ -1,0 +1,39 @@
+{
+    "manifest_version": 3,
+    "name": "Side Panel Fixture",
+    "version": "1.0",
+    "description": "An extension with a side panel declared both ways, whose popup opens the panel as the test page asks and whose panel page reports what it sees.",
+    "permissions": [
+        "sidePanel"
+    ],
+    "side_panel": {
+        "default_path": "panel.html"
+    },
+    "sidebar_action": {
+        "default_panel": "panel.html",
+        "default_title": "Fixture Panel"
+    },
+    "action": {
+        "default_title": "Side panel fixture",
+        "default_popup": "popup.html"
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/side-panel-open.html",
+                "file:///*/Extensions/side-panel-close.html",
+                "file:///*/Extensions/side-panel-follows-tabs.html",
+                "file:///*/Extensions/side-panel-namespaces.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

@@ -34,6 +34,7 @@
 #include <LibWebView/Extensions/ExtensionPermissionsAPI.h>
 #include <LibWebView/Extensions/ExtensionPopupHost.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
+#include <LibWebView/Extensions/ExtensionSidePanelAPI.h>
 #include <LibWebView/Extensions/ExtensionSidePanelHost.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/Extensions/ExtensionWebNavigation.h>
@@ -2687,6 +2688,24 @@ void WebContentPage::did_call_extension_api(u64 context_id, u64 request_id, Stri
         if (!context->is_extension_document || !extension->descriptor().has_permission("privacy"sv))
             return;
         auto result = Application::the().call_extension_privacy_api(*extension, name, call_arguments);
+        if (result.is_error())
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
+        else
+            complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Reply { result.value().serialized() });
+        return;
+    }
+
+    // Only the extension's own documents have the panel APIs: sidePanel with its permission, sidebarAction with the
+    // manifest's sidebar_action key.
+    if (api_namespace == "sidePanel"sv || api_namespace == "sidebarAction"sv) {
+        if (!context->is_extension_document)
+            return;
+        auto const& descriptor = extension->descriptor();
+        if (api_namespace == "sidePanel"sv ? !descriptor.has_permission("sidePanel"sv) : !descriptor.has_sidebar_action)
+            return;
+        auto tabs = Application::the().extension_tabs();
+        auto viewer = extension_tab_viewer(context->extension_id, descriptor, tabs);
+        auto result = call_extension_side_panel_api(Application::extension_side_panel_host(), *extension, api_namespace, name, call_arguments, { viewer.current_window_id, viewer.last_focused_window_id });
         if (result.is_error())
             complete_extension_runtime_message(request_id, Web::Extensions::MessageResult::Error { result.release_error() });
         else

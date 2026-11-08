@@ -1,0 +1,31 @@
+{
+    "manifest_version": 2,
+    "name": "Sidebar Action Fixture",
+    "version": "1.0",
+    "description": "A sidebar_action without the sidePanel permission: it gets sidebarAction and nothing of sidePanel. Its popup and panel page work as the Side Panel Fixture's do.",
+    "sidebar_action": {
+        "default_panel": "panel.html",
+        "default_title": "Sidebar"
+    },
+    "browser_action": {
+        "default_title": "Sidebar action fixture",
+        "default_popup": "popup.html"
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/sidebar-action.html",
+                "file:///*/Extensions/side-panel-namespaces.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

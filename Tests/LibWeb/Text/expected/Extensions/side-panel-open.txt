@@ -1,0 +1,14 @@
+without activation: {"rejected":"`sidePanel.open()` may only be called in response to a user gesture."}
+without ids: {"rejected":"At least one of `tabId` and `windowId` must be provided"}
+no such window: {"rejected":"No window with id: 987654."}
+no such tab: {"rejected":"No tab with id: 987654."}
+panel open before: false
+open: {"value":null}
+panel open: true, path: /panel.html, title: Fixture Panel
+popup closed itself: true
+the panel sees the window's active tab: true
+the panel's page: /panel.html
+onOpened: [{"path":"/panel.html","hasWindow":true}]
+open again: {"value":null}
+still one panel: true
+closed from the UI: true

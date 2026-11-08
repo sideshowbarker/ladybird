@@ -1,0 +1,34 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-side-panel.js"></script>
+<body>
+    <script>
+        // A panel closes by the API, when its page closes itself, and from the UI; each close fires onClosed.
+        asyncTest(async done => {
+            const tab = await startSidePanelTest();
+            const show = value => JSON.stringify(value);
+
+            await openPanel();
+            println(
+                `close by API: ${show(await callApi("sidePanel", "close", { windowId: tab.windowId }))}, open: ${(await waitFor(() => !panelState().open)) ? false : true}`
+            );
+            println(`close again: ${show(await callApi("sidePanel", "close", { tabId: tab.id }))}`);
+            println(`close without ids: ${show(await callApi("sidePanel", "close", {}))}`);
+
+            await openPanel();
+            await toPanel("close");
+            println(`window.close() in the panel, open: ${(await waitFor(() => !panelState().open)) ? false : true}`);
+
+            await openPanel();
+            internals.closeExtensionSidePanel();
+            println(`the UI's close button, open: ${(await waitFor(() => !panelState().open)) ? false : true}`);
+
+            await eventsAtLeast(6);
+            const closed = (await newEvents()).filter(event => event.event === "closed");
+            println(`onClosed: ${show(closed.map(event => event.path))}`);
+            await closePanel();
+            done();
+        });
+    </script>
+</body>
