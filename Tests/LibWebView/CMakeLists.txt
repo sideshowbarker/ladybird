@@ -160,6 +160,7 @@ if (NOT WIN32)
         TestExtensionAlarmManager.cpp
         TestExtensionLifecycle.cpp
         TestExtensionPopupHost.cpp
+        TestExtensionSidePanelHost.cpp
         TestExtensionsUserActivation.cpp
         TestExtensionTabs.cpp
         TestFavicon.cpp
