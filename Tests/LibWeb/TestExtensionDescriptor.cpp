@@ -102,6 +102,9 @@ TEST_CASE(descriptor_round_trips_through_ipc)
         .web_accessible_resources = { { .resource_globs = { "images/*.png"_string }, .matches = { MatchPattern::all_urls() } } },
         .content_scripts = { first_script, second_script },
         .has_background = true,
+        .has_action = true,
+        .has_side_panel = true,
+        .has_sidebar_action = true,
         .background_document_html = "<!DOCTYPE html><script src=\"/bg.js\"></script>"_string,
     };
 
@@ -128,6 +131,9 @@ TEST_CASE(descriptor_defaults)
     ExtensionDescriptor descriptor;
     EXPECT_EQ(descriptor.manifest_version, 3);
     EXPECT(!descriptor.has_background);
+    EXPECT(!descriptor.has_action);
+    EXPECT(!descriptor.has_side_panel);
+    EXPECT(!descriptor.has_sidebar_action);
 }
 
 TEST_CASE(message_results_round_trip_through_ipc)

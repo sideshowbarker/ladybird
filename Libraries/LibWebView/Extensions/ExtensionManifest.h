@@ -44,6 +44,17 @@ struct WEBVIEW_API ExtensionManifest {
         Vector<IconPath> default_icon;
     };
 
+    // The side panel an extension declares: "side_panel" names its page, "sidebar_action" names a page with a title and
+    // an icon. With both keys, side_panel's page is the panel and sidebar_action's title and icon describe it.
+    struct SidePanel {
+        String path;
+        Optional<String> title;
+        // Sorted by size.
+        Vector<IconPath> icon;
+        // Whether the manifest has the "sidebar_action" key, which is what gives the extension the sidebarAction API.
+        bool declared_as_sidebar_action { false };
+    };
+
     // One of the manifest's "commands", with the shortcut it suggests for this platform (or its default one), written
     // without spaces.
     struct Command {
@@ -74,6 +85,7 @@ struct WEBVIEW_API ExtensionManifest {
     String extension_pages_csp;
     Optional<Background> background;
     Optional<Action> action;
+    Optional<SidePanel> side_panel;
     Vector<Command> commands;
     // The page options_ui names, or else options_page, as a path in the extension.
     Optional<String> options_page;

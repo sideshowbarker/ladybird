@@ -203,7 +203,7 @@ static ErrorOr<HashMap<String, String>, String> load_localization(Core::Director
     }
     for (auto key : { "name"sv, "short_name"sv, "description"sv })
         TRY(localize_manifest_field(manifest, key, messages));
-    for (auto key : { "action"sv, "browser_action"sv, "page_action"sv }) {
+    for (auto key : { "action"sv, "browser_action"sv, "page_action"sv, "sidebar_action"sv }) {
         if (auto action = manifest.get_object(key); action.has_value())
             TRY(localize_manifest_field(*action, "default_title"sv, messages));
     }
@@ -279,6 +279,8 @@ ErrorOr<NonnullRefPtr<Extension>, String> Extension::load_unpacked(ByteString di
     descriptor.web_accessible_resources = manifest.web_accessible_resources;
     descriptor.has_background = manifest.background.has_value();
     descriptor.has_action = manifest.action.has_value();
+    descriptor.has_side_panel = manifest.side_panel.has_value();
+    descriptor.has_sidebar_action = manifest.side_panel.has_value() && manifest.side_panel->declared_as_sidebar_action;
     descriptor.background_document_html = manifest.generated_background_document_html();
 
     for (auto const& script : manifest.content_scripts) {

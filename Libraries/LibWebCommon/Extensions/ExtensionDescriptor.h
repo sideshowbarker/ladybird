@@ -85,6 +85,10 @@ struct WEBCOMMON_API ExtensionDescriptor {
     bool has_background { false };
     // Whether the manifest declares a toolbar button: "action" in version 3, "browser_action" in version 2.
     bool has_action { false };
+    // Whether the manifest declares a side panel ("side_panel" or "sidebar_action" with a page), and whether it has the
+    // "sidebar_action" key at all, which is what gives the extension the sidebarAction API.
+    bool has_side_panel { false };
+    bool has_sidebar_action { false };
     String background_document_html;
 
     // Whether a page at the initiator URL may load the resource at the URL path (which begins with "/").

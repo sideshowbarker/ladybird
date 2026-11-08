@@ -457,6 +457,47 @@ TEST_CASE(manifest_action)
     EXPECT(parse_error(R"({ "manifest_version": 2, "name": "x", "version": "1", "browser_action": { "default_icon": { "16": 1 } } })"sv).contains("browser_action.default_icon"sv));
 }
 
+TEST_CASE(manifest_side_panel)
+{
+    // Manifest version 3's "side_panel" names the panel's page; "sidebar_action" names it with a title and an icon too.
+    auto side_panel = parse(R"({ "manifest_version": 3, "name": "x", "version": "1", "side_panel": { "default_path": "/sidepanel.html" } })"sv);
+    VERIFY(side_panel.side_panel.has_value());
+    EXPECT_EQ(side_panel.side_panel->path, "sidepanel.html"sv);
+    EXPECT(!side_panel.side_panel->title.has_value());
+    EXPECT(side_panel.side_panel->icon.is_empty());
+    EXPECT(!side_panel.side_panel->declared_as_sidebar_action);
+
+    auto sidebar_action = parse(R"({ "manifest_version": 2, "name": "x", "version": "1", "sidebar_action": { "default_panel": "panel.html", "default_title": "Panel", "default_icon": { "32": "icons/32.png", "16": "/icons/16.png" }, "open_at_install": false } })"sv);
+    VERIFY(sidebar_action.side_panel.has_value());
+    EXPECT_EQ(sidebar_action.side_panel->path, "panel.html"sv);
+    EXPECT_EQ(sidebar_action.side_panel->title, "Panel"sv);
+    VERIFY(sidebar_action.side_panel->icon.size() == 2);
+    EXPECT_EQ(sidebar_action.side_panel->icon[0].size, 16u);
+    EXPECT_EQ(sidebar_action.side_panel->icon[0].path, "icons/16.png"sv);
+    EXPECT(sidebar_action.side_panel->declared_as_sidebar_action);
+
+    auto one_icon = parse(R"({ "manifest_version": 3, "name": "x", "version": "1", "sidebar_action": { "default_panel": "panel.html", "default_icon": "icon.png" } })"sv);
+    VERIFY(one_icon.side_panel.has_value());
+    VERIFY(one_icon.side_panel->icon.size() == 1);
+    EXPECT_EQ(one_icon.side_panel->icon[0].size, 0u);
+
+    // With both keys, side_panel's page is the panel, and sidebar_action's title and icon describe it.
+    auto both = parse(R"({ "manifest_version": 3, "name": "x", "version": "1", "side_panel": { "default_path": "sidepanel.html" }, "sidebar_action": { "default_panel": "other.html", "default_title": "Panel", "default_icon": "icon.png" } })"sv);
+    VERIFY(both.side_panel.has_value());
+    EXPECT_EQ(both.side_panel->path, "sidepanel.html"sv);
+    EXPECT_EQ(both.side_panel->title, "Panel"sv);
+    EXPECT_EQ(both.side_panel->icon.size(), 1u);
+    EXPECT(both.side_panel->declared_as_sidebar_action);
+
+    EXPECT(!parse(R"({ "manifest_version": 3, "name": "x", "version": "1" })"sv).side_panel.has_value());
+    // A sidebar_action without a panel declares nothing to show.
+    EXPECT(!parse(R"({ "manifest_version": 3, "name": "x", "version": "1", "sidebar_action": { "default_title": "Panel" } })"sv).side_panel.has_value());
+
+    EXPECT(parse_error(R"({ "manifest_version": 3, "name": "x", "version": "1", "side_panel": [] })"sv).contains("side_panel"sv));
+    EXPECT(parse_error(R"({ "manifest_version": 3, "name": "x", "version": "1", "side_panel": { "default_path": 1 } })"sv).contains("side_panel.default_path"sv));
+    EXPECT(parse_error(R"({ "manifest_version": 3, "name": "x", "version": "1", "sidebar_action": { "default_panel": "p.html", "default_icon": { "16": 1 } } })"sv).contains("sidebar_action.default_icon"sv));
+}
+
 TEST_CASE(optional_permissions_parse_in_both_manifest_versions)
 {
     auto mv3 = TRY_OR_FAIL(WebView::ExtensionManifest::parse(R"({
