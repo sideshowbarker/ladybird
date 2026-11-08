@@ -1,0 +1,5 @@
+keep this open beside the page: {"opened":true}
+panel open: true, page: /sidepanel.html, title: Companion Model
+the popup closed itself: true
+the panel read the tab under it: loaded, true
+closed from the UI: true

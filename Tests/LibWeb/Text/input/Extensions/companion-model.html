@@ -11,9 +11,10 @@
             const stateWhere = async predicate => {
                 let state;
                 while (!predicate((state = await sendToBackground({ type: "state" }))))
-                    await new Promise(resolve => setTimeout(resolve, 20));
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 return state;
             };
+            await sendToBackground({ type: "reset" });
             println(`badge once the page loaded: ${(await stateWhere(state => state.badge)).badge}`);
 
             await sendToBackground({ type: "arm" });
@@ -21,14 +22,14 @@
 
             if (JSON.parse(internals.extensionPopupState(id)).open) internals.clickExtensionAction(id);
             internals.clickExtensionAction(id);
-            const { popup } = (await stateWhere(state => state.session.popup)).session;
+            const { popup } = await stateWhere(state => state.popup);
             println(`the popup saw this page: ${popup.activeUrl.endsWith("/companion-model.html")}`);
             println(`and opened a tab: ${typeof popup.created}`);
 
             if (JSON.parse(internals.extensionPopupState(id)).open) internals.clickExtensionAction(id);
             while ((await sendToBackground({ type: "status", id: popup.created })) !== "complete")
                 await new Promise(resolve => setTimeout(resolve, 20));
-            println(`closed it: ${await sendToBackground({ type: "close-opened-tab" })}`);
+            println(`closed it: ${await sendToBackground({ type: "close-opened-tab", id: popup.created })}`);
             done();
         });
     </script>

@@ -1,0 +1,50 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // Companion's "Keep this open beside the page": the popup opens the extension's side panel for its window and
+        // closes itself; the panel page reads the tab under it and stays as the window goes on.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const id = internals.extensionId("Companion Model Fixture");
+            const popupOpen = () => JSON.parse(internals.extensionPopupState(id)).open;
+            const panelState = () => JSON.parse(internals.extensionSidePanelState(id));
+            const waitFor = async predicate => {
+                for (let i = 0; i < 400 && !(await predicate()); ++i)
+                    await new Promise(resolve => setTimeout(resolve, 25));
+                return predicate();
+            };
+            const stateWhere = async predicate => {
+                let state;
+                while (!predicate((state = await sendToBackground({ type: "state" }))))
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                return state;
+            };
+            if (panelState().open) {
+                internals.closeExtensionSidePanel();
+                await waitFor(() => !panelState().open);
+            }
+            if (popupOpen()) internals.clickExtensionAction(id);
+            await waitFor(() => !popupOpen());
+            await sendToBackground({ type: "reset" });
+            internals.clickExtensionAction(id);
+            await stateWhere(state => state.popup);
+
+            println(`keep this open beside the page: ${JSON.stringify(await sendToBackground({ type: "keep-open" }))}`);
+            println(
+                `panel open: ${await waitFor(() => panelState().open)}, page: ${panelState().path}, title: ${panelState().title}`
+            );
+            println(`the popup closed itself: ${await waitFor(() => !popupOpen())}`);
+            // Other tests' tabs finish loading meanwhile, so the panel may have refreshed since; its first look counts.
+            const { panel } = await stateWhere(state => state.panel.some(report => report.why === "loaded"));
+            const loaded = panel.find(report => report.why === "loaded");
+            println(
+                `the panel read the tab under it: ${loaded.why}, ${loaded.url.endsWith("/companion-model-side-panel.html")}`
+            );
+            internals.closeExtensionSidePanel();
+            println(`closed from the UI: ${await waitFor(() => !panelState().open)}`);
+            done();
+        });
+    </script>
+</body>
