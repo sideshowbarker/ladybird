@@ -93,7 +93,9 @@ TestRunCapture::TestRunCapture()
 TestRunCapture::~TestRunCapture()
 {
     restore_stderr();
-    WebView::Application::process_manager().on_process_added = {};
+    // A process can still start after the capture ends: a tab closing as the views go away wakes an extension's event
+    // page, e.g. The hook goes back to doing nothing, as it did before the capture, rather than to nothing at all.
+    WebView::Application::process_manager().on_process_added = [](WebView::Process&) { };
     WebView::Application::process_manager().on_process_exited = move(m_previous_on_process_exited);
 }
 
