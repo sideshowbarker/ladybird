@@ -169,6 +169,33 @@ static String extension_relative_path(StringView path)
     return MUST(String::from_utf8(path.trim("/"sv, TrimMode::Left)));
 }
 
+// Reads a "default_icon" member: one path for every size, or a map from sizes to paths, sorted by size.
+static ErrorOr<Vector<ExtensionManifest::IconPath>, String> parse_icon_paths(JsonValue const& icon, String const& qualified_key)
+{
+    Vector<ExtensionManifest::IconPath> paths;
+    if (icon.is_string()) {
+        paths.append({ 0, extension_relative_path(icon.as_string()) });
+        return paths;
+    }
+    if (!icon.is_object())
+        return error_for(qualified_key, "must be a string or an object"sv);
+    Optional<String> error;
+    icon.as_object().for_each_member([&](String const& size, JsonValue const& path) {
+        if (error.has_value())
+            return;
+        auto pixels = size.to_number<u32>();
+        if (!pixels.has_value() || !path.is_string()) {
+            error = error_for(qualified_key, "must map sizes to paths"sv);
+            return;
+        }
+        paths.append({ *pixels, extension_relative_path(path.as_string()) });
+    });
+    if (error.has_value())
+        return error.release_value();
+    quick_sort(paths, [](auto const& a, auto const& b) { return a.size < b.size; });
+    return paths;
+}
+
 static ErrorOr<Optional<ExtensionManifest::Action>, String> parse_action(JsonObject const& manifest, u8 manifest_version)
 {
     // Each manifest version reads only its own key; page_action isn't supported.
@@ -197,29 +224,50 @@ static ErrorOr<Optional<ExtensionManifest::Action>, String> parse_action(JsonObj
         action.default_popup = extension_relative_path(*popup);
     action.default_title = TRY(read_string("default_title"sv));
 
-    if (auto icon = object->get("default_icon"sv); icon.has_value()) {
-        if (icon->is_string()) {
-            action.default_icon.append({ 0, extension_relative_path(icon->as_string()) });
-        } else if (icon->is_object()) {
-            Optional<String> error;
-            icon->as_object().for_each_member([&](String const& size, JsonValue const& path) {
-                if (error.has_value())
-                    return;
-                auto pixels = size.to_number<u32>();
-                if (!pixels.has_value() || !path.is_string()) {
-                    error = error_for(qualified("default_icon"sv), "must map sizes to paths"sv);
-                    return;
-                }
-                action.default_icon.append({ *pixels, extension_relative_path(path.as_string()) });
-            });
-            if (error.has_value())
-                return error.release_value();
-            quick_sort(action.default_icon, [](auto const& a, auto const& b) { return a.size < b.size; });
-        } else {
-            return error_for(qualified("default_icon"sv), "must be a string or an object"sv);
-        }
-    }
+    if (auto icon = object->get("default_icon"sv); icon.has_value())
+        action.default_icon = TRY(parse_icon_paths(*icon, qualified("default_icon"sv)));
     return action;
+}
+
+static ErrorOr<Optional<ExtensionManifest::SidePanel>, String> parse_side_panel(JsonObject const& manifest)
+{
+    // Reads one key's object, or nothing when the key is absent.
+    auto read_object = [&](StringView key) -> ErrorOr<JsonObject const*, String> {
+        auto object = manifest.get_object(key);
+        if (!object.has_value() && manifest.has(key))
+            return error_for(key, "must be an object"sv);
+        return object.has_value() ? &*object : nullptr;
+    };
+    auto read_string = [&](JsonObject const& object, StringView key, StringView member) -> ErrorOr<Optional<String>, String> {
+        auto value = object.get(member);
+        if (!value.has_value())
+            return OptionalNone {};
+        if (!value->is_string())
+            return error_for(MUST(String::formatted("{}.{}", key, member)), "must be a string"sv);
+        return Optional<String> { value->as_string() };
+    };
+
+    Optional<String> path;
+    if (auto const* side_panel = TRY(read_object("side_panel"sv))) {
+        if (auto default_path = TRY(read_string(*side_panel, "side_panel"sv, "default_path"sv)); default_path.has_value())
+            path = extension_relative_path(*default_path);
+    }
+
+    Optional<String> title;
+    Vector<ExtensionManifest::IconPath> icon;
+    auto const* sidebar_action = TRY(read_object("sidebar_action"sv));
+    if (sidebar_action) {
+        if (auto default_panel = TRY(read_string(*sidebar_action, "sidebar_action"sv, "default_panel"sv)); default_panel.has_value() && !path.has_value())
+            path = extension_relative_path(*default_panel);
+        title = TRY(read_string(*sidebar_action, "sidebar_action"sv, "default_title"sv));
+        if (auto default_icon = sidebar_action->get("default_icon"sv); default_icon.has_value())
+            icon = TRY(parse_icon_paths(*default_icon, "sidebar_action.default_icon"_string));
+    }
+
+    // Without a page there's no panel to show.
+    if (!path.has_value())
+        return OptionalNone {};
+    return ExtensionManifest::SidePanel { path.release_value(), move(title), move(icon), sidebar_action != nullptr };
 }
 
 // Returns an error message, or nothing when the policy was read into the out parameter.
@@ -345,6 +393,7 @@ ErrorOr<ExtensionManifest, String> ExtensionManifest::parse(StringView manifest_
         return error.release_value();
     manifest.background = TRY(parse_background(object, manifest.manifest_version));
     manifest.action = TRY(parse_action(object, manifest.manifest_version));
+    manifest.side_panel = TRY(parse_side_panel(object));
     manifest.commands = TRY(parse_commands(object));
     if (object.has("options_ui"sv)) {
         auto options_ui = object.get_object("options_ui"sv);

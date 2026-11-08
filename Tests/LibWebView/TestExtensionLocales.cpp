@@ -65,15 +65,16 @@ struct LocaleFixture {
 TEST_CASE(manifest_name_is_localized)
 {
     LocaleFixture fixture;
-    fixture.manifest(R"("default_locale":"en","description":"__MSG_desc__","short_name":"__MSG_title__","action":{"default_title":"__MSG_title__"},"browser_action":{"default_title":"__MSG_title__"},"page_action":{"default_title":"__MSG_title__"})"sv, "__MSG_title__"sv);
+    fixture.manifest(R"("default_locale":"en","description":"__MSG_desc__","short_name":"__MSG_title__","action":{"default_title":"__MSG_title__"},"browser_action":{"default_title":"__MSG_title__"},"page_action":{"default_title":"__MSG_title__"},"sidebar_action":{"default_panel":"panel.html","default_title":"__MSG_title__"})"sv, "__MSG_title__"sv);
     fixture.catalog("en"sv, R"({"title":{"message":"Localized"},"desc":{"message":"Description"}})"sv);
     auto extension = TRY_OR_FAIL(fixture.registry.load_unpacked(fixture.path));
     EXPECT_EQ(extension->descriptor().name, "Localized"sv);
     auto json = MUST(JsonValue::from_string(extension->descriptor().manifest_json));
     EXPECT_EQ(json.as_object().get_string("description"sv).value(), "Description"sv);
     EXPECT_EQ(json.as_object().get_string("short_name"sv).value(), "Localized"sv);
-    for (auto key : { "action"sv, "browser_action"sv, "page_action"sv })
+    for (auto key : { "action"sv, "browser_action"sv, "page_action"sv, "sidebar_action"sv })
         EXPECT_EQ(json.as_object().get_object(key)->get_string("default_title"sv).value(), "Localized"sv);
+    EXPECT_EQ(extension->manifest().side_panel->title, "Localized"sv);
 }
 
 TEST_CASE(non_localized_fields_keep_their_tokens)

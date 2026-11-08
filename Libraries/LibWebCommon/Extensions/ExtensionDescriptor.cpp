@@ -151,6 +151,8 @@ ErrorOr<void> encode(Encoder& encoder, Web::Extensions::ExtensionDescriptor cons
     TRY(encoder.encode(extension.content_scripts));
     TRY(encoder.encode(extension.has_background));
     TRY(encoder.encode(extension.has_action));
+    TRY(encoder.encode(extension.has_side_panel));
+    TRY(encoder.encode(extension.has_sidebar_action));
     TRY(encoder.encode(extension.background_document_html));
     return {};
 }
@@ -177,6 +179,8 @@ ErrorOr<Web::Extensions::ExtensionDescriptor> decode(Decoder& decoder)
     extension.content_scripts = TRY(decoder.decode<Vector<Web::Extensions::ContentScriptDescriptor>>());
     extension.has_background = TRY(decoder.decode<bool>());
     extension.has_action = TRY(decoder.decode<bool>());
+    extension.has_side_panel = TRY(decoder.decode<bool>());
+    extension.has_sidebar_action = TRY(decoder.decode<bool>());
     extension.background_document_html = TRY(decoder.decode<String>());
     return extension;
 }
