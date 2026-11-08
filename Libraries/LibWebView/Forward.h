@@ -62,6 +62,7 @@ class PermissionManager;
 class Extension;
 class ExtensionActionRegistry;
 class ExtensionPopupHost;
+class ExtensionSidePanelHost;
 class HeadlessWebView;
 struct ExtensionPopupRequest;
 class ExtensionBackgroundHost;
