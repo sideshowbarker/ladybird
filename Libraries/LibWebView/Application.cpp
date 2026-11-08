@@ -828,6 +828,12 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
             warnln("Could not prepare Browser crash reporting: {}", result.error());
     }
 
+    // The extension stores post their completions to the event loop, and restoring the installed extensions below can
+    // already ask one for a deletion: Reloading an unpacked extension named on the command line drops its session
+    // storage. So the loop exists before anything that can reach a store.
+    if (!m_event_loop)
+        m_event_loop = &create_platform_event_loop();
+
     // Test results must not depend on the languages of the machine running the tests.
     auto platform_languages = m_web_content_options.is_test_mode == IsTestMode::Yes ? Vector<String> {} : platform_preferred_languages();
 
@@ -959,8 +965,6 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
         warnln("    Configured lists: {}", m_browser_options.content_blocker_list_paths);
     }
 
-    if (!m_event_loop)
-        m_event_loop = &create_platform_event_loop();
     if (captures_browser_crashes())
         CrashReportOutbox::the().start_removing_expired_reports();
 
