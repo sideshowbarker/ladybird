@@ -1,0 +1,11 @@
+Ladybird exposes a cross-origin child frame on its parent’s Window when
+the child’s target name matches its container’s name attribute, and
+replicates that attribute to processes that host the parent remotely.
+Blink does the same: Its Window named getter in window_properties.cc
+compares the name with the container name the child’s owner reports,
+Owner()->BrowsingContextContainerName(), which a RemoteFrameOwner takes
+from the replicated FrameOwnerProperties. WebKit looks a child up by the
+name its owner element’s name attribute gave it, through FrameTree::
+scopedChildBySpecifiedName(). And Gecko’s RemoteOuterWindowProxy exposes
+any child whose browsing-context name matches, with no check against
+the container’s name attribute at all.
