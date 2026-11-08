@@ -82,6 +82,7 @@ public:
     void set_extension(String id, String name, ExtensionManifest::SidePanel);
     // Closes the extension's panels and forgets its options.
     void remove_extension(StringView id);
+    void close_panels_of(StringView id, CloseReason);
     bool has_side_panel(StringView id) const;
 
     // Sets the global options (no tab id) or a tab's override; a field left out keeps its value. The options an

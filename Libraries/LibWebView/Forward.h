@@ -64,6 +64,7 @@ class ExtensionPopupHost;
 class ExtensionSidePanelHost;
 class HeadlessWebView;
 struct ExtensionPopupRequest;
+struct ExtensionSidePanelRequest;
 class ExtensionBackgroundHost;
 class ExtensionMessageBroker;
 class ExtensionRegistry;
