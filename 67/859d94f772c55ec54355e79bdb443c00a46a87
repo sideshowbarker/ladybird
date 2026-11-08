@@ -1,0 +1,6 @@
+Ladybird’s default User-Agent string has AppleWebKit/537.36 ahead of
+Chrome/153.0.0.0, which is the order that Chrome uses. Chrome’s own
+BuildUserAgentFromOSAndProduct() (in user_agent_utils.cc) formats every
+User-Agent string as “AppleWebKit/537.36 (KHTML, like Gecko)”, then the
+product token, then Safari/537.36. And WebKit’s UserAgentGLib.cpp puts
+AppleWebKit/605.1.15 at the same place, ahead of any product token.
