@@ -126,6 +126,13 @@ void WebContentTestClient::did_request_extension_background_unload_for_testing(W
         page->did_request_extension_background_unload_for_testing(extension_id);
 }
 
+Messages::WebContentTestClient::DidRequestExtensionSidePanelStateForTestingResponse WebContentTestClient::did_request_extension_side_panel_state_for_testing(Web::PageId page_id, String extension_id)
+{
+    if (auto* page = m_client.page(page_id))
+        return page->did_request_extension_side_panel_state_for_testing(extension_id);
+    return String {};
+}
+
 void WebContentTestClient::did_request_extension_grant_for_testing(Web::PageId page_id, String extension_id, Vector<String> permissions, Vector<String> origins)
 {
     if (auto* page = m_client.page(page_id))

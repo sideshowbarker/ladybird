@@ -62,6 +62,7 @@
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionPopupHost.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
+#include <LibWebView/Extensions/ExtensionSidePanelHost.h>
 #include <LibWebView/Extensions/ExtensionStorageStore.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/Extensions/ExtensionWebNavigation.h>
@@ -250,6 +251,28 @@ public:
     virtual void resize_extension_popup(i64 window_id, Gfx::IntSize size) override { m_application.resize_extension_popup(window_id, size); }
     virtual void close_extension_popup(i64 window_id) override { m_application.close_extension_popup(window_id); }
     virtual ViewImplementation* extension_popup_view(i64 window_id) const override { return m_application.extension_popup_view(window_id); }
+
+private:
+    Application& m_application;
+};
+
+// Lets the side panel host reach the frontend's panels, windows, and tabs through the Application's functions.
+class Application::ExtensionSidePanelFrontend final : public ExtensionSidePanelHost::Frontend {
+    AK_ALLOC_WITH_KMALLOC;
+
+public:
+    explicit ExtensionSidePanelFrontend(Application& application)
+        : m_application(application)
+    {
+    }
+
+    virtual bool show_extension_side_panel(ExtensionSidePanelRequest const& request) override { return m_application.show_extension_side_panel(request); }
+    virtual void navigate_extension_side_panel(i64 window_id, URL::URL const& url) override { m_application.navigate_extension_side_panel(window_id, url); }
+    virtual void close_extension_side_panel(i64 window_id) override { m_application.close_extension_side_panel(window_id); }
+    virtual ViewImplementation* extension_side_panel_view(i64 window_id) const override { return m_application.extension_side_panel_view(window_id); }
+    virtual Optional<i64> extension_window_of_tab(i64 tab_id) const override { return m_application.extension_window_of_tab(tab_id); }
+    virtual Optional<i64> extension_active_tab_of_window(i64 window_id) const override { return m_application.extension_active_tab_of_window(window_id); }
+    virtual bool extension_may_show_in_window(StringView extension_id, i64 window_id) const override { return m_application.extension_may_show_in_window(extension_id, window_id); }
 
 private:
     Application& m_application;
@@ -899,6 +922,8 @@ ErrorOr<void> Application::initialize(Main::Arguments const& arguments)
     m_extension_action_registry = make<ExtensionActionRegistry>();
     m_extension_popup_frontend = make<ExtensionPopupFrontend>(*this);
     m_extension_popup_host = make<ExtensionPopupHost>(*m_extension_popup_frontend);
+    m_extension_side_panel_frontend = make<ExtensionSidePanelFrontend>(*this);
+    m_extension_side_panel_host = make<ExtensionSidePanelHost>(*m_extension_side_panel_frontend);
     m_extension_action_registry->on_change = [this](String const& extension_id, Optional<i64> tab_id) { extension_action_changed(extension_id, tab_id); };
     m_extension_message_broker->wake_background = [this](String const& id) {
         if (m_extension_background_host)
@@ -3892,6 +3917,7 @@ void Application::sync_extension_actions()
     m_extension_actions_allowed_in_private = move(allowed_in_private);
     m_extension_active_tab_grants.remove_all_matching([&](auto const& id, auto const&) { return m_extension_action_revisions.get(id) != revisions.get(id); });
     m_extension_action_revisions = move(revisions);
+    sync_extension_side_panels(private_access_changed);
     if (list_changed)
         extension_action_list_changed();
 }
@@ -4202,14 +4228,41 @@ void Application::extension_tab_activated_document(i64 tab_id, URL::URL const& u
 {
     if (m_extension_action_registry)
         m_extension_action_registry->clear_tab(tab_id);
+    if (m_extension_side_panel_host)
+        m_extension_side_panel_host->tab_navigated(tab_id);
     for (auto& [id, grants] : m_extension_active_tab_grants)
         grants.tab_navigated(tab_id, url);
+}
+
+// Keeps one side panel declaration per enabled extension that has one. A reload gives the extension a new revision,
+// and its panel options start over from the manifest; a change of its private-window access closes its panels.
+void Application::sync_extension_side_panels(bool private_access_changed)
+{
+    auto& panels = *m_extension_side_panel_host;
+    HashMap<String, u64> revisions;
+    for (auto const& extension : m_extension_registry->extensions()) {
+        auto const& descriptor = extension->descriptor();
+        if (!m_extension_registry->is_enabled(descriptor.id) || !extension->manifest().side_panel.has_value())
+            continue;
+        revisions.set(descriptor.id, descriptor.revision);
+        if (m_extension_side_panel_revisions.get(descriptor.id) != descriptor.revision || !panels.has_side_panel(descriptor.id))
+            panels.set_extension(descriptor.id, descriptor.name, *extension->manifest().side_panel);
+        else if (private_access_changed)
+            panels.close_panels_of(descriptor.id, ExtensionSidePanelHost::CloseReason::ExtensionGone);
+    }
+    for (auto const& [id, revision] : m_extension_side_panel_revisions) {
+        if (!revisions.contains(id))
+            panels.remove_extension(id);
+    }
+    m_extension_side_panel_revisions = move(revisions);
 }
 
 void Application::extension_tab_closed(i64 tab_id, Optional<ExtensionTab> closing_tab)
 {
     if (m_extension_popup_host)
         m_extension_popup_host->tab_closed(tab_id);
+    if (m_extension_side_panel_host)
+        m_extension_side_panel_host->tab_closed(tab_id);
     if (m_extension_action_registry)
         m_extension_action_registry->clear_tab(tab_id);
 
@@ -4314,6 +4367,8 @@ void Application::extension_tab_activated(i64 tab_id)
     auto tab = tabs.find_if([&](auto const& tab) { return tab.id == tab_id; });
     if (tab == tabs.end())
         return;
+    if (m_extension_side_panel_host)
+        m_extension_side_panel_host->active_tab_changed(tab->window_id, tab_id);
     JsonObject active_info;
     active_info.set("tabId"sv, tab_id);
     active_info.set("windowId"sv, tab->window_id);
@@ -4427,6 +4482,79 @@ ViewImplementation* Application::extension_popup_view(i64 window_id) const
 {
     auto it = m_headless_extension_popups.find(window_id);
     return it == m_headless_extension_popups.end() ? nullptr : it->value.ptr();
+}
+
+// The headless side panel has a fixed size: the headless browser has no window whose height it could follow.
+static constexpr Gfx::IntSize headless_extension_side_panel_size { 320, 600 };
+
+bool Application::show_extension_side_panel(ExtensionSidePanelRequest const& request)
+{
+    auto theme = m_extension_background_host->theme();
+    if (theme.is_error())
+        return false;
+    auto view = HeadlessWebView::create(theme.release_value(), headless_extension_side_panel_size.to_type<Web::DevicePixels>());
+    auto window_id = request.window_id;
+    auto generation = request.generation;
+    view->set_is_closable_by_script(true);
+    view->on_close = [window_id, generation] {
+        Core::deferred_invoke([window_id, generation] {
+            if (is_initialized())
+                extension_side_panel_host().close(window_id, generation, ExtensionSidePanelHost::CloseReason::PageClosed);
+        });
+    };
+    view->load_from_browser_ui(request.url);
+    m_headless_extension_side_panels.set(window_id, move(view));
+    return true;
+}
+
+void Application::navigate_extension_side_panel(i64 window_id, URL::URL const& url)
+{
+    if (auto it = m_headless_extension_side_panels.find(window_id); it != m_headless_extension_side_panels.end())
+        it->value->load_from_browser_ui(url);
+}
+
+void Application::close_extension_side_panel(i64 window_id)
+{
+    // A panel can close from one of its view's own callbacks, so the view goes once that has returned.
+    if (auto view = m_headless_extension_side_panels.take(window_id); view.has_value()) {
+        (*view)->on_close = nullptr;
+        retire_headless_extension_view(view.release_value());
+    }
+}
+
+ViewImplementation* Application::extension_side_panel_view(i64 window_id) const
+{
+    auto it = m_headless_extension_side_panels.find(window_id);
+    return it == m_headless_extension_side_panels.end() ? nullptr : it->value.ptr();
+}
+
+Optional<i64> Application::extension_window_of_tab(i64 tab_id) const
+{
+    for (auto const& tab : extension_tabs()) {
+        if (tab.id == tab_id)
+            return tab.window_id;
+    }
+    return {};
+}
+
+Optional<i64> Application::extension_active_tab_of_window(i64 window_id) const
+{
+    for (auto const& tab : extension_tabs()) {
+        if (tab.window_id == window_id && tab.active)
+            return tab.id;
+    }
+    return {};
+}
+
+// A private window shows panels only for extensions allowed in private windows.
+bool Application::extension_may_show_in_window(StringView extension_id, i64 window_id) const
+{
+    for (auto const& tab : extension_tabs()) {
+        if (tab.window_id != window_id)
+            continue;
+        return tab.is_private == IsPrivate::No || m_extension_registry->is_allowed_in_private(extension_id);
+    }
+    return false;
 }
 
 void Application::activate_extension_action(String const& extension_id, i64 tab_id)

@@ -34,6 +34,7 @@
 #include <LibWebView/Extensions/ExtensionPermissionsAPI.h>
 #include <LibWebView/Extensions/ExtensionPopupHost.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
+#include <LibWebView/Extensions/ExtensionSidePanelHost.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/Extensions/ExtensionWebNavigation.h>
 #include <LibWebView/GamepadManager.h>
@@ -1853,7 +1854,8 @@ void WebContentPage::did_request_extension_resource(String extension_id, String 
     // The page the background host made for the extension loads the extension's own files, the manifest's
     // "background.page" among them, though its first document is the initial about:blank one.
     bool allowed = Application::extension_background_host().hosts_page(extension_id, *this)
-        || Application::extension_popup_host().hosts_page(extension_id, *this);
+        || Application::extension_popup_host().hosts_page(extension_id, *this)
+        || Application::extension_side_panel_host().hosts_page(extension_id, *this);
     // So does a tab the extension navigated to one of its pages, for that page alone and once. The page holding the
     // tab's top-level navigable fetches it, whatever it shows until then, but no other page in the tab may: not a
     // frame's in another process.
@@ -2142,9 +2144,12 @@ ExtensionTabViewer WebContentPage::extension_tab_viewer(String const& extension_
             }
         }
     }
-    // A popup isn't a tab; its current window is the one whose button opened it.
+    // A popup isn't a tab; its current window is the one whose button opened it. Nor is a side panel, whose current
+    // window is the one it's docked in.
     if (!current_window_id.has_value())
         current_window_id = Application::extension_popup_host().window_for_page(*this);
+    if (!current_window_id.has_value())
+        current_window_id = Application::extension_side_panel_host().window_for_page(*this);
     auto allowed_in_private = Application::extension_registry().is_allowed_in_private(extension_id);
     auto last_focused_window_id = last_focused_extension_window_for(Application::the().extension_window_focus_order(), tabs, allowed_in_private);
     return { extension, allowed_in_private, current_window_id, last_focused_window_id, Application::the().extension_active_tab_grants(extension_id) };
@@ -4896,6 +4901,41 @@ void WebContentPage::did_request_extension_reload_for_testing(String const& exte
 Messages::WebContentTestClient::DidRequestExtensionBackgroundStateForTestingResponse WebContentPage::did_request_extension_background_state_for_testing(String const& extension_id)
 {
     return Application::extension_background_host().is_hosting(extension_id) ? "running"_string : "stopped"_string;
+}
+
+// The window of the tab this page shows, for the test hooks that ask about that window's extension surfaces.
+Optional<i64> WebContentPage::extension_window_id_for_testing() const
+{
+    if (!displays_tab())
+        return {};
+    auto tab_id = view().extension_tab_id();
+    if (!tab_id.has_value())
+        return {};
+    for (auto const& tab : Application::the().extension_tabs()) {
+        if (tab.id == *tab_id)
+            return tab.window_id;
+    }
+    return {};
+}
+
+Messages::WebContentTestClient::DidRequestExtensionSidePanelStateForTestingResponse WebContentPage::did_request_extension_side_panel_state_for_testing(String const& extension_id)
+{
+    JsonObject state;
+    state.set("open"sv, false);
+    if (auto window_id = extension_window_id_for_testing(); window_id.has_value()) {
+        if (auto panel = Application::extension_side_panel_host().state(*window_id); panel.has_value() && panel->extension_id == extension_id) {
+            state.set("open"sv, true);
+            state.set("path"sv, panel->url.serialize_path());
+            state.set("title"sv, panel->title);
+        }
+    }
+    return state.serialized();
+}
+
+void WebContentPage::did_close_extension_side_panel_for_testing()
+{
+    if (auto window_id = extension_window_id_for_testing(); window_id.has_value())
+        Application::extension_side_panel_host().close(*window_id, ExtensionSidePanelHost::CloseReason::UserClosed);
 }
 
 Messages::WebContentTestClient::DidRequestExtensionPopupStateForTestingResponse WebContentPage::did_request_extension_popup_state_for_testing(String const& extension_id)

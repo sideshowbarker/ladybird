@@ -122,6 +122,7 @@ public:
     static ExtensionBackgroundHost& extension_background_host() { return *the().m_extension_background_host; }
     static ExtensionActionRegistry& extension_action_registry() { return *the().m_extension_action_registry; }
     static ExtensionPopupHost& extension_popup_host() { return *the().m_extension_popup_host; }
+    static ExtensionSidePanelHost& extension_side_panel_host() { return *the().m_extension_side_panel_host; }
     static Profile const& profile() { return *the().m_profile; }
     BrowserProcess& browser_process() { return *m_browser_process; }
     bool should_exit_after_profile_coordination() const { return m_should_exit_after_profile_coordination; }
@@ -400,6 +401,17 @@ public:
     virtual void resize_extension_popup(i64 window_id, Gfx::IntSize);
     virtual void close_extension_popup(i64 window_id);
     virtual ViewImplementation* extension_popup_view(i64 window_id) const;
+    // A frontend docks an extension's side panel beside the page in the request's window, and loads the request's
+    // URL into its view; ExtensionSidePanelHost decides when it opens, closes, and which page it shows.
+    // By default, a panel is a headless view of its own, as test-web and the headless browser show it.
+    virtual bool show_extension_side_panel(ExtensionSidePanelRequest const&);
+    virtual void navigate_extension_side_panel(i64 window_id, URL::URL const&);
+    virtual void close_extension_side_panel(i64 window_id);
+    virtual ViewImplementation* extension_side_panel_view(i64 window_id) const;
+    // What the side panel host asks about the browser's windows and tabs.
+    Optional<i64> extension_window_of_tab(i64 tab_id) const;
+    Optional<i64> extension_active_tab_of_window(i64 window_id) const;
+    bool extension_may_show_in_window(StringView extension_id, i64 window_id) const;
     virtual void extension_action_changed(String const&, Optional<i64>) { }
     // The ids of the windows the user has focused, most recent first.
     virtual Vector<i64> extension_window_focus_order() const { return {}; }
@@ -744,6 +756,12 @@ private:
     OwnPtr<ExtensionPopupFrontend> m_extension_popup_frontend;
     OwnPtr<ExtensionPopupHost> m_extension_popup_host;
     HashMap<i64, OwnPtr<HeadlessWebView>> m_headless_extension_popups;
+    class ExtensionSidePanelFrontend;
+    OwnPtr<ExtensionSidePanelFrontend> m_extension_side_panel_frontend;
+    OwnPtr<ExtensionSidePanelHost> m_extension_side_panel_host;
+    HashMap<i64, OwnPtr<HeadlessWebView>> m_headless_extension_side_panels;
+    // Each extension's revision whose side panel the host was last told about.
+    HashMap<String, u64> m_extension_side_panel_revisions;
     Vector<OwnPtr<HeadlessWebView>> m_headless_extension_tabs;
     ErrorOr<ExtensionTab, String> create_headless_extension_tab(ExtensionTabCreation const&);
     ErrorOr<ExtensionTab, String> update_headless_extension_tab(i64 tab_id, ExtensionTabUpdate const&);
@@ -791,6 +809,7 @@ private:
     HashTable<String> m_extension_actions_hidden;
     HashMap<String, ExtensionActiveTabGrants> m_extension_active_tab_grants;
     void sync_extension_actions();
+    void sync_extension_side_panels(bool private_access_changed);
     void sync_extension_session_state();
     // runtime.onStartup when the browser starts, and runtime.onInstalled whenever an extension is new or has a new
     // version; each goes to the extension's background page once it has started.

@@ -1947,6 +1947,16 @@ void Internals::unload_extension_background(Utf16String const& extension_id)
     page().client().unload_extension_background_for_testing(extension_id.to_utf8_but_should_be_ported_to_utf16());
 }
 
+Utf16String Internals::extension_side_panel_state(Utf16String const& extension_id)
+{
+    return Utf16String::from_utf8(page().client().extension_side_panel_state_for_testing(extension_id.to_utf8_but_should_be_ported_to_utf16()));
+}
+
+void Internals::close_extension_side_panel()
+{
+    page().client().close_extension_side_panel_for_testing();
+}
+
 void Internals::grant_extension_permissions(Utf16String const& extension_id, Vector<Utf16String> const& permissions, Vector<Utf16String> const& origins)
 {
     auto to_utf8 = [](Vector<Utf16String> const& strings) {

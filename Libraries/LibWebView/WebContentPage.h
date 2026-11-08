@@ -486,6 +486,9 @@ private:
     Messages::WebContentTestClient::DidRequestNowPlayingStateForTestingResponse did_request_now_playing_state_for_testing();
     virtual void trigger_now_playing_action_for_testing(Web::Bindings::MediaSessionAction action, Optional<double> seek_offset, Optional<double> seek_time, Optional<bool> fast_seek) override;
     Messages::WebContentTestClient::DidRequestExtensionPopupStateForTestingResponse did_request_extension_popup_state_for_testing(String const& extension_id);
+    Messages::WebContentTestClient::DidRequestExtensionSidePanelStateForTestingResponse did_request_extension_side_panel_state_for_testing(String const& extension_id);
+    virtual void did_close_extension_side_panel_for_testing() override;
+    Optional<i64> extension_window_id_for_testing() const;
     Messages::WebContentTestClient::DidRequestExtensionBackgroundStateForTestingResponse did_request_extension_background_state_for_testing(String const& extension_id);
     void did_request_extension_background_unload_for_testing(String const& extension_id);
     // Fails every injection still waiting on this page, which won't answer it now.

@@ -37,6 +37,8 @@ endpoint WebContentTestClient routed by Web::PageId page_id
     trigger_now_playing_action_for_testing(Web::PageId page_id, Web::Bindings::MediaSessionAction action, Optional<double> seek_offset, Optional<double> seek_time, Optional<bool> fast_seek) =|
 
     [NotRouted] did_request_extension_popup_state_for_testing(Web::PageId page_id, String extension_id) => (String state)
+    [NotRouted] did_request_extension_side_panel_state_for_testing(Web::PageId page_id, String extension_id) => (String state)
+    did_close_extension_side_panel_for_testing(Web::PageId page_id) =|
     [NotRouted] did_request_extension_background_state_for_testing(Web::PageId page_id, String extension_id) => (String state)
     [NotRouted] did_request_extension_background_unload_for_testing(Web::PageId page_id, String extension_id) =|
     // Asynchronous, since a grant changes the extension, which every WebContent process then hears of.

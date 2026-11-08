@@ -825,6 +825,8 @@ public:
     virtual void page_did_destroy_child_frame(HTML::CrossProcessId) { }
     virtual String dump_site_isolation_process_tree_for_testing() { return {}; }
     virtual String extension_popup_state_for_testing(String const&) { return {}; }
+    virtual String extension_side_panel_state_for_testing(String const&) { return {}; }
+    virtual void close_extension_side_panel_for_testing() { }
     virtual String extension_background_state_for_testing(String const&) { return {}; }
     virtual void unload_extension_background_for_testing(String const&) { }
     virtual void grant_extension_permissions_for_testing(String const&, Vector<String>, Vector<String>) { }

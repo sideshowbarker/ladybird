@@ -229,6 +229,8 @@ public:
     void set_extension_idle_timeout(Utf16String const& extension_id, double milliseconds);
     void click_extension_action(Utf16String const& extension_id);
     Utf16String extension_popup_state(Utf16String const& extension_id);
+    Utf16String extension_side_panel_state(Utf16String const& extension_id);
+    void close_extension_side_panel();
     Utf16String extension_background_state(Utf16String const& extension_id);
     void unload_extension_background(Utf16String const& extension_id);
     void grant_extension_permissions(Utf16String const& extension_id, Vector<Utf16String> const& permissions, Vector<Utf16String> const& origins);

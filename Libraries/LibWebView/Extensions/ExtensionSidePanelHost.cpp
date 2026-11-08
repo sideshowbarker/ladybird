@@ -49,14 +49,19 @@ void ExtensionSidePanelHost::set_extension(String id, String name, ExtensionMani
 
 void ExtensionSidePanelHost::remove_extension(StringView id)
 {
+    close_panels_of(id, CloseReason::ExtensionGone);
+    m_entries.remove_all_matching([&](auto const& entry) { return entry.id == id; });
+}
+
+void ExtensionSidePanelHost::close_panels_of(StringView id, CloseReason reason)
+{
     Vector<i64> windows;
     for (auto const& [window_id, panel] : m_panels) {
         if (panel.extension_id == id)
             windows.append(window_id);
     }
     for (auto window_id : windows)
-        close(window_id, CloseReason::ExtensionGone);
-    m_entries.remove_all_matching([&](auto const& entry) { return entry.id == id; });
+        close(window_id, reason);
 }
 
 bool ExtensionSidePanelHost::has_side_panel(StringView id) const

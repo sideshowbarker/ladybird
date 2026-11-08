@@ -2204,6 +2204,19 @@ void PageClient::unload_extension_background_for_testing(String const& extension
         test_connection->async_did_request_extension_background_unload_for_testing(m_id, extension_id);
 }
 
+String PageClient::extension_side_panel_state_for_testing(String const& extension_id)
+{
+    if (auto* test_connection = client().test_connection())
+        return test_connection->did_request_extension_side_panel_state_for_testing(m_id, extension_id);
+    return "{}"_string;
+}
+
+void PageClient::close_extension_side_panel_for_testing()
+{
+    if (auto* test_connection = client().test_connection())
+        test_connection->async_did_close_extension_side_panel_for_testing(m_id);
+}
+
 void PageClient::grant_extension_permissions_for_testing(String const& extension_id, Vector<String> permissions, Vector<String> origins)
 {
     if (auto* test_connection = client().test_connection())
