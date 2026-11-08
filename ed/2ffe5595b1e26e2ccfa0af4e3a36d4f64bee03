@@ -1,0 +1,10 @@
+Ladybird wakes a stopped event page only for an event its last run
+added a listener for, and only such an event counts as its activity.
+Chromium keeps a record of the same lazy listeners, which EventRouter::
+AddLazyEventListenerImpl() stores, and starts a lazy background context
+only for an event that has one. Gecko primes the persistent listeners
+that an event page registered in its last run (with ExtensionCommon’s
+primeListener()), and only those start it. And WebKit’s
+WebExtensionContext::wakeUpBackgroundContentIfNecessaryToFireEvents()
+checks the event types that the background content registered before
+it starts the page at all.
