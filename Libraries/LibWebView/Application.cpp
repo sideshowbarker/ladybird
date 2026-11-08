@@ -359,6 +359,13 @@ Application::~Application()
         Core::EventLoop::unregister_signal(handler);
 #endif
 
+    // The headless views of extensions' tabs, popups, and side panels go first: a view's destructor reports the tab's
+    // closing to WebDriver and to the extensions, which needs the members declared before the views still intact.
+    m_headless_extension_side_panels.clear();
+    m_headless_extension_popups.clear();
+    m_headless_extension_tabs.clear();
+    m_closing_headless_extension_views.clear();
+
 #if defined(AK_OS_MACOS)
     // Stop bootstrap callbacks before destroying the state they use.
     m_mach_port_server.clear();
