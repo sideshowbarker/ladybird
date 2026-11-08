@@ -6,3 +6,7 @@ RenderButton is a flex box, whose baselines always come from its
 content. And Gecko’s ButtonControlFrame is an nsBlockFrame, which takes
 its baseline from its lines. So in all three, a button sits on the line
 by its text, even with “overflow: hidden”.
+
+Chrome and Firefox both clamp that baseline to the button’s border box,
+as CSS Align requires of a scroll container: A short button whose
+overflowing lines run below it sits on the line by its bottom edge.
