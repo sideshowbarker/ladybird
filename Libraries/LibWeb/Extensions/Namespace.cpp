@@ -18,6 +18,8 @@
 #include <LibWeb/Extensions/API/Privacy.h>
 #include <LibWeb/Extensions/API/Runtime.h>
 #include <LibWeb/Extensions/API/Scripting.h>
+#include <LibWeb/Extensions/API/SidePanel.h>
+#include <LibWeb/Extensions/API/SidebarAction.h>
 #include <LibWeb/Extensions/API/Storage.h>
 #include <LibWeb/Extensions/API/Tabs.h>
 #include <LibWeb/Extensions/API/WebNavigation.h>
@@ -88,6 +90,12 @@ GC::Ref<JS::Object> install_namespace(JS::Realm& realm, MessagingContext& messag
         namespace_object->define_direct_property("webNavigation"_utf16_fly_string, create_web_navigation(realm, messaging_context), attributes);
 
     // The toolbar button belongs to the extension's own documents too, and exists only when the manifest declares one.
+    // sidePanel comes with its permission, and sidebarAction with the manifest's sidebar_action key; both drive one panel.
+    if (context == NamespaceContext::ExtensionDocument && messaging_context.descriptor().has_permission("sidePanel"sv))
+        namespace_object->define_direct_property("sidePanel"_utf16_fly_string, create_side_panel(realm, messaging_context), attributes);
+    if (context == NamespaceContext::ExtensionDocument && messaging_context.descriptor().has_sidebar_action)
+        namespace_object->define_direct_property("sidebarAction"_utf16_fly_string, create_sidebar_action(realm, messaging_context), attributes);
+
     if (context == NamespaceContext::ExtensionDocument && messaging_context.descriptor().has_action) {
         auto name = messaging_context.descriptor().manifest_version == 2 ? "browserAction"_utf16_fly_string : "action"_utf16_fly_string;
         namespace_object->define_direct_property(name, create_action(realm, messaging_context), attributes);

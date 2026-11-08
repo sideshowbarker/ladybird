@@ -269,6 +269,34 @@ TEST_CASE(removing_the_extension_closes_its_panels_and_forgets_its_options)
     EXPECT(!host.opens_on_action_click("a"sv));
 }
 
+TEST_CASE(title_and_icon_resolve_per_tab_over_global_over_manifest)
+{
+    FakeFrontend frontend;
+    ExtensionSidePanelHost host(frontend);
+    add_extension(host, "a"sv);
+    EXPECT_EQ(host.title("a"sv, {}), "Panel"sv);
+    EXPECT_EQ(host.title("a"sv, 10), "Panel"sv);
+    host.set_title("a"sv, {}, "Global"_string);
+    host.set_title("a"sv, 10, "Ten"_string);
+    EXPECT_EQ(host.title("a"sv, {}), "Global"sv);
+    EXPECT_EQ(host.title("a"sv, 10), "Ten"sv);
+    EXPECT_EQ(host.title("a"sv, 11), "Global"sv);
+    // The panel's header shows the active tab's title.
+    EXPECT(!host.open("a"sv, 1, {}).is_error());
+    EXPECT_EQ(frontend.shown.last().title, "Ten"sv);
+    EXPECT_EQ(host.state(1)->title, "Ten"sv);
+    // Null clears a level; the tab's override goes with the tab.
+    host.set_title("a"sv, 10, {});
+    EXPECT_EQ(host.title("a"sv, 10), "Global"sv);
+    host.set_title("a"sv, {}, {});
+    EXPECT_EQ(host.title("a"sv, 10), "Panel"sv);
+    host.set_icon("a"sv, 10, Vector<ExtensionManifest::IconPath> { { 16, "ten.png"_string } });
+    EXPECT_EQ(host.icon("a"sv, 10).size(), 1u);
+    EXPECT(host.icon("a"sv, 11).is_empty());
+    host.tab_closed(10);
+    EXPECT(host.icon("a"sv, 10).is_empty());
+}
+
 TEST_CASE(a_closed_panels_late_callbacks_are_ignored)
 {
     FakeFrontend frontend;

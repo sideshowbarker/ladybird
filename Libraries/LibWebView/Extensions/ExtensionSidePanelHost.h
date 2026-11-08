@@ -89,8 +89,20 @@ public:
     // unknown extension resolves to are empty and disabled.
     void set_options(StringView id, Optional<i64> tab_id, Optional<String> path, Optional<bool> enabled, OverrideSource = OverrideSource::SidePanel);
     ExtensionSidePanelOptions options(StringView id, Optional<i64> tab_id) const;
+    bool has_override(StringView id, i64 tab_id) const;
+    void clear_override(StringView id, i64 tab_id);
+    // The global options go back to the manifest's.
+    void reset_options(StringView id);
+    // The panel's page for a tab (or globally), as a URL within the extension; nothing without a page.
+    Optional<String> panel_url(StringView id, Optional<i64> tab_id) const;
     void set_opens_on_action_click(StringView id, bool);
     bool opens_on_action_click(StringView id) const;
+    // The header's title and icon: what the extension set for the tab, else globally, else the manifest's, else the
+    // extension's name. A null value clears what was set at that level.
+    void set_title(StringView id, Optional<i64> tab_id, Optional<String>);
+    String title(StringView id, Optional<i64> tab_id) const;
+    void set_icon(StringView id, Optional<i64> tab_id, Optional<Vector<ExtensionManifest::IconPath>>);
+    Vector<ExtensionManifest::IconPath> icon(StringView id, Optional<i64> tab_id) const;
 
     // Opens the panel in the window, or in the tab's window showing what that tab resolves to; closes the extension's
     // own panel there. The errors are the ones extensions compare against, so their wording is fixed.
@@ -134,6 +146,8 @@ private:
     struct Override {
         Optional<String> path;
         Optional<bool> enabled;
+        Optional<String> title;
+        Optional<Vector<ExtensionManifest::IconPath>> icon;
         OverrideSource source { OverrideSource::SidePanel };
     };
     struct Entry {
@@ -143,6 +157,8 @@ private:
         ExtensionSidePanelOptions global;
         HashMap<i64, Override> per_tab;
         bool opens_on_action_click { false };
+        Optional<String> title;
+        Optional<Vector<ExtensionManifest::IconPath>> icon;
     };
     struct Panel {
         String extension_id;

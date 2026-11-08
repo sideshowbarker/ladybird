@@ -1,0 +1,56 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script>
+    sidePanelFixtureName = "Sidebar Action Fixture";
+</script>
+<script src="support-side-panel.js"></script>
+<body>
+    <script>
+        // sidebarAction drives the panel: its page, title, and icon, for a tab or globally, and opening, closing, and
+        // toggling it in the caller's window with the user's input. This extension has sidebar_action alone. Copies
+        // of this test run at once, so everything set here is set for this test's own tab.
+        asyncTest(async done => {
+            const tab = await startSidePanelTest();
+            const show = value => JSON.stringify(value);
+            const path = url => (url ? new URL(url).pathname : url);
+            const forTab = { tabId: tab.id };
+
+            println(`panel: ${path((await callApi("sidebarAction", "getPanel", forTab)).value)}`);
+            println(`title: ${show((await callApi("sidebarAction", "getTitle", forTab)).value)}`);
+            await callApi("sidebarAction", "setPanel", { ...forTab, panel: "other.html" });
+            await callApi("sidebarAction", "setTitle", { ...forTab, title: "Renamed" });
+            println(
+                `for this tab: ${path((await callApi("sidebarAction", "getPanel", forTab)).value)}, ${show((await callApi("sidebarAction", "getTitle", forTab)).value)}`
+            );
+            println(
+                `both ids: ${show(await callApi("sidebarAction", "getPanel", { ...forTab, windowId: tab.windowId }))}`
+            );
+            await callApi("sidebarAction", "setPanel", { ...forTab, panel: null });
+            await callApi("sidebarAction", "setTitle", { ...forTab, title: null });
+            println(
+                `restored: ${path((await callApi("sidebarAction", "getPanel", forTab)).value)}, ${show((await callApi("sidebarAction", "getTitle", forTab)).value)}`
+            );
+            println(
+                `setIcon: ${show(await callApi("sidebarAction", "setIcon", { ...forTab, path: { 16: "icon16.png" } }))}, imageData: ${show(await callApi("sidebarAction", "setIcon", { ...forTab, imageData: {} }))}`
+            );
+
+            println(`isOpen: ${show((await callApi("sidebarAction", "isOpen", { windowId: tab.windowId })).value)}`);
+            println(`open from the background: ${show(await callApi("sidebarAction", "open"))}`);
+            await callApi("sidebarAction", "setTitle", { ...forTab, title: "Beside the page" });
+            println(
+                `open from the popup: ${show(await fromPopup({ namespace: "sidebarAction", method: "open", useCurrentWindow: false, closeAfter: true }))}`
+            );
+            println(`open: ${await waitFor(() => panelState().open)}, title: ${panelState().title}`);
+            println(
+                `isOpen for the window: ${show((await callApi("sidebarAction", "isOpen", { windowId: tab.windowId })).value)}`
+            );
+            println(
+                `toggle from the popup: ${show(await fromPopup({ namespace: "sidebarAction", method: "toggle", useCurrentWindow: false }))}`
+            );
+            println(`open after toggle: ${(await waitFor(() => !panelState().open)) ? false : true}`);
+            await closePanel();
+            done();
+        });
+    </script>
+</body>

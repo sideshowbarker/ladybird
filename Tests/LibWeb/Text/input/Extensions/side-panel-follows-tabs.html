@@ -1,0 +1,59 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-side-panel.js"></script>
+<body>
+    <script>
+        // The panel shows the page its window's active tab resolves to: a page set for that tab navigates it at once,
+        // one set for a tab elsewhere doesn't, and disabling it for the active tab closes it. A tab's options go with
+        // the tab. (A tab made here is a window of its own, so a tab switch within one window isn't shown headlessly.)
+        asyncTest(async done => {
+            const tab = await startSidePanelTest();
+            const show = value => JSON.stringify(value);
+
+            const hello = await openPanel();
+            println(`panel sees this tab: ${hello.activeTab === tab.id}`);
+
+            const elsewhere = (await callApi("tabs", "create", { url: "about:blank", active: false })).value;
+            println(
+                `a page for a tab elsewhere: ${show(await callApi("sidePanel", "setOptions", { tabId: elsewhere.id, path: "other.html" }))}`
+            );
+            await new Promise(resolve => setTimeout(resolve, 100));
+            println(`still this page: ${panelState().path}`);
+
+            println(
+                `a page for this tab: ${show(await callApi("sidePanel", "setOptions", { tabId: tab.id, path: "other.html" }))}`
+            );
+            const navigated = await nextReport("hello");
+            println(
+                `navigated: ${navigated.path}, new document: ${navigated.instance !== hello.instance}, still open: ${panelState().open}`
+            );
+            const tabOptions = (await callApi("sidePanel", "getOptions", { tabId: tab.id })).value;
+            println(`options for this tab: ${show({ ...tabOptions, tabId: tabOptions.tabId === tab.id })}`);
+            println(`global options: ${show((await callApi("sidePanel", "getOptions")).value)}`);
+
+            println(`global page: ${show(await callApi("sidePanel", "setOptions", { path: "panel.html" }))}`);
+            println(`this tab keeps its own: ${await waitFor(() => panelState().path === "/other.html")}`);
+            await callApi("sidePanel", "setOptions", { tabId: tab.id, path: "panel.html" });
+            const back = await nextReport("hello");
+            println(`back: ${back.path}`);
+
+            await callApi("sidePanel", "setOptions", { tabId: tab.id, enabled: false });
+            println(`disabled for the active tab, open: ${(await waitFor(() => !panelState().open)) ? false : true}`);
+            await eventsAtLeast(2);
+            println(
+                `onClosed: ${show((await newEvents()).filter(event => event.event === "closed").map(event => event.path))}`
+            );
+            const refused = await fromPopup({});
+            println(`no panel to open now: ${refused.rejected?.replace(/\d+/, "N")}`);
+
+            await callApi("tabs", "remove", elsewhere.id);
+            println(
+                `the closed tab's options are gone: ${show((await callApi("sidePanel", "getOptions", { tabId: elsewhere.id })).value)}`
+            );
+            await callApi("sidePanel", "setOptions", { tabId: tab.id, enabled: true });
+            await closePanel();
+            done();
+        });
+    </script>
+</body>

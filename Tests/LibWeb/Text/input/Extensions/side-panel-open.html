@@ -1,0 +1,45 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<script src="support-side-panel.js"></script>
+<body>
+    <script>
+        // sidePanel.open() needs a user activation and a window or tab id, and opens the panel, an extension page docked
+        // beside the page, in that window. The popup that opened it can close itself; the panel stays.
+        asyncTest(async done => {
+            const tab = await startSidePanelTest();
+            const show = value => JSON.stringify(value);
+
+            println(`without activation: ${show(await fromPopup({ activation: false, useCurrentWindow: true }))}`);
+            println(`without ids: ${show(await fromPopup({ useCurrentWindow: false, args: [{}] }))}`);
+            println(
+                `no such window: ${show(await fromPopup({ useCurrentWindow: false, args: [{ windowId: 987654 }] }))}`
+            );
+            println(`no such tab: ${show(await fromPopup({ useCurrentWindow: false, args: [{ tabId: 987654 }] }))}`);
+            println(`panel open before: ${panelState().open}`);
+
+            const hello = await openPanel();
+            println(`open: ${show(hello.result)}`);
+            const state = panelState();
+            println(`panel open: ${state.open}, path: ${state.path}, title: ${state.title}`);
+            println(
+                `popup closed itself: ${await waitFor(() => !JSON.parse(internals.extensionPopupState(sidePanelFixture())).open)}`
+            );
+            println(`the panel sees the window's active tab: ${hello.activeTab === tab.id}`);
+            println(`the panel's page: ${hello.path}`);
+            await eventsAtLeast(1);
+            const opened = (await newEvents()).filter(event => event.event === "opened");
+            println(
+                `onOpened: ${show(opened.map(event => ({ path: event.path, hasWindow: typeof event.windowId === "number" })))}`
+            );
+
+            println(`open again: ${show(await fromPopup({}))}`);
+            println(
+                `still one panel: ${(await sendToBackground({ type: "reports" })).slice(seenReports).filter(report => report.what === "hello" && report.windowId === myWindowId).length === 0}`
+            );
+            await closePanel();
+            println(`closed from the UI: ${!panelState().open}`);
+            done();
+        });
+    </script>
+</body>

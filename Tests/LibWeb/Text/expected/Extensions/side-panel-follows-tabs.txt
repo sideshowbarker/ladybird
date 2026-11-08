@@ -1,0 +1,14 @@
+panel sees this tab: true
+a page for a tab elsewhere: {"value":null}
+still this page: /panel.html
+a page for this tab: {"value":null}
+navigated: /other.html, new document: true, still open: true
+options for this tab: {"path":"/other.html","enabled":true,"tabId":true}
+global options: {"path":"/panel.html","enabled":true}
+global page: {"value":null}
+this tab keeps its own: true
+back: /panel.html
+disabled for the active tab, open: false
+onClosed: ["/panel.html"]
+no panel to open now: No active side panel for windowId: N
+the closed tab's options are gone: {"path":"/panel.html","enabled":true}

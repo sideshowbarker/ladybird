@@ -1,0 +1,6 @@
+close by API: {"value":null}, open: false
+close again: {"value":null}
+close without ids: {"rejected":"At least one of `tabId` and `windowId` must be provided"}
+window.close() in the panel, open: false
+the UI's close button, open: false
+onClosed: ["/panel.html","/panel.html","/panel.html"]

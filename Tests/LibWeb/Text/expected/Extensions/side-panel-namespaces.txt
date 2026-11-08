@@ -1,0 +1,7 @@
+sidePanel methods: ["close","getLayout","getOptions","getPanelBehavior","open","setOptions","setPanelBehavior"]
+sidePanel events: ["onClosed","onOpened"]
+sidebarAction methods: ["close","getPanel","getTitle","isOpen","open","setIcon","setPanel","setTitle","toggle"]
+sidebarAction events: []
+in a content script: {"sidePanel":"undefined","sidebarAction":"undefined"}
+layout: {"value":{"side":"right"}}
+sidebar_action alone: {"sidePanel":"undefined","sidebarAction":["close","getPanel","getTitle","isOpen","open","setIcon","setPanel","setTitle","toggle"]}
