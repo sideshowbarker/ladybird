@@ -43,6 +43,7 @@ An existing WebExtension works unchanged when it uses only the supported feature
 - **The `browser` and `chrome` namespaces**, which are the same object, with `runtime.id`, `runtime.getURL()`, `runtime.getManifest()`, `runtime.sendMessage()`, `runtime.onMessage`, `runtime.connect()`, `runtime.onConnect`, and `runtime.lastError`.
 
 - **Local storage**, with the `storage` permission: `storage.local` methods and change events shared by the extension’s contexts.
+- **A side panel**, declared with the manifest’s `side_panel` (`default_path`) or `sidebar_action` (`default_panel`, `default_title`, `default_icon`): an extension page docked beside the web page, one per window, that stays across tab switches and navigations. The `sidePanel` namespace comes with the `sidePanel` permission (`setOptions`, `getOptions`, `setPanelBehavior`, `getPanelBehavior`, `open`, `close`, `getLayout`, `onOpened`, `onClosed`) and `sidebarAction` with the `sidebar_action` key (`setPanel`, `getPanel`, `setTitle`, `getTitle`, `setIcon`, `open`, `close`, `toggle`, `isOpen`); both drive the same panel. Opening it needs a user activation, as in the other browsers.
 
 A minimal extension that does something visible:
 
@@ -82,6 +83,7 @@ Both manifest versions are supported, and both will stay supported — an exten
 | `content_scripts[]`: `matches`, `exclude_matches`, `js`, `css`, `run_at`, `all_frames`, `match_about_blank`, `world` | `matches` is required and non-empty. `run_at` defaults to `document_idle`, `world` to `ISOLATED`.                                                                                        |
 | `web_accessible_resources`                                                                                           | Version 2’s list of path globs (every page may load them), or version 3’s list of `{ "resources": [...], "matches": [...] }` objects.                                                    |
 | `background`: `scripts`, `page`, `service_worker`, `type`                                                            | `scripts` and `service_worker` are wrapped in a generated page; `page` is loaded as is; `"type": "module"` makes the generated script tags modules.                                      |
+| `side_panel`: `default_path`; `sidebar_action`: `default_panel`, `default_title`, `default_icon`, `open_at_install` | One panel: with both keys, `side_panel`’s page is the panel and `sidebar_action`’s title and icon describe it. `open_at_install` is read and ignored: no panel opens by itself. |
 | `content_security_policy`                                                                                            | Version 2’s policy string, or version 3’s object with an `extension_pages` entry. The default is `script-src 'self'; object-src 'self'`, which blocks inline scripts in extension pages. |
 | `permissions`, `host_permissions`                                                                                    | Supported API permissions are `storage`, `unlimitedStorage`, and `tabs`; other names are ignored. Host patterns are parsed separately.                          |
 
@@ -415,6 +417,7 @@ Known gaps: The UI process can’t yet tell which document of a WebContent proce
 | `Tests/LibWeb/TestExtensionDescriptor.cpp`        | IPC round trips and `is_web_accessible()`                                                                                                     |
 | `Tests/LibWebView/TestExtensionManifest.cpp`      | Both manifest versions, every supported key, the generated background page, the error for each malformed key                                  |
 | `Tests/LibWebView/TestExtensionRegistry.cpp`      | Install, reload, enable/disable, remove, restore from a Settings file, path normalization, revisions, resource access, background replacement |
+| `Tests/LibWebView/TestExtensionSidePanelHost.cpp` | Panel options, global and per tab; every `open()` error; one panel per window; following the active tab; what a tab’s overrides and an extension’s removal take with them |
 | `Tests/LibWebView/TestExtensionMessageBroker.cpp` | Recipients, first reply wins, declines, a context or page going away, forged replies, startup queuing                                         |
 | `Tests/LibWeb/TestExtensionWorld.cpp`             | Parsing in a foreign realm, world isolation, the namespace, `sendMessage` serialization, listener reply semantics, detach                     |
 
@@ -450,6 +453,13 @@ Build/release/bin/test-web --test-path Tests/LibWeb -f 'Extensions/*'
 | `about-blank-trusted-ancestry`        | `trusted-ancestry`    | An `about:blank` frame matches by its creator’s URL, never by a base URL the page set             |
 | `world-values`                        | `world-values`        | Event payloads cross worlds as clones, and uncaught errors stay in their world                    |
 | `background-to-content`               | `messaging`           | A content script never receives a runtime message, but gets the same one through `tabs.sendMessage()` |
+| `side-panel-namespaces`               | `side-panel`, `sidebar-action` | Which panel namespace each manifest gets, and that a content script gets neither              |
+| `side-panel-open`                     | `side-panel`          | `sidePanel.open()`’s activation and id rules, the panel’s page and title, `onOpened`                  |
+| `side-panel-follows-tabs`             | `side-panel`          | A tab’s own page navigates the open panel; a disabled tab closes it; a closed tab’s options go        |
+| `side-panel-close`                    | `side-panel`          | Closing by the API, from the panel’s own `window.close()`, and from the UI, each with `onClosed`       |
+| `sidebar-action`                      | `sidebar-action`      | `sidebarAction`’s panel, title, and icon, and `open`/`toggle`/`isOpen` in the caller’s window           |
+| `side-panel-action-click`             | `side-panel-click`    | `openPanelOnActionClick` makes the toolbar button toggle the panel instead of the popup             |
+| `companion-model-side-panel`          | `companion-model`     | Web Specs Companion’s “Keep this open beside the page”: the popup opens the panel and closes itself |
 
 The `storage-*` text tests cover selection forms and defaults, prototype-named keys, both change events across content and background contexts, callbacks and scoped errors, permission gating, and isolation between extensions. Each independent test has its own fixture identity so parallel runs don’t share mutable storage.
 
@@ -475,6 +485,7 @@ The `tabs-*` text tests cover `tabs.query()` filters, its schema errors, redacti
 - `ExtensionStorageStore.{h,cpp}`: Serialized file operations, quota checks, and changed values.
 - `ExtensionBackgroundHost.{h,cpp}`: The hidden views for background pages.
 - `ExtensionTabs.{h,cpp}`: Tab and window ids, `tabs.query()` filtering, and the tab objects extensions see.
+- `ExtensionSidePanelHost.{h,cpp}` and `ExtensionSidePanelAPI.{h,cpp}`: Each extension’s panel options and the panel open in each window, and the `sidePanel`/`sidebarAction` calls that drive them.
 
 Elsewhere in LibWebView: `Settings.{h,cpp}` (the `extensions` key and `InstalledExtension`), `Application.{h,cpp}` (`--load-extension`, owning the registry, broker, and host, pushing descriptors, and `extension_tabs()`, which a frontend with tabs of its own answers), `WebContentPage.{h,cpp}` (the IPC handlers, and the `Endpoint` implementation).
 
@@ -486,7 +497,7 @@ Elsewhere in LibWebView: `Settings.{h,cpp}` (the `extensions` key and `Installed
 - `MessagingContext.h`: What the router needs from either.
 - `ContentScriptInjector.{h,cpp}`: Matching and the three `run_at` points.
 - `MessageRouter.{h,cpp}`: `sendMessage` and `onMessage` dispatch within a process.
-- `Namespace.{h,cpp}`, `API/Runtime.{h,cpp}`, `API/Event.{h,cpp}`, `API/Storage.{h,cpp}`, `API/Tabs.{h,cpp}`, `API/Completion.{h,cpp}`: The `browser`/`chrome` object.
+- `Namespace.{h,cpp}`, `API/Runtime.{h,cpp}`, `API/Event.{h,cpp}`, `API/Storage.{h,cpp}`, `API/Tabs.{h,cpp}`, `API/SidePanel.{h,cpp}`, `API/SidebarAction.{h,cpp}`, `API/Completion.{h,cpp}`: The `browser`/`chrome` object.
 
 Hooks elsewhere in LibWeb: `DOM/Document.{h,cpp}` (worlds, run_at bookkeeping, the idle timer, extension style sheets, the document context, `url_for_extension_matching()`), `HTML/Parser/HTMLParser.cpp` (`document_end`), `HTML/LocalNavigable.cpp` (the initial `about:blank`), `HTML/Scripting/ClassicScript.{h,cpp}` (`create_in_realm()`, and the realm errors are reported to), `Bindings/WorldSafeValue.{h,cpp}` and the `[CloneAcrossWorlds]` and `[FilterErrorEventByWorld]` IDL extended attributes in `Meta/Generators/libweb_bindings/` (cloning event payloads, and hiding error events, across worlds), `DOM/EventDispatcher.cpp`, `WebIDL/AbstractOperations.cpp`, `Bindings/MainThreadVM.cpp`, and `HTML/WindowOrWorkerGlobalScope.cpp` (skipping a detached world’s listeners, callbacks, jobs, and timers), `Fetch/Fetching/Fetching.cpp` (the access check and the scheme branch), `Fetch/Infrastructure/URL.h` (`FETCH_SCHEMES`), `Loader/ResourceLoader.{h,cpp}` (serving the scheme), `Page/Page.{h,cpp}` (the client hooks), `Internals/Internals.{idl,h,cpp}` (`extensionId()`), and `LibURL/Rust/src/origin.rs` (the origin).
 
