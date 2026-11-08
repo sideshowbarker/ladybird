@@ -1,0 +1,8 @@
+Ladybird gives a scroll container in a min-content grid column its
+content’s min-content width, and gives it only its minimum width toward
+an auto track sized under an intrinsic constraint. Chrome and Firefox
+give the reduced case’s link the same 84px width. WebKit sets a
+min-content track’s base size from GridTrackSizingAlgorithmStrategy::
+minContentContributionForGridItem(), with no exception for scroll
+containers, and Blink’s CalculateIntrinsicMinimumContribution() makes
+only a scroll container’s automatic minimum size zero.
