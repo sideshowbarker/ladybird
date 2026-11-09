@@ -320,6 +320,9 @@ endpoint HubClient
     // tabs.remove() and tabs.reload(); the UI answers with extension_tab_action_finished.
     extension_close_tab(u64 request_id, i64 tab_id) =|
     extension_reload_tab(u64 request_id, i64 tab_id, bool bypass_cache) =|
+    extension_side_panel_open(u64 view_id, String extension_id, i64 window_id, WebView::IsPrivate is_private, String title, Vector<WebView::ExtensionManifest::IconPath> icon_files) =|
+    extension_side_panel_set_header(u64 view_id, String title, Vector<WebView::ExtensionManifest::IconPath> icon_files) =|
+    extension_side_panel_close(u64 view_id) =|
     notification_show(u64 id, u64 page_id, Optional<u64> replaces, Web::NotificationsAPI::NotificationData data, String attribution, Optional<Gfx::ShareableBitmap> icon) =|
     notification_close(u64 id) =|
     media_session_update(Optional<Web::MediaSession::MediaSessionState> state) =|

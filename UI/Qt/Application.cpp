@@ -50,6 +50,7 @@
 #    include <LibWebView/NotificationBackendFreedesktop.h>
 #endif
 #include <LibWebView/Extensions/ExtensionPopupHost.h>
+#include <LibWebView/Extensions/ExtensionSidePanelHost.h>
 #include <LibWebView/NoOpNotificationBackend.h>
 #include <LibWebView/Translator.h>
 #include <LibWebView/URL.h>
@@ -63,7 +64,9 @@
 #include <UI/Qt/CompositorLayersWindow.h>
 #include <UI/Qt/DownloadsPage.h>
 #include <UI/Qt/EventLoopImplementationQt.h>
+#include <UI/Qt/ExtensionActionButton.h>
 #include <UI/Qt/ExtensionPopup.h>
+#include <UI/Qt/ExtensionSidePanel.h>
 #include <UI/Qt/ExternalURLHandler.h>
 #include <UI/Qt/HistoryPage.h>
 #include <UI/Qt/Menu.h>
@@ -2580,6 +2583,51 @@ void Application::reload_extension_tab(u64 request_id, i64 tab_id, bool bypass_c
         }
     }
     hub->async_extension_tab_action_finished(request_id, MUST(String::formatted("No tab with id: {}.", tab_id)));
+}
+
+// The window whose extension side panel shows the view, if any does.
+static BrowserWindow* browser_window_with_extension_side_panel_view(u64 view_id)
+{
+    for (auto* window : browser_windows()) {
+        if (window->extension_side_panel() && window->extension_side_panel()->view().view_id() == view_id)
+            return window;
+    }
+    return nullptr;
+}
+
+void Application::open_extension_side_panel(u64 view_id, i64 window_id, String const& title, Vector<WebView::ExtensionManifest::IconPath> const& icon_files)
+{
+    auto* window = browser_window_with_extension_window_id(window_id);
+    if (!window) {
+        // With no window to dock the panel in, the Hub gets its view back and hears that the panel closed.
+        if (auto* hub = HubConnection::the_if_connected()) {
+            hub->async_destroy_view(view_id);
+            hub->async_extension_side_panel_did_close(view_id);
+        }
+        return;
+    }
+    auto& panel = window->open_extension_side_panel(view_id);
+    panel.set_header(qstring_from_ak_string(title), extension_icon(icon_files));
+    panel.on_close_requested = [view_id] {
+        if (auto* hub = HubConnection::the_if_connected())
+            hub->async_extension_side_panel_did_close(view_id);
+    };
+}
+
+void Application::set_extension_side_panel_header(u64 view_id, String const& title, Vector<WebView::ExtensionManifest::IconPath> const& icon_files)
+{
+    if (auto* window = browser_window_with_extension_side_panel_view(view_id))
+        window->extension_side_panel()->set_header(qstring_from_ak_string(title), extension_icon(icon_files));
+}
+
+void Application::close_extension_side_panel(u64 view_id)
+{
+    auto* window = browser_window_with_extension_side_panel_view(view_id);
+    if (!window)
+        return;
+    // Nothing of a closed panel reaches the Hub again, even before the view goes away.
+    window->extension_side_panel()->on_close_requested = nullptr;
+    window->close_extension_side_panel();
 }
 
 Vector<BookmarkItem::Bookmark> Application::bookmarks_for_all_tabs_in_active_window() const

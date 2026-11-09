@@ -415,6 +415,21 @@ void HubConnection::extension_popup_close(u64 view_id)
     Application::the().close_extension_popup(view_id);
 }
 
+void HubConnection::extension_side_panel_open(u64 view_id, String, i64 window_id, WebView::IsPrivate, String title, Vector<WebView::ExtensionManifest::IconPath> icon_files)
+{
+    Application::the().open_extension_side_panel(view_id, window_id, title, icon_files);
+}
+
+void HubConnection::extension_side_panel_set_header(u64 view_id, String title, Vector<WebView::ExtensionManifest::IconPath> icon_files)
+{
+    Application::the().set_extension_side_panel_header(view_id, title, icon_files);
+}
+
+void HubConnection::extension_side_panel_close(u64 view_id)
+{
+    Application::the().close_extension_side_panel(view_id);
+}
+
 void HubConnection::extension_create_tab(u64 request_id, u64 view_id, Optional<i64> window_id, Optional<i64> index, bool active, bool pinned)
 {
     Application::the().create_extension_tab(request_id, view_id, window_id, index, active, pinned);

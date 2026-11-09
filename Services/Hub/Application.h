@@ -79,6 +79,9 @@ public:
     void did_get_extension_file(u64 request_id, Optional<ByteString>);
     void set_extension_tabs_from_ui(Vector<WebView::ExtensionTab>, Vector<i64> window_focus_order);
     void did_close_extension_popup(u64 view_id, WebView::ExtensionPopupHost::CloseReason);
+    void did_close_extension_side_panel(u64 view_id);
+    // An extension's icon paths as files within the extension's directory, which the UI reads; a path outside it is left out.
+    static Vector<WebView::ExtensionManifest::IconPath> resolve_extension_icon_files(String const& extension_id, Vector<WebView::ExtensionManifest::IconPath> const&);
     void did_finish_extension_tab_command(u64 request_id, Optional<WebView::ExtensionTab>, Optional<String> error);
     void did_finish_extension_tab_action(u64 request_id, Optional<String> error);
 
@@ -108,6 +111,10 @@ private:
     virtual void resize_extension_popup(i64 window_id, Gfx::IntSize) override;
     virtual void close_extension_popup(i64 window_id) override;
     virtual WebView::ViewImplementation* extension_popup_view(i64 window_id) const override;
+    virtual bool show_extension_side_panel(WebView::ExtensionSidePanelRequest const&) override;
+    virtual void navigate_extension_side_panel(i64 window_id, URL::URL const&) override;
+    virtual void close_extension_side_panel(i64 window_id) override;
+    virtual WebView::ViewImplementation* extension_side_panel_view(i64 window_id) const override;
     virtual void create_extension_tab(WebView::ExtensionTabCreation const&, ExtensionTabCallback) override;
     virtual void update_extension_tab(i64 tab_id, WebView::ExtensionTabUpdate const&, ExtensionTabCallback) override;
     virtual void close_extension_tab(i64 tab_id, ExtensionTabActionCallback) override;
@@ -173,6 +180,7 @@ private:
     Vector<i64> m_extension_window_focus_order_from_ui;
     // The open popups the UI shows, by the window each is open in.
     HashMap<i64, NonnullOwnPtr<ExtensionPopupInUI>> m_extension_popups_in_ui;
+    HashMap<i64, NonnullOwnPtr<ExtensionSidePanelInUI>> m_extension_side_panels_in_ui;
     Optional<u64> m_active_view_id;
     bool m_ui_did_start { false };
     Vector<String> m_webdriver_windows_awaiting_ui;

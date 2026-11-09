@@ -38,6 +38,7 @@ add_library(ladybird_impl STATIC
     ExtensionActionButton.cpp
     ExtensionPopup.cpp
     ExtensionPopupPosition.cpp
+    ExtensionSidePanel.cpp
     FeedbackPopover.cpp
     FindInPageWidget.cpp
     HiddenPageSizing.cpp

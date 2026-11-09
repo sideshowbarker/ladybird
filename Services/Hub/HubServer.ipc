@@ -211,6 +211,7 @@ endpoint HubServer
     pip_did_resize(u64 view_id, Gfx::IntSize size) =|
     pip_did_close(u64 view_id, bool video_keeps_playing) =|
     extension_popup_did_close(u64 view_id, WebView::ExtensionPopupHost::CloseReason reason) =|
+    extension_side_panel_did_close(u64 view_id) =|
     notification_shown(u64 id) =|
     notification_failed(u64 id) =|
     notification_clicked(u64 id) =|

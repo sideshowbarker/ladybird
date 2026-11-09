@@ -2059,20 +2059,6 @@ void WindowToolbar::recreate_icons()
     update_window_control_icons();
 }
 
-// An extension's icon at the button's size, from the files the Hub resolved within the extension.
-static QIcon extension_action_icon(Vector<WebView::ExtensionManifest::IconPath> const& icon_files)
-{
-    QIcon icon;
-    for (auto const& file : icon_files) {
-        auto file_path = qstring_from_ak_string(file.path);
-        if (file.size == 0)
-            icon.addFile(file_path);
-        else
-            icon.addFile(file_path, QSize(static_cast<int>(file.size), static_cast<int>(file.size)));
-    }
-    return icon;
-}
-
 // The extensions' buttons as the Hub has them, in their state for the toolbar's tab, or the global one with no tab.
 Vector<Hub::ExtensionActionButton> WindowToolbar::extension_action_buttons_from_hub() const
 {
@@ -2104,7 +2090,7 @@ void WindowToolbar::update_extension_actions()
         QObject::connect(button, &QWidget::customContextMenuRequested, this, [this, button, id](QPoint const& position) {
             show_extension_action_menu(*button, id, button->mapToGlobal(position));
         });
-        button->set_state(description.state, extension_action_icon(description.icon_files));
+        button->set_state(description.state, extension_icon(description.icon_files));
         m_extension_actions->layout()->addWidget(button);
         m_extension_action_buttons.append({ id, button });
     }
@@ -2157,7 +2143,7 @@ void WindowToolbar::update_extension_action(String const& extension_id)
             continue;
         for (auto& [id, button] : m_extension_action_buttons) {
             if (id == extension_id)
-                button->set_state(description.state, extension_action_icon(description.icon_files));
+                button->set_state(description.state, extension_icon(description.icon_files));
         }
     }
 }

@@ -3181,6 +3181,11 @@ TabWidget::TabWidget(WebView::IsPrivate is_private, QWidget* parent)
     m_toolbar = new WindowToolbar(is_private, this);
     m_toolbar->installEventFilter(this);
     m_stacked_widget = new QStackedWidget(this);
+    m_page_row = new QWidget(this);
+    m_page_row_layout = new QHBoxLayout(m_page_row);
+    m_page_row_layout->setContentsMargins(0, 0, 0, 0);
+    m_page_row_layout->setSpacing(0);
+    m_page_row_layout->addWidget(m_stacked_widget, 1);
     m_page_column = new QWidget(this);
     m_page_column->installEventFilter(this);
     m_toolbar_placeholder = new QWidget(m_page_column);
@@ -5203,8 +5208,24 @@ void TabWidget::add_page_to_page_column()
     m_page_column_layout->addWidget(m_notification_bar_column);
     if (!m_bookmarks_bar->shows_over_page())
         m_page_column_layout->addWidget(m_bookmarks_bar);
-    m_page_column_layout->addWidget(m_stacked_widget, 1);
+    m_page_column_layout->addWidget(m_page_row, 1);
     m_page_column_layout->addWidget(&m_toolbar->performance_monitor_row());
+}
+
+void TabWidget::set_extension_side_panel(QWidget* panel)
+{
+    if (m_extension_side_panel == panel)
+        return;
+    if (m_extension_side_panel) {
+        m_page_row_layout->removeWidget(m_extension_side_panel);
+        m_extension_side_panel->hide();
+    }
+    m_extension_side_panel = panel;
+    if (!panel)
+        return;
+    panel->setParent(m_page_row);
+    m_page_row_layout->addWidget(panel);
+    panel->show();
 }
 
 void TabWidget::update_bookmarks_bar_visibility()
@@ -5215,7 +5236,7 @@ void TabWidget::update_bookmarks_bar_visibility()
     if (m_bookmarks_bar->shows_over_page() && index != -1)
         m_page_column_layout->removeWidget(m_bookmarks_bar);
     else if (!m_bookmarks_bar->shows_over_page() && index == -1)
-        m_page_column_layout->insertWidget(m_page_column_layout->indexOf(m_stacked_widget), m_bookmarks_bar);
+        m_page_column_layout->insertWidget(m_page_column_layout->indexOf(m_page_row), m_bookmarks_bar);
 
     m_bookmarks_bar->update_geometry();
 }

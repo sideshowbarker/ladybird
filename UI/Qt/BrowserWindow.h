@@ -27,6 +27,7 @@
 #include <UI/Qt/WindowScreenObserver.h>
 
 #include <QMainWindow>
+#include <QPointer>
 #include <QPushButton>
 
 class QIcon;
@@ -37,6 +38,8 @@ class QWidget;
 class QWindow;
 
 namespace Ladybird {
+
+class ExtensionSidePanel;
 
 class MenuZoomRow;
 
@@ -164,6 +167,10 @@ public:
     Optional<WebView::HistoryEntry> history_entry_for_url(URL::URL const&) const;
     Optional<SessionWindowId> session_window_id() const { return m_session_window_id; }
     i64 extension_window_id() const { return m_extension_window_id; }
+    // The extension side panel docked beside the page, if one is open.
+    ExtensionSidePanel* extension_side_panel() const;
+    ExtensionSidePanel& open_extension_side_panel(u64 hub_view_id);
+    void close_extension_side_panel();
     bool is_popup_window() const { return m_is_popup_window == IsPopupWindow::Yes; }
 
     int tab_count() { return m_tabs_container->count(); }
@@ -369,6 +376,7 @@ private:
 
     Optional<SessionWindowId> m_session_window_id;
     i64 m_extension_window_id { WebView::allocate_extension_window_id() };
+    QPointer<ExtensionSidePanel> m_extension_side_panel;
     size_t m_failed_download_count { 0 };
     size_t m_acknowledged_failed_download_count { 0 };
     Optional<i64> m_window_close_active_tab_index;

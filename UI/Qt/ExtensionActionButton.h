@@ -14,6 +14,9 @@
 
 namespace Ladybird {
 
+// An extension's icon at its sizes, from the files the Hub resolved within the extension's directory.
+QIcon extension_icon(Vector<WebView::ExtensionManifest::IconPath> const& icon_files);
+
 // An extension's toolbar button: its icon, with its badge over the bottom-right corner, and its title as the tooltip.
 class ExtensionActionButton final : public QToolButton {
     AK_ALLOC_WITH_KMALLOC;

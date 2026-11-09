@@ -12,6 +12,7 @@
 #include <Hub/View.h>
 #include <LibCore/GeolocationProvider.h>
 #include <LibWebView/DefaultBrowser.h>
+#include <LibWebView/Extensions/ExtensionManifest.h>
 #include <LibWebView/Extensions/ExtensionPopupHost.h>
 #include <LibWebView/ExternalURLHandler.h>
 #include <LibWebView/GamepadSource.h>
@@ -71,6 +72,32 @@ public:
 private:
     View& m_view;
     u64 m_view_id { 0 };
+    i64 m_window_id { 0 };
+    u64 m_generation { 0 };
+};
+
+// An extension's side panel: its page is a view here, which the UI docks beside the page in the panel's window, under a
+// header with the extension's title and icon.
+class ExtensionSidePanelInUI {
+public:
+    AK_ALLOC_WITH_KMALLOC;
+
+    ExtensionSidePanelInUI(View&, String const& extension_id, i64 window_id, u64 generation, String const& title, Vector<WebView::ExtensionManifest::IconPath> const& icon_files);
+    ~ExtensionSidePanelInUI();
+
+    static ExtensionSidePanelInUI* find(u64 view_id);
+
+    View& view() const { return m_view; }
+    String const& extension_id() const { return m_extension_id; }
+    i64 window_id() const { return m_window_id; }
+    u64 generation() const { return m_generation; }
+    void set_generation(u64 generation) { m_generation = generation; }
+    void set_header(String const& title, Vector<WebView::ExtensionManifest::IconPath> const& icon_files);
+
+private:
+    View& m_view;
+    u64 m_view_id { 0 };
+    String m_extension_id;
     i64 m_window_id { 0 };
     u64 m_generation { 0 };
 };

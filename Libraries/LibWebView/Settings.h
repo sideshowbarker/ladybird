@@ -114,6 +114,8 @@ struct TabSettings {
     // means that tabs are kept however long they are hidden.
     u32 discard_hidden_tabs_after_minutes { 120 };
     TabProcesses tab_processes { TabProcesses::PerOrigin };
+    // How wide the user last made an extension's side panel.
+    Optional<u16> extension_side_panel_width;
 };
 
 struct SearchEngineSettings {

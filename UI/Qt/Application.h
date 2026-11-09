@@ -196,6 +196,12 @@ public:
     // tabs.remove() and tabs.reload(); each answers the Hub once the tab has been asked to close or to reload.
     void close_extension_tab(u64 request_id, i64 tab_id);
     void reload_extension_tab(u64 request_id, i64 tab_id, bool bypass_cache);
+    // The Hub made an extension side panel's view; the UI docks it beside the page in the window, under a header with
+    // the extension's title and icon, until the Hub closes it or the user does.
+    void open_extension_side_panel(u64 view_id, i64 window_id, String const& title, Vector<WebView::ExtensionManifest::IconPath> const& icon_files);
+    void set_extension_side_panel_header(u64 view_id, String const& title, Vector<WebView::ExtensionManifest::IconPath> const& icon_files);
+    void close_extension_side_panel(u64 view_id);
+    // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.

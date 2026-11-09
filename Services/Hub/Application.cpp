@@ -13,6 +13,9 @@
 #include <LibCore/ArgsParser.h>
 #include <LibCore/EventLoop.h>
 #include <LibIPC/Decoder.h>
+#include <LibWebView/Extensions/Extension.h>
+#include <LibWebView/Extensions/ExtensionRegistry.h>
+#include <LibWebView/Extensions/ExtensionSidePanelHost.h>
 #include <LibWebView/UpdateCheck.h>
 #include <LibWebView/WebContentPage.h>
 
@@ -494,6 +497,84 @@ void Application::did_finish_extension_tab_command(u64 request_id, Optional<WebV
         tab->title = {};
     }
     command->callback(tab.release_value());
+}
+
+Vector<WebView::ExtensionManifest::IconPath> Application::resolve_extension_icon_files(String const& extension_id, Vector<WebView::ExtensionManifest::IconPath> const& paths)
+{
+    Vector<WebView::ExtensionManifest::IconPath> files;
+    auto extension = extension_registry().find(extension_id);
+    if (!extension)
+        return files;
+    for (auto const& path : paths) {
+        auto file = extension->resolve_resource_path(ByteString::formatted("/{}", path.path));
+        if (file.is_error())
+            continue;
+        files.append({ .size = path.size, .path = MUST(String::from_byte_string(file.value())) });
+    }
+    return files;
+}
+
+bool Application::show_extension_side_panel(WebView::ExtensionSidePanelRequest const& request)
+{
+    if (!ConnectionFromUI::the())
+        return WebView::Application::show_extension_side_panel(request);
+
+    auto icon_files = resolve_extension_icon_files(request.extension_id, request.icon);
+    // The window's panel showing the same extension again keeps its view, with the new page and header.
+    if (auto panel = m_extension_side_panels_in_ui.get(request.window_id); panel.has_value() && (*panel)->extension_id() == request.extension_id) {
+        (*panel)->set_generation(request.generation);
+        (*panel)->set_header(request.title, icon_files);
+        (*panel)->view().load_from_browser_ui(request.url);
+        return true;
+    }
+    // Another extension's panel in the window goes first.
+    m_extension_side_panels_in_ui.remove(request.window_id);
+
+    auto active_tab_id = extension_active_tab_of_window(request.window_id);
+    auto& view = create_view(initial_state_for_extension_view(active_tab_id.value_or(-1)));
+    view.set_is_closable_by_script(true);
+    // The panel's page can close itself, and the window's panel may be another one by the time that lands.
+    view.on_close = [view_id = view.view_id()] {
+        Core::deferred_invoke([view_id] {
+            if (auto* panel = ExtensionSidePanelInUI::find(view_id); panel && is_initialized())
+                extension_side_panel_host().close(panel->window_id(), panel->generation(), WebView::ExtensionSidePanelHost::CloseReason::PageClosed);
+        });
+    };
+    m_extension_side_panels_in_ui.set(request.window_id, make<ExtensionSidePanelInUI>(view, request.extension_id, request.window_id, request.generation, request.title, icon_files));
+    view.load_from_browser_ui(request.url);
+    return true;
+}
+
+void Application::navigate_extension_side_panel(i64 window_id, URL::URL const& url)
+{
+    if (auto panel = m_extension_side_panels_in_ui.get(window_id); panel.has_value())
+        (*panel)->view().load_from_browser_ui(url);
+    else
+        WebView::Application::navigate_extension_side_panel(window_id, url);
+}
+
+void Application::close_extension_side_panel(i64 window_id)
+{
+    auto panel = m_extension_side_panels_in_ui.take(window_id);
+    if (!panel.has_value()) {
+        WebView::Application::close_extension_side_panel(window_id);
+        return;
+    }
+    // Nothing of a closed panel reaches the host again, even before the UI gives the view back.
+    (*panel)->view().on_close = nullptr;
+}
+
+WebView::ViewImplementation* Application::extension_side_panel_view(i64 window_id) const
+{
+    if (auto panel = m_extension_side_panels_in_ui.get(window_id); panel.has_value())
+        return &(*panel)->view();
+    return WebView::Application::extension_side_panel_view(window_id);
+}
+
+void Application::did_close_extension_side_panel(u64 view_id)
+{
+    if (auto* panel = ExtensionSidePanelInUI::find(view_id))
+        extension_side_panel_host().close(panel->window_id(), panel->generation(), WebView::ExtensionSidePanelHost::CloseReason::UserClosed);
 }
 
 void Application::display_download_confirmation_dialog(StringView download_name, LexicalPath const& path) const

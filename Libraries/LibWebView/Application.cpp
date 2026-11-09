@@ -4418,6 +4418,8 @@ void Application::extension_tab_changed(i64 tab_id)
 void Application::extension_window_closing(i64 window_id)
 {
     m_closing_extension_windows.set(window_id);
+    // The window's extension side panel goes with the window.
+    extension_side_panel_host().close(window_id, ExtensionSidePanelHost::CloseReason::WindowClose);
 }
 
 ExtensionActiveTabGrants const* Application::extension_active_tab_grants(StringView extension_id) const

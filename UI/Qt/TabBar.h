@@ -363,6 +363,8 @@ public:
     void update_window_button_icons();
     void set_vertical_tabs_enabled(bool);
     void set_everything_in_sidebar(bool);
+    // Docks the widget to the right of the page stack, or removes the one docked there.
+    void set_extension_side_panel(QWidget*);
     void set_vertical_tabs_expanded(bool);
     void set_vertical_tabs_expand_on_hover(bool);
     // How strongly the vertical tabs' titles show, which they don't for long once the sidebar starts to collapse.
@@ -467,6 +469,10 @@ private:
     void size_hidden_pages_like_the_current_one();
 
     QStackedWidget* m_stacked_widget { nullptr };
+    // The page stack with an extension's side panel beside it, as one widget in the page column.
+    QWidget* m_page_row { nullptr };
+    QHBoxLayout* m_page_row_layout { nullptr };
+    QWidget* m_extension_side_panel { nullptr };
     QToolButton* m_new_tab_button { nullptr };
     QToolButton* m_all_tabs_button { nullptr };
     bool m_show_all_tabs_button { true };

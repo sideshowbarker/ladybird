@@ -17,6 +17,7 @@
 #include <LibCore/EventLoop.h>
 #include <LibWebView/Application.h>
 #include <LibWebView/Extensions/ExtensionPopupHost.h>
+#include <LibWebView/Extensions/ExtensionSidePanelHost.h>
 #include <LibWebView/HistoryStore.h>
 #include <LibWebView/URL.h>
 #include <UI/Qt/Application.h>
@@ -24,6 +25,7 @@
 #include <UI/Qt/ChromeLayout.h>
 #include <UI/Qt/ChromeStyle.h>
 #include <UI/Qt/DevToolsBanner.h>
+#include <UI/Qt/ExtensionSidePanel.h>
 #include <UI/Qt/HubConnection.h>
 #include <UI/Qt/Icon.h>
 #include <UI/Qt/LadybirdButton.h>
@@ -2221,6 +2223,38 @@ void BrowserWindow::wheelEvent(QWheelEvent* event)
         else if (event->angleDelta().y() < 0)
             m_current_tab->view().zoom_out();
     }
+}
+
+ExtensionSidePanel* BrowserWindow::extension_side_panel() const
+{
+    return m_extension_side_panel.data();
+}
+
+// One panel per window: opening another closes whatever was docked there. The panel remembers its width per profile.
+ExtensionSidePanel& BrowserWindow::open_extension_side_panel(u64 hub_view_id)
+{
+    close_extension_side_panel();
+    auto width = Application::settings().tab_settings().extension_side_panel_width.value_or(ExtensionSidePanel::default_width);
+    auto* panel = new ExtensionSidePanel(m_tabs_container, m_is_private, width, hub_view_id);
+    panel->on_width_changed = [](int width) {
+        auto tab_settings = Application::settings().tab_settings();
+        tab_settings.extension_side_panel_width = static_cast<u16>(clamp(width, 0, static_cast<int>(NumericLimits<u16>::max())));
+        Application::settings().set_tab_settings(tab_settings);
+    };
+    m_extension_side_panel = panel;
+    m_tabs_container->set_extension_side_panel(panel);
+    return *panel;
+}
+
+void BrowserWindow::close_extension_side_panel()
+{
+    auto* panel = m_extension_side_panel.data();
+    if (!panel)
+        return;
+    m_tabs_container->set_extension_side_panel(nullptr);
+    m_extension_side_panel = nullptr;
+    // A panel can close from one of its view's own callbacks, so it goes once that has returned.
+    panel->deleteLater();
 }
 
 void BrowserWindow::closeEvent(QCloseEvent* event)

@@ -211,13 +211,7 @@ Messages::HubServer::ExtensionActionButtonsResponse ConnectionFromUI::extension_
             continue;
         auto state = actions.state(id, tab_id);
         // The icon's paths resolve within the extension here, so the UI reads only files the extension may serve.
-        Vector<WebView::ExtensionManifest::IconPath> icon_files;
-        for (auto const& path : state.icon) {
-            auto file = extension->resolve_resource_path(ByteString::formatted("/{}", path.path));
-            if (file.is_error())
-                continue;
-            icon_files.append({ .size = path.size, .path = MUST(String::from_byte_string(file.value())) });
-        }
+        auto icon_files = Application::resolve_extension_icon_files(id, state.icon);
         buttons.append({
             .extension_id = id,
             .name = extension->manifest().name,
@@ -253,6 +247,11 @@ void ConnectionFromUI::extension_action_menu_command(String extension_id, WebVie
 void ConnectionFromUI::extension_popup_did_close(u64 view_id, WebView::ExtensionPopupHost::CloseReason reason)
 {
     Application::the().did_close_extension_popup(view_id, reason);
+}
+
+void ConnectionFromUI::extension_side_panel_did_close(u64 view_id)
+{
+    Application::the().did_close_extension_side_panel(view_id);
 }
 
 void ConnectionFromUI::extension_tab_command_finished(u64 request_id, Optional<WebView::ExtensionTab> tab, Optional<String> error)

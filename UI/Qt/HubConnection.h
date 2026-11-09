@@ -155,6 +155,9 @@ private:
     virtual void extension_popup_open(u64 view_id, String extension_id, i64 window_id, WebView::IsPrivate is_private) override;
     virtual void extension_popup_set_size(u64 view_id, Gfx::IntSize size) override;
     virtual void extension_popup_close(u64 view_id) override;
+    virtual void extension_side_panel_open(u64 view_id, String extension_id, i64 window_id, WebView::IsPrivate is_private, String title, Vector<WebView::ExtensionManifest::IconPath> icon_files) override;
+    virtual void extension_side_panel_set_header(u64 view_id, String title, Vector<WebView::ExtensionManifest::IconPath> icon_files) override;
+    virtual void extension_side_panel_close(u64 view_id) override;
     virtual void extension_create_tab(u64 request_id, u64 view_id, Optional<i64> window_id, Optional<i64> index, bool active, bool pinned) override;
     virtual void extension_update_tab(u64 request_id, i64 tab_id, WebView::ExtensionTabUpdate update) override;
     virtual void extension_close_tab(u64 request_id, i64 tab_id) override;

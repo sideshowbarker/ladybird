@@ -164,6 +164,7 @@ private:
     virtual void extension_action_clicked(String extension_id, i64 tab_id) override;
     virtual void extension_action_menu_command(String extension_id, WebView::ExtensionActionMenuCommand command) override;
     virtual void extension_popup_did_close(u64 view_id, WebView::ExtensionPopupHost::CloseReason reason) override;
+    virtual void extension_side_panel_did_close(u64 view_id) override;
     virtual void extension_tab_command_finished(u64 request_id, Optional<WebView::ExtensionTab> tab, Optional<String> error) override;
     virtual void extension_tab_activated(i64 tab_id) override;
     virtual void extension_tab_changed(i64 tab_id) override;
