@@ -234,6 +234,11 @@ void ConnectionFromUI::extension_popup_did_close(u64 view_id, WebView::Extension
     Application::the().did_close_extension_popup(view_id, reason);
 }
 
+void ConnectionFromUI::extension_tab_command_finished(u64 request_id, Optional<WebView::ExtensionTab> tab, Optional<String> error)
+{
+    Application::the().did_finish_extension_tab_command(request_id, move(tab), move(error));
+}
+
 static DownloadState state_of_download(WebView::FileDownloader::Download const& download)
 {
     DownloadState state;

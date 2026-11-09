@@ -34,6 +34,7 @@ set(SOURCES
     Extensions/ExtensionActionAPI.cpp
     Extensions/ExtensionActionRegistry.cpp
     Extensions/ExtensionTabs.cpp
+    Extensions/ExtensionTabsAPI.cpp
     Extensions/ExtensionBackgroundHost.cpp
     Extensions/ExtensionBackgroundLifetime.cpp
     Extensions/ExtensionManifest.cpp

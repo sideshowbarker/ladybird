@@ -1,0 +1,30 @@
+{
+    "manifest_version": 3,
+    "name": "Tabs Create Fixture",
+    "version": "1.0",
+    "description": "A background page that opens and changes tabs for the test pages, and a popup that changes the tab under it.",
+    "permissions": [
+        "tabs"
+    ],
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/tabs-create.html",
+                "file:///*/Extensions/tabs-update.html",
+                "file:///*/Extensions/tabs-update-from-popup.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

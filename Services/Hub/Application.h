@@ -78,6 +78,7 @@ public:
     void did_get_extension_directory(u64 request_id, Optional<ByteString>);
     void set_extension_tabs_from_ui(Vector<WebView::ExtensionTab>, Vector<i64> window_focus_order);
     void did_close_extension_popup(u64 view_id, WebView::ExtensionPopupHost::CloseReason);
+    void did_finish_extension_tab_command(u64 request_id, Optional<WebView::ExtensionTab>, Optional<String> error);
 
 private:
     explicit Application(ApplicationHost*);
@@ -104,6 +105,11 @@ private:
     virtual void resize_extension_popup(i64 window_id, Gfx::IntSize) override;
     virtual void close_extension_popup(i64 window_id) override;
     virtual WebView::ViewImplementation* extension_popup_view(i64 window_id) const override;
+    virtual void create_extension_tab(WebView::ExtensionTabCreation const&, ExtensionTabCallback) override;
+    virtual void update_extension_tab(i64 tab_id, WebView::ExtensionTabUpdate const&, ExtensionTabCallback) override;
+    // The window a new tab goes to, chosen as the UI would: the one named, else the one last focused if the extension
+    // may open there, else the first normal window; none means a new window.
+    Optional<i64> extension_window_for_new_tab(WebView::ExtensionTabCreation const&) const;
     // The state a view opened for a tab's extension starts out in, from that tab's own view, else the active one.
     View::InitialState initial_state_for_extension_view(i64 tab_id) const;
     virtual void display_download_confirmation_dialog(StringView download_name, LexicalPath const& path) const override;
@@ -173,6 +179,12 @@ private:
     mutable HashMap<u64, Function<void(Web::Clipboard::SystemClipboardItem)>> m_pending_clipboard_item_reads;
     mutable HashMap<u64, NonnullRefPtr<Core::Promise<ByteString>>> m_pending_download_paths;
     mutable HashMap<u64, Function<void(Optional<ByteString>)>> m_pending_extension_directories;
+    // A tab command the UI is carrying out, and the URL to load into the tab once it has.
+    struct PendingExtensionTabCommand {
+        ExtensionTabCallback callback;
+        Optional<URL::URL> url;
+    };
+    HashMap<u64, PendingExtensionTabCommand> m_pending_extension_tab_commands;
     mutable HashMap<u64, WebView::ExternalURLHandlerCallback> m_pending_external_url_handlers;
     mutable HashMap<u64, Function<void(bool)>> m_pending_external_url_launches;
     struct NewTabSource {

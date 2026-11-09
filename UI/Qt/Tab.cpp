@@ -1138,12 +1138,18 @@ QIcon Tab::tab_icon() const
     return m_favicon;
 }
 
-QString Tab::title() const
+QString Tab::page_title() const
 {
     auto title = m_fixed_title.value_or(m_title);
     // A blank page is what a new tab shows, so it is called a new tab.
     if (!m_fixed_title.has_value() && is_loaded() && view().url() == URL::about_blank() && (title.isEmpty() || title == QStringLiteral("about:blank")))
         title = "New Tab";
+    return title;
+}
+
+QString Tab::title() const
+{
+    auto title = page_title();
     if (!is_loaded() || !Application::settings().config_variable_as_bool(WebView::ConfigVariableID::ShowWebContentProcessIDInTabTitle))
         return title;
 

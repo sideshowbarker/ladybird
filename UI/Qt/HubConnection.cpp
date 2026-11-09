@@ -410,6 +410,16 @@ void HubConnection::extension_popup_close(u64 view_id)
     Application::the().close_extension_popup(view_id);
 }
 
+void HubConnection::extension_create_tab(u64 request_id, u64 view_id, Optional<i64> window_id, Optional<i64> index, bool active, bool pinned)
+{
+    Application::the().create_extension_tab(request_id, view_id, window_id, index, active, pinned);
+}
+
+void HubConnection::extension_update_tab(u64 request_id, i64 tab_id, WebView::ExtensionTabUpdate update)
+{
+    Application::the().update_extension_tab(request_id, tab_id, update);
+}
+
 void HubConnection::download_added(Hub::DownloadState download)
 {
     RemoteDownloads::the().did_add(download);

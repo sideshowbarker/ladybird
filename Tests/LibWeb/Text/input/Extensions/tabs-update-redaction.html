@@ -1,0 +1,16 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // tabs.update() resolves with the tab as its new page will be, so it never shows the title of the page the
+        // extension couldn't see there before.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const token = `redaction-${Math.random()}`;
+            println(`update: ${JSON.stringify(await sendToBackground({ type: "run", token }))}`);
+            println(`closed: ${await sendToBackground({ type: "close", token })}`);
+            done();
+        });
+    </script>
+</body>

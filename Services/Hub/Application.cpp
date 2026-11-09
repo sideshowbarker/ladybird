@@ -361,6 +361,88 @@ void Application::did_close_extension_popup(u64 view_id, WebView::ExtensionPopup
         extension_popup_host().close(popup->window_id(), popup->generation(), reason);
 }
 
+Optional<i64> Application::extension_window_for_new_tab(WebView::ExtensionTabCreation const& creation) const
+{
+    auto tabs = extension_tabs();
+    auto window_exists = [&](i64 id) { return any_of(tabs, [&](auto const& tab) { return tab.window_id == id; }); };
+    auto window_is_private = [&](i64 id) { return any_of(tabs, [&](auto const& tab) { return tab.window_id == id && tab.is_private == WebView::IsPrivate::Yes; }); };
+    if (creation.window_id.has_value() && window_exists(*creation.window_id))
+        return creation.window_id;
+    auto focus_order = extension_window_focus_order();
+    if (!focus_order.is_empty() && window_exists(focus_order.first()) && (!window_is_private(focus_order.first()) || creation.may_open_in_private_window))
+        return focus_order.first();
+    for (auto const& tab : tabs) {
+        if (tab.is_private == WebView::IsPrivate::No && !tab.in_popup_window)
+            return tab.window_id;
+    }
+    return {};
+}
+
+void Application::create_extension_tab(WebView::ExtensionTabCreation const& creation, ExtensionTabCallback callback)
+{
+    auto* ui = ConnectionFromUI::the();
+    if (!ui) {
+        WebView::Application::create_extension_tab(creation, move(callback));
+        return;
+    }
+    auto window_id = extension_window_for_new_tab(creation);
+    // The new tab's view starts out like its window's other tabs', with the window's privacy; a new window is a normal one.
+    View::InitialState initial_state;
+    if (window_id.has_value()) {
+        for (auto const& tab : extension_tabs()) {
+            if (tab.window_id != *window_id)
+                continue;
+            initial_state.is_private = tab.is_private;
+            if (!tab.view_id.has_value())
+                continue;
+            if (auto view = WebView::ViewImplementation::find_view_by_id(*tab.view_id); view.has_value()) {
+                initial_state = static_cast<View&>(*view).initial_state_for_related_view();
+                break;
+            }
+        }
+    }
+    initial_state.owner_view_id = {};
+    initial_state.is_tab = true;
+    auto& view = create_view(move(initial_state));
+    auto request_id = m_next_ui_request_id++;
+    m_pending_extension_tab_commands.set(request_id, { move(callback), creation.url.value_or(settings().new_tab_page_url()) });
+    ui->async_extension_create_tab(request_id, view.view_id(), window_id, creation.index, creation.active, creation.pinned);
+}
+
+void Application::update_extension_tab(i64 tab_id, WebView::ExtensionTabUpdate const& update, ExtensionTabCallback callback)
+{
+    auto* ui = ConnectionFromUI::the();
+    if (!ui) {
+        WebView::Application::update_extension_tab(tab_id, update, move(callback));
+        return;
+    }
+    auto request_id = m_next_ui_request_id++;
+    m_pending_extension_tab_commands.set(request_id, { move(callback), update.url });
+    ui->async_extension_update_tab(request_id, tab_id, update);
+}
+
+void Application::did_finish_extension_tab_command(u64 request_id, Optional<WebView::ExtensionTab> tab, Optional<String> error)
+{
+    auto command = m_pending_extension_tab_commands.take(request_id);
+    if (!command.has_value())
+        return;
+    if (!tab.has_value()) {
+        command->callback(error.value_or("The tab couldn't be opened"_string));
+        return;
+    }
+    // The page loads once the tab is in its window, which has a view for it by now.
+    if (command->url.has_value()) {
+        if (tab->view_id.has_value()) {
+            if (auto view = WebView::ViewImplementation::find_view_by_id(*tab->view_id); view.has_value())
+                view->load_extension_page(*command->url);
+        }
+        tab->url = *command->url;
+        // The tab will show the new page, so it has none of the old one's title.
+        tab->title = {};
+    }
+    command->callback(tab.release_value());
+}
+
 void Application::display_download_confirmation_dialog(StringView download_name, LexicalPath const& path) const
 {
     if (auto* ui = ConnectionFromUI::the())

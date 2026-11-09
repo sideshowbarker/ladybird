@@ -29,6 +29,7 @@
 #include <LibWebView/Extensions/ExtensionActionRegistry.h>
 #include <LibWebView/Extensions/ExtensionManifest.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
+#include <LibWebView/Extensions/ExtensionTabsAPI.h>
 #include <LibWebView/FileDownloader.h>
 #include <LibWebView/HistoryVisitTransition.h>
 #include <LibWebView/MicrophoneAuthorizer.h>
@@ -112,6 +113,13 @@ struct WebView::ExtensionTab {
     String title;
     bool loading;
     bool in_popup_window;
+}
+
+[ExistingCpp]
+struct WebView::ExtensionTabUpdate {
+    Optional<URL::URL> url;
+    Optional<bool> active;
+    Optional<bool> pinned;
 }
 
 // An extension's toolbar button as the UI shows it: the action's state for one tab (or globally), with the icon's
@@ -304,6 +312,10 @@ endpoint HubClient
     extension_popup_open(u64 view_id, String extension_id, i64 window_id, WebView::IsPrivate is_private) =|
     extension_popup_set_size(u64 view_id, Gfx::IntSize size) =|
     extension_popup_close(u64 view_id) =|
+    // tabs.create() and tabs.update(): the Hub has made the new tab's view, and asks the UI to put it in the window
+    // (a new one with no window id), or to change the tab; the UI answers with extension_tab_command_finished.
+    extension_create_tab(u64 request_id, u64 view_id, Optional<i64> window_id, Optional<i64> index, bool active, bool pinned) =|
+    extension_update_tab(u64 request_id, i64 tab_id, WebView::ExtensionTabUpdate update) =|
     notification_show(u64 id, u64 page_id, Optional<u64> replaces, Web::NotificationsAPI::NotificationData data, String attribution, Optional<Gfx::ShareableBitmap> icon) =|
     notification_close(u64 id) =|
     media_session_update(Optional<Web::MediaSession::MediaSessionState> state) =|

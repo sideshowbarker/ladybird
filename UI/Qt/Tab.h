@@ -142,6 +142,11 @@ public:
     bool needs_attention() const { return m_needs_attention; }
     void clear_attention() { m_needs_attention = false; }
     void set_needs_attention(bool needs_attention) { m_needs_attention = needs_attention; }
+    // The page's title as extensions and the window see it: the tab's fixed title if it has one, and "New Tab" for a
+    // blank page.
+    QString page_title() const;
+    // page_title(), plus the WebContent process id when that debug setting is on. Only a tab whose page has a process
+    // can be asked, so a restored tab that no process hosts yet gets its page_title() instead.
     QString title() const;
 
     QMenu* context_menu() const { return m_context_menu; }

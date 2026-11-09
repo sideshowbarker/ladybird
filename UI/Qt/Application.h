@@ -189,6 +189,11 @@ public:
     void close_extension_popup(u64 view_id);
     // Reports to the Hub that the window's popup should close, as when the window's current tab changes.
     void close_extension_popup_of_window(i64 window_id, WebView::ExtensionPopupHost::CloseReason);
+    // tabs.create() and tabs.update(): the Hub has made the new tab's view, and the UI puts it in a window, or changes
+    // the tab, and answers with the tab as it is now; the Hub then loads the page.
+    void create_extension_tab(u64 request_id, u64 view_id, Optional<i64> window_id, Optional<i64> index, bool active, bool pinned);
+    void update_extension_tab(u64 request_id, i64 tab_id, WebView::ExtensionTabUpdate const&);
+    // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.

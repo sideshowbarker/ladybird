@@ -2365,7 +2365,7 @@ WebView::ExtensionTab Application::extension_tab_for(BrowserWindow& window, Tab&
         .is_private = window.is_private(),
         .view_id = tab.is_loaded() ? Optional<u64> { tab.view().view_id() } : Optional<u64> {},
         .url = tab.url(),
-        .title = ak_string_from_qstring(tab.title()),
+        .title = ak_string_from_qstring(tab.page_title()),
         .loading = tab.is_loading(),
         .in_popup_window = window.is_popup_window(),
     };
@@ -2465,6 +2465,61 @@ void Application::close_extension_popup_of_window(i64 window_id, WebView::Extens
         if (popup && popup->window_id() == window_id && popup->on_close)
             popup->on_close(reason);
     }
+}
+
+void Application::create_extension_tab(u64 request_id, u64 view_id, Optional<i64> window_id, Optional<i64> index, bool active, bool pinned)
+{
+    auto* hub = HubConnection::the_if_connected();
+    if (!hub)
+        return;
+    BrowserWindow* window = window_id.has_value() ? browser_window_with_extension_window_id(*window_id) : nullptr;
+    Tab* tab = nullptr;
+    if (window) {
+        tab = &window->create_new_tab(active ? Web::HTML::ActivateTab::Yes : Web::HTML::ActivateTab::No, view_id);
+        if (index.has_value())
+            window->move_tab(window->tab_index(tab), static_cast<int>(clamp(*index, 0, window->tab_count() - 1)));
+    } else {
+        // With no window the tab may open in, it comes in a new one.
+        window = &new_window({}, configuration_for_new_window(), BrowserWindow::IsPopupWindow::No, WebView::IsPrivate::No, view_id);
+        tab = window->current_tab();
+    }
+    if (!tab) {
+        hub->async_extension_tab_command_finished(request_id, {}, "The tab couldn't be opened"_string);
+        return;
+    }
+    if (pinned)
+        window->pin_tab(*tab);
+    report_extension_tabs();
+    hub->async_extension_tab_command_finished(request_id, extension_tab_for(*window, *tab), {});
+}
+
+void Application::update_extension_tab(u64 request_id, i64 tab_id, WebView::ExtensionTabUpdate const& update)
+{
+    auto* hub = HubConnection::the_if_connected();
+    if (!hub)
+        return;
+    for (auto* window : browser_windows()) {
+        for (int index = 0; index < window->tab_count(); ++index) {
+            auto* tab = window->tab_at(index);
+            if (!tab || tab->extension_tab_id() != tab_id)
+                continue;
+            // The Hub loads the URL itself, into the view the tab has once it has loaded.
+            if (update.url.has_value())
+                tab->ensure_loaded();
+            if (update.active == true)
+                window->activate_tab(index);
+            if (update.pinned.has_value() && *update.pinned != tab->is_pinned()) {
+                if (*update.pinned)
+                    window->pin_tab(*tab);
+                else
+                    window->unpin_tab(*tab);
+            }
+            report_extension_tabs();
+            hub->async_extension_tab_command_finished(request_id, extension_tab_for(*window, *tab), {});
+            return;
+        }
+    }
+    hub->async_extension_tab_command_finished(request_id, {}, MUST(String::formatted("No tab with id: {}.", tab_id)));
 }
 
 Vector<BookmarkItem::Bookmark> Application::bookmarks_for_all_tabs_in_active_window() const
