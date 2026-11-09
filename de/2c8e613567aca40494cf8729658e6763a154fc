@@ -5,3 +5,7 @@ ContentMinimumInlineSize(), for text controls and selects alike. Gecko
 does it in nsIFrame::IsPercentageResolvedAgainstZero(), which covers
 form controls. And WebKit does it in computeIntrinsicLogicalWidths()
 of both RenderTextControl and RenderMenuList.
+
+A percentage max-width doesn’t compress a text control, in Ladybird or
+in the other engines: Gecko applies FormControlShrinksForPercentSize()
+to the width only, and Blink keeps such a control at its default width.
