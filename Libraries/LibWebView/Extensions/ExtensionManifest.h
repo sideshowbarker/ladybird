@@ -77,6 +77,8 @@ struct WEBVIEW_API ExtensionManifest {
     Vector<Command> commands;
     // The page options_ui names, or else options_page, as a path in the extension.
     Optional<String> options_page;
+    // Firefox's id for the extension, from browser_specific_settings (or the older applications) "gecko.id".
+    Optional<String> gecko_id;
 };
 
 }

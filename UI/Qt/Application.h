@@ -202,6 +202,7 @@ public:
     // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.
+    // A tab as extensions see it, for a report to the Hub.
     BrowserWindow* active_window_if_any() const { return m_active_window; }
     BrowserWindow* non_private_window_if_any() const;
 
@@ -310,6 +311,7 @@ private:
     void release_external_url_handler(u64 handler_id);
 
     void ask_user_for_extension_directory(u64 request_id) const;
+    void ask_user_for_extension_file(u64 request_id) const;
     void ask_user_for_download_path(u64 request_id, ByteString const& file) const;
     void display_download_confirmation_dialog(StringView download_name, ByteString const& path) const;
     void display_error_dialog(StringView error_message) const;

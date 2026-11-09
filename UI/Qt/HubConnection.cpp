@@ -385,6 +385,11 @@ void HubConnection::app_ask_user_for_extension_directory(u64 request_id)
     Application::the().ask_user_for_extension_directory(request_id);
 }
 
+void HubConnection::app_ask_user_for_extension_file(u64 request_id)
+{
+    Application::the().ask_user_for_extension_file(request_id);
+}
+
 void HubConnection::extension_action_list_changed()
 {
     Application::the().extension_action_list_changed();

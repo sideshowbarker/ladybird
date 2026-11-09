@@ -254,6 +254,24 @@ void Application::did_get_extension_directory(u64 request_id, Optional<ByteStrin
         (*callback)(move(path));
 }
 
+void Application::ask_user_for_extension_file(Function<void(Optional<ByteString>)> callback) const
+{
+    auto* ui = ConnectionFromUI::the();
+    if (!ui) {
+        WebView::Application::ask_user_for_extension_file(move(callback));
+        return;
+    }
+    auto request_id = m_next_ui_request_id++;
+    m_pending_extension_files.set(request_id, move(callback));
+    ui->async_app_ask_user_for_extension_file(request_id);
+}
+
+void Application::did_get_extension_file(u64 request_id, Optional<ByteString> path)
+{
+    if (auto callback = m_pending_extension_files.take(request_id); callback.has_value())
+        (*callback)(move(path));
+}
+
 void Application::set_extension_tabs_from_ui(Vector<WebView::ExtensionTab> tabs, Vector<i64> window_focus_order)
 {
     m_extension_tabs_from_ui = move(tabs);

@@ -7,6 +7,7 @@
 #pragma once
 
 #include <AK/Random.h>
+#include <LibWebView/Extensions/ExtensionArchive.h>
 #include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/WebUI.h>
 
@@ -16,6 +17,7 @@ class ExtensionInstallRequests {
 public:
     String begin(PendingExtensionInstall pending)
     {
+        clear();
         m_token = generate_random_uuid();
         m_pending = move(pending);
         return m_token;
@@ -35,9 +37,12 @@ public:
             clear();
     }
 
+    // A request that's dropped takes its staged files with it.
     void clear()
     {
         m_token = {};
+        if (m_pending.has_value() && m_pending->staged_package.has_value())
+            (void)remove_extension_package(*m_pending->staged_package);
         m_pending.clear();
     }
 
@@ -65,7 +70,12 @@ private:
     bool consume_user_activation();
     void send_snapshot();
     void send_result(StringView operation, String error = {});
-    void load_unpacked();
+    enum class Source {
+        Directory,
+        Archive,
+    };
+    // Asks the user for an unpacked extension's directory, or for an .xpi or .zip file, and installs what they chose.
+    void load(Source);
     void install(JsonValue const&);
 
     ExtensionInstallRequests m_install_requests;

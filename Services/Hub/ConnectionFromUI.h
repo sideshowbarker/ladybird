@@ -158,6 +158,7 @@ private:
     virtual void answer_clipboard_item(u64 request_id, Web::Clipboard::SystemClipboardItem item) override;
     virtual void answer_download_path(u64 request_id, Optional<ByteString> path) override;
     virtual void answer_extension_directory(u64 request_id, Optional<ByteString> path) override;
+    virtual void answer_extension_file(u64 request_id, Optional<ByteString> path) override;
     virtual void extension_tabs_changed(Vector<WebView::ExtensionTab> tabs, Vector<i64> window_focus_order) override;
     virtual Messages::HubServer::ExtensionActionButtonsResponse extension_action_buttons(Optional<i64> tab_id) override;
     virtual void extension_action_clicked(String extension_id, i64 tab_id) override;

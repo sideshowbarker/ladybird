@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include "ExtensionArchiveTestHelpers.h"
 #include <AK/LexicalPath.h>
 #include <AK/ScopeGuard.h>
 #include <LibCore/Directory.h>
@@ -18,6 +19,7 @@
 #include <LibURL/Parser.h>
 #include <LibWebView/Application.h>
 #include <LibWebView/CanonicalTraversable.h>
+#include <LibWebView/Extensions/ExtensionArchive.h>
 #include <LibWebView/Extensions/ExtensionBackgroundHost.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionPermissionsAPI.h>
@@ -27,6 +29,7 @@
 #include <LibWebView/Extensions/ExtensionStorageStore.h>
 #include <LibWebView/Settings.h>
 #include <LibWebView/ViewImplementation.h>
+#include <unistd.h>
 
 using WebView::ExtensionRegistry;
 
@@ -798,4 +801,254 @@ TEST_CASE(removing_an_origin_a_required_one_overlaps_changes_nothing)
     auto removed = TRY_OR_FAIL(remove({ "tabs"_string }, { "https://free.example.net/*"_string }));
     EXPECT_EQ(removed.permissions, (Vector { "tabs"_string }));
     EXPECT_EQ(removed.origins, (Vector { "https://free.example.net/*"_string }));
+}
+
+static ByteString write_xpi(TemporaryDirectory& directory, StringView name, StringView manifest_json, StringView script)
+{
+    auto archive = make_archive({ { "manifest.json", manifest_json }, { "bg.js", script } });
+    auto path = LexicalPath::join(directory.path, name).string();
+    auto file = MUST(Core::File::open(path, Core::File::OpenMode::Write));
+    MUST(file->write_until_depleted(archive));
+    return path;
+}
+
+// The entries of a directory, or none if it doesn't exist.
+static size_t count_entries(ByteString const& path)
+{
+    size_t entries = 0;
+    if (!FileSystem::exists(path))
+        return 0;
+    MUST(Core::Directory::for_each_entry(path, Core::DirIterator::SkipParentAndBaseDir, [&](auto const&, auto const&) {
+        ++entries;
+        return IterationDecision::Continue;
+    }));
+    return entries;
+}
+
+static String read_text(ByteString const& path)
+{
+    auto file = MUST(Core::File::open(path, Core::File::OpenMode::Read));
+    return MUST(String::from_utf8(MUST(file->read_until_eof())));
+}
+
+static constexpr auto gecko_manifest = R"({ "manifest_version": 2, "name": "Packed", "version": "1", "permissions": ["storage"], "background": { "scripts": ["bg.js"] }, "browser_specific_settings": { "gecko": { "id": "packed@example.org" } } })"sv;
+
+TEST_CASE(packed_install_extracts_into_the_profile)
+{
+    TemporaryDirectory directory;
+    auto profile = LexicalPath::join(directory.path, "profile"sv).string();
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    registry.set_profile_data_directory(profile);
+    auto xpi = write_xpi(directory, "packed.xpi"sv, gecko_manifest, "// one"sv);
+    auto extension = registry.install(TRY_OR_FAIL(registry.prepare_packed(xpi)));
+    auto package = LexicalPath::join(profile, "extensions"sv, extension->id(), "package"sv).string();
+    EXPECT_EQ(extension->directory(), package);
+    EXPECT_EQ(read_text(LexicalPath::join(package, "bg.js"sv).string()), "// one"sv);
+    EXPECT(settings.installed_extensions()[0].packed);
+    EXPECT_EQ(settings.installed_extensions()[0].gecko_id, "packed@example.org"sv);
+    // Nothing stays staged once it's installed.
+    EXPECT_EQ(count_entries(LexicalPath::join(profile, "extensions"sv).string()), 1u);
+}
+
+TEST_CASE(reinstall_by_gecko_id_keeps_id_and_data)
+{
+    Core::EventLoop loop;
+    TemporaryDirectory directory;
+    auto profile = LexicalPath::join(directory.path, "profile"sv).string();
+    auto settings = WebView::Settings::create(directory.settings_path());
+    WebView::ExtensionRegisteredScripts scripts { profile };
+    WebView::ExtensionStorageStore store(profile);
+    ExtensionRegistry registry { settings };
+    registry.set_storage_store(store);
+    registry.set_profile_data_directory(profile);
+    registry.set_registered_scripts(scripts);
+    auto first = registry.install(TRY_OR_FAIL(registry.prepare_packed(write_xpi(directory, "v1.xpi"sv, gecko_manifest, "// one"sv))));
+    auto id = first->id();
+    registry.set_enabled(id, false);
+    registry.set_enabled(id, true);
+    MUST(scripts.register_scripts(id, { MUST(JsonValue::from_string(R"({ "id": "kept", "matches": ["https://example.com/*"], "js": ["bg.js"] })"sv)).as_object() }));
+    JsonObject items;
+    items.set("secret"sv, 42);
+    bool written = false;
+    store.set(id, items, false, [&](auto result) { EXPECT(!result.is_error()); written = true; });
+    loop.spin_until([&] { return written; });
+
+    auto pending = TRY_OR_FAIL(registry.prepare_packed(write_xpi(directory, "v2.xpi"sv, gecko_manifest, "// two"sv)));
+    EXPECT(pending.is_reload);
+    auto second = registry.install(move(pending));
+    EXPECT_EQ(second->id(), id);
+    EXPECT_EQ(settings.installed_extensions().size(), 1u);
+    EXPECT_EQ(read_text(LexicalPath::join(second->directory(), "bg.js"sv).string()), "// two"sv);
+    EXPECT(second->descriptor().has_permission("storage"sv));
+    EXPECT(second->descriptor().content_scripts.contains([](auto const& script) { return script.id == "kept"sv; }));
+    bool read = false;
+    store.get(id, {}, [&](auto result) {
+        EXPECT(!result.is_error() && result.value().get_i32("secret"sv) == 42);
+        read = true;
+    });
+    loop.spin_until([&] { return read; });
+}
+
+TEST_CASE(packed_installs_without_a_gecko_id_are_new_each_time)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    registry.set_profile_data_directory(LexicalPath::join(directory.path, "profile"sv).string());
+    auto manifest = R"({ "manifest_version": 3, "name": "Anonymous", "version": "1" })"sv;
+    auto first = registry.install(TRY_OR_FAIL(registry.prepare_packed(write_xpi(directory, "a.xpi"sv, manifest, ""sv))));
+    auto second = registry.install(TRY_OR_FAIL(registry.prepare_packed(write_xpi(directory, "b.xpi"sv, manifest, ""sv))));
+    EXPECT_NE(first->id(), second->id());
+    EXPECT_EQ(settings.installed_extensions().size(), 2u);
+}
+
+TEST_CASE(removing_deletes_a_package_but_not_an_unpacked_folder)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    registry.set_profile_data_directory(LexicalPath::join(directory.path, "profile"sv).string());
+    auto packed = registry.install(TRY_OR_FAIL(registry.prepare_packed(write_xpi(directory, "p.xpi"sv, gecko_manifest, ""sv))));
+    auto package = packed->directory();
+    auto folder = directory.extension("unpacked"sv, minimal_manifest);
+    auto unpacked = TRY_OR_FAIL(registry.load_unpacked(folder));
+    registry.remove(packed->id());
+    registry.remove(unpacked->id());
+    EXPECT(!FileSystem::exists(package));
+    EXPECT(FileSystem::exists(folder));
+}
+
+TEST_CASE(a_bad_archive_installs_nothing)
+{
+    TemporaryDirectory directory;
+    auto profile = LexicalPath::join(directory.path, "profile"sv).string();
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    registry.set_profile_data_directory(profile);
+    auto path = LexicalPath::join(directory.path, "bad.xpi"sv).string();
+    MUST(MUST(Core::File::open(path, Core::File::OpenMode::Write))->write_until_depleted("not a zip"sv.bytes()));
+    auto result = registry.prepare_packed(path);
+    EXPECT(result.is_error());
+    // A good archive whose manifest is broken leaves nothing staged either.
+    auto broken = registry.prepare_packed(write_xpi(directory, "broken.xpi"sv, "{"sv, ""sv));
+    EXPECT(broken.is_error());
+    EXPECT(settings.installed_extensions().is_empty());
+    EXPECT_EQ(count_entries(LexicalPath::join(profile, "extensions"sv).string()), 0u);
+}
+
+TEST_CASE(an_oversized_archive_is_refused_before_it_is_read)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    registry.set_profile_data_directory(LexicalPath::join(directory.path, "profile"sv).string());
+    // A sparse file, so the test writes nothing near its size.
+    auto path = LexicalPath::join(directory.path, "huge.xpi"sv).string();
+    auto file = MUST(Core::File::open(path, Core::File::OpenMode::Write));
+    VERIFY(::ftruncate(file->fd(), static_cast<off_t>(WebView::extension_archive_max_file_size + 1)) == 0);
+    auto result = registry.prepare_packed(path);
+    EXPECT(result.is_error() && result.error().contains("too large"sv));
+}
+
+TEST_CASE(removing_a_package_never_follows_a_symlink_out_of_it)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    registry.set_profile_data_directory(LexicalPath::join(directory.path, "profile"sv).string());
+    auto outside = LexicalPath::join(directory.path, "outside"sv).string();
+    MUST(Core::Directory::create(outside, Core::Directory::CreateDirectories::Yes));
+    auto sentinel = LexicalPath::join(outside, "keep.txt"sv).string();
+    MUST(MUST(Core::File::open(sentinel, Core::File::OpenMode::Write))->write_until_depleted("keep"sv.bytes()));
+
+    auto packed = registry.install(TRY_OR_FAIL(registry.prepare_packed(write_xpi(directory, "p.xpi"sv, gecko_manifest, ""sv))));
+    MUST(Core::System::symlink(outside, LexicalPath::join(packed->directory(), "link"sv).string()));
+    auto package = packed->directory();
+    registry.remove(packed->id());
+    EXPECT(!FileSystem::exists(package));
+    EXPECT(FileSystem::exists(sentinel));
+
+    // A packed record whose path was pointed elsewhere doesn't delete that place.
+    auto other = registry.install(TRY_OR_FAIL(registry.prepare_packed(write_xpi(directory, "q.xpi"sv, gecko_manifest, ""sv))));
+    settings.add_installed_extension(outside, other->id(), {});
+    registry.remove(other->id());
+    EXPECT(FileSystem::exists(sentinel));
+}
+
+TEST_CASE(replacing_a_packed_extension_always_asks)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    registry.set_profile_data_directory(LexicalPath::join(directory.path, "profile"sv).string());
+    auto quiet = R"({ "manifest_version": 3, "name": "Quiet", "version": "1", "browser_specific_settings": { "gecko": { "id": "quiet@example.org" } } })"sv;
+    auto first = TRY_OR_FAIL(registry.prepare_packed(write_xpi(directory, "a.xpi"sv, quiet, ""sv)));
+    // A new extension that asks for nothing installs without a question, but one that replaces another always asks,
+    // since it takes over that extension's data.
+    EXPECT(!WebView::install_needs_confirmation(first));
+    (void)TRY_OR_FAIL(registry.try_install(move(first)));
+    auto second = TRY_OR_FAIL(registry.prepare_packed(write_xpi(directory, "b.xpi"sv, quiet, ""sv)));
+    EXPECT(WebView::install_needs_confirmation(second));
+    EXPECT_EQ(second.replaces, "Quiet"sv);
+    registry.discard(move(second));
+}
+
+TEST_CASE(a_failed_reinstall_keeps_the_working_installation)
+{
+    TemporaryDirectory directory;
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    registry.set_profile_data_directory(LexicalPath::join(directory.path, "profile"sv).string());
+    auto first = TRY_OR_FAIL(registry.try_install(TRY_OR_FAIL(registry.prepare_packed(write_xpi(directory, "v1.xpi"sv, gecko_manifest, "// one"sv)))));
+    auto package = first->directory();
+    auto pending = TRY_OR_FAIL(registry.prepare_packed(write_xpi(directory, "v2.xpi"sv, gecko_manifest, "// two"sv)));
+    // The staged files go bad before the install takes them, so loading them from the package fails.
+    MUST(MUST(Core::File::open(LexicalPath::join(*pending.staged_package, "manifest.json"sv).string(), Core::File::OpenMode::Write | Core::File::OpenMode::Truncate))->write_until_depleted("{"sv.bytes()));
+    EXPECT(registry.try_install(move(pending)).is_error());
+    EXPECT_EQ(read_text(LexicalPath::join(package, "bg.js"sv).string()), "// one"sv);
+    EXPECT_EQ(settings.installed_extensions()[0].path, package);
+    EXPECT_EQ(read_text(LexicalPath::join(registry.find(first->id())->directory(), "bg.js"sv).string()), "// one"sv);
+    // Nothing is left beside the package.
+    EXPECT_EQ(count_entries(LexicalPath(package).dirname()), 1u);
+}
+
+TEST_CASE(an_interrupted_reinstall_is_recovered_at_startup)
+{
+    TemporaryDirectory directory;
+    auto profile = LexicalPath::join(directory.path, "profile"sv).string();
+    String id;
+    ByteString package;
+    {
+        auto settings = WebView::Settings::create(directory.settings_path());
+        ExtensionRegistry registry { settings };
+        registry.set_profile_data_directory(profile);
+        auto extension = TRY_OR_FAIL(registry.try_install(TRY_OR_FAIL(registry.prepare_packed(write_xpi(directory, "v1.xpi"sv, gecko_manifest, "// one"sv)))));
+        id = extension->id();
+        package = extension->directory();
+    }
+    // A crash after the old package was moved aside and before the new one took its place leaves only the backup.
+    MUST(FileSystem::rename_without_replacing(LexicalPath::join(LexicalPath(package).dirname(), ".backup-interrupted"sv).string(), package));
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    registry.set_profile_data_directory(profile);
+    registry.restore_from_settings();
+    EXPECT(registry.find(id));
+    EXPECT_EQ(read_text(LexicalPath::join(package, "bg.js"sv).string()), "// one"sv);
+    EXPECT_EQ(count_entries(LexicalPath(package).dirname()), 1u);
+}
+
+TEST_CASE(a_declined_install_leaves_no_staging)
+{
+    TemporaryDirectory directory;
+    auto profile = LexicalPath::join(directory.path, "profile"sv).string();
+    auto settings = WebView::Settings::create(directory.settings_path());
+    ExtensionRegistry registry { settings };
+    registry.set_profile_data_directory(profile);
+    auto pending = TRY_OR_FAIL(registry.prepare_packed(write_xpi(directory, "p.xpi"sv, gecko_manifest, ""sv)));
+    auto staged = *pending.staged_package;
+    EXPECT(FileSystem::exists(staged));
+    registry.discard(move(pending));
+    EXPECT(!FileSystem::exists(staged));
+    EXPECT(settings.installed_extensions().is_empty());
 }

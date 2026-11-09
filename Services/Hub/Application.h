@@ -76,6 +76,7 @@ public:
     void did_read_clipboard_item(u64 request_id, Web::Clipboard::SystemClipboardItem);
     void did_get_download_path(u64 request_id, Optional<ByteString>);
     void did_get_extension_directory(u64 request_id, Optional<ByteString>);
+    void did_get_extension_file(u64 request_id, Optional<ByteString>);
     void set_extension_tabs_from_ui(Vector<WebView::ExtensionTab>, Vector<i64> window_focus_order);
     void did_close_extension_popup(u64 view_id, WebView::ExtensionPopupHost::CloseReason);
     void did_finish_extension_tab_command(u64 request_id, Optional<WebView::ExtensionTab>, Optional<String> error);
@@ -98,6 +99,7 @@ private:
     virtual void open_navigation_in_new_window(Web::HTML::PreparedNavigationDescriptor, WebView::IsPrivate) override;
     virtual NonnullRefPtr<Core::Promise<ByteString>> ask_user_for_download_path(ByteString const& file) const override;
     virtual void ask_user_for_extension_directory(Function<void(Optional<ByteString>)>) const override;
+    virtual void ask_user_for_extension_file(Function<void(Optional<ByteString>)>) const override;
     virtual Vector<WebView::ExtensionTab> extension_tabs() const override;
     virtual Vector<i64> extension_window_focus_order() const override;
     virtual void extension_action_list_changed() override;
@@ -182,6 +184,7 @@ private:
     mutable HashMap<u64, Function<void(Web::Clipboard::SystemClipboardItem)>> m_pending_clipboard_item_reads;
     mutable HashMap<u64, NonnullRefPtr<Core::Promise<ByteString>>> m_pending_download_paths;
     mutable HashMap<u64, Function<void(Optional<ByteString>)>> m_pending_extension_directories;
+    mutable HashMap<u64, Function<void(Optional<ByteString>)>> m_pending_extension_files;
     // A tab command the UI is carrying out, and the URL to load into the tab once it has.
     struct PendingExtensionTabCommand {
         ExtensionTabCallback callback;

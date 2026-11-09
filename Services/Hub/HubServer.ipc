@@ -245,6 +245,7 @@ endpoint HubServer
     answer_clipboard_item(u64 request_id, Web::Clipboard::SystemClipboardItem item) =|
     answer_download_path(u64 request_id, Optional<ByteString> path) =|
     answer_extension_directory(u64 request_id, Optional<ByteString> path) =|
+    answer_extension_file(u64 request_id, Optional<ByteString> path) =|
     // The browser's tabs as the UI has them, after every change, and the windows the user focused, most recent first.
     extension_tabs_changed(Vector<WebView::ExtensionTab> tabs, Vector<i64> window_focus_order) =|
     // The facts behind the tabs events: a tab became its window's active one, one changed, one closed (as the UI last

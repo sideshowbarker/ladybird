@@ -2749,6 +2749,23 @@ void Application::ask_user_for_extension_directory(u64 request_id) const
     dialog->open();
 }
 
+void Application::ask_user_for_extension_file(u64 request_id) const
+{
+    auto* dialog = new QFileDialog(nullptr, "Choose an extension file", {}, "Extensions (*.xpi *.zip)");
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setFileMode(QFileDialog::ExistingFile);
+
+    QObject::connect(dialog, &QDialog::finished, [request_id, dialog = QPointer { dialog }](auto result) {
+        Optional<ByteString> path;
+        if (result == QDialog::Accepted && dialog && !dialog->selectedFiles().isEmpty())
+            path = ak_byte_string_from_qstring(dialog->selectedFiles().first());
+        if (auto* hub = HubConnection::the_if_connected())
+            hub->async_answer_extension_file(request_id, move(path));
+    });
+
+    dialog->open();
+}
+
 void Application::ask_user_for_download_path(u64 request_id, ByteString const& file) const
 {
     auto* dialog = new QFileDialog(nullptr, "Select save location", QStandardPaths::writableLocation(QStandardPaths::DownloadLocation));
