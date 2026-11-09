@@ -1,0 +1,28 @@
+{
+    "manifest_version": 3,
+    "name": "Action Click Fixture",
+    "version": "1.0",
+    "description": "An action without a popup, whose clicks the background page records.",
+    "permissions": [
+        "activeTab"
+    ],
+    "action": {
+        "default_title": "Click fixture"
+    },
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/action-on-clicked.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

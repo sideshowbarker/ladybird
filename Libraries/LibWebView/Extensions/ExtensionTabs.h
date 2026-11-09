@@ -7,12 +7,14 @@
 #pragma once
 
 #include <AK/Error.h>
+#include <AK/HashMap.h>
 #include <AK/JsonArray.h>
 #include <AK/JsonObject.h>
 #include <AK/Optional.h>
 #include <AK/Span.h>
 #include <AK/String.h>
 #include <AK/Types.h>
+#include <LibURL/Origin.h>
 #include <LibURL/URL.h>
 #include <LibWebCommon/Extensions/ExtensionDescriptor.h>
 #include <LibWebCommon/HTML/CrossProcessId.h>
@@ -47,11 +49,25 @@ WEBVIEW_API i64 extension_frame_id_for(Web::HTML::CrossProcessId navigable_id);
 
 // The extension asking about tabs, and where it's asking from: the window of the tab its page is in, if it's in one, and
 // the window the user last used.
+// The tabs whose URL and title an extension's activeTab permission shows it: each tab where the user invoked the
+// extension, until the tab navigates to another origin or closes.
+class WEBVIEW_API ExtensionActiveTabGrants {
+public:
+    void grant(i64 tab_id, URL::URL const&);
+    void tab_navigated(i64 tab_id, URL::URL const&);
+    void tab_closed(i64 tab_id);
+    bool contains(i64 tab_id) const { return m_origins.contains(tab_id); }
+
+private:
+    HashMap<i64, URL::Origin> m_origins;
+};
+
 struct ExtensionTabViewer {
     Web::Extensions::ExtensionDescriptor const& extension;
     bool allowed_in_private { false };
     Optional<i64> current_window_id;
     Optional<i64> last_focused_window_id;
+    ExtensionActiveTabGrants const* active_tab_grants { nullptr };
 };
 
 // A tab of a private window exists for an extension only if it's allowed there, and its URL and title only with the tabs

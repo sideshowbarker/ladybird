@@ -89,6 +89,31 @@ Vector<u64> ExtensionMessageBroker::dispatch_suspend(String const& extension_id,
     return context_ids;
 }
 
+Vector<ExtensionMessageBroker::Target> ExtensionMessageBroker::background_targets(String const& extension_id, Optional<u64> revision) const
+{
+    Vector<Target> targets;
+    for (auto const& [endpoint, contexts] : m_contexts) {
+        for (auto const& [id, context] : contexts) {
+            if (context.extension_id == extension_id && (!revision.has_value() || context.revision == *revision) && is_background_endpoint(*endpoint, extension_id, context.document_id))
+                targets.append({ endpoint, id });
+        }
+    }
+    return targets;
+}
+
+void ExtensionMessageBroker::dispatch_background_event(String const& extension_id, String event_name, String arguments_json)
+{
+    if (wake_background)
+        wake_background(extension_id);
+    report_activity(extension_id, false);
+    if (auto revision = m_starting_backgrounds.get(extension_id); revision.has_value()) {
+        m_queued_events.append({ extension_id, *revision, move(event_name), move(arguments_json) });
+        return;
+    }
+    for (auto const& target : background_targets(extension_id))
+        target.endpoint->dispatch_extension_event(extension_id, target.context_id, event_name, arguments_json);
+}
+
 bool ExtensionMessageBroker::has_unanswered_dispatches(String const& extension_id, Optional<AK::Duration> max_age) const
 {
     auto now = MonotonicTime::now();
@@ -279,6 +304,19 @@ void ExtensionMessageBroker::background_finished(String const& extension_id, u64
         storage_changes.append(queued);
         return true;
     });
+    Vector<QueuedEvent> events;
+    m_queued_events.remove_all_matching([&](auto const& queued) {
+        if (queued.extension_id != extension_id || queued.revision != revision)
+            return false;
+        events.append(queued);
+        return true;
+    });
+    if (success) {
+        for (auto const& queued : events) {
+            for (auto const& target : background_targets(extension_id, revision))
+                target.endpoint->dispatch_extension_event(extension_id, target.context_id, queued.event_name, queued.arguments_json);
+        }
+    }
     if (success) {
         Vector<Target> backgrounds;
         for (auto const& [endpoint, contexts] : m_contexts) {

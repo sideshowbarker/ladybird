@@ -49,6 +49,7 @@ public:
         // Adds the sending document's tab and frame to the sender a receiver sees.
         virtual void annotate_extension_sender(Web::Extensions::MessageSender&, Web::HTML::CrossProcessId) const { }
         virtual void dispatch_extension_suspend(String const&, u64, bool) { }
+        virtual void dispatch_extension_event(String const&, u64, String const&, String const&) { }
         virtual void dispatch_extension_runtime_message(String const& extension_id, u64 dispatch_id, Web::Extensions::MessageSender const&, String const& message_json, u64 context_id) = 0;
         virtual void complete_extension_runtime_message(u64 request_id, Web::Extensions::MessageResult const& reply_json) = 0;
     };
@@ -88,6 +89,9 @@ public:
     // Dispatches runtime.onSuspend, or onSuspendCanceled, to every context of the extension's background page, and
     // returns the contexts it reached.
     Vector<u64> dispatch_suspend(String const& extension_id, bool canceled);
+    // Dispatches a named API event ("action.onClicked", e.g.) to the extension's background page, with its arguments as
+    // a JSON array. A stopped page wakes for it, and a starting one gets it once it has loaded.
+    void dispatch_background_event(String const& extension_id, String event_name, String arguments_json);
 
     // The background host's hooks: wake_background starts an extension's stopped background page, so that what's sent
     // to it waits for it to load, and on_activity hears of every message, reply, port message, and storage request, and
@@ -170,6 +174,14 @@ private:
         String changes;
     };
     Vector<QueuedStorageChanges> m_queued_storage_changes;
+    struct QueuedEvent {
+        String extension_id;
+        u64 revision { 0 };
+        String event_name;
+        String arguments_json;
+    };
+    Vector<QueuedEvent> m_queued_events;
+    Vector<Target> background_targets(String const& extension_id, Optional<u64> revision = {}) const;
 
     struct QueuedMessage {
         Endpoint* source;

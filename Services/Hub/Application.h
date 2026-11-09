@@ -92,6 +92,8 @@ private:
     virtual void ask_user_for_extension_directory(Function<void(Optional<ByteString>)>) const override;
     virtual Vector<WebView::ExtensionTab> extension_tabs() const override;
     virtual Vector<i64> extension_window_focus_order() const override;
+    virtual void extension_action_list_changed() override;
+    virtual void extension_action_changed(String const& extension_id, Optional<i64> tab_id) override;
     virtual void display_download_confirmation_dialog(StringView download_name, LexicalPath const& path) const override;
     virtual void display_error_dialog(StringView error_message) const override;
     virtual void display_update_check_result(WebView::UpdateCheckResult const&, WebView::UpdateCheckTrigger) override;

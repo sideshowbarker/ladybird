@@ -172,7 +172,7 @@ static Vector<WebView::ExtensionTab> sample_tabs()
 
 static WebView::ExtensionTabViewer viewer_for(Web::Extensions::ExtensionDescriptor const& extension, Optional<i64> current_window_id = {}, Optional<i64> last_focused_window_id = {}, bool allowed_in_private = false)
 {
-    return { extension, allowed_in_private, current_window_id, last_focused_window_id };
+    return { extension, allowed_in_private, current_window_id, last_focused_window_id, nullptr };
 }
 
 static Web::Extensions::ExtensionDescriptor descriptor_with(Vector<String> api_permissions, Vector<StringView> host_patterns = {})
@@ -345,4 +345,22 @@ TEST_CASE(last_focused_window_skips_windows_the_extension_cant_see)
     EXPECT_EQ(WebView::last_focused_extension_window_for(focus_order, tabs, false), 2);
     EXPECT_EQ(WebView::last_focused_extension_window_for(focus_order, tabs, true), 3);
     EXPECT(!WebView::last_focused_extension_window_for({}, tabs, true).has_value());
+}
+
+TEST_CASE(active_tab_grant_ends_at_another_origin)
+{
+    WebView::ExtensionActiveTabGrants grants;
+    auto page = URL::Parser::basic_parse("https://example.com/a"sv).release_value();
+    grants.grant(1, page);
+    EXPECT(grants.contains(1));
+    EXPECT(!grants.contains(2));
+
+    // The grant follows the tab across its own origin, and ends at another one or when the tab closes.
+    grants.tab_navigated(1, URL::Parser::basic_parse("https://example.com/b"sv).release_value());
+    EXPECT(grants.contains(1));
+    grants.tab_navigated(1, URL::Parser::basic_parse("https://other.example/"sv).release_value());
+    EXPECT(!grants.contains(1));
+    grants.grant(1, page);
+    grants.tab_closed(1);
+    EXPECT(!grants.contains(1));
 }
