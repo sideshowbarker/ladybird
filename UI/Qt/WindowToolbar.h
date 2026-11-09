@@ -108,6 +108,8 @@ public:
     // the toolbar shows.
     void update_extension_actions();
     void update_extension_action(String const& extension_id);
+    // The menu a right-click on an extension's toolbar button shows: Manage extension, Hide, and Remove.
+    void show_extension_action_menu(QWidget& button, String const& extension_id, QPoint global_position);
     Vector<Hub::ExtensionActionButton> extension_action_buttons_from_hub() const;
     QWidget* extension_action_button(StringView extension_id) const;
 
