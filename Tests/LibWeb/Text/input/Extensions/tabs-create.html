@@ -1,0 +1,33 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // tabs.create() opens a tab and resolves with it; the URLs extensions can't open are rejected.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const token = `create-${Math.random()}`;
+            const created = await sendToBackground({ type: "create", properties: { url: `page.html?token=${token}` } });
+            println(`id is a number: ${typeof created.id === "number"}`);
+            println(
+                `url: ${created.url.replace(/^ladybird-extension:\/\/[^/]+/, "<extension>").replace(token, "TOKEN")}`
+            );
+            println(`active: ${created.active}`);
+            let found;
+            while (!(found = await sendToBackground({ type: "find", id: created.id })) || found.status !== "complete")
+                await new Promise(resolve => setTimeout(resolve, 20));
+            println(`found by tabs.query(): ${found.url === created.url}`);
+
+            const other = internals.extensionId("Tabs Fixture");
+            for (const url of ["javascript:1", "file:///etc/hosts", `ladybird-extension://${other}/page.html`])
+                println(
+                    `${url.replace(other, "<other>")}: ${(await sendToBackground({ type: "create", properties: { url } })).failed}`
+                );
+            const bad = await sendToBackground({ type: "create", properties: { url: "about:blank", nonsense: 1 } });
+            println(`unknown property: ${bad.failed}`);
+
+            println(`closed: ${await sendToBackground({ type: "close", token })}`);
+            done();
+        });
+    </script>
+</body>

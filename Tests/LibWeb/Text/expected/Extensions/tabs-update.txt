@@ -1,0 +1,6 @@
+by id, resolves with: true <extension>/page.html?token=TOKEN&by=id
+by id, navigated to: <extension>/page.html?token=TOKEN&by=id
+no id, from the tab itself: true <extension>/page.html?token=TOKEN&by=self
+no id, navigated to: <extension>/page.html?token=TOKEN&by=self
+closed: true
+a closed tab: No tab with id: N.

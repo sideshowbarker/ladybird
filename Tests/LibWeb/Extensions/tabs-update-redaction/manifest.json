@@ -1,0 +1,22 @@
+{
+    "manifest_version": 3,
+    "name": "Tabs Update Redaction Fixture",
+    "version": "1.0",
+    "description": "A background page without the tabs permission, which navigates a tab it can't see into to one of its own pages.",
+    "background": {
+        "scripts": [
+            "bg.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "file:///*/Extensions/tabs-update-redaction.html"
+            ],
+            "js": [
+                "cs.js"
+            ],
+            "run_at": "document_end"
+        }
+    ]
+}

@@ -1,0 +1,9 @@
+id is a number: true
+url: <extension>/page.html?token=TOKEN
+active: true
+found by tabs.query(): true
+javascript:1: JavaScript URLs are not allowed in API based extension navigations. Use chrome.scripting.executeScript instead.
+file:///etc/hosts: Cannot navigate to a file URL without local file access.
+ladybird-extension://<other>/page.html: Cannot navigate to another extension's page.
+unknown property: Error in invocation of tabs.create(object createProperties, optional function callback): Error at parameter 'createProperties': Unexpected property: 'nonsense'.
+closed: true

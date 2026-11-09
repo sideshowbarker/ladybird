@@ -1,0 +1,48 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // tabs.update() navigates a tab by its id, and with no id, the active tab of the caller's window.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const token = `update-${Math.random()}`;
+            const shown = url => url.replace(/^ladybird-extension:\/\/[^/]+/, "<extension>").replace(token, "TOKEN");
+            const waitForUrl = async (id, suffix) => {
+                let found;
+                while (
+                    !(found = await sendToBackground({ type: "find", id })) ||
+                    found.status !== "complete" ||
+                    !found.url.endsWith(suffix)
+                )
+                    await new Promise(resolve => setTimeout(resolve, 20));
+                return found.url;
+            };
+            const created = await sendToBackground({ type: "create", properties: { url: `page.html?token=${token}` } });
+            await waitForUrl(created.id, token);
+
+            const updated = await sendToBackground({
+                type: "update",
+                tabId: created.id,
+                properties: { url: `page.html?token=${token}&by=id` },
+            });
+            println(`by id, resolves with: ${updated.id === created.id} ${shown(updated.url)}`);
+            println(`by id, navigated to: ${shown(await waitForUrl(created.id, "by=id"))}`);
+
+            const self = await sendToBackground({
+                type: "update-self",
+                token,
+                properties: { url: `page.html?token=${token}&by=self` },
+            });
+            println(`no id, from the tab itself: ${self.id === created.id} ${shown(self.url)}`);
+            println(`no id, navigated to: ${shown(await waitForUrl(created.id, "by=self"))}`);
+
+            println(`closed: ${await sendToBackground({ type: "close", token })}`);
+            while (await sendToBackground({ type: "find", id: created.id }))
+                await new Promise(resolve => setTimeout(resolve, 20));
+            const gone = await sendToBackground({ type: "update", tabId: created.id, properties: {} });
+            println(`a closed tab: ${gone.failed.replace(String(created.id), "N")}`);
+            done();
+        });
+    </script>
+</body>
