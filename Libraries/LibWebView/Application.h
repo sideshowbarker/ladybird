@@ -374,6 +374,8 @@ public:
     void extension_tab_activated(i64 tab_id);
     void extension_tab_changed(i64 tab_id);
     void extension_window_closing(i64 window_id);
+    // Focus moved to the window, or away from every window of the browser (ExtensionWindowFocus::no_window).
+    void extension_window_focus_changed(i64 window_id);
     void for_each_extension_tab_viewer(Function<void(Extension const&, ExtensionTabViewer const&)> const&) const;
     ExtensionActiveTabGrants const* extension_active_tab_grants(StringView extension_id) const;
 
@@ -743,6 +745,7 @@ private:
     HashTable<i64> m_closed_extension_tabs;
     ExtensionMenus m_extension_menus;
     ExtensionCommands m_extension_commands;
+    ExtensionWindowFocus m_extension_window_focus;
     struct ExtensionInjectionFrame {
         i64 frame_id { 0 };
         Optional<String> result_json;

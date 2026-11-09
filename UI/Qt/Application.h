@@ -204,6 +204,7 @@ public:
     // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.
+    // A tab as extensions see it, for a report to the Hub.
     BrowserWindow* active_window_if_any() const { return m_active_window; }
     BrowserWindow* non_private_window_if_any() const;
 

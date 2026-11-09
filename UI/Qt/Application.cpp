@@ -132,6 +132,7 @@
 #include <QStandardPaths>
 #include <QStringDecoder>
 #include <QTimer>
+#include <QWindow>
 
 #if defined(AK_OS_MACOS)
 #    include <QUtiMimeConverter>
@@ -1377,6 +1378,14 @@ void Application::will_create_event_loop(Main::Arguments& arguments)
     // NB: Qt owns its converters, and deletes them along with the QApplication.
     new PNGMimeConverter;
 #endif
+    // Focus leaving every window of the browser is what extensions hear of as no window having it.
+    QObject::connect(m_application.ptr(), &QGuiApplication::focusWindowChanged, [](QWindow* window) {
+        if (!window) {
+            Application::the().report_extension_tabs();
+            if (auto* hub = HubConnection::the_if_connected())
+                hub->async_extension_window_focus_changed(WebView::ExtensionWindowFocus::no_window);
+        }
+    });
 #if defined(AK_OS_LINUX)
     QGuiApplication::setDesktopFileName(QStringLiteral("org.ladybird.Ladybird"));
     Ladybird::clip_translucent_windows_that_cannot_blend();
@@ -2392,6 +2401,8 @@ void Application::set_active_window(BrowserWindow& window)
     m_extension_window_focus_order.remove_all_matching([&](auto id) { return id == window.extension_window_id(); });
     m_extension_window_focus_order.prepend(window.extension_window_id());
     report_extension_tabs();
+    if (auto* hub = HubConnection::the_if_connected())
+        hub->async_extension_window_focus_changed(window.extension_window_id());
 }
 
 void Application::extension_action_list_changed()
