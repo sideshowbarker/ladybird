@@ -1,0 +1,12 @@
+Ladybird validates registered content scripts just the way Chromium’s
+ScriptingRegisterContentScriptsFunction::Run() does, with the errors
+from its scripting_utils.cc (“Duplicate script ID 'x'”, “Nonexistent
+script ID 'x'”, “Script's ID must not be empty”, and “Script with ID
+'x' must specify 'matches'.”); and a call registers nothing if any one
+of its scripts fails. Scripts with persistAcrossSessions (the default)
+survive a restart, as in Chromium and in Gecko’s ext-scripting.js.
+
+A registered script runs only where the extension has host access, and
+its matches don’t count as granted origins, unlike a manifest’s content
+script. That’s Chromium’s rule too: A dynamic script needs a host
+permission for the page it runs in.
