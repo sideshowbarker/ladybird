@@ -388,6 +388,8 @@ private:
 #ifdef LADYBIRD_QT_USE_IOSURFACE_LAYER
 
     bool ensure_iosurface_layer_attached_to_native_view();
+    // Applies the cursor the view set to a popup window, which AppKit would otherwise show only once the pointer left.
+    void apply_cursor_to_popup_window();
     void present_current_paintable_as_layer_contents();
     void update_iosurface_layer_frame();
     void update_iosurface_layer_background_color();

@@ -12,6 +12,7 @@
 #include <Hub/View.h>
 #include <LibCore/GeolocationProvider.h>
 #include <LibWebView/DefaultBrowser.h>
+#include <LibWebView/Extensions/ExtensionPopupHost.h>
 #include <LibWebView/ExternalURLHandler.h>
 #include <LibWebView/GamepadSource.h>
 #include <LibWebView/MediaSessionCoordinator.h>
@@ -49,6 +50,29 @@ private:
 class MediaSessionPlatformBackendInUI final : public WebView::MediaSessionPlatformBackend {
 public:
     virtual void update(Optional<WebView::NowPlayingState> const&) override;
+};
+
+// An extension's popup: its page is a view here, which the UI shows below the extension's toolbar button at the size
+// the page's content wants.
+class ExtensionPopupInUI {
+public:
+    AK_ALLOC_WITH_KMALLOC;
+
+    ExtensionPopupInUI(View&, String const& extension_id, i64 window_id, u64 generation);
+    ~ExtensionPopupInUI();
+
+    static ExtensionPopupInUI* find(u64 view_id);
+
+    View& view() const { return m_view; }
+    i64 window_id() const { return m_window_id; }
+    u64 generation() const { return m_generation; }
+    void set_size(Gfx::IntSize);
+
+private:
+    View& m_view;
+    u64 m_view_id { 0 };
+    i64 m_window_id { 0 };
+    u64 m_generation { 0 };
 };
 
 class NotificationBackendInUI final : public WebView::NotificationBackend {

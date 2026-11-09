@@ -37,6 +37,7 @@ class QWidget;
 
 namespace Ladybird {
 
+class ExtensionPopup;
 class WebUIPages;
 
 class Bookmarks;
@@ -181,6 +182,14 @@ public:
     // The Hub tells of a change to the extensions with toolbar buttons, or to one button's state for a tab or globally.
     void extension_action_list_changed();
     void extension_action_changed(String const& extension_id, Optional<i64> tab_id);
+    // The Hub made an extension popup's view; the UI shows it below the extension's button in the window, at the size
+    // the Hub says, until the Hub closes it or the user dismisses it.
+    void open_extension_popup(u64 view_id, String const& extension_id, i64 window_id, WebView::IsPrivate);
+    void resize_extension_popup(u64 view_id, Gfx::IntSize);
+    void close_extension_popup(u64 view_id);
+    // Reports to the Hub that the window's popup should close, as when the window's current tab changes.
+    void close_extension_popup_of_window(i64 window_id, WebView::ExtensionPopupHost::CloseReason);
+    // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.
     BrowserWindow* active_window_if_any() const { return m_active_window; }
@@ -407,6 +416,7 @@ private:
     u64 m_next_external_url_handler_id { 1 };
     BrowserWindow* m_active_window { nullptr };
     Vector<i64> m_extension_window_focus_order;
+    HashMap<u64, QPointer<ExtensionPopup>> m_extension_popups;
     OwnPtr<ProcessManagerWindow> m_process_manager_window;
     OwnPtr<CompositorLayersWindow> m_compositor_layers_window;
     QPointer<WebContentView> m_view_picking_compositor_layer;

@@ -49,6 +49,7 @@
 #elif defined(AK_OS_LINUX) || defined(AK_OS_FREEBSD)
 #    include <LibWebView/NotificationBackendFreedesktop.h>
 #endif
+#include <LibWebView/Extensions/ExtensionPopupHost.h>
 #include <LibWebView/NoOpNotificationBackend.h>
 #include <LibWebView/Translator.h>
 #include <LibWebView/URL.h>
@@ -62,6 +63,7 @@
 #include <UI/Qt/CompositorLayersWindow.h>
 #include <UI/Qt/DownloadsPage.h>
 #include <UI/Qt/EventLoopImplementationQt.h>
+#include <UI/Qt/ExtensionPopup.h>
 #include <UI/Qt/ExternalURLHandler.h>
 #include <UI/Qt/HistoryPage.h>
 #include <UI/Qt/Menu.h>
@@ -2405,6 +2407,63 @@ void Application::extension_action_changed(String const& extension_id, Optional<
         auto* tab = window->current_tab();
         if (!tab_id.has_value() || (tab && tab->extension_tab_id() == *tab_id))
             window->toolbar().update_extension_action(extension_id);
+    }
+}
+
+static BrowserWindow* browser_window_with_extension_window_id(i64 window_id)
+{
+    for (auto* window : browser_windows()) {
+        if (window->extension_window_id() == window_id)
+            return window;
+    }
+    return nullptr;
+}
+
+void Application::open_extension_popup(u64 view_id, String const& extension_id, i64 window_id, WebView::IsPrivate is_private)
+{
+    auto* window = browser_window_with_extension_window_id(window_id);
+    auto* anchor = window && window->current_tab() ? window->toolbar().extension_action_button(extension_id) : nullptr;
+    if (!anchor) {
+        // With no button to show the popup under, the Hub gets its view back and hears that the popup closed.
+        if (auto* hub = HubConnection::the_if_connected()) {
+            hub->async_destroy_view(view_id);
+            hub->async_extension_popup_did_close(view_id, WebView::ExtensionPopupHost::CloseReason::WindowClose);
+        }
+        return;
+    }
+
+    auto* popup = new ExtensionPopup(*anchor, is_private, view_id, window_id);
+    popup->on_close = [view_id](auto reason) {
+        if (auto* hub = HubConnection::the_if_connected())
+            hub->async_extension_popup_did_close(view_id, reason);
+    };
+    m_extension_popups.set(view_id, popup);
+    popup->show();
+}
+
+void Application::resize_extension_popup(u64 view_id, Gfx::IntSize size)
+{
+    if (auto popup = m_extension_popups.get(view_id); popup.has_value() && *popup)
+        (*popup)->resize_to(size);
+}
+
+void Application::close_extension_popup(u64 view_id)
+{
+    auto popup = m_extension_popups.take(view_id);
+    if (!popup.has_value() || !*popup)
+        return;
+    // Nothing of a closed popup reaches the Hub again, even before the view goes away.
+    (*popup)->on_close = nullptr;
+    (*popup)->dismiss();
+    // A popup can close from one of its view's own callbacks, so it goes once that has returned.
+    (*popup)->deleteLater();
+}
+
+void Application::close_extension_popup_of_window(i64 window_id, WebView::ExtensionPopupHost::CloseReason reason)
+{
+    for (auto const& [view_id, popup] : m_extension_popups) {
+        if (popup && popup->window_id() == window_id && popup->on_close)
+            popup->on_close(reason);
     }
 }
 

@@ -395,6 +395,21 @@ void HubConnection::extension_action_changed(String extension_id, Optional<i64> 
     Application::the().extension_action_changed(extension_id, tab_id);
 }
 
+void HubConnection::extension_popup_open(u64 view_id, String extension_id, i64 window_id, WebView::IsPrivate is_private)
+{
+    Application::the().open_extension_popup(view_id, extension_id, window_id, is_private);
+}
+
+void HubConnection::extension_popup_set_size(u64 view_id, Gfx::IntSize size)
+{
+    Application::the().resize_extension_popup(view_id, size);
+}
+
+void HubConnection::extension_popup_close(u64 view_id)
+{
+    Application::the().close_extension_popup(view_id);
+}
+
 void HubConnection::download_added(Hub::DownloadState download)
 {
     RemoteDownloads::the().did_add(download);

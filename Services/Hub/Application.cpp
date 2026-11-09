@@ -286,6 +286,81 @@ void Application::extension_action_changed(String const& extension_id, Optional<
         ui->async_extension_action_changed(extension_id, tab_id);
 }
 
+View::InitialState Application::initial_state_for_extension_view(i64 tab_id) const
+{
+    Optional<WebView::ViewImplementation&> related;
+    for (auto const& tab : extension_tabs()) {
+        if (tab.id == tab_id && tab.view_id.has_value())
+            related = WebView::ViewImplementation::find_view_by_id(*tab.view_id);
+    }
+    if (!related.has_value())
+        related = active_web_view();
+    View::InitialState initial_state;
+    if (related.has_value()) {
+        initial_state = static_cast<View&>(*related).initial_state_for_related_view();
+        initial_state.owner_view_id = related->view_id();
+    }
+    initial_state.is_tab = false;
+    return initial_state;
+}
+
+bool Application::show_extension_popup(WebView::ExtensionPopupRequest const& request)
+{
+    if (!ConnectionFromUI::the())
+        return WebView::Application::show_extension_popup(request);
+
+    auto& view = create_view(initial_state_for_extension_view(request.tab_id));
+    auto window_id = request.window_id;
+    auto generation = request.generation;
+    view.set_reports_content_size(WebView::minimum_extension_popup_size, WebView::maximum_extension_popup_size);
+    view.set_is_closable_by_script(true);
+    view.on_content_size_change = [window_id, generation](Gfx::IntSize size) {
+        extension_popup_host().content_size_changed(window_id, generation, size);
+    };
+    view.on_close = [window_id, generation] {
+        Core::deferred_invoke([window_id, generation] {
+            if (is_initialized())
+                extension_popup_host().close(window_id, generation, WebView::ExtensionPopupHost::CloseReason::WindowClose);
+        });
+    };
+    m_extension_popups_in_ui.set(window_id, make<ExtensionPopupInUI>(view, request.extension_id, window_id, generation));
+    view.load_from_browser_ui(request.url);
+    return true;
+}
+
+void Application::resize_extension_popup(i64 window_id, Gfx::IntSize size)
+{
+    if (auto popup = m_extension_popups_in_ui.get(window_id); popup.has_value())
+        (*popup)->set_size(size);
+    else
+        WebView::Application::resize_extension_popup(window_id, size);
+}
+
+void Application::close_extension_popup(i64 window_id)
+{
+    auto popup = m_extension_popups_in_ui.take(window_id);
+    if (!popup.has_value()) {
+        WebView::Application::close_extension_popup(window_id);
+        return;
+    }
+    // Nothing of a closed popup reaches the host again, even before the UI gives the view back.
+    (*popup)->view().on_content_size_change = nullptr;
+    (*popup)->view().on_close = nullptr;
+}
+
+WebView::ViewImplementation* Application::extension_popup_view(i64 window_id) const
+{
+    if (auto popup = m_extension_popups_in_ui.get(window_id); popup.has_value())
+        return &(*popup)->view();
+    return WebView::Application::extension_popup_view(window_id);
+}
+
+void Application::did_close_extension_popup(u64 view_id, WebView::ExtensionPopupHost::CloseReason reason)
+{
+    if (auto* popup = ExtensionPopupInUI::find(view_id))
+        extension_popup_host().close(popup->window_id(), popup->generation(), reason);
+}
+
 void Application::display_download_confirmation_dialog(StringView download_name, LexicalPath const& path) const
 {
     if (auto* ui = ConnectionFromUI::the())

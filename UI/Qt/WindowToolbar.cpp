@@ -2120,6 +2120,15 @@ void WindowToolbar::update_extension_action(String const& extension_id)
     }
 }
 
+QWidget* WindowToolbar::extension_action_button(StringView extension_id) const
+{
+    for (auto const& [id, button] : m_extension_action_buttons) {
+        if (id == extension_id)
+            return button;
+    }
+    return nullptr;
+}
+
 void WindowToolbar::update_downloads_button()
 {
     auto downloads = RemoteDownloads::the().downloads_of_session(m_is_private);

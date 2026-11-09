@@ -229,6 +229,11 @@ void ConnectionFromUI::extension_action_clicked(String extension_id, i64 tab_id)
     Application::the().activate_extension_action(extension_id, tab_id);
 }
 
+void ConnectionFromUI::extension_popup_did_close(u64 view_id, WebView::ExtensionPopupHost::CloseReason reason)
+{
+    Application::the().did_close_extension_popup(view_id, reason);
+}
+
 static DownloadState state_of_download(WebView::FileDownloader::Download const& download)
 {
     DownloadState state;

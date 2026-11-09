@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <Hub/Proxies.h>
 #include <Hub/View.h>
 #include <LibCore/Promise.h>
 #include <LibMain/Main.h>
@@ -76,6 +77,7 @@ public:
     void did_get_download_path(u64 request_id, Optional<ByteString>);
     void did_get_extension_directory(u64 request_id, Optional<ByteString>);
     void set_extension_tabs_from_ui(Vector<WebView::ExtensionTab>, Vector<i64> window_focus_order);
+    void did_close_extension_popup(u64 view_id, WebView::ExtensionPopupHost::CloseReason);
 
 private:
     explicit Application(ApplicationHost*);
@@ -98,6 +100,12 @@ private:
     virtual Vector<i64> extension_window_focus_order() const override;
     virtual void extension_action_list_changed() override;
     virtual void extension_action_changed(String const& extension_id, Optional<i64> tab_id) override;
+    virtual bool show_extension_popup(WebView::ExtensionPopupRequest const&) override;
+    virtual void resize_extension_popup(i64 window_id, Gfx::IntSize) override;
+    virtual void close_extension_popup(i64 window_id) override;
+    virtual WebView::ViewImplementation* extension_popup_view(i64 window_id) const override;
+    // The state a view opened for a tab's extension starts out in, from that tab's own view, else the active one.
+    View::InitialState initial_state_for_extension_view(i64 tab_id) const;
     virtual void display_download_confirmation_dialog(StringView download_name, LexicalPath const& path) const override;
     virtual void display_error_dialog(StringView error_message) const override;
     virtual void display_openssl_mismatch(PlatformFeatures::OpenSSLFacts const&) override;
@@ -152,6 +160,8 @@ private:
     // The UI's tabs and the order the user focused its windows in, as it last reported them.
     Vector<WebView::ExtensionTab> m_extension_tabs_from_ui;
     Vector<i64> m_extension_window_focus_order_from_ui;
+    // The open popups the UI shows, by the window each is open in.
+    HashMap<i64, NonnullOwnPtr<ExtensionPopupInUI>> m_extension_popups_in_ui;
     Optional<u64> m_active_view_id;
     bool m_ui_did_start { false };
     Vector<String> m_webdriver_windows_awaiting_ui;

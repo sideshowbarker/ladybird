@@ -13,6 +13,36 @@
 namespace Hub {
 
 static HashMap<u64, PictureInPictureWindowInUI*> s_picture_in_picture_windows;
+static HashMap<u64, ExtensionPopupInUI*> s_extension_popups;
+
+ExtensionPopupInUI::ExtensionPopupInUI(View& view, String const& extension_id, i64 window_id, u64 generation)
+    : m_view(view)
+    , m_view_id(view.view_id())
+    , m_window_id(window_id)
+    , m_generation(generation)
+{
+    s_extension_popups.set(m_view_id, this);
+    if (auto* ui = ConnectionFromUI::the())
+        ui->async_extension_popup_open(m_view_id, extension_id, window_id, view.is_private());
+}
+
+ExtensionPopupInUI::~ExtensionPopupInUI()
+{
+    s_extension_popups.remove(m_view_id);
+    if (auto* ui = ConnectionFromUI::the())
+        ui->async_extension_popup_close(m_view_id);
+}
+
+ExtensionPopupInUI* ExtensionPopupInUI::find(u64 view_id)
+{
+    return s_extension_popups.get(view_id).value_or(nullptr);
+}
+
+void ExtensionPopupInUI::set_size(Gfx::IntSize size)
+{
+    if (auto* ui = ConnectionFromUI::the())
+        ui->async_extension_popup_set_size(m_view_id, size);
+}
 
 PictureInPictureWindowInUI::PictureInPictureWindowInUI(View& view, u64 owner_view_id, Gfx::IntSize video_size, Gfx::IntSize initial_size)
     : m_view(view)

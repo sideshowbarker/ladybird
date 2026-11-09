@@ -151,6 +151,9 @@ private:
     virtual void app_ask_user_for_extension_directory(u64 request_id) override;
     virtual void extension_action_list_changed() override;
     virtual void extension_action_changed(String extension_id, Optional<i64> tab_id) override;
+    virtual void extension_popup_open(u64 view_id, String extension_id, i64 window_id, WebView::IsPrivate is_private) override;
+    virtual void extension_popup_set_size(u64 view_id, Gfx::IntSize size) override;
+    virtual void extension_popup_close(u64 view_id) override;
     virtual void settings_changed(ByteString settings_json, u64 last_applied_change_id) override;
     virtual void web_ui_opened(u64 web_ui_id, String host, WebView::IsPrivate is_private) override;
     virtual void web_ui_message(u64 web_ui_id, String name, JsonValue data) override;
