@@ -51,6 +51,12 @@ void ExtensionsUI::register_interfaces()
         if (auto allowed = data.as_object().get_bool("allowed"sv); allowed.has_value())
             Application::extension_registry().set_allowed_in_private(*id, *allowed);
     });
+    register_interface("setExtensionShownInToolbar"sv, [](auto const& data) {
+        auto id = installed_id_from_message(data);
+        auto shown = data.is_object() ? data.as_object().get_bool("shown"sv) : Optional<bool> {};
+        if (id.has_value() && shown.has_value())
+            Application::extension_registry().set_hidden_in_toolbar(*id, !*shown);
+    });
     register_interface("reloadExtension"sv, [this](auto const& data) {
         auto id = installed_id_from_message(data);
         if (!id.has_value())
@@ -132,6 +138,7 @@ void ExtensionsUI::send_snapshot()
         entry.set("directory"sv, display_path(installed.path));
         entry.set("enabled"sv, installed.enabled);
         entry.set("allowedInPrivate"sv, installed.allowed_in_private);
+        entry.set("shownInToolbar"sv, !installed.hidden_in_toolbar);
         JsonArray permissions;
         for (auto const& permission : installed.granted_permissions)
             permissions.must_append(permission);
@@ -141,6 +148,7 @@ void ExtensionsUI::send_snapshot()
             entry.set("version"sv, manifest.version);
             entry.set("description"sv, manifest.description);
             entry.set("hasOptions"sv, manifest.options_page.has_value());
+            entry.set("hasAction"sv, manifest.action.has_value());
             entry.set("error"sv, String {});
             for (auto const& pattern : (*extension)->descriptor().host_permissions)
                 permissions.must_append(pattern.to_string());

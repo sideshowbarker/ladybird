@@ -21,6 +21,13 @@
 
 namespace WebView {
 
+// What the menu of an extension's toolbar button offers; the UI sends the choice to the browser, which carries it out.
+enum class ExtensionActionMenuCommand : u8 {
+    OpenManagement,
+    HideInToolbar,
+    Remove,
+};
+
 enum class ExtensionActionProperty : u8 {
     Title,
     Icon,

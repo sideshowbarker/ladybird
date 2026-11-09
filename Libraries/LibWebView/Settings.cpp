@@ -94,6 +94,7 @@ static constexpr auto EXTENSION_GRANTED_PERMISSIONS_KEY = "granted_permissions"s
 static constexpr auto EXTENSION_LAST_SEEN_VERSION_KEY = "last_seen_version"sv;
 static constexpr auto EXTENSION_PACKED_KEY = "packed"sv;
 static constexpr auto EXTENSION_GECKO_ID_KEY = "gecko_id"sv;
+static constexpr auto EXTENSION_HIDDEN_IN_TOOLBAR_KEY = "hidden_in_toolbar"sv;
 
 static constexpr auto GLOBAL_PRIVACY_CONTROL_KEY = "globalPrivacyControl"sv;
 static constexpr auto CRASH_REPORT_SENDING_KEY = "crashReportSending"sv;
@@ -809,7 +810,7 @@ Settings Settings::create(ByteString settings_path, Vector<String> platform_lang
             Optional<String> gecko_id;
             if (auto gecko = value.as_object().get_string(EXTENSION_GECKO_ID_KEY); gecko.has_value())
                 gecko_id = *gecko;
-            settings.m_installed_extensions.append({ *id, path->to_byte_string(), value.as_object().get_bool(EXTENSION_ENABLED_KEY).value_or(true), move(granted_permissions), value.as_object().get_bool(EXTENSION_ALLOWED_IN_PRIVATE_KEY).value_or(false), move(last_seen_version), value.as_object().get_bool(EXTENSION_PACKED_KEY).value_or(false), move(gecko_id) });
+            settings.m_installed_extensions.append({ *id, path->to_byte_string(), value.as_object().get_bool(EXTENSION_ENABLED_KEY).value_or(true), move(granted_permissions), value.as_object().get_bool(EXTENSION_ALLOWED_IN_PRIVATE_KEY).value_or(false), move(last_seen_version), value.as_object().get_bool(EXTENSION_PACKED_KEY).value_or(false), move(gecko_id), value.as_object().get_bool(EXTENSION_HIDDEN_IN_TOOLBAR_KEY).value_or(false) });
         }
     }
 
@@ -1001,6 +1002,8 @@ JsonValue Settings::serialize_json() const
             object.set(EXTENSION_PACKED_KEY, true);
         if (extension.gecko_id.has_value())
             object.set(EXTENSION_GECKO_ID_KEY, *extension.gecko_id);
+        if (extension.hidden_in_toolbar)
+            object.set(EXTENSION_HIDDEN_IN_TOOLBAR_KEY, true);
         JsonArray permissions;
         for (auto const& permission : extension.granted_permissions)
             permissions.must_append(permission);
@@ -1663,6 +1666,17 @@ void Settings::set_installed_extension_package(StringView id, Optional<String> g
             continue;
         extension.packed = true;
         extension.gecko_id = move(gecko_id);
+        persist_settings();
+        return;
+    }
+}
+
+void Settings::set_installed_extension_hidden_in_toolbar(StringView id, bool hidden)
+{
+    for (auto& extension : m_installed_extensions) {
+        if (extension.id != id || extension.hidden_in_toolbar == hidden)
+            continue;
+        extension.hidden_in_toolbar = hidden;
         persist_settings();
         return;
     }

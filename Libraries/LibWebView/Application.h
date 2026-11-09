@@ -757,6 +757,7 @@ private:
     void retire_headless_extension_view(OwnPtr<HeadlessWebView>);
     HashMap<String, u64> m_extension_action_revisions;
     HashTable<String> m_extension_actions_allowed_in_private;
+    HashTable<String> m_extension_actions_hidden;
     HashMap<String, ExtensionActiveTabGrants> m_extension_active_tab_grants;
     void sync_extension_actions();
     void sync_extension_session_state();
@@ -770,6 +771,8 @@ public:
     // Activates a tab showing the extension's options page, or else opens one in the window given (or the one last
     // focused). Extensions compare the error for an extension without one.
     void open_extension_options_page(Extension const&, Optional<i64> window_id, ExtensionTabActionCallback);
+    // Opens about:extensions at the extension's card, for its toolbar button's Manage extension.
+    void open_extension_management(StringView extension_id);
     ExtensionMenus& extension_menus() { return m_extension_menus; }
     ExtensionCommands& extension_commands() { return m_extension_commands; }
     void change_extension_grants(String const& extension_id, ExtensionPermissionSet const& added, ExtensionPermissionSet const& removed);

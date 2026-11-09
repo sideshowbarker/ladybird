@@ -48,6 +48,7 @@
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QMenu>
+#include <QMessageBox>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
@@ -2090,8 +2091,8 @@ void WindowToolbar::update_extension_actions()
     m_extension_action_buttons.clear();
 
     for (auto const& description : extension_action_buttons_from_hub()) {
-        // A private window shows only the extensions allowed there.
-        if (is_private && !description.allowed_in_private)
+        // A private window shows only the extensions allowed there, and no window shows a button the user hid.
+        if ((is_private && !description.allowed_in_private) || description.hidden_in_toolbar)
             continue;
         auto id = description.extension_id;
         auto* button = new ExtensionActionButton(m_extension_actions);
@@ -2099,11 +2100,52 @@ void WindowToolbar::update_extension_actions()
             if (m_tab)
                 HubConnection::the().async_extension_action_clicked(id, m_tab->extension_tab_id());
         });
+        button->setContextMenuPolicy(Qt::CustomContextMenu);
+        QObject::connect(button, &QWidget::customContextMenuRequested, this, [this, button, id](QPoint const& position) {
+            show_extension_action_menu(*button, id, button->mapToGlobal(position));
+        });
         button->set_state(description.state, extension_action_icon(description.icon_files));
         m_extension_actions->layout()->addWidget(button);
         m_extension_action_buttons.append({ id, button });
     }
     m_extension_actions->setVisible(!m_extension_action_buttons.is_empty());
+}
+
+void WindowToolbar::show_extension_action_menu(QWidget&, String const& extension_id, QPoint global_position)
+{
+    // The menu and the prompt open without a nested event loop, and own their copy of the id, since an extension can
+    // close this window (and its toolbar) while either is showing. Each command runs in the Hub, which keeps the registry.
+    auto* menu = new QMenu;
+    menu->setAttribute(Qt::WA_DeleteOnClose);
+    auto id = extension_id;
+    auto send = [](String const& id, WebView::ExtensionActionMenuCommand command) {
+        if (auto* hub = HubConnection::the_if_connected())
+            hub->async_extension_action_menu_command(id, command);
+    };
+    QObject::connect(menu->addAction("Manage extension"), &QAction::triggered, menu, [id, send] {
+        send(id, WebView::ExtensionActionMenuCommand::OpenManagement);
+    });
+    QObject::connect(menu->addAction("Hide"), &QAction::triggered, menu, [id, send] {
+        send(id, WebView::ExtensionActionMenuCommand::HideInToolbar);
+    });
+    menu->addSeparator();
+    QObject::connect(menu->addAction("Remove"), &QAction::triggered, menu, [this, id, send, window = QPointer<QWidget> { window() }] {
+        auto name = QString("this extension");
+        for (auto const& description : extension_action_buttons_from_hub()) {
+            if (description.extension_id == id)
+                name = qstring_from_ak_string(description.name);
+        }
+        auto* prompt = new QMessageBox(QMessageBox::Question, "Remove extension", QString("Remove \u2018%1\u2019?").arg(name), QMessageBox::NoButton, window.data());
+        prompt->setAttribute(Qt::WA_DeleteOnClose);
+        auto* confirm = prompt->addButton("Remove", QMessageBox::DestructiveRole);
+        prompt->setDefaultButton(prompt->addButton(QMessageBox::Cancel));
+        QObject::connect(prompt, &QMessageBox::buttonClicked, prompt, [id, send, confirm](QAbstractButton* clicked) {
+            if (clicked == confirm)
+                send(id, WebView::ExtensionActionMenuCommand::Remove);
+        });
+        prompt->open();
+    });
+    menu->popup(global_position);
 }
 
 void WindowToolbar::update_extension_action(String const& extension_id)

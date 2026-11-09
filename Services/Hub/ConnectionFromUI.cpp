@@ -224,6 +224,7 @@ Messages::HubServer::ExtensionActionButtonsResponse ConnectionFromUI::extension_
             .state = move(state),
             .icon_files = move(icon_files),
             .allowed_in_private = extensions.is_allowed_in_private(id),
+            .hidden_in_toolbar = extensions.is_hidden_in_toolbar(id),
         });
     }
     return buttons;
@@ -232,6 +233,21 @@ Messages::HubServer::ExtensionActionButtonsResponse ConnectionFromUI::extension_
 void ConnectionFromUI::extension_action_clicked(String extension_id, i64 tab_id)
 {
     Application::the().activate_extension_action(extension_id, tab_id);
+}
+
+void ConnectionFromUI::extension_action_menu_command(String extension_id, WebView::ExtensionActionMenuCommand command)
+{
+    switch (command) {
+    case WebView::ExtensionActionMenuCommand::OpenManagement:
+        Application::the().open_extension_management(extension_id);
+        break;
+    case WebView::ExtensionActionMenuCommand::HideInToolbar:
+        WebView::Application::extension_registry().set_hidden_in_toolbar(extension_id, true);
+        break;
+    case WebView::ExtensionActionMenuCommand::Remove:
+        WebView::Application::extension_registry().remove(extension_id);
+        break;
+    }
 }
 
 void ConnectionFromUI::extension_popup_did_close(u64 view_id, WebView::ExtensionPopupHost::CloseReason reason)

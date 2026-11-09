@@ -6,6 +6,9 @@
         <link rel="stylesheet" type="text/css" href="resource://ladybird/ladybird.css" />
         <link rel="stylesheet" type="text/css" href="resource://ladybird/about-pages/webui.css" />
         <style>
+            section.highlighted {
+                outline: 2px solid var(--accent, Highlight);
+            }
             .toolbar,
             .extension-controls,
             .dialog-footer {
@@ -194,6 +197,22 @@
                         toggle("Enabled", "extension-enabled", extension.enabled, !!extension.error, enabled => {
                             ladybird.sendMessage("setExtensionEnabled", { id: extension.id, enabled });
                         }),
+                        ...(extension.hasAction
+                            ? [
+                                  toggle(
+                                      "Show in toolbar",
+                                      "extension-toolbar",
+                                      extension.shownInToolbar,
+                                      !!extension.error,
+                                      shown => {
+                                          ladybird.sendMessage("setExtensionShownInToolbar", {
+                                              id: extension.id,
+                                              shown,
+                                          });
+                                      }
+                                  ),
+                              ]
+                            : []),
                         toggle(
                             "Allow in private windows",
                             "extension-private",
@@ -223,7 +242,19 @@
                     card.append(controls);
                     list.append(card);
                 }
+                highlightRequestedExtension();
             }
+
+            // about:extensions#<id>, as a toolbar button's Manage extension opens it, points at that extension's card.
+            function highlightRequestedExtension() {
+                const id = decodeURIComponent(location.hash.slice(1));
+                for (const card of list.querySelectorAll("[data-extension-id]")) {
+                    const requested = id !== "" && card.dataset.extensionId === id;
+                    card.classList.toggle("highlighted", requested);
+                    if (requested) card.scrollIntoView({ block: "center" });
+                }
+            }
+            window.addEventListener("hashchange", highlightRequestedExtension);
 
             document.getElementById("cancel-remove").addEventListener("click", () => removeDialog.close());
             document.getElementById("confirm-remove").addEventListener("click", () => {

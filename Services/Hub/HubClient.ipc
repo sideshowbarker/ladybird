@@ -130,6 +130,7 @@ struct Hub::ExtensionActionButton {
     WebView::ExtensionActionState state;
     Vector<WebView::ExtensionManifest::IconPath> icon_files;
     bool allowed_in_private;
+    bool hidden_in_toolbar;
 }
 
 [ExistingCpp]
