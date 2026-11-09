@@ -1,0 +1,17 @@
+<!doctype html>
+<script src="../include.js"></script>
+<body>
+    <script>
+        // A content script's self.wrappedJSObject is the page's window, the way Firefox gives it: the script reads
+        // the page's globals through it, while the page sees neither the world's globals nor a wrappedJSObject.
+        test(() => {
+            const seen = JSON.parse(document.documentElement.dataset.wrappedJsObject);
+            println(`typeof self.wrappedJSObject in the content script: ${seen.type}`);
+            println(`the page's global read through it: ${seen.pageMarker}`);
+            println(`the same object each time: ${seen.sameObjectEachTime}`);
+            println(`the world's global, read through it: ${seen.worldMarkerOnPage}`);
+            println(`the page's global, read in the world: ${seen.pageMarkerInWorld}`);
+            println(`typeof window.wrappedJSObject in the page: ${seen.pageHasWrapper}`);
+        });
+    </script>
+</body>

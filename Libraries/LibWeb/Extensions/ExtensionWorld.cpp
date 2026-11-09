@@ -59,6 +59,11 @@ GC::Ref<ExtensionWorld> ExtensionWorld::create(DOM::Document& document, Extensio
 
     world->m_message_listeners = vm.heap().allocate<EventListenerList>();
     install_namespace(realm, *world, NamespaceContext::ContentScript);
+
+    // self.wrappedJSObject is the page's own window, past this world's wrappers: a content script reads the globals
+    // the page's scripts set through it, as a Firefox content script does. The page's realm has no such property.
+    realm.global_object().define_native_accessor(
+        realm, "wrappedJSObject"_utf16_fly_string, GC::create_function(realm.heap(), GC::captures(GC::Ref<JS::Object> { window->principal_realm().global_object() }), [](auto& page_window, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> { return JS::Value { page_window.ptr() }; }), {}, JS::Attribute::Configurable);
     MessageRouter::the().register_context(*world);
     return world;
 }

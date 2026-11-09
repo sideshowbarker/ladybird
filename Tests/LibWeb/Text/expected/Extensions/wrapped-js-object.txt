@@ -1,0 +1,6 @@
+typeof self.wrappedJSObject in the content script: object
+the page's global read through it: set by the page
+the same object each time: true
+the world's global, read through it: undefined
+the page's global, read in the world: undefined
+typeof window.wrappedJSObject in the page: undefined
