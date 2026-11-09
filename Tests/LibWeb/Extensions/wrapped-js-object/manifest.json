@@ -1,0 +1,9 @@
+{
+    "manifest_version": 2,
+    "name": "Wrapped JS Object Fixture",
+    "version": "1.0",
+    "description": "A content script that reaches the page's own window through self.wrappedJSObject, as Firefox lets it.",
+    "content_scripts": [
+        { "matches": ["file:///*/Extensions/wrapped-js-object.html"], "js": ["cs.js"], "run_at": "document_start" }
+    ]
+}
