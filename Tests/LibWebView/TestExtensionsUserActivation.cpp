@@ -41,6 +41,12 @@ public:
         callback({});
     }
 
+    virtual void ask_user_for_extension_file(Function<void(Optional<ByteString>)> callback) const override
+    {
+        ++picker_requests;
+        callback({});
+    }
+
     mutable size_t picker_requests { 0 };
 };
 
@@ -94,6 +100,7 @@ TEST_CASE(extensions_user_activation)
         ladybird.sendMessage('removeExtension', {{ id: '{}' }});
         ladybird.sendMessage('loadUnpackedExtension', {{ directory: '/tmp' }});
         ladybird.sendMessage('openExtensionOptions', {{ id: '{}' }});
+        ladybird.sendMessage('installExtensionFromFile');
         ladybird.sendMessage('loadExtensions');
     )",
         id, id)));

@@ -46,7 +46,15 @@ struct PendingExtensionInstall {
     NonnullRefPtr<Extension> extension;
     bool is_reload;
     Vector<String> newly_declared_permissions;
+    // An archive's files, extracted where install() moves them from; discard() deletes them if it never does.
+    Optional<ByteString> staged_package {};
+    // The name of the packed extension this archive replaces, whose id and data it takes over.
+    Optional<String> replaces {};
 };
+
+// Whether the user must agree before the install: when it asks for permissions or host access, or replaces an
+// installed extension and so takes over its data.
+WEBVIEW_API bool install_needs_confirmation(PendingExtensionInstall const&);
 
 // The extensions the user has loaded, in install order. Each one is persisted in Settings as its id, its
 // directory, and whether it is enabled; the registry reloads them from disk at startup.
@@ -62,8 +70,18 @@ public:
     // Loads the extension in the directory without changing Settings or what's running, so its permissions can be
     // confirmed before install() persists them.
     ErrorOr<PendingExtensionInstall, String> prepare_unpacked(ByteString directory);
-    // Adds the pending install's newly declared permissions to its saved grant, and replaces any loaded instance.
+    // Extracts an .xpi (or a .zip of an extension) under the profile. One whose Gecko id is installed from an archive
+    // already replaces that extension, keeping its id, data, and grants.
+    ErrorOr<PendingExtensionInstall, String> prepare_packed(ByteString archive_path);
+    // The profile directory under which packed extensions' files live.
+    void set_profile_data_directory(ByteString directory) { m_profile_data_directory = move(directory); }
+    // Adds the pending install's newly declared permissions to its saved grant, and replaces any loaded instance. A
+    // packed install that can't move its files into place fails, leaving the installed extension as it was.
+    ErrorOr<NonnullRefPtr<Extension>, String> try_install(PendingExtensionInstall);
+    // An unpacked install, which can't fail.
     NonnullRefPtr<Extension> install(PendingExtensionInstall);
+    // Drops a pending install the user declined, with its staged files.
+    void discard(PendingExtensionInstall const&);
     // Loads an installed extension from disk again, keeping its grant. On failure, it's unloaded and kept as failed.
     ErrorOr<NonnullRefPtr<Extension>, String> reload(StringView id);
     void remove(StringView id);
@@ -99,11 +117,14 @@ private:
     void notify_changed();
     void record_failure(String id, ByteString directory, String error);
     void apply_registered_scripts(Extension&);
+    ByteString extensions_directory() const;
+    void recover_interrupted_installs() const;
 
     Settings& m_settings;
     ExtensionMessageBroker* m_message_broker { nullptr };
     Vector<ExtensionStorageStore*> m_storage_stores;
     ExtensionRegisteredScripts* m_registered_scripts { nullptr };
+    Optional<ByteString> m_profile_data_directory;
     Vector<NonnullRefPtr<Extension>> m_extensions;
     Vector<FailedExtension> m_failed_extensions;
     Vector<WeakPtr<ExtensionRegistryObserver>> m_observers;

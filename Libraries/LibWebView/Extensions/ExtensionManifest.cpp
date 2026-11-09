@@ -355,6 +355,16 @@ ErrorOr<ExtensionManifest, String> ExtensionManifest::parse(StringView manifest_
         if (auto page = options_ui->get_string("page"sv); page.has_value())
             manifest.options_page = *page;
     }
+    for (auto key : { "browser_specific_settings"sv, "applications"sv }) {
+        if (manifest.gecko_id.has_value())
+            break;
+        if (auto settings = object.get_object(key); settings.has_value()) {
+            if (auto gecko = settings->get_object("gecko"sv); gecko.has_value()) {
+                if (auto id = gecko->get_string("id"sv); id.has_value() && !id->is_empty())
+                    manifest.gecko_id = *id;
+            }
+        }
+    }
     if (!manifest.options_page.has_value() && object.has("options_page"sv)) {
         if (!object.get_string("options_page"sv).has_value())
             return error_for("options_page"sv, "must be a string"sv);

@@ -73,6 +73,7 @@
         <main>
             <div class="toolbar">
                 <span>Manage extensions for this profile</span>
+                <button id="install-from-file" class="secondary-button">Install from file...</button>
                 <button id="load-unpacked" class="primary-button">Load Unpacked</button>
             </div>
             <p id="operation-error" role="alert"></p>
@@ -91,6 +92,7 @@
         <dialog id="install-dialog" closedby="any" aria-labelledby="install-title">
             <h2 id="install-title">Add extension</h2>
             <p id="install-name"></p>
+            <p id="install-replaces" hidden></p>
             <div id="api-permissions">
                 <p>Allow these permissions:</p>
                 <ul id="install-permissions"></ul>
@@ -246,6 +248,12 @@
                 loadButton.disabled = true;
                 ladybird.sendMessage("loadUnpackedExtension");
             });
+            const fileButton = document.getElementById("install-from-file");
+            fileButton.addEventListener("click", () => {
+                operationError.textContent = "";
+                loadButton.disabled = true;
+                ladybird.sendMessage("installExtensionFromFile");
+            });
             document.addEventListener("WebUILoaded", () => ladybird.sendMessage("loadExtensions"));
             document.addEventListener("WebUIMessage", event => {
                 const { name, data } = event.detail;
@@ -258,6 +266,11 @@
                     loadButton.disabled = false;
                     installToken = data.token;
                     document.getElementById("install-name").textContent = data.name;
+                    const replaces = document.getElementById("install-replaces");
+                    replaces.hidden = !data.replaces;
+                    replaces.textContent = data.replaces
+                        ? `This replaces the installed \u201c${data.replaces}\u201d, and takes over its data and permissions.`
+                        : "";
                     document.getElementById("api-permissions").hidden = data.permissions.length === 0;
                     document.getElementById("host-permissions").hidden = data.hostPermissions.length === 0;
                     document
