@@ -75,6 +75,7 @@ public:
     void did_read_clipboard_item(u64 request_id, Web::Clipboard::SystemClipboardItem);
     void did_get_download_path(u64 request_id, Optional<ByteString>);
     void did_get_extension_directory(u64 request_id, Optional<ByteString>);
+    void set_extension_tabs_from_ui(Vector<WebView::ExtensionTab>, Vector<i64> window_focus_order);
 
 private:
     explicit Application(ApplicationHost*);
@@ -93,6 +94,8 @@ private:
     virtual void open_navigation_in_new_window(Web::HTML::PreparedNavigationDescriptor, WebView::IsPrivate) override;
     virtual NonnullRefPtr<Core::Promise<ByteString>> ask_user_for_download_path(ByteString const& file) const override;
     virtual void ask_user_for_extension_directory(Function<void(Optional<ByteString>)>) const override;
+    virtual Vector<WebView::ExtensionTab> extension_tabs() const override;
+    virtual Vector<i64> extension_window_focus_order() const override;
     virtual void display_download_confirmation_dialog(StringView download_name, LexicalPath const& path) const override;
     virtual void display_error_dialog(StringView error_message) const override;
     virtual void display_openssl_mismatch(PlatformFeatures::OpenSSLFacts const&) override;
@@ -144,6 +147,9 @@ private:
     StringView m_ui_pid;
     mutable Optional<Hub::UIInfo> m_ui_info;
     HashMap<u64, NonnullOwnPtr<View>> m_views;
+    // The UI's tabs and the order the user focused its windows in, as it last reported them.
+    Vector<WebView::ExtensionTab> m_extension_tabs_from_ui;
+    Vector<i64> m_extension_window_focus_order_from_ui;
     Optional<u64> m_active_view_id;
     bool m_ui_did_start { false };
     Vector<String> m_webdriver_windows_awaiting_ui;

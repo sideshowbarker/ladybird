@@ -374,6 +374,7 @@ void Tab::initialize(Optional<u64> hub_view_id)
     };
 
     view().on_url_change = [this](auto const& url) {
+        Application::the().report_extension_tabs();
         m_location_edit->set_url(url);
     };
 

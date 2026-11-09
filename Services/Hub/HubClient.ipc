@@ -26,6 +26,7 @@
 #include <LibWebView/AccessibilityTreeManager.h>
 #include <LibWebView/ContextMenuRequest.h>
 #include <LibWebView/DefaultBrowser.h>
+#include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/FileDownloader.h>
 #include <LibWebView/HistoryVisitTransition.h>
 #include <LibWebView/MicrophoneAuthorizer.h>
@@ -77,6 +78,21 @@ struct WebView::SitePermissionRow {
     Optional<WebView::PermissionDecision> decision;
     bool one_time_grant_is_live;
     bool requested_by_page;
+}
+
+[ExistingCpp]
+struct WebView::ExtensionTab {
+    i64 id;
+    i64 window_id;
+    i64 index;
+    bool active;
+    bool pinned;
+    WebView::IsPrivate is_private;
+    Optional<u64> view_id;
+    URL::URL url;
+    String title;
+    bool loading;
+    bool in_popup_window;
 }
 
 [ExistingCpp]

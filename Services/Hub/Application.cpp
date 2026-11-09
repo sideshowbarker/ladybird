@@ -254,6 +254,26 @@ void Application::did_get_extension_directory(u64 request_id, Optional<ByteStrin
         (*callback)(move(path));
 }
 
+void Application::set_extension_tabs_from_ui(Vector<WebView::ExtensionTab> tabs, Vector<i64> window_focus_order)
+{
+    m_extension_tabs_from_ui = move(tabs);
+    m_extension_window_focus_order_from_ui = move(window_focus_order);
+}
+
+Vector<WebView::ExtensionTab> Application::extension_tabs() const
+{
+    if (ConnectionFromUI::the())
+        return m_extension_tabs_from_ui;
+    return WebView::Application::extension_tabs();
+}
+
+Vector<i64> Application::extension_window_focus_order() const
+{
+    if (ConnectionFromUI::the())
+        return m_extension_window_focus_order_from_ui;
+    return WebView::Application::extension_window_focus_order();
+}
+
 void Application::display_download_confirmation_dialog(StringView download_name, LexicalPath const& path) const
 {
     if (auto* ui = ConnectionFromUI::the())

@@ -6,6 +6,7 @@
 
 #include <AK/GenericShorthands.h>
 #include <AK/Hex.h>
+#include <AK/QuickSort.h>
 #include <LibCore/ArgsParser.h>
 #include <LibCore/BrowserVersion.h>
 #include <LibCore/Environment.h>
@@ -1537,9 +1538,10 @@ BrowserWindow& Application::new_window(Vector<URL::URL> const& initial_urls, Win
 void Application::present_window(BrowserWindow& window, WindowConfiguration const& configuration, ShowWindow show_window)
 {
     set_active_window(window);
-    QObject::connect(&window, &QObject::destroyed, m_application.ptr(), [this, window = &window] {
+    QObject::connect(&window, &QObject::destroyed, m_application.ptr(), [this, window = &window, window_id = window.extension_window_id()] {
         if (m_active_window == window)
             m_active_window = nullptr;
+        m_extension_window_focus_order.remove_all_matching([&](auto id) { return id == window_id; });
     });
 
     window.set_window_rect(configuration.x, configuration.y, configuration.width, configuration.height);
@@ -2336,6 +2338,57 @@ void Application::open_url_in_new_tab_from_notification(URL::URL const& url, Opt
     }
     window->new_tab_from_url(url, Web::HTML::ActivateTab::Yes, BrowserWindow::TabLocation::end());
     window->bring_to_front();
+}
+
+static Vector<BrowserWindow*> browser_windows()
+{
+    Vector<BrowserWindow*> windows;
+    for (auto* widget : QApplication::topLevelWidgets()) {
+        if (auto* window = as_if<BrowserWindow>(widget))
+            windows.append(window);
+    }
+    quick_sort(windows, [](auto const* a, auto const* b) { return a->extension_window_id() < b->extension_window_id(); });
+    return windows;
+}
+
+WebView::ExtensionTab Application::extension_tab_for(BrowserWindow& window, Tab& tab)
+{
+    return {
+        .id = tab.extension_tab_id(),
+        .window_id = window.extension_window_id(),
+        .index = window.tab_index(&tab),
+        .active = &tab == window.current_tab(),
+        .pinned = tab.is_pinned(),
+        .is_private = window.is_private(),
+        .view_id = tab.is_loaded() ? Optional<u64> { tab.view().view_id() } : Optional<u64> {},
+        .url = tab.url(),
+        .title = ak_string_from_qstring(tab.title()),
+        .loading = tab.is_loading(),
+        .in_popup_window = window.is_popup_window(),
+    };
+}
+
+void Application::report_extension_tabs() const
+{
+    auto* hub = HubConnection::the_if_connected();
+    if (!hub)
+        return;
+    Vector<WebView::ExtensionTab> tabs;
+    for (auto* window : browser_windows()) {
+        for (int index = 0; index < window->tab_count(); ++index) {
+            if (auto* tab = window->tab_at(index))
+                tabs.append(extension_tab_for(*window, *tab));
+        }
+    }
+    hub->async_extension_tabs_changed(move(tabs), m_extension_window_focus_order);
+}
+
+void Application::set_active_window(BrowserWindow& window)
+{
+    m_active_window = &window;
+    m_extension_window_focus_order.remove_all_matching([&](auto id) { return id == window.extension_window_id(); });
+    m_extension_window_focus_order.prepend(window.extension_window_id());
+    report_extension_tabs();
 }
 
 Vector<BookmarkItem::Bookmark> Application::bookmarks_for_all_tabs_in_active_window() const

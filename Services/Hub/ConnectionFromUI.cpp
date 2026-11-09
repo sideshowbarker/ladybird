@@ -187,6 +187,11 @@ void ConnectionFromUI::answer_extension_directory(u64 request_id, Optional<ByteS
     Application::the().did_get_extension_directory(request_id, move(path));
 }
 
+void ConnectionFromUI::extension_tabs_changed(Vector<WebView::ExtensionTab> tabs, Vector<i64> window_focus_order)
+{
+    Application::the().set_extension_tabs_from_ui(move(tabs), move(window_focus_order));
+}
+
 static DownloadState state_of_download(WebView::FileDownloader::Download const& download)
 {
     DownloadState state;

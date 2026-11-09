@@ -325,6 +325,17 @@ public:
     Function<void()> on_compositor_process_death;
 
     virtual Optional<ViewImplementation&> active_web_view() const { return {}; }
+
+    // The browser's tabs, for extensions, in window and then tab order. A frontend with tabs of its own reports them, and
+    // the default reports each view marked as a tab, as the active tab of a window of its own.
+    virtual Vector<ExtensionTab> extension_tabs() const;
+    // The ids of the windows the user has focused, most recent first.
+    virtual Vector<i64> extension_window_focus_order() const { return {}; }
+    Optional<i64> last_focused_extension_window() const
+    {
+        auto order = extension_window_focus_order();
+        return order.is_empty() ? Optional<i64> {} : order.first();
+    }
     virtual Optional<ViewImplementation&> activate_tab_with_url(URL::URL const&, URL::ExcludeFragment) const { return {}; }
 
     virtual Optional<ViewImplementation&> open_blank_new_tab(Web::HTML::ActivateTab, ViewImplementation const* = nullptr) const { return {}; }

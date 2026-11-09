@@ -173,7 +173,12 @@ public:
     void report_active_view() const;
 
     BrowserWindow& active_window() const { return *m_active_window; }
-    void set_active_window(BrowserWindow& window) { m_active_window = &window; }
+    void set_active_window(BrowserWindow& window);
+    // A tab as extensions see it, for a report to the Hub.
+    static WebView::ExtensionTab extension_tab_for(BrowserWindow&, Tab&);
+    // The windows and tabs, and the order the user focused the windows in, as the Hub hears of them after every change.
+    void report_extension_tabs() const;
+    // A tab as extensions see it, for a report to the Hub.
     BrowserWindow* active_window_if_any() const { return m_active_window; }
     BrowserWindow* non_private_window_if_any() const;
 
@@ -397,6 +402,7 @@ private:
     HashMap<u64, NonnullRefPtr<WebView::ExternalURLHandler>> m_external_url_handlers;
     u64 m_next_external_url_handler_id { 1 };
     BrowserWindow* m_active_window { nullptr };
+    Vector<i64> m_extension_window_focus_order;
     OwnPtr<ProcessManagerWindow> m_process_manager_window;
     OwnPtr<CompositorLayersWindow> m_compositor_layers_window;
     QPointer<WebContentView> m_view_picking_compositor_layer;

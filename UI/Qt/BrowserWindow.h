@@ -14,6 +14,7 @@
 #include <LibWebCommon/HTML/ActivateTab.h>
 #include <LibWebCommon/Page/PageId.h>
 #include <LibWebView/BrowsingSession.h>
+#include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/Forward.h>
 #include <LibWebView/Settings.h>
 #include <UI/Qt/FullscreenDebounce.h>
@@ -162,6 +163,8 @@ public:
     SessionStore& session() const;
     Optional<WebView::HistoryEntry> history_entry_for_url(URL::URL const&) const;
     Optional<SessionWindowId> session_window_id() const { return m_session_window_id; }
+    i64 extension_window_id() const { return m_extension_window_id; }
+    bool is_popup_window() const { return m_is_popup_window == IsPopupWindow::Yes; }
 
     int tab_count() { return m_tabs_container->count(); }
     int tab_index(Tab*);
@@ -365,6 +368,7 @@ private:
     IsPopupWindow m_is_popup_window { IsPopupWindow::No };
 
     Optional<SessionWindowId> m_session_window_id;
+    i64 m_extension_window_id { WebView::allocate_extension_window_id() };
     size_t m_failed_download_count { 0 };
     size_t m_acknowledged_failed_download_count { 0 };
     Optional<i64> m_window_close_active_tab_index;
