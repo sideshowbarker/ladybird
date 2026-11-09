@@ -1,0 +1,18 @@
+Ladybird makes a manifest version 2 background page persistent unless
+background.persistent is false, and treats every version 3 page as
+nonpersistent, ignoring the key there with a logged warning. Chromium’s
+BackgroundInfo::LoadBackgroundPersistent() reads the same key for page
+backgrounds, and rejects a value that isn’t a boolean, as Ladybird does;
+its version 3 backgrounds are service workers, so it has no page case to
+compare. Gecko’s Extension.persistentBackground makes version 3
+backgrounds nonpersistent and ignores the key there with a warning,
+which is the behavior Ladybird follows.
+
+The 30-second idle timeout follows Gecko (the
+extensions.background.idle.timeout preference) and WebKit
+(WebExtensionContext::scheduleBackgroundContentToUnload(), 30 seconds
+outside its test runner); Chromium’s ProcessManager uses
+g_event_page_idle_time, 10 seconds. The bounded keepalive for version 3
+pages follows Chromium’s service-worker direction and Gecko’s
+IdleManager, which keeps a page only for a bounded time on pending work,
+rather than WebKit’s two-minute port grace period.
