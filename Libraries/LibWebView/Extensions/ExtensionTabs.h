@@ -40,6 +40,24 @@ struct ExtensionTab {
     bool in_popup_window { false };
 };
 
+// Which of the browser's windows has focus, as windows.onFocusChanged tells extensions: each change once.
+class WEBVIEW_API ExtensionWindowFocus {
+public:
+    static constexpr i64 no_window = -1;
+
+    // The window id to tell extensions of, when focus moved: a window's, or no_window when none of the browser's has it.
+    Optional<i64> focus_changed(i64 window_id)
+    {
+        if (m_focused == window_id)
+            return {};
+        m_focused = window_id;
+        return window_id;
+    }
+
+private:
+    Optional<i64> m_focused;
+};
+
 WEBVIEW_API i64 allocate_extension_tab_id();
 WEBVIEW_API i64 allocate_extension_window_id();
 

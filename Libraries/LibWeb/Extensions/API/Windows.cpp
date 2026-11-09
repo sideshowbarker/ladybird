@@ -53,7 +53,7 @@ GC::Ref<JS::Object> create_windows(JS::Realm& realm, MessagingContext& context)
     auto attributes = JS::Attribute::Writable | JS::Attribute::Configurable;
     windows->define_direct_property("WINDOW_ID_NONE"_utf16_fly_string, JS::Value(-1), 0);
     windows->define_direct_property("WINDOW_ID_CURRENT"_utf16_fly_string, JS::Value(-2), 0);
-    // Nothing reports a window opening, closing, or gaining focus yet, so these never fire.
+    // Nothing reports a window opening or closing yet, so onCreated and onRemoved never fire.
     for (auto name : { "onCreated"sv, "onRemoved"sv, "onFocusChanged"sv })
         windows->define_direct_property(Utf16FlyString::from_utf8(name), create_event(realm, context.event_listeners(MUST(String::formatted("windows.{}", name)))), attributes);
 

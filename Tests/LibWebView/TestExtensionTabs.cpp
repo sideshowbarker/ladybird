@@ -428,3 +428,17 @@ TEST_CASE(a_private_tab_has_no_events_for_an_extension_not_allowed_there)
     EXPECT(!WebView::extension_tab_change_info(viewer_for(extension), before, after).has_value());
     EXPECT(WebView::extension_tab_change_info(viewer_for(extension, {}, {}, true), before, after).has_value());
 }
+
+TEST_CASE(focus_changes_dispatch_once)
+{
+    WebView::ExtensionWindowFocus focus;
+    // The first window to gain focus is a change.
+    EXPECT_EQ(focus.focus_changed(3), Optional<i64> { 3 });
+    // Focus staying where it is changes nothing.
+    EXPECT_EQ(focus.focus_changed(3), Optional<i64> {});
+    EXPECT_EQ(focus.focus_changed(5), Optional<i64> { 5 });
+    // No window of the browser having focus is WINDOW_ID_NONE, once.
+    EXPECT_EQ(focus.focus_changed(WebView::ExtensionWindowFocus::no_window), Optional<i64> { -1 });
+    EXPECT_EQ(focus.focus_changed(WebView::ExtensionWindowFocus::no_window), Optional<i64> {});
+    EXPECT_EQ(focus.focus_changed(5), Optional<i64> { 5 });
+}
