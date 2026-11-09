@@ -1,5 +1,7 @@
-Ladybird parses single-digit minutes and seconds in any date string
-except an ISO-like one whose time follows a “T”. The other engines all
-do the same: V8’s DateParser::Parse(), SpiderMonkey’s ParseDate(), and
-WTF’s parseDate() each accept “12/24/2048 1:2”, “2000-01-01 1:1”, and
-“Sat, 01 Jan 2000 00:00:0” alike, and each rejects “2000-01-01T1:1”.
+Ladybird accepts single-digit minutes and seconds in every time, except
+one joined to an ISO-like date without a space. V8 does the same, in
+DateParser::Parse(), and so does SpiderMonkey, in ParseDate(): Each
+accepts “12/24/2048 1:2”, “1:2 12/24/2048”, and “Jan 1 2000 12:34:5”,
+and rejects “2000-01-01T1:1”. WebKit’s WTF parseDate() matches them,
+except that it rejects any date string that starts with a time — even
+one with two-digit minutes, such as “1:23 12/24/2048”.
