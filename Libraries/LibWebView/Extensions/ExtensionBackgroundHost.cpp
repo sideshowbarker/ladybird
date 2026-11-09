@@ -170,6 +170,16 @@ void ExtensionBackgroundHost::set_idle_timeout(StringView extension_id, AK::Dura
         (*background)->lifetime->set_idle_timeout(timeout);
 }
 
+void ExtensionBackgroundHost::unload(StringView extension_id)
+{
+    auto background = m_backgrounds.get(extension_id);
+    if (!background.has_value())
+        return;
+    // A page still starting has a start record in the broker, which only its finish clears.
+    Application::extension_message_broker().background_finished((*background)->id, (*background)->revision, false);
+    (*background)->lifetime->unload();
+}
+
 void ExtensionBackgroundHost::start_view(Background& record)
 {
     auto theme = this->theme();

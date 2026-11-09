@@ -38,6 +38,7 @@ endpoint WebContentTestClient routed by Web::PageId page_id
 
     [NotRouted] did_request_extension_popup_state_for_testing(Web::PageId page_id, String extension_id) => (String state)
     [NotRouted] did_request_extension_background_state_for_testing(Web::PageId page_id, String extension_id) => (String state)
+    [NotRouted] did_request_extension_background_unload_for_testing(Web::PageId page_id, String extension_id) =|
     [NotRouted] did_request_tab_is_playing_audio_for_testing(Web::PageId page_id) => (bool is_playing_audio)
     [NotRouted] did_request_tab_is_heard_playing_audio_for_testing(Web::PageId page_id) => (bool is_heard_playing_audio)
     [NotRouted] did_request_tab_is_using_microphone_for_testing(Web::PageId page_id) => (bool is_using_microphone)

@@ -6,6 +6,7 @@
 
 #include <AK/WeakPtr.h>
 #include <LibURL/Parser.h>
+#include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebView/Extensions/ExtensionMessageBroker.h>
 #include <LibWebView/Extensions/ExtensionStorageStore.h>
 
@@ -105,17 +106,39 @@ void ExtensionMessageBroker::dispatch_background_event(String const& extension_i
 {
     // Without this, every navigation in every tab would start every stopped event page.
     auto is_up = m_starting_backgrounds.contains(extension_id) || !background_targets(extension_id).is_empty();
-    if (!is_up && !background_listens_for(extension_id, event_name))
+    auto listens = background_listens_for(extension_id, event_name);
+    if (!is_up && !listens)
         return;
-    if (wake_background)
-        wake_background(extension_id);
-    report_activity(extension_id, false);
+    // And only an event the page listens to wakes it, cancels its suspension, or keeps it from going idle, or every
+    // tab's every change would.
+    if (listens) {
+        if (wake_background)
+            wake_background(extension_id);
+        report_activity(extension_id, false);
+    }
     if (auto revision = m_starting_backgrounds.get(extension_id); revision.has_value()) {
         m_queued_events.append({ extension_id, *revision, move(event_name), move(arguments_json) });
         return;
     }
     for (auto const& target : background_targets(extension_id))
         target.endpoint->dispatch_extension_event(extension_id, target.context_id, event_name, arguments_json);
+}
+
+void ExtensionMessageBroker::dispatch_extension_event(String const& extension_id, String event_name, String arguments_json)
+{
+    for (auto const& [endpoint, contexts] : m_contexts) {
+        for (auto const& [id, context] : contexts) {
+            if (context.extension_id != extension_id || endpoint->extension_revision(extension_id) != context.revision)
+                continue;
+            auto sender = endpoint->extension_message_sender(extension_id, context.document_id);
+            if (!sender.has_value() || sender->from_background || !sender->url.has_value())
+                continue;
+            auto url = URL::Parser::basic_parse(*sender->url);
+            if (url.has_value() && url->scheme() == Web::Extensions::scheme && url->serialized_host() == extension_id)
+                endpoint->dispatch_extension_event(extension_id, id, event_name, arguments_json);
+        }
+    }
+    dispatch_background_event(extension_id, move(event_name), move(arguments_json));
 }
 
 bool ExtensionMessageBroker::has_unanswered_dispatches(String const& extension_id, Optional<AK::Duration> max_age) const

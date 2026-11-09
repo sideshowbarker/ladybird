@@ -47,6 +47,8 @@ public:
     void suspend_acknowledged(StringView extension_id, u64 context_id);
     // For tests: how long one extension's page may sit idle.
     void set_idle_timeout(StringView extension_id, AK::Duration);
+    // Stops the background page at once, without the suspend handshake, as a test asks.
+    void unload(StringView extension_id);
 
     bool is_hosting(StringView extension_id) const;
     bool hosts_page(StringView extension_id, WebContentPage const&) const;

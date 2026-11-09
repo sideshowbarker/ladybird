@@ -999,6 +999,10 @@ void BrowserWindow::adopt_tab(Tab& tab, int index)
 
     m_tabs_container->set_current_tab(&tab);
     Application::the().report_extension_tabs();
+    // Its window changed, which its next report has to show.
+    Application::the().report_extension_tabs();
+    if (auto* hub = HubConnection::the_if_connected())
+        hub->async_extension_tab_changed(tab.extension_tab_id());
 }
 
 void BrowserWindow::move_tab_to_window(int index, BrowserWindow& target_window, int target_index)
@@ -1108,6 +1112,14 @@ void BrowserWindow::set_current_tab(Tab* tab)
 
     reposition_page_cards();
     Application::the().report_active_view();
+    // A window's first tab becomes current before the window holds it, so the report waits until it does.
+    if (m_current_tab) {
+        Core::deferred_invoke([tab_id = m_current_tab->extension_tab_id()] {
+            Application::the().report_extension_tabs();
+            if (auto* hub = HubConnection::the_if_connected())
+                hub->async_extension_tab_activated(tab_id);
+        });
+    }
 }
 
 void BrowserWindow::show_page_card(PageCardSlot slot, QString const& title, QString const& text, Vector<PageCard::Button> buttons)
@@ -1189,6 +1201,9 @@ bool BrowserWindow::close_tab(int index, SessionStore::KeepForReopening keep_for
     }
 
     auto* tab = m_tabs_container->tab(index);
+    Application::the().report_extension_tabs();
+    if (auto* hub = HubConnection::the_if_connected())
+        hub->async_extension_tab_closed(tab->extension_tab_id(), Application::extension_tab_for(*this, *tab));
     m_tabs_container->remove_tab(index);
     if (auto session_tab_id = tab->session_tab_id(); session_tab_id.has_value()) {
         SessionStore::TabClosed closed {
@@ -1250,6 +1265,9 @@ void BrowserWindow::pin_tab(Tab& tab, Optional<int> pinned_index)
         m_tabs_container->tab_bar()->moveTab(index, destination);
     pinned_state_changed(tab);
     Application::the().report_extension_tabs();
+    Application::the().report_extension_tabs();
+    if (auto* hub = HubConnection::the_if_connected())
+        hub->async_extension_tab_changed(tab.extension_tab_id());
 }
 
 void BrowserWindow::unpin_tab(Tab& tab)
@@ -1264,6 +1282,9 @@ void BrowserWindow::unpin_tab(Tab& tab)
         m_tabs_container->tab_bar()->moveTab(index, destination);
     pinned_state_changed(tab);
     Application::the().report_extension_tabs();
+    Application::the().report_extension_tabs();
+    if (auto* hub = HubConnection::the_if_connected())
+        hub->async_extension_tab_changed(tab.extension_tab_id());
 }
 
 void BrowserWindow::pinned_state_changed(Tab& tab)
@@ -2103,8 +2124,15 @@ void BrowserWindow::closeEvent(QCloseEvent* event)
         return;
     }
 
+    // The window's tabs close with it.
+    Application::the().report_extension_tabs();
+    if (auto* hub = HubConnection::the_if_connected())
+        hub->async_extension_window_closing(m_extension_window_id);
     Vector<Function<void()>> close_requests;
     for_each_tab([&](auto& tab) {
+        Application::the().report_extension_tabs();
+        if (auto* hub = HubConnection::the_if_connected())
+            hub->async_extension_tab_closed(tab.extension_tab_id(), Application::extension_tab_for(*this, tab));
         close_requests.append(tab.prepare_for_window_close());
     });
     for (auto& close_request : close_requests)

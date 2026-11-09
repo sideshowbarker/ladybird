@@ -239,6 +239,7 @@ void ViewImplementation::did_update_url()
     if (auto page = traversable().display_page(); page && page->routed_connection())
         page->routed_connection()->update_audio_capture_permission();
     update_displayed_url();
+    report_extension_tab_change();
 }
 
 void ViewImplementation::request_permission_prompt(PermissionPromptRequest request, PermissionPromptCallback on_outcome)
@@ -441,6 +442,13 @@ void ViewImplementation::set_title(Utf16String title)
 
     if (on_title_change)
         on_title_change(m_title);
+    report_extension_tab_change();
+}
+
+void ViewImplementation::report_extension_tab_change()
+{
+    if (m_extension_tab_id.has_value() && Application::is_initialized())
+        Application::the().extension_tab_changed(*m_extension_tab_id);
 }
 
 void ViewImplementation::set_favicon(Optional<Gfx::Bitmap const&> favicon)
@@ -3492,6 +3500,7 @@ void ViewImplementation::set_loading_state(bool is_loading)
     m_is_loading = is_loading;
     if (on_loading_state_change)
         on_loading_state_change(is_loading);
+    report_extension_tab_change();
 }
 
 void ViewImplementation::run_webdriver_content_command(u64 command_id, Web::WebDriver::SessionBrowsingContext browsing_context, String const& name, JsonValue payload, Vector<String> arguments)

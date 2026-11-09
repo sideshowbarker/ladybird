@@ -120,6 +120,12 @@ Messages::WebContentTestClient::DidRequestExtensionPopupStateForTestingResponse 
     return String {};
 }
 
+void WebContentTestClient::did_request_extension_background_unload_for_testing(Web::PageId page_id, String extension_id)
+{
+    if (auto* page = m_client.page(page_id))
+        page->did_request_extension_background_unload_for_testing(extension_id);
+}
+
 Messages::WebContentTestClient::DidRequestExtensionBackgroundStateForTestingResponse WebContentTestClient::did_request_extension_background_state_for_testing(Web::PageId page_id, String extension_id)
 {
     if (auto* page = m_client.page(page_id))

@@ -382,3 +382,49 @@ TEST_CASE(tab_urls_resolve_against_the_extension_and_reject_what_extensions_cann
     EXPECT_EQ(resolve("ladybird-extension://other/page.html"sv).error(), "Cannot navigate to another extension's page."sv);
     EXPECT_EQ(resolve("http://[::1"sv).error(), "Invalid url: \"http://[::1\"."sv);
 }
+
+static WebView::ExtensionTab tab_with(StringView url, StringView title, bool loading, WebView::IsPrivate is_private = WebView::IsPrivate::No)
+{
+    return { .id = 7, .window_id = 3, .index = 0, .active = true, .pinned = false, .is_private = is_private, .view_id = 1, .url = URL::Parser::basic_parse(url).value(), .title = MUST(String::from_utf8(title)), .loading = loading, .in_popup_window = false };
+}
+
+TEST_CASE(tab_events_follow_the_redaction_rule)
+{
+    auto with_tabs = descriptor_with({ "tabs"_string });
+    auto without = descriptor_with({});
+    auto before = tab_with("https://example.com/"sv, "Old"sv, false);
+    auto after = tab_with("https://example.com/"sv, "New"sv, false);
+
+    auto seen = WebView::extension_tab_change_info(viewer_for(with_tabs), before, after);
+    EXPECT(seen.has_value());
+    EXPECT_EQ(seen->serialized(), "{\"title\":\"New\"}"sv);
+    EXPECT(!WebView::extension_tab_change_info(viewer_for(without), before, after).has_value());
+
+    // Pinning shows no URL or title, so every extension sees it.
+    auto pinned = after;
+    pinned.pinned = true;
+    EXPECT_EQ(WebView::extension_tab_change_info(viewer_for(without), after, pinned)->serialized(), "{\"pinned\":true}"sv);
+}
+
+TEST_CASE(a_load_reports_loading_with_its_url_then_complete)
+{
+    auto extension = descriptor_with({ "tabs"_string });
+    auto idle = tab_with("https://example.com/"sv, "Title"sv, false);
+    auto loading = tab_with("https://example.org/"sv, "Title"sv, true);
+    auto complete = tab_with("https://example.org/"sv, "Title"sv, false);
+    EXPECT_EQ(WebView::extension_tab_change_info(viewer_for(extension), idle, loading)->serialized(), "{\"status\":\"loading\",\"url\":\"https://example.org/\"}"sv);
+    EXPECT_EQ(WebView::extension_tab_change_info(viewer_for(extension), loading, complete)->serialized(), "{\"status\":\"complete\"}"sv);
+    EXPECT(!WebView::extension_tab_change_info(viewer_for(extension), complete, complete).has_value());
+
+    // Without details access, the status still shows, but not the URL.
+    EXPECT_EQ(WebView::extension_tab_change_info(viewer_for(descriptor_with({})), idle, loading)->serialized(), "{\"status\":\"loading\"}"sv);
+}
+
+TEST_CASE(a_private_tab_has_no_events_for_an_extension_not_allowed_there)
+{
+    auto extension = descriptor_with({ "tabs"_string });
+    auto before = tab_with("https://example.com/"sv, "Old"sv, false, WebView::IsPrivate::Yes);
+    auto after = tab_with("https://example.com/"sv, "New"sv, true, WebView::IsPrivate::Yes);
+    EXPECT(!WebView::extension_tab_change_info(viewer_for(extension), before, after).has_value());
+    EXPECT(WebView::extension_tab_change_info(viewer_for(extension, {}, {}, true), before, after).has_value());
+}

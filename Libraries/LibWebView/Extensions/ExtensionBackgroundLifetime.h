@@ -75,6 +75,8 @@ public:
     void suspend_timer_fired();
     // The host stopped the page itself: the extension was disabled or removed, or its process went away.
     void stopped();
+    // Stops a page that is starting, running, or suspending at once, skipping the suspend handshake.
+    void unload();
 
 private:
     void arm_idle_timer();
