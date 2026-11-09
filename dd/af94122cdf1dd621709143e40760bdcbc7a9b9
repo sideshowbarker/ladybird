@@ -1,0 +1,10 @@
+When an extension’s registered content scripts change, Ladybird sends
+the page processes that extension’s registered scripts alone. Firefox
+does the same: ExtensionUserScripts broadcasts just the scripts
+involved, in an Extension:RegisterContentScripts message or its Update
+or Unregister counterpart, and ExtensionProcessScript applies them to
+that extension’s WebExtensionPolicy in each content process. Chromium’s
+UserScriptLoader::SendUpdate() sends a renderer UpdateUserScripts() with
+the scripts of one owner, named by that owner’s HostID. And WebKit’s
+WebExtensionContext::scriptingRegisterContentScripts() adds just the new
+scripts, through addInjectedContent().
