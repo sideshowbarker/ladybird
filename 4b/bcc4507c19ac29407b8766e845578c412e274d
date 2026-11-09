@@ -1,0 +1,25 @@
+Ladybird keeps one extension side panel per window and resolves the
+page it shows from the active tab’s override, else the extension’s
+global options, closing the panel where it’s disabled; open() takes a
+window id, a tab id, or both when they agree.
+
+Chrome’s SidePanelService keeps PanelOptions per extension with a
+default entry and per-tab entries (GetOptions(), SetOptions()), and its
+OpenSidePanelForWindow() refuses with “No active side panel for
+windowId: N” when the global options have no path or are disabled, as
+OpenSidePanelForTab() does for a tab; SidePanelOpenFunction refuses
+first with “At least one of `tabId` and `windowId` must be provided”
+and “The specified tab does not belong to the specified window.”.
+Chrome keeps a global panel’s document across tabs and shows a
+tab-specific one on its tab alone.
+
+Firefox’s SidebarController shows one sidebar per window, shared by
+the extensions and the built-in sidebars; ext-sidebarAction.js keeps a
+panel per tab and per window (getTargetFromDetails(), setPanel()),
+refuses tabId and windowId together, and drops a tab’s panel once the
+tab navigates somewhere else.
+
+WebKit’s WebExtensionContext keeps a WebExtensionSidebar per window
+and per tab (getSidebarWithIdentifiers()), refuses both identifiers at
+once, and its sidebarOpen() refuses a disabled sidebar (“the sidebar is
+not enabled”) and one with no panel (“no sidebar panel is set”).
