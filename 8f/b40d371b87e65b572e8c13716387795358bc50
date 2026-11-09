@@ -1,0 +1,29 @@
+Ladybird exempts a request whose client is an extension world’s
+settings object from the page’s Content Security Policy, in the request
+check, the response check, and report-only reporting, so a content
+script’s fetch(), XMLHttpRequest, WebSocket, and EventSource reach any
+host, whatever the page’s connect-src says. Requests of elements the
+content script adds to the page stay under the page’s policy.
+
+Blink decides a request’s policy by its world. BaseFetchContext checks
+GetContentSecurityPolicyForWorld(options.WorldForCsp()), and for an
+isolated world, LocalDOMWindow::GetContentSecurityPolicyForWorld()
+returns that world’s own policy. Chrome gives a manifest version 2
+extension’s world an empty policy (CSPInfo::GetIsolatedWorldCSP()), and
+a version 3 extension’s world one that constrains only script-src and
+object-src, so connect-src never binds a content script. XMLHttpRequest
+and EventSource record their world when they’re constructed (world_),
+FetchManager checks its world_, and WebSocketCommon asks the execution
+context’s GetContentSecurityPolicyForCurrentWorld().
+
+WebKit skips the page’s policy when the current world isn’t the normal
+one: Document::shouldBypassMainWorldContentSecurityPolicy() looks at the
+top call frame’s world, and XMLHttpRequest, EventSource, WebSocket, and
+FetchLoader pass ContentSecurityPolicyEnforcement::DoNotEnforce or skip
+allowConnectToSource() when it says so.
+
+Gecko lets a content script’s expanded principal overrule the page’s
+policy: LoadInfo::GetPolicyContainer() returns the add-on’s policy
+container, built from ExpandedPrincipal::GetCsp(), whenever the
+triggering principal OverridesCSP() the loading principal, and
+nsCSPService::ShouldLoad() checks that one instead of the document’s.
