@@ -12,6 +12,7 @@
 #include <LibWebView/WebUI.h>
 #include <LibWebView/WebUI/ApplicationWebUI.h>
 #include <LibWebView/WebUI/CrashReportsUI.h>
+#include <LibWebView/WebUI/ExtensionsUI.h>
 #include <LibWebView/WebUI/SettingsUI.h>
 #include <LibWebView/WebUI/SupportUI.h>
 
@@ -20,6 +21,7 @@ namespace WebView {
 static constexpr auto s_pages = to_array<WebUI::Page>({
     { "about"sv, "About URLs"sv, WebUI::PageType::Static },
     { "crashes"sv, "Crash Reports"sv, WebUI::PageType::Dynamic },
+    { "extensions"sv, "Extensions"sv, WebUI::PageType::Dynamic },
     { "newtab"sv, "New Tab"sv, WebUI::PageType::Static },
     { "settings"sv, "Settings"sv, WebUI::PageType::Dynamic },
     { "support"sv, "Support"sv, WebUI::PageType::Dynamic },
@@ -93,6 +95,8 @@ ErrorOr<RefPtr<WebUI>> WebUI::create(WebContentClient& client, Web::PageId page_
         web_ui = TRY(create_web_ui<ApplicationWebUI>(client, page_id, move(host)));
     else if (page->host == "crashes"sv)
         web_ui = TRY(create_web_ui<CrashReportsUI>(client, page_id, move(host)));
+    else if (page->host == "extensions"sv)
+        web_ui = TRY(create_web_ui<ExtensionsUI>(client, page_id, move(host)));
     else if (page->host.is_one_of("settings"sv, "welcome"sv))
         web_ui = TRY(create_web_ui<SettingsUI>(client, page_id, move(host)));
     else if (page->host == "support"sv)

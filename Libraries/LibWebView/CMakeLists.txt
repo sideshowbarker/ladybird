@@ -104,6 +104,7 @@ set(SOURCES
     WebUI/ApplicationWebUI.cpp
     WebUI/CrashReportsUI.cpp
     WebUI/SupportUI.cpp
+    WebUI/ExtensionsUI.cpp
     WebUI/SettingsUI.cpp
     WebWorkerClient.cpp
     WorkerAgentManager.cpp

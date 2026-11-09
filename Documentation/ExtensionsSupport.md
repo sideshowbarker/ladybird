@@ -7,19 +7,21 @@ The mechanism follows Ladybird’s process model: the UI process reads extension
 This document is for two audiences. The first part is for people who want to use or write an extension; the rest is for maintainers reviewing or extending the implementation.
 
 > [!NOTE]
-> What’s described here is extensions support for content scripts, extension pages and resources, runtime messaging, background pages, and local storage. There’s no toolbar button, popup, `tabs`, or `about:extensions` page yet. The _Future work_ section at the end lists what’s planned.
+> What’s described here is extensions support for content scripts, extension pages and resources, runtime messaging, background pages, and local storage. There’s no toolbar button, popup, or `tabs` API yet. The _Future work_ section at the end lists what’s planned.
 
 ## Using extensions
 
 ### Loading an unpacked extension
 
-Pass the directory that holds the extension’s `manifest.json` on the command line:
+Open `about:extensions` and choose Load Unpacked, then select the directory that holds `manifest.json`. The page asks for confirmation of the supported API permissions and host patterns declared by the extension. Add installs it; Cancel leaves the profile unchanged. If there are no permissions or host patterns to confirm, the extension is installed immediately.
+
+Or pass the directory on the command line:
 
 ```sh
 ladybird --load-extension /path/to/my-extension
 ```
 
-The flag can be repeated. Each directory is loaded, assigned an id, and recorded in the browser’s settings as its real, absolute path, so it loads again on every later start without the flag, whatever directory the browser starts in. A directory that’s already recorded — under any spelling of its path — keeps its id and whether it’s enabled when it’s loaded again, and is re-read from disk, which is how to pick up edits to the extension: Quit the browser and start it again (or start it again with the flag).
+The flag can be repeated. Each directory is loaded, assigned an id, and recorded in the browser’s settings as its real, absolute path, so it loads again on every later start without the flag, whatever directory the browser starts in. A directory that’s already recorded — under any spelling of its path — keeps its id and whether it’s enabled when it’s loaded again, and is re-read from disk, which is how to pick up edits to the extension: Choose Reload on the page, or restart the browser.
 
 An extension that can’t be loaded isn’t installed; the error names the offending manifest key or the file that couldn’t be read:
 
@@ -27,7 +29,9 @@ An extension that can’t be loaded isn’t installed; the error names the offen
 Could not load the extension in /path/to/my-extension: manifest.json: "content_scripts" entries need a non-empty "matches" array
 ```
 
-Installed extensions are enabled by default. There’s no UI yet for listing, disabling, or removing them; until the `about:extensions` page exists, that’s done by editing the `extensions` array in the settings file, where each entry is the extension’s `id`, its `path`, and whether it’s `enabled`.
+Installed extensions are enabled by default. `about:extensions` lists them in install order, with their localized name, version, description, directory, permissions, and state. Enable or disable them with the Enabled checkbox. Reload reads changes from disk. Remove asks for confirmation before deleting the extension from the profile and deleting its stored data; its source directory stays in place.
+
+An installed extension that fails to load stays in the list with its error. A failed reload stops the loaded extension and revokes its contexts. Fix the files and choose Reload to try again, or Remove to forget it. These entries stay in Settings across restarts.
 
 ### What an extension gets
 
@@ -85,11 +89,11 @@ Match patterns follow the usual grammar: `<all_urls>`, or `<scheme>://<host><pat
 
 ### Private windows
 
-Extensions are off in private windows by default. Set an installed extension’s `allowed_in_private` Settings key to `true` to opt in. Its background page remains in the normal profile, and its `storage.local` data is shared with normal windows. Changing the setting through the registry updates running processes immediately.
+Extensions are off in private windows by default. Select Allow in private windows for the extension on `about:extensions` to opt in. Its background page remains in the normal profile, and its `storage.local` data is shared with normal windows. Changing this setting updates running processes immediately. The management page shows the same profile-wide list in normal and private windows.
 
 ### Permission grants
 
-A first command-line installation grants the declared supported API permissions and saves them as `granted_permissions` in Settings. A reload keeps that grant set: Newly declared API permissions remain ungranted and are logged. Settings entries without this key have no API grants. The permission confirmation UI will arrive with `about:extensions`.
+A first command-line installation grants the declared supported API permissions and saves them as `granted_permissions` in Settings. A reload keeps that grant set: Newly declared API permissions remain ungranted and are logged. Settings entries without this key have no API grants. Load Unpacked on `about:extensions` shows the supported API permissions not already granted, together with the declared host patterns. Confirming adds those API permissions to the saved grants. Selecting an installed directory preserves its id, enabled state, and private-window setting. The Reload button keeps the saved grant set, just like a command-line reload.
 
 ### The `runtime` API
 
@@ -135,12 +139,12 @@ Each method returns a promise. With a final callback, it returns `undefined` and
 
 The UI process keeps `<profile data>/extensions/<id>/storage-local.json`, containing `{"formatVersion":1,"items":{...}}`. File IO runs on a worker. Each mutation replaces the file atomically before publishing its result. Write failures preserve the prior map; corrupt files and unsupported format versions report an error and remain in place for recovery. Temporary profiles keep the file under their temporary data directory.
 
-Disabling an extension keeps its storage. Removing it through the registry first revokes its contexts, then queues deletion after outstanding writes. Deletion failures are logged. Editing an extension out of Settings directly doesn’t run that removal operation. Private windows require the extension’s opt-in and share its normal-profile storage. The removal confirmation UI comes with `about:extensions`.
+Disabling an extension keeps its storage. Removing it through the registry first revokes its contexts, then queues deletion after outstanding writes. Deletion failures are logged. Editing an extension out of Settings directly doesn’t run that removal operation. Private windows require the extension’s opt-in and share its normal-profile storage. The Remove confirmation on `about:extensions` explains that stored data will be deleted.
 
 ### What isn’t there yet
 
 - No `storage.sync` or `storage.session`; no `tabs`, `scripting`, `action`, `webNavigation`, `webRequest`, or `declarativeNetRequest`.
-- No toolbar button, popup, options page, or `about:extensions`.
+- No toolbar button, popup, or options page.
 - No packaged extensions (`.xpi`, `.crx`, `.zip`): only unpacked directories.
 - A manifest version 3 `service_worker` runs as a script of the generated background page, not as a worker, so `self`, `importScripts()`, and worker-only APIs aren’t there, while `window` and `document` are. An extension that only uses the `runtime` API won’t notice.
 - Host permissions are recorded for APIs that use them; they don’t control declared content-script injection.
@@ -217,13 +221,15 @@ sequenceDiagram
     Ext->>Ext: read each content script's js and css
     Ext-->>Registry: Extension (manifest + ExtensionDescriptor)
     Registry->>Registry: persist {id, path, enabled} in Settings
-    Registry->>App: on_changed()
+    Registry->>App: extensions_changed()
     App->>WC: set_extensions(enabled descriptors)
     App->>Host: sync(registry), deferred to the event loop
     Host->>Host: start a hidden view per extension with a background
 ```
 
-`ExtensionRegistry::load_unpacked()` resolves the directory to its real path, then gives a new directory a fresh UUID and records it in Settings; a directory already in Settings, under any spelling, keeps its id. `restore_from_settings()` runs at startup (skipped in test mode, so tests never depend on the user’s installed extensions) and drops any entry whose directory no longer loads. Each load, and each change to whether an extension is enabled, gives it a new revision, so every process can tell the new instance from the one it replaced. Every change ends in `on_changed`, which drops the messaging contexts of a revision that’s gone, pushes the enabled descriptors to every live WebContent process, and resyncs the background host. A WebContent process that starts later gets the descriptors as part of its launch.
+`ExtensionRegistry::load_unpacked()` resolves the directory to its real path, then gives a new directory a fresh UUID and records it in Settings; a directory already in Settings, under any spelling, keeps its id. `restore_from_settings()` runs at startup (skipped in test mode, so tests never depend on the user’s installed extensions) and keeps any entry whose directory no longer loads, together with its load error. Each load, and each change to whether an extension is enabled, gives it a new revision, so every process can tell the new instance from the one it replaced. Every change notifies `ExtensionRegistryObserver::extensions_changed()`. The application observer drops the messaging contexts of a revision that’s gone, pushes the enabled descriptors to every live WebContent process, and resyncs the background host. A WebContent process that starts later gets the descriptors as part of its launch. Management-page observers send a fresh snapshot after each change.
+
+`prepare_unpacked()` reads the extension and reports newly declared supported permissions without changing the profile. `install()` applies the confirmed grants and replaces the loaded instance. The page keeps one pending install behind a token, discards it on cancellation or a registry change, and accepts directories only from the browser-owned picker. Opening that picker, confirming installation, and confirming removal consume the page’s transient user activation.
 
 The background host can’t create a view inside `Application::initialize()` — a view needs the event loop and the session the browser’s own first view sets up — so its first sync is deferred to the loop’s first turn. And since a view’s destructor reaches back into the Application, the host is destroyed first in `~Application()`.
 
@@ -466,7 +472,6 @@ Hooks elsewhere in LibWeb: `DOM/Document.{h,cpp}` (worlds, run_at bookkeeping, t
 Planned next, roughly in order:
 
 - `tabs.query()` and `tabs.sendMessage()` basics.
-- An `about:extensions` page: list, enable and disable, remove, load unpacked.
 - Event-page idle unload for background pages.
 - A toolbar button with a popup, `scripting.executeScript()`, `declarativeNetRequest` on the content blocker, `webNavigation`, observe-only `webRequest`, and a real background service worker.
 

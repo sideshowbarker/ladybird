@@ -30,6 +30,7 @@ set(ABOUT_PAGES
     bookmarks.html
     crashes.html
     downloads.html
+    extensions.html
     history.html
     newtab.html
     settings.html

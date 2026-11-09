@@ -70,6 +70,7 @@ public:
     void did_read_clipboard_text(u64 request_id, Utf16String);
     void did_read_clipboard_item(u64 request_id, Web::Clipboard::SystemClipboardItem);
     void did_get_download_path(u64 request_id, Optional<ByteString>);
+    void did_get_extension_directory(u64 request_id, Optional<ByteString>);
 
 private:
     explicit Application(ApplicationHost*);
@@ -87,6 +88,7 @@ private:
     virtual void open_navigation_in_new_tab(Web::HTML::PreparedNavigationDescriptor, Web::HTML::ActivateTab, WebView::ViewImplementation const* source_view = nullptr) const override;
     virtual void open_navigation_in_new_window(Web::HTML::PreparedNavigationDescriptor, WebView::IsPrivate) override;
     virtual NonnullRefPtr<Core::Promise<ByteString>> ask_user_for_download_path(ByteString const& file) const override;
+    virtual void ask_user_for_extension_directory(Function<void(Optional<ByteString>)>) const override;
     virtual void display_download_confirmation_dialog(StringView download_name, LexicalPath const& path) const override;
     virtual void display_error_dialog(StringView error_message) const override;
     virtual void display_update_check_result(WebView::UpdateCheckResult const&, WebView::UpdateCheckTrigger) override;
@@ -138,6 +140,7 @@ private:
     mutable HashMap<u64, Function<void(Utf16String)>> m_pending_clipboard_text_reads;
     mutable HashMap<u64, Function<void(Web::Clipboard::SystemClipboardItem)>> m_pending_clipboard_item_reads;
     mutable HashMap<u64, NonnullRefPtr<Core::Promise<ByteString>>> m_pending_download_paths;
+    mutable HashMap<u64, Function<void(Optional<ByteString>)>> m_pending_extension_directories;
     mutable HashMap<u64, WebView::ExternalURLHandlerCallback> m_pending_external_url_handlers;
     mutable HashMap<u64, Function<void(bool)>> m_pending_external_url_launches;
     struct NewTabSource {
