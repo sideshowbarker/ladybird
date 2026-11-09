@@ -1,0 +1,10 @@
+get matches query: true
+an unknown tab: No tab with id: 999999.
+reload: {"value":null}
+after the reload: ["loading","complete"]
+remove with an unknown id: No tab with id: 999999.
+nothing closed: 1
+remove one: {"value":null}
+remove a list: {"value":null}
+onRemoved: true true
+gone: 0

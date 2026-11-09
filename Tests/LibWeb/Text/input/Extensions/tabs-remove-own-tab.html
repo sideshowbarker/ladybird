@@ -1,0 +1,16 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // An extension page that removes its own tab goes away, and the browser carries on.
+        const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+        asyncTest(async done => {
+            await contentScriptReady();
+            const tab = (await sendToBackground({ type: "create", url: "self-remove.html" })).value;
+            while (!(await sendToBackground({ type: "removed" })).includes(tab.id)) await pause(20);
+            println(`its tab is gone: ${(await sendToBackground({ type: "query", id: tab.id })).value.length === 0}`);
+            done();
+        });
+    </script>
+</body>

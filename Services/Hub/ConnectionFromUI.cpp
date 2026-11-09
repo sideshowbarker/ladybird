@@ -259,6 +259,11 @@ void ConnectionFromUI::extension_window_closing(i64 window_id)
     Application::the().extension_window_closing(window_id);
 }
 
+void ConnectionFromUI::extension_tab_action_finished(u64 request_id, Optional<String> error)
+{
+    Application::the().did_finish_extension_tab_action(request_id, move(error));
+}
+
 static DownloadState state_of_download(WebView::FileDownloader::Download const& download)
 {
     DownloadState state;

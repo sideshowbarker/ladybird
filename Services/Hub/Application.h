@@ -79,6 +79,7 @@ public:
     void set_extension_tabs_from_ui(Vector<WebView::ExtensionTab>, Vector<i64> window_focus_order);
     void did_close_extension_popup(u64 view_id, WebView::ExtensionPopupHost::CloseReason);
     void did_finish_extension_tab_command(u64 request_id, Optional<WebView::ExtensionTab>, Optional<String> error);
+    void did_finish_extension_tab_action(u64 request_id, Optional<String> error);
 
 private:
     explicit Application(ApplicationHost*);
@@ -107,6 +108,8 @@ private:
     virtual WebView::ViewImplementation* extension_popup_view(i64 window_id) const override;
     virtual void create_extension_tab(WebView::ExtensionTabCreation const&, ExtensionTabCallback) override;
     virtual void update_extension_tab(i64 tab_id, WebView::ExtensionTabUpdate const&, ExtensionTabCallback) override;
+    virtual void close_extension_tab(i64 tab_id, ExtensionTabActionCallback) override;
+    virtual void reload_extension_tab(i64 tab_id, bool bypass_cache, ExtensionTabActionCallback) override;
     // The window a new tab goes to, chosen as the UI would: the one named, else the one last focused if the extension
     // may open there, else the first normal window; none means a new window.
     Optional<i64> extension_window_for_new_tab(WebView::ExtensionTabCreation const&) const;
@@ -185,6 +188,7 @@ private:
         Optional<URL::URL> url;
     };
     HashMap<u64, PendingExtensionTabCommand> m_pending_extension_tab_commands;
+    HashMap<u64, ExtensionTabActionCallback> m_pending_extension_tab_actions;
     mutable HashMap<u64, WebView::ExternalURLHandlerCallback> m_pending_external_url_handlers;
     mutable HashMap<u64, Function<void(bool)>> m_pending_external_url_launches;
     struct NewTabSource {

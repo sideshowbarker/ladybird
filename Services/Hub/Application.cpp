@@ -421,6 +421,41 @@ void Application::update_extension_tab(i64 tab_id, WebView::ExtensionTabUpdate c
     ui->async_extension_update_tab(request_id, tab_id, update);
 }
 
+void Application::close_extension_tab(i64 tab_id, ExtensionTabActionCallback callback)
+{
+    auto* ui = ConnectionFromUI::the();
+    if (!ui) {
+        WebView::Application::close_extension_tab(tab_id, move(callback));
+        return;
+    }
+    auto request_id = m_next_ui_request_id++;
+    m_pending_extension_tab_actions.set(request_id, move(callback));
+    ui->async_extension_close_tab(request_id, tab_id);
+}
+
+void Application::reload_extension_tab(i64 tab_id, bool bypass_cache, ExtensionTabActionCallback callback)
+{
+    auto* ui = ConnectionFromUI::the();
+    if (!ui) {
+        WebView::Application::reload_extension_tab(tab_id, bypass_cache, move(callback));
+        return;
+    }
+    auto request_id = m_next_ui_request_id++;
+    m_pending_extension_tab_actions.set(request_id, move(callback));
+    ui->async_extension_reload_tab(request_id, tab_id, bypass_cache);
+}
+
+void Application::did_finish_extension_tab_action(u64 request_id, Optional<String> error)
+{
+    auto callback = m_pending_extension_tab_actions.take(request_id);
+    if (!callback.has_value())
+        return;
+    if (error.has_value())
+        (*callback)(error.release_value());
+    else
+        (*callback)({});
+}
+
 void Application::did_finish_extension_tab_command(u64 request_id, Optional<WebView::ExtensionTab> tab, Optional<String> error)
 {
     auto command = m_pending_extension_tab_commands.take(request_id);

@@ -349,6 +349,10 @@ public:
     using ExtensionTabCallback = Function<void(ErrorOr<ExtensionTab, String>)>;
     virtual void create_extension_tab(ExtensionTabCreation const&, ExtensionTabCallback);
     virtual void update_extension_tab(i64 tab_id, ExtensionTabUpdate const&, ExtensionTabCallback);
+    // Close and reload a tab for tabs.remove() and tabs.reload(); a tab can close from its own page's call.
+    using ExtensionTabActionCallback = Function<void(ErrorOr<void, String>)>;
+    virtual void close_extension_tab(i64 tab_id, ExtensionTabActionCallback);
+    virtual void reload_extension_tab(i64 tab_id, bool bypass_cache, ExtensionTabActionCallback);
     // A tab that activates another document drops what extensions set for it alone, and an activeTab grant ends when
     // the document is of another origin; one that closes drops all of it.
     void extension_tab_activated_document(i64 tab_id, URL::URL const&);
@@ -711,6 +715,8 @@ private:
     Vector<OwnPtr<HeadlessWebView>> m_headless_extension_tabs;
     ErrorOr<ExtensionTab, String> create_headless_extension_tab(ExtensionTabCreation const&);
     ErrorOr<ExtensionTab, String> update_headless_extension_tab(i64 tab_id, ExtensionTabUpdate const&);
+    ErrorOr<void, String> close_headless_extension_tab(i64 tab_id);
+    ErrorOr<void, String> reload_headless_extension_tab(i64 tab_id, bool bypass_cache);
     // Each tab as it was at its last report, which its next tabs.onUpdated compares against.
     HashMap<i64, ExtensionTab> m_extension_tab_snapshots;
     HashTable<i64> m_closing_extension_windows;

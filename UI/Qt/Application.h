@@ -193,6 +193,10 @@ public:
     // the tab, and answers with the tab as it is now; the Hub then loads the page.
     void create_extension_tab(u64 request_id, u64 view_id, Optional<i64> window_id, Optional<i64> index, bool active, bool pinned);
     void update_extension_tab(u64 request_id, i64 tab_id, WebView::ExtensionTabUpdate const&);
+    // tabs.remove() and tabs.reload(); each answers the Hub once the tab has been asked to close or to reload.
+    void close_extension_tab(u64 request_id, i64 tab_id);
+    void reload_extension_tab(u64 request_id, i64 tab_id, bool bypass_cache);
+    // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.

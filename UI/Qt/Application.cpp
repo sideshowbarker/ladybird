@@ -2522,6 +2522,55 @@ void Application::update_extension_tab(u64 request_id, i64 tab_id, WebView::Exte
     hub->async_extension_tab_command_finished(request_id, {}, MUST(String::formatted("No tab with id: {}.", tab_id)));
 }
 
+void Application::close_extension_tab(u64 request_id, i64 tab_id)
+{
+    auto* hub = HubConnection::the_if_connected();
+    if (!hub)
+        return;
+    for (auto* window : browser_windows()) {
+        for (int index = 0; index < window->tab_count(); ++index) {
+            auto* tab = window->tab_at(index);
+            if (!tab || tab->extension_tab_id() != tab_id)
+                continue;
+            // tabs.remove() closes as the user closing the tab would, so its page's beforeunload can ask first, and from a
+            // later event loop turn, since the tab's own page may be the one asking.
+            QPointer<BrowserWindow> target { window };
+            QTimer::singleShot(0, target, [target, tab_id] {
+                if (!target)
+                    return;
+                for (int index = 0; index < target->tab_count(); ++index) {
+                    if (auto* tab = target->tab_at(index); tab && tab->extension_tab_id() == tab_id) {
+                        target->request_to_close_tab(index);
+                        return;
+                    }
+                }
+            });
+            hub->async_extension_tab_action_finished(request_id, {});
+            return;
+        }
+    }
+    hub->async_extension_tab_action_finished(request_id, MUST(String::formatted("No tab with id: {}.", tab_id)));
+}
+
+void Application::reload_extension_tab(u64 request_id, i64 tab_id, bool bypass_cache)
+{
+    auto* hub = HubConnection::the_if_connected();
+    if (!hub)
+        return;
+    for (auto* window : browser_windows()) {
+        for (int index = 0; index < window->tab_count(); ++index) {
+            auto* tab = window->tab_at(index);
+            if (!tab || tab->extension_tab_id() != tab_id)
+                continue;
+            tab->ensure_loaded();
+            tab->view().reload(bypass_cache ? WebView::BypassCache::Yes : WebView::BypassCache::No);
+            hub->async_extension_tab_action_finished(request_id, {});
+            return;
+        }
+    }
+    hub->async_extension_tab_action_finished(request_id, MUST(String::formatted("No tab with id: {}.", tab_id)));
+}
+
 Vector<BookmarkItem::Bookmark> Application::bookmarks_for_all_tabs_in_active_window() const
 {
     auto* window = m_active_window;

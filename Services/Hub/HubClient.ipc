@@ -316,6 +316,9 @@ endpoint HubClient
     // (a new one with no window id), or to change the tab; the UI answers with extension_tab_command_finished.
     extension_create_tab(u64 request_id, u64 view_id, Optional<i64> window_id, Optional<i64> index, bool active, bool pinned) =|
     extension_update_tab(u64 request_id, i64 tab_id, WebView::ExtensionTabUpdate update) =|
+    // tabs.remove() and tabs.reload(); the UI answers with extension_tab_action_finished.
+    extension_close_tab(u64 request_id, i64 tab_id) =|
+    extension_reload_tab(u64 request_id, i64 tab_id, bool bypass_cache) =|
     notification_show(u64 id, u64 page_id, Optional<u64> replaces, Web::NotificationsAPI::NotificationData data, String attribution, Optional<Gfx::ShareableBitmap> icon) =|
     notification_close(u64 id) =|
     media_session_update(Optional<Web::MediaSession::MediaSessionState> state) =|

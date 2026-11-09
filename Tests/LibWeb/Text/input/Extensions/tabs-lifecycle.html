@@ -1,0 +1,39 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // tabs.get() finds a tab as tabs.query() does, tabs.reload() loads it again, and tabs.remove() closes one tab or
+        // several, closing none if any id is unknown.
+        const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+        asyncTest(async done => {
+            await contentScriptReady();
+            const tab = (await sendToBackground({ type: "create", url: "blank.html" })).value;
+            while ((await sendToBackground({ type: "statuses", id: tab.id })).at(-1) !== "complete") await pause(20);
+
+            const got = (await sendToBackground({ type: "get", id: tab.id })).value;
+            const queried = (await sendToBackground({ type: "query", id: tab.id })).value[0];
+            println(`get matches query: ${JSON.stringify(got) === JSON.stringify(queried)}`);
+            println(`an unknown tab: ${(await sendToBackground({ type: "get", id: 999999 })).failed}`);
+
+            println(`reload: ${JSON.stringify(await sendToBackground({ type: "reload", id: tab.id }))}`);
+            let statuses;
+            while ((statuses = await sendToBackground({ type: "statuses", id: tab.id })).at(-1) !== "complete")
+                await pause(20);
+            println(`after the reload: ${JSON.stringify(statuses)}`);
+
+            const other = (await sendToBackground({ type: "create", url: "blank.html" })).value;
+            println(
+                `remove with an unknown id: ${(await sendToBackground({ type: "remove", ids: [other.id, 999999] })).failed}`
+            );
+            println(`nothing closed: ${(await sendToBackground({ type: "query", id: other.id })).value.length}`);
+            println(`remove one: ${JSON.stringify(await sendToBackground({ type: "remove", ids: tab.id }))}`);
+            println(`remove a list: ${JSON.stringify(await sendToBackground({ type: "remove", ids: [other.id] }))}`);
+            let removed;
+            while (!(removed = await sendToBackground({ type: "removed" })).includes(other.id)) await pause(20);
+            println(`onRemoved: ${removed.includes(tab.id)} ${removed.indexOf(tab.id) < removed.indexOf(other.id)}`);
+            println(`gone: ${(await sendToBackground({ type: "query", id: tab.id })).value.length}`);
+            done();
+        });
+    </script>
+</body>

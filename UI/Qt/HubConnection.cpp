@@ -420,6 +420,16 @@ void HubConnection::extension_update_tab(u64 request_id, i64 tab_id, WebView::Ex
     Application::the().update_extension_tab(request_id, tab_id, update);
 }
 
+void HubConnection::extension_close_tab(u64 request_id, i64 tab_id)
+{
+    Application::the().close_extension_tab(request_id, tab_id);
+}
+
+void HubConnection::extension_reload_tab(u64 request_id, i64 tab_id, bool bypass_cache)
+{
+    Application::the().reload_extension_tab(request_id, tab_id, bypass_cache);
+}
+
 void HubConnection::download_added(Hub::DownloadState download)
 {
     RemoteDownloads::the().did_add(download);

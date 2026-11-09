@@ -167,6 +167,7 @@ private:
     virtual void extension_tab_changed(i64 tab_id) override;
     virtual void extension_tab_closed(i64 tab_id, Optional<WebView::ExtensionTab> last_known) override;
     virtual void extension_window_closing(i64 window_id) override;
+    virtual void extension_tab_action_finished(u64 request_id, Optional<String> error) override;
     virtual void update_settings(u64 change_id, ByteString changes_json) override;
     virtual void view_answer(u64 view_id, u64 answer_id, bool answer) override;
     virtual void view_answer_permission_request(u64 view_id, u64 answer_id, Web::Permissions::PromptOutcome outcome) override;
