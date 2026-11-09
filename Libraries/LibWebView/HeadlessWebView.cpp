@@ -231,6 +231,8 @@ HeadlessWebView& HeadlessWebView::adopt_child_web_view(NonnullOwnPtr<HeadlessWeb
     };
     web_view->on_close = move(discard_child_web_view);
 
+    // Every window it holds is a tab of its own, as extensions see it.
+    web_view->mark_as_extension_tab();
     m_child_web_views.append(move(web_view));
     return *m_child_web_views.last();
 }

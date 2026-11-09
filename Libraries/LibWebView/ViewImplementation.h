@@ -196,6 +196,12 @@ public:
     void set_owner_document(Badge<PictureInPictureWindow>, CanonicalDocument const& document) { m_owner_document = document; }
     void did_leave_owners_tab(Badge<PictureInPictureWindow>);
 
+    // A frontend that keeps no tabs of its own marks each view it shows as a tab, which extensions then see as the active
+    // tab of a window of its own.
+    void mark_as_extension_tab();
+    Optional<i64> extension_tab_id() const { return m_extension_tab_id; }
+    Optional<i64> extension_window_id() const { return m_extension_window_id; }
+
     CanonicalTraversable& traversable() const;
     bool has_traversable() const { return m_top_level_traversable != nullptr; }
     // A page that comes to host any navigable of the tab gets the tab's settings: the spoofed User-Agent and
@@ -1258,6 +1264,8 @@ protected:
     u64 m_view_id { 0 };
     Optional<u64> m_owner_view_id;
     WeakPtr<CanonicalDocument const> m_owner_document;
+    Optional<i64> m_extension_tab_id;
+    Optional<i64> m_extension_window_id;
 
     HashMap<u64, NavigationListener> m_navigation_listeners;
     u64 m_next_navigation_listener_id { 1 };

@@ -16,6 +16,7 @@
 #include <LibWakeLock/DisplaySleepInhibitor.h>
 #include <LibWebCommon/Page/PageId.h>
 #include <LibWebCommon/Page/ScreenWakeLockState.h>
+#include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/FileDownloader.h>
 #include <LibWebView/Settings.h>
 #include <LibWebView/TabPerformanceStats.h>
@@ -149,6 +150,7 @@ public:
     void enter_report_review(Tab* tab_to_activate_on_close, Optional<QString> title = {});
 
     bool is_pinned() const { return m_is_pinned; }
+    i64 extension_tab_id() const { return m_extension_tab_id; }
     // BrowserWindow pins and unpins tabs, since it keeps each window's pinned tabs at the start of its strip.
     void set_pinned(bool);
 
@@ -272,6 +274,7 @@ private:
     bool m_is_pinned { false };
 
     Optional<SessionTabId> m_session_tab_id;
+    i64 m_extension_tab_id { WebView::allocate_extension_tab_id() };
     Optional<DeferredTab> m_deferred_tab;
 };
 

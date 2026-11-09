@@ -149,6 +149,7 @@ if (NOT WIN32)
         TestCrashOverlay.cpp
         TestCrashReportSubmission.cpp
         TestExtensionsUserActivation.cpp
+        TestExtensionTabs.cpp
         TestFavicon.cpp
         TestFileDownloader.cpp
         TestFocusWithoutSystemFocus.cpp

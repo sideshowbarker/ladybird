@@ -431,6 +431,7 @@ BrowserWindow::BrowserWindow(Vector<URL::URL> const& initial_urls, IsPopupWindow
     });
     QObject::connect(m_tabs_container, &TabWidget::tab_close_requested, this, &BrowserWindow::request_to_close_tab);
     QObject::connect(m_tabs_container->tab_bar(), &QTabBar::tabMoved, this, [this](int, int) {
+        Application::the().report_extension_tabs();
         sync_session_tab_order();
     });
 
@@ -906,6 +907,7 @@ void BrowserWindow::initialize_tab(Tab* tab)
         m_tabs_container->tab_bar()->update_microphone_indicators();
     });
     QObject::connect(tab, &Tab::loading_changed, this, [this] {
+        Application::the().report_extension_tabs();
         m_tabs_container->tab_bar()->update_loading_ring_animation();
     });
 
@@ -995,6 +997,7 @@ void BrowserWindow::adopt_tab(Tab& tab, int index)
     }
 
     m_tabs_container->set_current_tab(&tab);
+    Application::the().report_extension_tabs();
 }
 
 void BrowserWindow::move_tab_to_window(int index, BrowserWindow& target_window, int target_index)
@@ -1020,6 +1023,7 @@ void BrowserWindow::move_tab_to_window(int index, BrowserWindow& target_window, 
         tab->view().prepare_for_window_move();
     uninitialize_tab(tab);
     m_tabs_container->take_tab(index);
+    Application::the().report_extension_tabs();
     if (m_current_tab == tab)
         set_current_tab(m_tabs_container->count() > 0 ? m_tabs_container->tab(m_tabs_container->current_index()) : nullptr);
 
@@ -1087,6 +1091,7 @@ void BrowserWindow::set_current_tab(Tab* tab)
 
     m_current_tab = tab;
     m_background_tabs_from_current_tab.clear();
+    Application::the().report_extension_tabs();
 
     if (m_current_tab) {
         m_current_tab->clear_attention();
@@ -1191,6 +1196,7 @@ bool BrowserWindow::close_tab(int index, SessionStore::KeepForReopening keep_for
     }
     Application::the().update_reopen_recently_closed_actions();
     tab->deleteLater();
+    Application::the().report_extension_tabs();
 
     if (m_tabs_container->count() == 0)
         close();
@@ -1238,6 +1244,7 @@ void BrowserWindow::pin_tab(Tab& tab, Optional<int> pinned_index)
     if (index != destination)
         m_tabs_container->tab_bar()->moveTab(index, destination);
     pinned_state_changed(tab);
+    Application::the().report_extension_tabs();
 }
 
 void BrowserWindow::unpin_tab(Tab& tab)
@@ -1251,6 +1258,7 @@ void BrowserWindow::unpin_tab(Tab& tab)
     if (index != destination)
         m_tabs_container->tab_bar()->moveTab(index, destination);
     pinned_state_changed(tab);
+    Application::the().report_extension_tabs();
 }
 
 void BrowserWindow::pinned_state_changed(Tab& tab)
@@ -1323,6 +1331,7 @@ void BrowserWindow::update_window_title(QString const& title)
 
 void BrowserWindow::tab_title_changed(int index, QString const& title)
 {
+    Application::the().report_extension_tabs();
     m_tabs_container->set_tab_text(index, title);
     m_tabs_container->set_tab_tooltip(index, title);
 
