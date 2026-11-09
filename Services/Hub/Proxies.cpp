@@ -14,6 +14,37 @@ namespace Hub {
 
 static HashMap<u64, PictureInPictureWindowInUI*> s_picture_in_picture_windows;
 static HashMap<u64, ExtensionPopupInUI*> s_extension_popups;
+static HashMap<u64, ExtensionSidePanelInUI*> s_extension_side_panels;
+
+ExtensionSidePanelInUI::ExtensionSidePanelInUI(View& view, String const& extension_id, i64 window_id, u64 generation, String const& title, Vector<WebView::ExtensionManifest::IconPath> const& icon_files)
+    : m_view(view)
+    , m_view_id(view.view_id())
+    , m_extension_id(extension_id)
+    , m_window_id(window_id)
+    , m_generation(generation)
+{
+    s_extension_side_panels.set(m_view_id, this);
+    if (auto* ui = ConnectionFromUI::the())
+        ui->async_extension_side_panel_open(m_view_id, extension_id, window_id, view.is_private(), title, icon_files);
+}
+
+ExtensionSidePanelInUI::~ExtensionSidePanelInUI()
+{
+    s_extension_side_panels.remove(m_view_id);
+    if (auto* ui = ConnectionFromUI::the())
+        ui->async_extension_side_panel_close(m_view_id);
+}
+
+ExtensionSidePanelInUI* ExtensionSidePanelInUI::find(u64 view_id)
+{
+    return s_extension_side_panels.get(view_id).value_or(nullptr);
+}
+
+void ExtensionSidePanelInUI::set_header(String const& title, Vector<WebView::ExtensionManifest::IconPath> const& icon_files)
+{
+    if (auto* ui = ConnectionFromUI::the())
+        ui->async_extension_side_panel_set_header(m_view_id, title, icon_files);
+}
 
 ExtensionPopupInUI::ExtensionPopupInUI(View& view, String const& extension_id, i64 window_id, u64 generation)
     : m_view(view)

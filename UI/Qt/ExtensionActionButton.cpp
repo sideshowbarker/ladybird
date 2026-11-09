@@ -15,6 +15,19 @@
 
 namespace Ladybird {
 
+QIcon extension_icon(Vector<WebView::ExtensionManifest::IconPath> const& icon_files)
+{
+    QIcon icon;
+    for (auto const& file : icon_files) {
+        auto file_path = qstring_from_ak_string(file.path);
+        if (file.size == 0)
+            icon.addFile(file_path);
+        else
+            icon.addFile(file_path, QSize(static_cast<int>(file.size), static_cast<int>(file.size)));
+    }
+    return icon;
+}
+
 static constexpr int badge_padding = 4;
 
 ExtensionActionButton::ExtensionActionButton(QWidget* parent)

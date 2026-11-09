@@ -99,6 +99,8 @@ struct TabSettings {
     // buttons, and there is no toolbar row. The sidebar is then always on the left.
     bool everything_in_sidebar { false };
     Optional<u16> vertical_tabs_expanded_width;
+    // How wide the user last made an extension's side panel.
+    Optional<u16> extension_side_panel_width;
 };
 
 struct SearchEngineSettings {
