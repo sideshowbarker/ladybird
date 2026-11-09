@@ -26,6 +26,8 @@
 #include <LibWebView/AccessibilityTreeManager.h>
 #include <LibWebView/ContextMenuRequest.h>
 #include <LibWebView/DefaultBrowser.h>
+#include <LibWebView/Extensions/ExtensionActionRegistry.h>
+#include <LibWebView/Extensions/ExtensionManifest.h>
 #include <LibWebView/Extensions/ExtensionTabs.h>
 #include <LibWebView/FileDownloader.h>
 #include <LibWebView/HistoryVisitTransition.h>
@@ -81,6 +83,23 @@ struct WebView::SitePermissionRow {
 }
 
 [ExistingCpp]
+struct WebView::ExtensionManifest::IconPath {
+    u32 size;
+    String path;
+}
+
+[ExistingCpp]
+struct WebView::ExtensionActionState {
+    String title;
+    Vector<WebView::ExtensionManifest::IconPath> icon;
+    String popup;
+    String badge_text;
+    Gfx::Color badge_background_color;
+    Gfx::Color badge_text_color;
+    bool enabled;
+}
+
+[ExistingCpp]
 struct WebView::ExtensionTab {
     i64 id;
     i64 window_id;
@@ -93,6 +112,16 @@ struct WebView::ExtensionTab {
     String title;
     bool loading;
     bool in_popup_window;
+}
+
+// An extension's toolbar button as the UI shows it: the action's state for one tab (or globally), with the icon's
+// files resolved within the extension, and what the button's window needs to know to show it.
+struct Hub::ExtensionActionButton {
+    String extension_id;
+    String name;
+    WebView::ExtensionActionState state;
+    Vector<WebView::ExtensionManifest::IconPath> icon_files;
+    bool allowed_in_private;
 }
 
 [ExistingCpp]
@@ -330,6 +359,8 @@ endpoint HubClient
     app_read_clipboard_item(u64 request_id) =|
     app_ask_user_for_download_path(u64 request_id, ByteString file) =|
     app_ask_user_for_extension_directory(u64 request_id) =|
+    extension_action_list_changed() =|
+    extension_action_changed(String extension_id, Optional<i64> tab_id) =|
     settings_changed(ByteString settings_json, u64 last_applied_change_id) =|
     web_ui_opened(u64 web_ui_id, String host, WebView::IsPrivate is_private) =|
     web_ui_message(u64 web_ui_id, String name, JsonValue data) =|

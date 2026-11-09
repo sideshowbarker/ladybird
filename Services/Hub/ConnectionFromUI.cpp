@@ -17,6 +17,9 @@
 #include <LibWebView/BrowsingSession.h>
 #include <LibWebView/CrashReportStore.h>
 #include <LibWebView/DefaultBrowser.h>
+#include <LibWebView/Extensions/Extension.h>
+#include <LibWebView/Extensions/ExtensionActionRegistry.h>
+#include <LibWebView/Extensions/ExtensionRegistry.h>
 #include <LibWebView/GamepadManager.h>
 #include <LibWebView/MicrophoneAuthorizer.h>
 #include <LibWebView/PageTranslation.h>
@@ -190,6 +193,40 @@ void ConnectionFromUI::answer_extension_directory(u64 request_id, Optional<ByteS
 void ConnectionFromUI::extension_tabs_changed(Vector<WebView::ExtensionTab> tabs, Vector<i64> window_focus_order)
 {
     Application::the().set_extension_tabs_from_ui(move(tabs), move(window_focus_order));
+}
+
+Messages::HubServer::ExtensionActionButtonsResponse ConnectionFromUI::extension_action_buttons(Optional<i64> tab_id)
+{
+    auto& actions = WebView::Application::extension_action_registry();
+    auto& extensions = WebView::Application::extension_registry();
+    Vector<ExtensionActionButton> buttons;
+    for (auto const& id : actions.extensions_with_actions()) {
+        auto extension = extensions.find(id);
+        if (!extension)
+            continue;
+        auto state = actions.state(id, tab_id);
+        // The icon's paths resolve within the extension here, so the UI reads only files the extension may serve.
+        Vector<WebView::ExtensionManifest::IconPath> icon_files;
+        for (auto const& path : state.icon) {
+            auto file = extension->resolve_resource_path(ByteString::formatted("/{}", path.path));
+            if (file.is_error())
+                continue;
+            icon_files.append({ .size = path.size, .path = MUST(String::from_byte_string(file.value())) });
+        }
+        buttons.append({
+            .extension_id = id,
+            .name = extension->manifest().name,
+            .state = move(state),
+            .icon_files = move(icon_files),
+            .allowed_in_private = extensions.is_allowed_in_private(id),
+        });
+    }
+    return buttons;
+}
+
+void ConnectionFromUI::extension_action_clicked(String extension_id, i64 tab_id)
+{
+    Application::the().activate_extension_action(extension_id, tab_id);
 }
 
 static DownloadState state_of_download(WebView::FileDownloader::Download const& download)

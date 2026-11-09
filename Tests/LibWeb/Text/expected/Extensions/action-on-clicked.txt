@@ -1,0 +1,5 @@
+URL before a click: null
+clicks: 1, from this tab: true, with its URL: .../action-on-clicked.html
+URL after a click: .../action-on-clicked.html
+clicks with a popup: 0
+clicks after clearing it: 1

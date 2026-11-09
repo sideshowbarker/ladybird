@@ -88,6 +88,8 @@ struct FakeEndpoint final : public ExtensionMessageBroker::Endpoint {
 
     Vector<bool> suspends;
     virtual void dispatch_extension_suspend(String const&, u64, bool canceled) override { suspends.append(canceled); }
+    virtual void dispatch_extension_event(String const&, u64 context_id, String const& name, String const& arguments) override { events.append(MUST(String::formatted("{} {} {}", context_id, name, arguments))); }
+    Vector<String> events;
 
     bool storage_permission { true };
     Vector<Web::Extensions::StorageResult> storage_replies;
@@ -1046,4 +1048,32 @@ TEST_CASE(a_background_pages_own_storage_writes_dont_wake_it)
     f.broker.request_storage(f.a, 1, 2, { .operation = Web::Extensions::StorageRequest::Operation::Set, .keys = {}, .items_json = R"({"key":2})"_string }, f.store);
     f.drain();
     EXPECT_EQ(woken.size(), 1u);
+}
+
+TEST_CASE(background_events_reach_only_the_background_and_wait_for_it_to_start)
+{
+    ExtensionMessageBroker broker;
+    FakeEndpoint page, background;
+    background.background = true;
+    auto id = MUST(String::from_utf8(x));
+    Vector<String> woken;
+    broker.wake_background = [&](String const& extension) { woken.append(extension); };
+    broker.context_created(page, id, 1, { 1, 1 }, 1);
+    broker.context_created(background, id, 2, { 1, 1 }, 1);
+
+    broker.dispatch_background_event(id, "action.onClicked"_string, "[1]"_string);
+    EXPECT_EQ(background.events, (Vector { "2 action.onClicked [1]"_string }));
+    EXPECT(page.events.is_empty());
+    EXPECT_EQ(woken.size(), 1u);
+
+    // An event for a page that's starting waits until it has loaded, and is dropped if it fails to.
+    broker.background_starting(id, 1);
+    broker.dispatch_background_event(id, "action.onClicked"_string, "[2]"_string);
+    EXPECT_EQ(background.events.size(), 1u);
+    broker.background_finished(id, 1, true);
+    EXPECT_EQ(background.events.last(), "2 action.onClicked [2]"sv);
+    broker.background_starting(id, 1);
+    broker.dispatch_background_event(id, "action.onClicked"_string, "[3]"_string);
+    broker.background_finished(id, 1, false);
+    EXPECT_EQ(background.events.size(), 2u);
 }

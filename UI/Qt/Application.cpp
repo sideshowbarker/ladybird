@@ -77,6 +77,7 @@
 #include <UI/Qt/VersionPage.h>
 #include <UI/Qt/WebContentView.h>
 #include <UI/Qt/WebUIPage.h>
+#include <UI/Qt/WindowToolbar.h>
 
 #if defined(AK_OS_MACOS)
 #    include <UI/Qt/ApplicationIcon.h>
@@ -2389,6 +2390,22 @@ void Application::set_active_window(BrowserWindow& window)
     m_extension_window_focus_order.remove_all_matching([&](auto id) { return id == window.extension_window_id(); });
     m_extension_window_focus_order.prepend(window.extension_window_id());
     report_extension_tabs();
+}
+
+void Application::extension_action_list_changed()
+{
+    for (auto* window : browser_windows())
+        window->toolbar().update_extension_actions();
+}
+
+void Application::extension_action_changed(String const& extension_id, Optional<i64> tab_id)
+{
+    for (auto* window : browser_windows()) {
+        // A window's buttons show the state of its current tab.
+        auto* tab = window->current_tab();
+        if (!tab_id.has_value() || (tab && tab->extension_tab_id() == *tab_id))
+            window->toolbar().update_extension_action(extension_id);
+    }
 }
 
 Vector<BookmarkItem::Bookmark> Application::bookmarks_for_all_tabs_in_active_window() const

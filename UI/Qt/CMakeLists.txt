@@ -35,6 +35,7 @@ add_library(ladybird_impl STATIC
     ElidedLabel.cpp
     EventLoopImplementationQt.cpp
     EventLoopImplementationQtEventTarget.cpp
+    ExtensionActionButton.cpp
     FeedbackPopover.cpp
     FindInPageWidget.cpp
     HiddenPageSizing.cpp

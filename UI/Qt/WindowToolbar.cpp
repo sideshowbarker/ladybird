@@ -19,7 +19,9 @@
 #include <UI/Qt/ChromeStyle.h>
 #include <UI/Qt/DownloadPresentation.h>
 #include <UI/Qt/ElidedLabel.h>
+#include <UI/Qt/ExtensionActionButton.h>
 #include <UI/Qt/FeedbackPopover.h>
+#include <UI/Qt/HubConnection.h>
 #include <UI/Qt/Icon.h>
 #include <UI/Qt/LadybirdButton.h>
 #include <UI/Qt/LocationEdit.h>
@@ -1307,6 +1309,12 @@ WindowToolbar::WindowToolbar(WebView::IsPrivate is_private, QWidget* parent)
     m_location_edit_layout = new QHBoxLayout(m_location_edit_container);
     m_location_edit_layout->setSpacing(0);
 
+    m_extension_actions = new QWidget(m_toolbar);
+    auto* extension_actions_layout = new QHBoxLayout(m_extension_actions);
+    extension_actions_layout->setContentsMargins(0, 0, 0, 0);
+    extension_actions_layout->setSpacing(2);
+    update_extension_actions();
+
     m_performance_monitor_row = new QWidget(this);
     m_performance_monitor_row->setAutoFillBackground(true);
     // NB: The monitor is wider than a narrow window, which it shouldn't hold open.
@@ -1437,6 +1445,7 @@ void WindowToolbar::lay_out_as_row()
     toolbar_layout->addWidget(m_navigation_buttons, 0, Qt::AlignVCenter);
     m_navigation_buttons->show();
     toolbar_layout->addWidget(&field_slot(), 1);
+    toolbar_layout->addWidget(m_extension_actions, 0, Qt::AlignVCenter);
     toolbar_layout->addWidget(m_downloads_button, 0, Qt::AlignVCenter);
     if (m_feedback_button)
         toolbar_layout->addWidget(m_feedback_button, 0, Qt::AlignVCenter);
@@ -1475,6 +1484,7 @@ void WindowToolbar::lay_out_in_sidebar()
     m_window_controls_separator->hide();
 
     auto* footer_layout = static_cast<QBoxLayout*>(m_sidebar_footer->layout());
+    footer_layout->addWidget(m_extension_actions, 0, Qt::AlignVCenter);
     footer_layout->addWidget(m_downloads_button, 0, Qt::AlignVCenter);
     if (m_feedback_button)
         footer_layout->addWidget(m_feedback_button, 0, Qt::AlignVCenter);
@@ -1757,6 +1767,10 @@ void WindowToolbar::bind(Tab* tab)
     if (m_tab)
         QObject::disconnect(m_tab, nullptr, this, nullptr);
     m_tab = tab;
+
+    // The extension buttons show the selected tab's state, whether or not its page has loaded.
+    for (auto const& [id, button] : m_extension_action_buttons)
+        update_extension_action(id);
 
     // A tab that hasn't loaded has no page yet, so it is shown once it has one.
     if (!tab || !tab->is_loaded()) {
@@ -2042,6 +2056,68 @@ void WindowToolbar::recreate_icons()
     if (m_feedback_button)
         m_feedback_button->setIcon(create_chrome_icon(ChromeIcon::Feedback, Theme::chrome_palette(*this), activity, TOOLBAR_ICON_SIZE));
     update_window_control_icons();
+}
+
+// An extension's icon at the button's size, from the files the Hub resolved within the extension.
+static QIcon extension_action_icon(Vector<WebView::ExtensionManifest::IconPath> const& icon_files)
+{
+    QIcon icon;
+    for (auto const& file : icon_files) {
+        auto file_path = qstring_from_ak_string(file.path);
+        if (file.size == 0)
+            icon.addFile(file_path);
+        else
+            icon.addFile(file_path, QSize(static_cast<int>(file.size), static_cast<int>(file.size)));
+    }
+    return icon;
+}
+
+// The extensions' buttons as the Hub has them, in their state for the toolbar's tab, or the global one with no tab.
+Vector<Hub::ExtensionActionButton> WindowToolbar::extension_action_buttons_from_hub() const
+{
+    auto* hub = HubConnection::the_if_connected();
+    if (!hub)
+        return {};
+    return hub->extension_action_buttons(m_tab ? Optional<i64> { m_tab->extension_tab_id() } : Optional<i64> {});
+}
+
+void WindowToolbar::update_extension_actions()
+{
+    auto is_private = m_is_private == WebView::IsPrivate::Yes;
+
+    for (auto& [id, button] : m_extension_action_buttons)
+        button->deleteLater();
+    m_extension_action_buttons.clear();
+
+    for (auto const& description : extension_action_buttons_from_hub()) {
+        // A private window shows only the extensions allowed there.
+        if (is_private && !description.allowed_in_private)
+            continue;
+        auto id = description.extension_id;
+        auto* button = new ExtensionActionButton(m_extension_actions);
+        QObject::connect(button, &QToolButton::clicked, this, [this, id] {
+            if (m_tab)
+                HubConnection::the().async_extension_action_clicked(id, m_tab->extension_tab_id());
+        });
+        button->set_state(description.state, extension_action_icon(description.icon_files));
+        m_extension_actions->layout()->addWidget(button);
+        m_extension_action_buttons.append({ id, button });
+    }
+    m_extension_actions->setVisible(!m_extension_action_buttons.is_empty());
+}
+
+void WindowToolbar::update_extension_action(String const& extension_id)
+{
+    if (!m_tab)
+        return;
+    for (auto const& description : extension_action_buttons_from_hub()) {
+        if (description.extension_id != extension_id)
+            continue;
+        for (auto& [id, button] : m_extension_action_buttons) {
+            if (id == extension_id)
+                button->set_state(description.state, extension_action_icon(description.icon_files));
+        }
+    }
 }
 
 void WindowToolbar::update_downloads_button()

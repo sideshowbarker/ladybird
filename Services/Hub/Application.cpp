@@ -274,6 +274,18 @@ Vector<i64> Application::extension_window_focus_order() const
     return WebView::Application::extension_window_focus_order();
 }
 
+void Application::extension_action_list_changed()
+{
+    if (auto* ui = ConnectionFromUI::the())
+        ui->async_extension_action_list_changed();
+}
+
+void Application::extension_action_changed(String const& extension_id, Optional<i64> tab_id)
+{
+    if (auto* ui = ConnectionFromUI::the())
+        ui->async_extension_action_changed(extension_id, tab_id);
+}
+
 void Application::display_download_confirmation_dialog(StringView download_name, LexicalPath const& path) const
 {
     if (auto* ui = ConnectionFromUI::the())

@@ -8,6 +8,7 @@
 
 #include <AK/Optional.h>
 #include <AK/kmalloc.h>
+#include <Hub/HubClientEndpoint.h>
 #include <LibWebView/FileDownloader.h>
 #include <LibWebView/Forward.h>
 #include <LibWebView/Settings.h>
@@ -27,6 +28,7 @@ namespace Ladybird {
 class BrowserWindow;
 class DownloadsButton;
 class DownloadsPopover;
+class ExtensionActionButton;
 class FeedbackButton;
 class FeedbackPopover;
 class LocationEdit;
@@ -102,6 +104,12 @@ public:
     void update_downloads_button();
     void update_feedback_button();
 
+    // Rebuilds the extension buttons from the extensions with actions, or refreshes one extension's button for the tab
+    // the toolbar shows.
+    void update_extension_actions();
+    void update_extension_action(String const& extension_id);
+    Vector<Hub::ExtensionActionButton> extension_action_buttons_from_hub() const;
+
 private:
     virtual bool event(QEvent*) override;
     virtual bool eventFilter(QObject*, QEvent*) override;
@@ -162,6 +170,8 @@ private:
     QPointer<LocationEdit> m_location_edit;
     QWidget* m_performance_monitor_row { nullptr };
     PerformanceMonitorWidget* m_performance_monitor { nullptr };
+    QWidget* m_extension_actions { nullptr };
+    Vector<std::pair<String, ExtensionActionButton*>> m_extension_action_buttons;
     QWidget* m_window_controls_separator { nullptr };
     QWidget* m_sidebar_slot { nullptr };
     QWidget* m_trailing_sidebar_slot { nullptr };

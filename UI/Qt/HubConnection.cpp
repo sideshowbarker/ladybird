@@ -385,6 +385,16 @@ void HubConnection::app_ask_user_for_extension_directory(u64 request_id)
     Application::the().ask_user_for_extension_directory(request_id);
 }
 
+void HubConnection::extension_action_list_changed()
+{
+    Application::the().extension_action_list_changed();
+}
+
+void HubConnection::extension_action_changed(String extension_id, Optional<i64> tab_id)
+{
+    Application::the().extension_action_changed(extension_id, tab_id);
+}
+
 void HubConnection::download_added(Hub::DownloadState download)
 {
     RemoteDownloads::the().did_add(download);

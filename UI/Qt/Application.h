@@ -178,6 +178,10 @@ public:
     static WebView::ExtensionTab extension_tab_for(BrowserWindow&, Tab&);
     // The windows and tabs, and the order the user focused the windows in, as the Hub hears of them after every change.
     void report_extension_tabs() const;
+    // The Hub tells of a change to the extensions with toolbar buttons, or to one button's state for a tab or globally.
+    void extension_action_list_changed();
+    void extension_action_changed(String const& extension_id, Optional<i64> tab_id);
+    // A tab as extensions see it, for a report to the Hub.
     // A tab as extensions see it, for a report to the Hub.
     BrowserWindow* active_window_if_any() const { return m_active_window; }
     BrowserWindow* non_private_window_if_any() const;
