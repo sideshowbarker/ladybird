@@ -247,6 +247,7 @@ private:
     virtual String dump_site_isolation_process_tree_for_testing() override;
     virtual String extension_popup_state_for_testing(String const& extension_id) override;
     virtual String extension_background_state_for_testing(String const& extension_id) override;
+    virtual void unload_extension_background_for_testing(String const& extension_id) override;
     virtual void crash_remote_frame_processes_for_testing() override;
     virtual void close_tab_for_testing() override;
     virtual void page_did_spoof_document_origin_for_testing(Web::HTML::EnvironmentSettingsObject const&, URL::Origin const&) override;

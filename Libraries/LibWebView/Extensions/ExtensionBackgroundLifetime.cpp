@@ -117,4 +117,14 @@ void ExtensionBackgroundLifetime::finish_suspension()
     m_callbacks.stop();
 }
 
+void ExtensionBackgroundLifetime::unload()
+{
+    if (m_state == State::Stopped)
+        return;
+    m_state = State::Stopped;
+    m_callbacks.disarm_idle_timer();
+    m_callbacks.disarm_suspend_timer();
+    m_callbacks.stop();
+}
+
 }

@@ -239,6 +239,26 @@ void ConnectionFromUI::extension_tab_command_finished(u64 request_id, Optional<W
     Application::the().did_finish_extension_tab_command(request_id, move(tab), move(error));
 }
 
+void ConnectionFromUI::extension_tab_activated(i64 tab_id)
+{
+    Application::the().extension_tab_activated(tab_id);
+}
+
+void ConnectionFromUI::extension_tab_changed(i64 tab_id)
+{
+    Application::the().extension_tab_changed(tab_id);
+}
+
+void ConnectionFromUI::extension_tab_closed(i64 tab_id, Optional<WebView::ExtensionTab> last_known)
+{
+    Application::the().extension_tab_closed(tab_id, move(last_known));
+}
+
+void ConnectionFromUI::extension_window_closing(i64 window_id)
+{
+    Application::the().extension_window_closing(window_id);
+}
+
 static DownloadState state_of_download(WebView::FileDownloader::Download const& download)
 {
     DownloadState state;

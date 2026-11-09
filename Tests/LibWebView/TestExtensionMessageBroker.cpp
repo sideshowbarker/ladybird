@@ -1060,6 +1060,7 @@ TEST_CASE(background_events_reach_only_the_background_and_wait_for_it_to_start)
     broker.wake_background = [&](String const& extension) { woken.append(extension); };
     broker.context_created(page, id, 1, { 1, 1 }, 1);
     broker.context_created(background, id, 2, { 1, 1 }, 1);
+    broker.set_event_listeners(background, id, 2, { "action.onClicked"_string });
 
     broker.dispatch_background_event(id, "action.onClicked"_string, "[1]"_string);
     EXPECT_EQ(background.events, (Vector { "2 action.onClicked [1]"_string }));
@@ -1140,4 +1141,28 @@ TEST_CASE(a_running_background_gets_every_event_and_other_pages_listeners_dont_c
     broker.dispatch_background_event(id, "tabs.onUpdated"_string, "[1]"_string);
     EXPECT_EQ(background.events, (Vector { "2 tabs.onUpdated [1]"_string }));
     EXPECT(!broker.background_listens_for(id, "tabs.onUpdated"sv));
+}
+
+TEST_CASE(only_an_event_a_background_listens_to_keeps_it_awake)
+{
+    ExtensionMessageBroker broker;
+    FakeEndpoint background;
+    background.background = true;
+    auto id = MUST(String::from_utf8(x));
+    Vector<bool> activity;
+    broker.on_activity = [&](String const&, bool from_background) { activity.append(from_background); };
+    broker.context_created(background, id, 1, { 1, 1 }, 1);
+    broker.set_event_listeners(background, id, 1, { "action.onClicked"_string });
+
+    Vector<String> woken;
+    broker.wake_background = [&](String const& extension) { woken.append(extension); };
+
+    // The page gets both, but only the one it listens to counts as activity, or wakes it from suspending.
+    broker.dispatch_background_event(id, "tabs.onUpdated"_string, "[]"_string);
+    EXPECT(activity.is_empty());
+    EXPECT(woken.is_empty());
+    broker.dispatch_background_event(id, "action.onClicked"_string, "[]"_string);
+    EXPECT_EQ(activity.size(), 1u);
+    EXPECT_EQ(woken.size(), 1u);
+    EXPECT_EQ(background.events.size(), 2u);
 }

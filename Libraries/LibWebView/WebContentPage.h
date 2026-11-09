@@ -469,6 +469,7 @@ private:
     virtual void trigger_now_playing_action_for_testing(Web::Bindings::MediaSessionAction action, Optional<double> seek_offset, Optional<double> seek_time, Optional<bool> fast_seek) override;
     Messages::WebContentTestClient::DidRequestExtensionPopupStateForTestingResponse did_request_extension_popup_state_for_testing(String const& extension_id);
     Messages::WebContentTestClient::DidRequestExtensionBackgroundStateForTestingResponse did_request_extension_background_state_for_testing(String const& extension_id);
+    void did_request_extension_background_unload_for_testing(String const& extension_id);
 
     // How the extension sees the tabs from this page: from the window of its tab or popup, if it's in one.
     ExtensionTabViewer extension_tab_viewer(String const& extension_id, Web::Extensions::ExtensionDescriptor const&, ReadonlySpan<ExtensionTab>);

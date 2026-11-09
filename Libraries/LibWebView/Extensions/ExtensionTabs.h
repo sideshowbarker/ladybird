@@ -81,6 +81,11 @@ WEBVIEW_API Optional<i64> last_focused_extension_window_for(ReadonlySpan<i64> fo
 
 WEBVIEW_API JsonObject serialize_extension_tab(ExtensionTabViewer const&, ExtensionTab const&);
 
+// What tabs.onUpdated reports to the extension of a tab's change: the status, URL, title, and pin that changed, without
+// the URL and title when it may not see them. It's empty when the extension may not see the tab, or nothing it sees
+// changed.
+WEBVIEW_API Optional<JsonObject> extension_tab_change_info(ExtensionTabViewer const&, ExtensionTab const& before, ExtensionTab const& after);
+
 // The tabs that match a tabs.query() argument, whose keys and value types the renderer has already checked.
 WEBVIEW_API ErrorOr<JsonArray, String> query_extension_tabs(ExtensionTabViewer const&, ReadonlySpan<ExtensionTab>, JsonObject const& query);
 

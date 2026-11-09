@@ -1,0 +1,43 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // A tab an extension opens, retitles, and closes yields onActivated, onUpdated, and onRemoved, in that order.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const token = `events-${Math.random()}`;
+            const id = await sendToBackground({ type: "open", token });
+            const eventsWhere = async predicate => {
+                let events;
+                while (!(events = await sendToBackground({ type: "events", id })).some(predicate))
+                    await new Promise(resolve => setTimeout(resolve, 20));
+                return events;
+            };
+            await eventsWhere(event => event.changeInfo?.status === "complete");
+            await sendToBackground({ type: "retitle", token, title: "Retitled" });
+            await eventsWhere(event => event.changeInfo?.title === "Retitled");
+            await sendToBackground({ type: "close", token });
+            const events = await eventsWhere(event => event.type === "removed");
+
+            const updates = events.filter(event => event.type === "updated");
+            println(`activated: ${events[0].type === "activated" && events[0].hasWindow}`);
+            println(
+                `loading with its URL: ${updates.some(event => event.changeInfo.status === "loading")} ${updates.some(event => event.changeInfo.url?.endsWith(token))}`
+            );
+            println(`complete: ${updates.some(event => event.changeInfo.status === "complete")}`);
+            println(`retitled: ${updates.some(event => event.changeInfo.title === "Retitled")}`);
+            println(
+                `every update after the URL has it: ${updates.slice(updates.findIndex(event => event.changeInfo.url)).every(event => event.tabUrl.includes(token))}`
+            );
+            println(
+                `no update for the initial about:blank: ${!updates.some(event => event.changeInfo.url === "about:blank")}`
+            );
+            const removed = events.at(-1);
+            println(
+                `removed last: ${removed.type} ${typeof removed.removeInfo.windowId} ${removed.removeInfo.isWindowClosing}`
+            );
+            done();
+        });
+    </script>
+</body>

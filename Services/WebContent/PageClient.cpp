@@ -2183,6 +2183,12 @@ String PageClient::extension_popup_state_for_testing(String const& extension_id)
     return "{}"_string;
 }
 
+void PageClient::unload_extension_background_for_testing(String const& extension_id)
+{
+    if (auto* test_connection = client().test_connection())
+        test_connection->async_did_request_extension_background_unload_for_testing(m_id, extension_id);
+}
+
 String PageClient::extension_background_state_for_testing(String const& extension_id)
 {
     if (auto* test_connection = client().test_connection())

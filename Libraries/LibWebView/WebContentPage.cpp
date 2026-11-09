@@ -4176,6 +4176,11 @@ Messages::WebContentTestClient::DidRequestUiProcessSessionHistoryForTestingRespo
     return { "{}"_string };
 }
 
+void WebContentPage::did_request_extension_background_unload_for_testing(String const& extension_id)
+{
+    Application::extension_background_host().unload(extension_id);
+}
+
 Messages::WebContentTestClient::DidRequestExtensionBackgroundStateForTestingResponse WebContentPage::did_request_extension_background_state_for_testing(String const& extension_id)
 {
     return Application::extension_background_host().is_hosting(extension_id) ? "running"_string : "stopped"_string;

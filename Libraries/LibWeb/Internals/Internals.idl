@@ -38,6 +38,9 @@ interface Internals {
     DOMString extensionPopupState(DOMString extensionId);
     // "running" while the extension's background page has a view (starting or loaded), else "stopped".
     DOMString extensionBackgroundState(DOMString extensionId);
+    // Unloads the extension's background page at once, as its idle timer would in a quiet browser; a test that needs
+    // the page stopped asks for it this way, since other tabs' events keep an event page that listens to them awake.
+    undefined unloadExtensionBackground(DOMString extensionId);
 
     undefined gc();
 

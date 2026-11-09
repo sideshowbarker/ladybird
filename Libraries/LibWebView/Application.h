@@ -343,7 +343,15 @@ public:
     // A tab that activates another document drops what extensions set for it alone, and an activeTab grant ends when
     // the document is of another origin; one that closes drops all of it.
     void extension_tab_activated_document(i64 tab_id, URL::URL const&);
-    void extension_tab_closed(i64 tab_id);
+    // A frontend that knows the tab as it is when it closes passes it, since its last report may be stale or missing.
+    void extension_tab_closed(i64 tab_id, Optional<ExtensionTab> = {});
+    // Frontends report the facts behind the tabs events: a tab that became its window's active one, one whose status,
+    // URL, title, or pin changed, and a window that's closing, whose tabs then close with it. tabs.onUpdated reports
+    // what changed since the tab's last report, and tabs.onRemoved comes from extension_tab_closed().
+    void extension_tab_activated(i64 tab_id);
+    void extension_tab_changed(i64 tab_id);
+    void extension_window_closing(i64 window_id);
+    void for_each_extension_tab_viewer(Function<void(Extension const&, ExtensionTabViewer const&)> const&) const;
     ExtensionActiveTabGrants const* extension_active_tab_grants(StringView extension_id) const;
 
     // The user invoked an extension's toolbar button in a tab: That grants activeTab there, then opens the button's
@@ -687,6 +695,11 @@ private:
     Vector<OwnPtr<HeadlessWebView>> m_headless_extension_tabs;
     ErrorOr<ExtensionTab, String> create_headless_extension_tab(ExtensionTabCreation const&);
     ErrorOr<ExtensionTab, String> update_headless_extension_tab(i64 tab_id, ExtensionTabUpdate const&);
+    // Each tab as it was at its last report, which its next tabs.onUpdated compares against.
+    HashMap<i64, ExtensionTab> m_extension_tab_snapshots;
+    HashTable<i64> m_closing_extension_windows;
+    // Tab ids are never reused, so a tab reported closed once stays closed.
+    HashTable<i64> m_closed_extension_tabs;
     // Headless views closed from one of their own callbacks: they go on the event loop's next turn, once that callback
     // has returned, or with the Application, whichever comes first.
     Vector<OwnPtr<HeadlessWebView>> m_closing_headless_extension_views;
