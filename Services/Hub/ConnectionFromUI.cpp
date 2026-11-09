@@ -182,6 +182,11 @@ void ConnectionFromUI::answer_download_path(u64 request_id, Optional<ByteString>
     Application::the().did_get_download_path(request_id, move(path));
 }
 
+void ConnectionFromUI::answer_extension_directory(u64 request_id, Optional<ByteString> path)
+{
+    Application::the().did_get_extension_directory(request_id, move(path));
+}
+
 static DownloadState state_of_download(WebView::FileDownloader::Download const& download)
 {
     DownloadState state;

@@ -31,6 +31,7 @@ set(ABOUT_PAGES
     certificate.html
     crashes.html
     downloads.html
+    extensions.html
     history.html
     licenses.html
     newtab.html

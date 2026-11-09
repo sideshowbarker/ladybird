@@ -351,6 +351,7 @@ TEST_CASE(all_web_ui_pages_are_suggested)
         "about:about"sv,
         "about:certificate"sv,
         "about:crashes"sv,
+        "about:extensions"sv,
         "about:licenses"sv,
         "about:newtab"sv,
         "about:settings"sv,

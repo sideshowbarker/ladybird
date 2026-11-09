@@ -236,6 +236,24 @@ void Application::did_get_download_path(u64 request_id, Optional<ByteString> pat
         (*promise)->reject(Error::from_errno(ECANCELED));
 }
 
+void Application::ask_user_for_extension_directory(Function<void(Optional<ByteString>)> callback) const
+{
+    auto* ui = ConnectionFromUI::the();
+    if (!ui) {
+        WebView::Application::ask_user_for_extension_directory(move(callback));
+        return;
+    }
+    auto request_id = m_next_ui_request_id++;
+    m_pending_extension_directories.set(request_id, move(callback));
+    ui->async_app_ask_user_for_extension_directory(request_id);
+}
+
+void Application::did_get_extension_directory(u64 request_id, Optional<ByteString> path)
+{
+    if (auto callback = m_pending_extension_directories.take(request_id); callback.has_value())
+        (*callback)(move(path));
+}
+
 void Application::display_download_confirmation_dialog(StringView download_name, LexicalPath const& path) const
 {
     if (auto* ui = ConnectionFromUI::the())

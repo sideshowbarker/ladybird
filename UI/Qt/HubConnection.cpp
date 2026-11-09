@@ -380,6 +380,11 @@ void HubConnection::app_ask_user_for_download_path(u64 request_id, ByteString fi
     Application::the().ask_user_for_download_path(request_id, file);
 }
 
+void HubConnection::app_ask_user_for_extension_directory(u64 request_id)
+{
+    Application::the().ask_user_for_extension_directory(request_id);
+}
+
 void HubConnection::download_added(Hub::DownloadState download)
 {
     RemoteDownloads::the().did_add(download);

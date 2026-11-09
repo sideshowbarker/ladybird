@@ -157,6 +157,7 @@ private:
     virtual void answer_clipboard_text(u64 request_id, Utf16String text) override;
     virtual void answer_clipboard_item(u64 request_id, Web::Clipboard::SystemClipboardItem item) override;
     virtual void answer_download_path(u64 request_id, Optional<ByteString> path) override;
+    virtual void answer_extension_directory(u64 request_id, Optional<ByteString> path) override;
     virtual void update_settings(u64 change_id, ByteString changes_json) override;
     virtual void view_answer(u64 view_id, u64 answer_id, bool answer) override;
     virtual void view_answer_permission_request(u64 view_id, u64 answer_id, Web::Permissions::PromptOutcome outcome) override;

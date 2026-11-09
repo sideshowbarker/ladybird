@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <title>Extensions</title>
+        <link rel="icon" type="image/png" href="resource://icons/48x48/app-browser.png" />
+        <link rel="stylesheet" type="text/css" href="resource://ladybird/ladybird.css" />
+        <link rel="stylesheet" type="text/css" href="resource://ladybird/about-pages/webui.css" />
+        <style>
+            .toolbar,
+            .extension-controls,
+            .dialog-footer {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 12px;
+            }
+            .toolbar {
+                justify-content: space-between;
+                margin-bottom: 20px;
+            }
+            .extension-name {
+                margin-top: 0;
+            }
+            .extension-directory,
+            .extension-error,
+            .extension-permissions,
+            .extension-description,
+            .extension-name {
+                overflow-wrap: anywhere;
+            }
+            .extension-directory,
+            .extension-version,
+            #empty {
+                color: var(--secondary-text-color);
+            }
+            .extension-controls label {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            dialog {
+                background-color: var(--card-background-color);
+                color: inherit;
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                width: 90%;
+                max-width: 500px;
+                margin: auto;
+                padding: 20px;
+                overflow-wrap: anywhere;
+            }
+            dialog::backdrop {
+                background-color: rgba(0, 0, 0, 0.5);
+            }
+            dialog h2 {
+                margin-top: 0;
+            }
+            .dialog-footer {
+                justify-content: flex-end;
+                margin-top: 20px;
+            }
+            #operation-error:empty,
+            .extension-error:empty {
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <img src="resource://icons/48x48/app-browser.png" alt="Ladybird" />
+            <h1>Extensions</h1>
+        </header>
+        <main>
+            <div class="toolbar">
+                <span>Manage extensions for this profile</span>
+                <button id="load-unpacked" class="primary-button">Load Unpacked</button>
+            </div>
+            <p id="operation-error" role="alert"></p>
+            <p id="empty" hidden>No extensions are installed</p>
+            <div id="extensions"></div>
+        </main>
+        <dialog id="remove-dialog" closedby="any" aria-labelledby="remove-title">
+            <h2 id="remove-title">Remove extension</h2>
+            <p id="remove-name"></p>
+            <p>The extension and the data it stored will be deleted. Its source directory will be kept.</p>
+            <div class="dialog-footer">
+                <button id="cancel-remove" class="secondary-button">Cancel</button>
+                <button id="confirm-remove" class="primary-button">Remove</button>
+            </div>
+        </dialog>
+        <dialog id="install-dialog" closedby="any" aria-labelledby="install-title">
+            <h2 id="install-title">Add extension</h2>
+            <p id="install-name"></p>
+            <div id="api-permissions">
+                <p>Allow these permissions:</p>
+                <ul id="install-permissions"></ul>
+            </div>
+            <div id="host-permissions">
+                <p>The extension declares access to these sites:</p>
+                <ul id="install-hosts"></ul>
+            </div>
+            <div class="dialog-footer">
+                <button id="cancel-install" class="secondary-button">Cancel</button>
+                <button id="confirm-install" class="primary-button">Add</button>
+            </div>
+        </dialog>
+        <script>
+            const list = document.getElementById("extensions");
+            const removeDialog = document.getElementById("remove-dialog");
+            const installDialog = document.getElementById("install-dialog");
+            const operationError = document.getElementById("operation-error");
+            const loadButton = document.getElementById("load-unpacked");
+            let removalId = null;
+            let installToken = null;
+
+            const permissionDescriptions = {
+                storage: "Store data in the browser",
+                unlimitedStorage: "Store any amount of data in the browser",
+                tabs: "See the addresses and titles of your tabs",
+            };
+
+            function describePermission(permission) {
+                return permissionDescriptions[permission] ?? permission;
+            }
+
+            function textElement(tag, className, text) {
+                const element = document.createElement(tag);
+                element.className = className;
+                element.textContent = text;
+                return element;
+            }
+
+            function actionButton(label, className, action) {
+                const button = textElement("button", `secondary-button ${className}`, label);
+                button.addEventListener("click", action);
+                return button;
+            }
+
+            function toggle(label, className, checked, disabled, change) {
+                const container = document.createElement("label");
+                const input = document.createElement("input");
+                input.type = "checkbox";
+                input.className = className;
+                input.checked = checked;
+                input.disabled = disabled;
+                input.addEventListener("change", () => change(input.checked));
+                container.append(input, document.createTextNode(label));
+                return container;
+            }
+
+            function cancelInstall() {
+                if (installToken !== null) {
+                    ladybird.sendMessage("cancelExtensionInstall", { token: installToken });
+                    installToken = null;
+                }
+            }
+
+            function render(extensions) {
+                cancelInstall();
+                installDialog.close();
+                loadButton.disabled = false;
+                if (removalId !== null && !extensions.some(extension => extension.id === removalId)) {
+                    removeDialog.close();
+                    removalId = null;
+                }
+                document.getElementById("empty").hidden = extensions.length !== 0;
+                list.replaceChildren();
+                for (const extension of extensions) {
+                    const card = document.createElement("section");
+                    card.className = "card card-body";
+                    card.dataset.extensionId = extension.id;
+                    card.append(
+                        textElement("h2", "extension-name", extension.name),
+                        textElement("p", "extension-version", extension.version),
+                        textElement("p", "extension-description", extension.description),
+                        textElement("p", "extension-directory", extension.directory),
+                        textElement(
+                            "p",
+                            "extension-state",
+                            extension.error ? "Failed to load" : extension.enabled ? "Enabled" : "Disabled"
+                        ),
+                        textElement("p", "extension-error", extension.error)
+                    );
+                    const permissions = textElement("ul", "extension-permissions", "");
+                    for (const permission of extension.permissions)
+                        permissions.append(textElement("li", "", describePermission(permission)));
+                    card.append(permissions);
+                    const controls = document.createElement("div");
+                    controls.className = "extension-controls";
+                    controls.append(
+                        toggle("Enabled", "extension-enabled", extension.enabled, !!extension.error, enabled => {
+                            ladybird.sendMessage("setExtensionEnabled", { id: extension.id, enabled });
+                        }),
+                        toggle(
+                            "Allow in private windows",
+                            "extension-private",
+                            extension.allowedInPrivate,
+                            !!extension.error,
+                            allowed => {
+                                ladybird.sendMessage("setExtensionAllowedInPrivate", { id: extension.id, allowed });
+                            }
+                        ),
+                        actionButton("Reload", "extension-reload", () => {
+                            operationError.textContent = "";
+                            ladybird.sendMessage("reloadExtension", { id: extension.id });
+                        }),
+                        actionButton("Remove", "extension-remove", () => {
+                            removalId = extension.id;
+                            document.getElementById("remove-name").textContent = extension.name;
+                            removeDialog.showModal();
+                        })
+                    );
+                    card.append(controls);
+                    list.append(card);
+                }
+            }
+
+            document.getElementById("cancel-remove").addEventListener("click", () => removeDialog.close());
+            document.getElementById("confirm-remove").addEventListener("click", () => {
+                if (removalId !== null) ladybird.sendMessage("removeExtension", { id: removalId });
+                removalId = null;
+                removeDialog.close();
+            });
+            document.getElementById("cancel-install").addEventListener("click", () => {
+                cancelInstall();
+                installDialog.close();
+            });
+            installDialog.addEventListener("close", () => {
+                if (!installDialog.open) cancelInstall();
+            });
+            document.getElementById("confirm-install").addEventListener("click", () => {
+                if (installToken !== null) ladybird.sendMessage("installExtension", { token: installToken });
+                installToken = null;
+                installDialog.close();
+            });
+            loadButton.addEventListener("click", () => {
+                operationError.textContent = "";
+                loadButton.disabled = true;
+                ladybird.sendMessage("loadUnpackedExtension");
+            });
+            document.addEventListener("WebUILoaded", () => ladybird.sendMessage("loadExtensions"));
+            document.addEventListener("WebUIMessage", event => {
+                const { name, data } = event.detail;
+                if (name === "extensionsSnapshot") {
+                    render(data);
+                } else if (name === "extensionOperationResult") {
+                    loadButton.disabled = false;
+                    operationError.textContent = data.error;
+                } else if (name === "confirmExtensionInstall") {
+                    loadButton.disabled = false;
+                    installToken = data.token;
+                    document.getElementById("install-name").textContent = data.name;
+                    document.getElementById("api-permissions").hidden = data.permissions.length === 0;
+                    document.getElementById("host-permissions").hidden = data.hostPermissions.length === 0;
+                    document
+                        .getElementById("install-permissions")
+                        .replaceChildren(
+                            ...data.permissions.map(permission => textElement("li", "", describePermission(permission)))
+                        );
+                    document
+                        .getElementById("install-hosts")
+                        .replaceChildren(...data.hostPermissions.map(host => textElement("li", "", host)));
+                    if (!installDialog.open) installDialog.showModal();
+                }
+            });
+        </script>
+    </body>
+</html>

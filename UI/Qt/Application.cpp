@@ -2498,6 +2498,24 @@ void Application::open_navigation_in_new_window(Web::HTML::PreparedNavigationDes
     new_window({ move(url) }, configuration_for_new_window(), BrowserWindow::IsPopupWindow::No, is_private, {}, ShowWindow::Yes, move(navigation));
 }
 
+void Application::ask_user_for_extension_directory(u64 request_id) const
+{
+    auto* dialog = new QFileDialog(nullptr, "Choose an extension directory");
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setFileMode(QFileDialog::Directory);
+    dialog->setOption(QFileDialog::ShowDirsOnly);
+
+    QObject::connect(dialog, &QDialog::finished, [request_id, dialog = QPointer { dialog }](auto result) {
+        Optional<ByteString> path;
+        if (result == QDialog::Accepted && dialog && !dialog->selectedFiles().isEmpty())
+            path = ak_byte_string_from_qstring(dialog->selectedFiles().first());
+        if (auto* hub = HubConnection::the_if_connected())
+            hub->async_answer_extension_directory(request_id, move(path));
+    });
+
+    dialog->open();
+}
+
 void Application::ask_user_for_download_path(u64 request_id, ByteString const& file) const
 {
     auto* dialog = new QFileDialog(nullptr, "Select save location", QStandardPaths::writableLocation(QStandardPaths::DownloadLocation));

@@ -33,6 +33,7 @@ if (BUILD_TESTING AND NOT WIN32)
         ladybird_python_test(test-webdriver-graphical-pointer-actions.py ARGS $<TARGET_FILE:WebDriver>)
     endif()
 
+    ladybird_python_test(test-webdriver-about-extensions.py ARGS $<TARGET_FILE:WebDriver>)
     ladybird_python_test(test-webdriver-bidi.py ARGS $<TARGET_FILE:WebDriver>)
     ladybird_python_test(test-webdriver-command-privileges.py ARGS $<TARGET_FILE:WebDriver>)
     ladybird_python_test(test-webdriver-content-blockers.py ARGS $<TARGET_FILE:WebDriver> TIMEOUT 180)
@@ -84,6 +85,7 @@ set(TEST_SOURCES
     TestExtensionMessageBroker.cpp
     TestExtensionRegistry.cpp
     TestExtensionStorageStore.cpp
+    TestExtensionsUI.cpp
     TestExternalURLHandler.cpp
     TestFaviconStore.cpp
     TestForceDarkSettings.cpp
@@ -168,6 +170,7 @@ if (NOT WIN32)
         TestCompositorStartup.cpp
         TestCrashOverlay.cpp
         TestCrashReportSubmission.cpp
+        TestExtensionsUserActivation.cpp
         TestFavicon.cpp
         TestFileDownloader.cpp
         TestFocusWithoutSystemFocus.cpp
