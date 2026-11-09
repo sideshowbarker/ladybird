@@ -2433,6 +2433,10 @@ void WebContentView::update_cursor(Gfx::Cursor cursor)
             }
             setCursor(QCursor { qpixmap, image_cursor.hotspot.x(), image_cursor.hotspot.y() });
         });
+#ifdef LADYBIRD_QT_USE_IOSURFACE_LAYER
+    if (window()->windowType() == Qt::Popup && underMouse())
+        apply_cursor_to_popup_window();
+#endif
 }
 
 Web::DevicePixelPoint WebContentView::node_picker_position_for(QSinglePointEvent const& event) const

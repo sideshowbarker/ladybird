@@ -31,6 +31,7 @@ set(TEST_SOURCES
     TestChromeIcons.cpp
     TestDownloadPresentation.cpp
     TestExtensionActionButton.cpp
+    TestExtensionPopup.cpp
     TestHiddenPageSizing.cpp
     TestJavaScriptDialog.cpp
     TestLadybirdMenu.cpp

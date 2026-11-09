@@ -15,6 +15,7 @@
 #include <LibCore/BrowserVersion.h>
 #include <LibCore/EventLoop.h>
 #include <LibWebView/Application.h>
+#include <LibWebView/Extensions/ExtensionPopupHost.h>
 #include <LibWebView/HistoryStore.h>
 #include <LibWebView/URL.h>
 #include <UI/Qt/Application.h>
@@ -1088,6 +1089,10 @@ void BrowserWindow::set_current_tab(Tab* tab)
         m_current_tab->close_popovers();
         m_current_tab->view().set_system_visibility_state(Web::HTML::VisibilityState::Hidden);
     }
+
+    // An extension's popup belongs to the tab it was opened over.
+    if (m_current_tab && tab)
+        Application::the().close_extension_popup_of_window(m_extension_window_id, WebView::ExtensionPopupHost::CloseReason::ActiveTabChanged);
 
     m_current_tab = tab;
     m_background_tabs_from_current_tab.clear();

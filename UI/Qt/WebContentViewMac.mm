@@ -300,6 +300,16 @@ void WebContentView::present_current_paintable_as_layer_contents()
     reinterpret_cast<NSView*>(winId()).window.viewsNeedDisplay = YES;
 }
 
+// AppKit applies a window's cursor as the pointer enters a view's tracking area, and Qt has it applied at once only in a
+// key or utility window. A popup is a non-activating panel that the pointer never leaves while it moves within the one
+// view, so a cursor the view sets while the pointer is over it has to be applied here, as the view's own cursor update.
+void WebContentView::apply_cursor_to_popup_window()
+{
+    auto* view = reinterpret_cast<NSView*>(winId());
+    if ([view respondsToSelector:@selector(cursorUpdate:)])
+        [view cursorUpdate:NSApp.currentEvent];
+}
+
 void WebContentView::update_iosurface_layer_frame()
 {
     if (!m_iosurface_layer)

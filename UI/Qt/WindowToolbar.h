@@ -109,6 +109,7 @@ public:
     void update_extension_actions();
     void update_extension_action(String const& extension_id);
     Vector<Hub::ExtensionActionButton> extension_action_buttons_from_hub() const;
+    QWidget* extension_action_button(StringView extension_id) const;
 
 private:
     virtual bool event(QEvent*) override;
