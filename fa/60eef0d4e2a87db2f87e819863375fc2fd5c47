@@ -1,0 +1,21 @@
+Ladybird uses a popover’s source as its implicit anchor, and a
+pseudo-element uses its originating element. Default-anchor lookup
+respects position-anchor: auto, none, and normal; normal enables the
+implicit anchor only with a position-area. Explicit names retain
+priority. Anchor functions, position-area, and anchor-center use the
+same lookup and the same anchor eligibility checks.
+
+Blink sets the relationship in HTMLElement::SetImplicitAnchor. Its
+Element::ImplicitAnchorElement also handles originating elements,
+and AnchorEvaluatorImpl::ResolveAnchorReference resolves the anchor.
+Gecko uses AnchorPositioningUtils::GetUsedAnchorName to select the
+default anchor, and GetAnchorPosImplicitAnchor finds its frame. In
+WebKit, findImplicitAnchor in AnchorPositionEvaluator.cpp retrieves
+the popover invoker or originating element, then checks eligibility.
+Ladybird matches those anchor choices and applies the same checks.
+
+Ladybird clears the popover relationship when hiding it. Gecko clears
+its invoker in Document’s hide-popover steps, and WebKit clears it in
+HTMLElement::hidePopoverInternal. Blink clears the implicit anchor in
+Document::RemoveFromTopLayerImmediately. Ladybird follows the current
+HTML hide-popover steps by clearing it when removal is requested too.
