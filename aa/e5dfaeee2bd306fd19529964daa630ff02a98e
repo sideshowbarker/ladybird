@@ -1,0 +1,8 @@
+Ladybird gives a content script’s global a wrappedJSObject accessor
+that returns the page realm’s global object, and nothing else about
+the world changes. Gecko defines wrappedJSObject on every Xray wrapper,
+in XrayWrapper.cpp’s wrappedJSObject_getter: it waives the Xray, so a
+content script that reads window.wrappedJSObject gets the page’s own
+window, expandos included. Blink and WebKit have no such affordance;
+a Chrome extension that needs the page’s globals runs a script in
+the MAIN world instead, and uBO’s Chromium build does exactly that.

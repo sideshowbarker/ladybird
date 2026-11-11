@@ -1,0 +1,21 @@
+Ladybird’s webRequest namespace takes its shape from the Firefox
+build that the extensions this stage targets are written for:
+the nine events, the enumerations with each value under its name
+uppercased (so OnBeforeRequestOptions.REQUESTBODY, as Firefox’s
+Schemas.sys.mjs builds them), and addListener()’s validation and
+error messages, which are copied word for word since extensions
+compare them: “Incorrect argument types”, “Type error for parameter
+filter (...)”, and the blocking-permission message from Firefox’s
+webRequestBlockingPermissionRequired postprocessor.
+
+Firefox drops a filter type it doesn’t know with a warning (the types
+items carry onError “warn”) and throws only when none remain, and
+it checks URL patterns in its parent process (parseMatchPatterns in
+ext-webRequest.js), so a bad pattern is logged rather than thrown;
+Ladybird does both the same way. Ladybird also accepts “extraHeaders”,
+which Firefox would reject: Chromium needs it (WebRequestAPI’s
+OnBeforeSendHeadersOptions has EXTRA_HEADERS), and uBlock Origin
+adds it whenever it doesn’t detect Firefox. It isn’t added to the
+enumeration, so Bypass Paywalls Clean’s probe for EXTRA_HEADERS stays
+false, as in Firefox. WebKit has no webRequest; its extensions use
+declarativeNetRequest only.
