@@ -1,0 +1,17 @@
+Ladybird reports the events from RequestServer, which is the only
+process that sees a request’s final outgoing headers (it adds the
+Cookie header) and its response headers before Set-Cookie and HSTS
+are stored. That’s the same place in the request’s life as Firefox’s
+http-on-modify-request and http-on-examine-response observers in
+WebRequest.sys.mjs, and Chromium’s WebRequestProxyingURLLoaderFactory,
+which sits between the renderer and the network service. Both require
+host access to the request URL and to the document that made it, as
+Ladybird does: Firefox in ChannelWrapper::Matches, Chromium through
+WebRequestPermissions::CanExtensionAccessURL. Neither lets an extension
+see another extension’s requests.
+
+The error names in onErrorOccurred are Firefox’s NS_ERROR_*
+names for the matching conditions (NS_ERROR_UNKNOWN_HOST,
+NS_ERROR_CONNECTION_REFUSED, NS_BINDING_ABORTED for a request the page
+stopped waiting for), since Firefox builds of extensions compare them;
+Chromium reports net::ERR_* names instead.
