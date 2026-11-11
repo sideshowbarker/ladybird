@@ -1,0 +1,9 @@
+When a window’s associated document has no navigable yet, Ladybird’s
+push/replace/reload navigate event skips informing the navigation API
+about aborting navigation, then returns false for a document that
+isn’t fully active. Gecko gets the same result: Its Navigation::
+FirePushReplaceReloadNavigateEvent() calls the Navigation’s own
+InnerInformAboutAbortingNavigation(), which aborts its ongoing navigate
+events and never reaches a navigable, and then returns false. Blink’s
+NavigationApi::DispatchNavigateEvent() returns kContinue when
+HasEntriesAndEventsDisabled(), so there the reload goes ahead.
