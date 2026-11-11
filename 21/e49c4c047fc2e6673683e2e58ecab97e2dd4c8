@@ -1,0 +1,21 @@
+Ladybird’s scripting.executeScript() waits for each document to be
+idle unless the call asks to inject immediately. So do Chromium,
+whose ScriptingExecuteScriptFunction hands inject_immediately to
+its ScriptExecutor; Gecko, whose ext-scripting.js sets runAt to
+document_idle unless injectImmediately is set; and WebKit, whose
+injectionTime is DocumentIdle by default.
+
+Results and errors follow Chromium’s ScriptingExecuteScriptFunction::
+OnScriptExecuted(): With one frame, the script’s error rejects the call;
+with more, frames that failed are left out, and the top frame comes
+first. Ladybird keeps Chromium’s exact texts where extensions compare
+them: “Cannot specify 'allFrames' if either 'frameIds' or 'documentIds'
+is specified.” from its scripting_utils.cc (Gecko says “Cannot
+specify both 'allFrames' and 'frameIds'.”), “No frame with id N in tab
+with id M”, “Frame with ID N was removed.” from its ScriptExecutor,
+and the host-access errors.
+
+activeTab reaches only frames of the tab’s own origin in Ladybird, and
+never a browser page, which is how Chromium’s activeTab grant (a granted
+origin, checked frame by frame) behaves; and a refused child frame’s URL
+appears in the error only with the tabs permission, as in Chromium.

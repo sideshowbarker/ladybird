@@ -1,0 +1,16 @@
+Ladybird grants an unpacked extension its supported API permissions at
+first install and saves that grant set. A reload or restore intersects
+the manifest with the saved set, so an added declaration isn’t granted
+silently. Descriptors carry the sorted grants and the parsed host
+patterns, with has_permission() for API code.
+
+Chromium’s PermissionsUpdater::GrantActivePermissions() stores
+the grants through ExtensionPrefs::AddGrantedPermissions(),
+and InitializePermissions() derives the effective set from
+them. Gecko keeps declarations separate from saved user permissions
+too, migrating saved grants in ExtensionData.migratePermissions().
+And WebKit keeps m_grantedPermissions, set through WebExtensionContext::
+setGrantedPermissions(); its hasPermission() ignores a requested
+permission that hasn’t been granted. Ladybird matches that
+split between declared and granted permissions. Host patterns still come
+straight from the manifest.
