@@ -19,7 +19,7 @@ use liburl_rust::url::ExcludeFragment;
 use liburl_rust::{BasicParseOptions, RustUrl, Url, basic_parse};
 
 use crate::bindings::conversions::UsvString;
-use crate::bindings::environment_settings_object::relevant_settings_object;
+use crate::bindings::environment_settings_object::current_settings_object;
 use crate::bindings::event_target::{CppEvent, CppEventTarget, GetTheParent};
 use crate::bindings::interface::{Ref, Wrappable, Wrapped, allocate, cell_into_abi};
 use crate::bindings::promise::{TaskSource, queue_a_task};
@@ -221,7 +221,9 @@ impl EventSource {
         ev.event_target.set_owner(ev);
 
         // 2. Let settings be ev's relevant settings object.
-        let settings = relevant_settings_object(realm.global_object());
+        // NB: That's the settings object of the realm the constructor ran in, which a content script's realm has of its
+        //     own, while ev's global object is the page's.
+        let settings = current_settings_object(vm);
 
         // 3. Let urlRecord be the result of encoding-parsing a URL given url, relative to settings.
         let url_record = settings.encoding_parse_url(url.as_utf16_string());

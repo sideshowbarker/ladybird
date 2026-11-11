@@ -460,8 +460,15 @@ Window& incumbent_window()
 // https://whatpr.org/html/9893/webappapis.html#concept-realm-settings-object
 EnvironmentSettingsObject& principal_realm_settings_object(JS::Realm& realm)
 {
-    // A principal realm has a [[HostDefined]] field, which contains the principal realm's settings object.
     auto& host_defined = Bindings::host_defined_of(realm);
+
+    // AD-HOC: An extension world's realm is no principal realm, but its scripts carry a settings object of their own,
+    //         and that's the realm's settings object: whatever runs in the realm, from a fetch to a callback, runs as
+    //         the world's, not as the page's. The spec knows no extension worlds.
+    if (host_defined.own_settings_object)
+        return *host_defined.own_settings_object;
+
+    // A principal realm has a [[HostDefined]] field, which contains the principal realm's settings object.
     if (host_defined.is_principal_host_defined())
         return Bindings::principal_host_defined_environment_settings_object(realm);
 
@@ -526,7 +533,7 @@ JS::Realm& relevant_realm(WindowOrWorkerGlobalScopeMixin const& global_scope)
 EnvironmentSettingsObject& relevant_settings_object(JS::Object const& object)
 {
     // Then, the relevant settings object for a platform object o is the environment settings object of the relevant realm for o.
-    return Bindings::principal_host_defined_environment_settings_object(relevant_realm(object));
+    return principal_realm_settings_object(relevant_realm(object));
 }
 
 EnvironmentSettingsObject& relevant_settings_object(Window const& window)
@@ -660,11 +667,8 @@ JS::Realm& entry_realm()
     auto entry_execution_context = vm.last_execution_context_matching([](JS::ExecutionContext* context) {
         if (!context->realm())
             return false;
-        // A realm's realm execution context is its settings object's: the realm's own, where it has one of its own, and
-        // otherwise its principal realm's.
-        auto& host_defined = Bindings::host_defined_of(*context->realm());
-        auto& settings = host_defined.own_settings_object ? *host_defined.own_settings_object : principal_realm_settings_object(*context->realm());
-        return &settings.realm_execution_context() == context;
+        // A realm's realm execution context is its settings object's.
+        return &principal_realm_settings_object(*context->realm()).realm_execution_context() == context;
     });
 
     VERIFY(entry_execution_context.has_value());

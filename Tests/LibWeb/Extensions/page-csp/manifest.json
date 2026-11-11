@@ -1,0 +1,13 @@
+{
+    "manifest_version": 3,
+    "name": "Page CSP Fixture",
+    "version": "1.0",
+    "description": "A content script that fetches what the page asks it to, from a host the page's own policy doesn't allow.",
+    "content_scripts": [
+        {
+            "matches": ["http://*/*Extensions/content-script-fetch-page-csp.html"],
+            "js": ["cs.js"],
+            "run_at": "document_end"
+        }
+    ]
+}

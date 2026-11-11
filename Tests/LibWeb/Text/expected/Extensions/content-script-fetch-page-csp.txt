@@ -1,0 +1,6 @@
+page fetch: {"failed":"TypeError"}
+content script fetch: {"status":200,"body":"body"}
+content script XMLHttpRequest: {"status":200,"body":"body"}
+content script WebSocket: {"opened":true}
+content script EventSource: {"opened":true}
+policy violations: connect-src

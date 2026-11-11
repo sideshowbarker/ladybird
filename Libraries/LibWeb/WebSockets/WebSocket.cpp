@@ -55,11 +55,10 @@ namespace Web::WebSockets {
 GC_DEFINE_ALLOCATOR(WebSocket);
 
 // https://websockets.spec.whatwg.org/#dom-websocket-websocket
-WebIDL::ExceptionOr<GC::Ref<WebSocket>> WebSocket::create(HTML::WindowOrWorkerGlobalScopeMixin& global_scope, Utf16String const& url, Optional<Variant<Utf16String, Vector<Utf16String>>> const& protocols)
+WebIDL::ExceptionOr<GC::Ref<WebSocket>> WebSocket::create(HTML::WindowOrWorkerGlobalScopeMixin& global_scope, HTML::EnvironmentSettingsObject& relevant_settings_object, Utf16String const& url, Optional<Variant<Utf16String, Vector<Utf16String>>> const& protocols)
 {
     auto web_socket = GC::Heap::the().allocate<WebSocket>(global_scope.this_impl());
     global_scope.register_web_socket({}, web_socket);
-    auto& relevant_settings_object = HTML::relevant_settings_object(global_scope);
 
     // 1. Let baseURL be this's relevant settings object's API base URL.
     auto base_url = relevant_settings_object.api_base_url();
@@ -135,7 +134,7 @@ WebIDL::ExceptionOr<GC::Ref<WebSocket>> WebSocket::create(HTML::WindowOrWorkerGl
 WebIDL::ExceptionOr<GC::Ref<WebSocket>> WebSocket::create_for_constructor(JS::Object& relevant_global_object, Utf16String const& url, Optional<Variant<Utf16String, Vector<Utf16String>>> const& protocols)
 {
     auto& global_scope = HTML::relevant_window_or_worker_global_scope(relevant_global_object);
-    return create(global_scope, url, protocols);
+    return create(global_scope, HTML::relevant_settings_object(relevant_global_object), url, protocols);
 }
 
 WebSocket::WebSocket(GC::Ref<DOM::EventTarget> relevant_global_object)
