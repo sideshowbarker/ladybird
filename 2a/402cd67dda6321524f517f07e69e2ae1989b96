@@ -1,0 +1,12 @@
+Ladybird keeps an extension’s menu items for as long as it stays loaded,
+and drops them when it’s reloaded, disabled, or removed, as Chromium’s
+MenuManager::OnExtensionUnloaded() and Gecko’s ext-menus.js onShutdown()
+do; a background page that only idles out keeps them. The errors
+(“Cannot create item with duplicate id x” and “Cannot find menu item
+with id x”) keep Chromium’s wording from its context_menu_helpers.cc.
+
+commands.getAll() reports each command’s suggested key for this
+platform, or its default one, with its spaces removed, as Gecko’s
+ExtensionShortcuts normalizeShortcut() does; Chromium on macOS shows
+the shortcut as symbols instead. An unknown command fails with Gecko’s
+“Unknown command ”“x” wording.

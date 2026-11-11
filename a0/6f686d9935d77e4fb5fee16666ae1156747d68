@@ -1,0 +1,14 @@
+Ladybird’s webNavigation events come from the UI process’s navigation
+points, as Firefox’s WebNavigation.sys.mjs takes them from the
+parent’s web progress listeners and Chromium’s WebNavigationTabObserver
+from WebContentsObserver. The details carry what Firefox’s
+ext-webNavigation.js fills in: url, timeStamp, frameId, parentFrameId,
+tabId, and windowId; transitionType is “link” at the top and
+“auto_subframe” in frames, Firefox’s defaults, with no qualifiers.
+Like Firefox, it reports nothing for a navigable in no tab, a
+private tab an extension may not see, an error page, or a frame’s
+initial about:blank. onCreatedNavigationTarget waits for the new
+view’s first navigation, since that’s when its URL is known, as in
+Chromium’s WebNavigationTabObserver::DidOpenRequestedURL. WebKit’s
+WebExtensionContextAPIWebNavigation has getFrame and getAllFrames
+too, and the same events.
