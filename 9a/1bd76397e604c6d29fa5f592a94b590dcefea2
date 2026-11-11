@@ -13,3 +13,18 @@ which returns false for anchor-center. Its width-sizing function,
 RenderBox::computeOutOfFlowPositionedLogicalWidthUsing(), therefore
 selects fit-content sizing. Ladybird matches their sizing behavior,
 while keeping anchor placement on its own separate path.
+
+Ladybird lets anchor-center resolve to center for self-alignment when
+anchor lookup supplies no anchor placement. A valid anchor placement
+still takes precedence over the ordinary self-alignment fallback.
+
+Blink uses the same equal inset bias for center and anchor-center in
+GetAlignmentInsetBias(). ComputeAnchorCenterPosition() supplies no
+anchor offsets when AnchorCenterOffset() is absent, leaving that bias
+to center the box. Ladybird matches this missing-anchor behavior.
+
+WebKit’s PositionedLayoutConstraints::resolveAlignmentValue() returns
+Center when the alignment is AnchorCenter and m_defaultAnchorBox is
+absent. Gecko’s CSSAlignUtils::AlignJustifySelf() uses the same center
+calculation for CENTER and ANCHOR_CENTER when no AnchorAlignInfo is
+supplied. Both match Ladybird’s fallback on the inline and block axes.
