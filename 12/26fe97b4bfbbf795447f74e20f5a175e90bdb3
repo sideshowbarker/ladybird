@@ -1,0 +1,14 @@
+Ladybird exposes storage.local to contexts with the storage permission,
+through the shared completion helper. get() takes a key, an array
+of keys, an object of defaults, or nothing, and results are built with
+explicit property definitions, so __proto__ is an ordinary key. Changes
+fire both storage.onChanged and storage.local.onChanged.
+
+Chromium validates the same argument forms in StorageArea::
+HandleFunctionCall(), and routes them through APIRequestHandler;
+LocalStorageArea exposes QUOTA_BYTES and the area’s onChanged.
+WebKit’s WebExtensionAPIStorageArea::get() extracts keys and
+defaults the same way, and serializes values to JSON before
+sending them. Gecko’s makeOnChangedEventTarget() gives the global event
+two arguments and the area event one, as Ladybird does; but Gecko stores
+structured clones, not JSON.
