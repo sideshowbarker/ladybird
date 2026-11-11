@@ -66,13 +66,13 @@ static GC::Ref<DOM::Event> create_message_event(JS::Realm& realm, Utf16FlyString
 }
 
 // https://html.spec.whatwg.org/multipage/server-sent-events.html#dom-eventsource
-WebIDL::ExceptionOr<GC::Ref<EventSource>> EventSource::create(WindowOrWorkerGlobalScopeMixin& global_scope, Utf16View url, EventSourceInit const& event_source_init)
+WebIDL::ExceptionOr<GC::Ref<EventSource>> EventSource::create(WindowOrWorkerGlobalScopeMixin& global_scope, EnvironmentSettingsObject& settings, Utf16View url, EventSourceInit const& event_source_init)
 {
     // 1. Let ev be a new EventSource object.
     auto event_source = GC::Heap::the().allocate<EventSource>(global_scope.this_impl());
 
     // 2. Let settings be ev's relevant settings object.
-    auto& settings = relevant_settings_object(global_scope);
+    // NB: That's the settings object of the realm the constructor ran in, passed in.
 
     // 3. Let urlRecord be the result of encoding-parsing a URL given url, relative to settings.
     auto url_record = settings.encoding_parse_url(url);
@@ -194,7 +194,7 @@ WebIDL::ExceptionOr<GC::Ref<EventSource>> EventSource::create(WindowOrWorkerGlob
 
 WebIDL::ExceptionOr<GC::Ref<EventSource>> EventSource::create_for_constructor(JS::Object& relevant_global_object, Utf16View url, EventSourceInit const& event_source_init)
 {
-    return create(relevant_window_or_worker_global_scope(relevant_global_object), url, event_source_init);
+    return create(relevant_window_or_worker_global_scope(relevant_global_object), relevant_settings_object(relevant_global_object), url, event_source_init);
 }
 
 EventSource::EventSource(GC::Ref<DOM::EventTarget> relevant_global_object)

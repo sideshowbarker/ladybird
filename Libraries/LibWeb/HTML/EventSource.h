@@ -38,7 +38,7 @@ class EventSource : public DOM::EventTarget {
 public:
     virtual ~EventSource() override;
 
-    static WebIDL::ExceptionOr<GC::Ref<EventSource>> create(WindowOrWorkerGlobalScopeMixin&, Utf16View url, EventSourceInit const&);
+    static WebIDL::ExceptionOr<GC::Ref<EventSource>> create(WindowOrWorkerGlobalScopeMixin&, EnvironmentSettingsObject& settings, Utf16View url, EventSourceInit const&);
     static WebIDL::ExceptionOr<GC::Ref<EventSource>> create_for_constructor(JS::Object&, Utf16View url, EventSourceInit const&);
 
     // https://html.spec.whatwg.org/multipage/server-sent-events.html#dom-eventsource-url

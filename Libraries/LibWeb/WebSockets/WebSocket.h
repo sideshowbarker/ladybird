@@ -35,7 +35,7 @@ class WebSocket final : public DOM::EventTarget {
     GC_DECLARE_ALLOCATOR(WebSocket);
 
 public:
-    static WebIDL::ExceptionOr<GC::Ref<WebSocket>> create(Web::HTML::WindowOrWorkerGlobalScopeMixin&, Utf16String const& url, Optional<Variant<Utf16String, Vector<Utf16String>>> const& protocols);
+    static WebIDL::ExceptionOr<GC::Ref<WebSocket>> create(Web::HTML::WindowOrWorkerGlobalScopeMixin&, HTML::EnvironmentSettingsObject& relevant_settings_object, Utf16String const& url, Optional<Variant<Utf16String, Vector<Utf16String>>> const& protocols);
     static WebIDL::ExceptionOr<GC::Ref<WebSocket>> create_for_constructor(JS::Object&, Utf16String const& url, Optional<Variant<Utf16String, Vector<Utf16String>>> const& protocols);
 
     virtual ~WebSocket() override;

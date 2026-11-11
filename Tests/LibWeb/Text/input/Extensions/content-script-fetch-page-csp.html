@@ -1,0 +1,49 @@
+<!doctype html>
+<meta http-equiv="Content-Security-Policy" content="connect-src 'self'">
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // A page's connect-src governs the page's own requests, never a content script's: the hosts an extension's
+        // scripts may reach are the extension's business, whatever page they run in.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const violations = [];
+            document.addEventListener("securitypolicyviolation", event => violations.push(event.effectiveDirective));
+            const server = httpTestServer();
+            const echo = new URL(
+                await server.createEcho("GET", `/page-csp/${crypto.randomUUID()}`, {
+                    status: 200,
+                    headers: { "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" },
+                    body: "body",
+                })
+            );
+            const elsewhere = `http://127.0.0.1:${location.port}${echo.pathname}`;
+            const stream = new URL(
+                await server.createEcho("GET", `/page-csp-stream/${crypto.randomUUID()}`, {
+                    status: 200,
+                    headers: { "Content-Type": "text/event-stream", "Access-Control-Allow-Origin": "*" },
+                    body: "data: one\n\n",
+                })
+            );
+            const streamElsewhere = `http://127.0.0.1:${location.port}${stream.pathname}`;
+            const socketElsewhere = `ws://127.0.0.1:${location.port}/`;
+            const show = result => JSON.stringify(result);
+
+            let pageFetch;
+            try {
+                pageFetch = { status: (await fetch(elsewhere)).status };
+            } catch (error) {
+                pageFetch = { failed: error.name };
+            }
+            println(`page fetch: ${show(pageFetch)}`);
+            println(`content script fetch: ${show(await sendToBackground({ type: "fetch", url: elsewhere }))}`);
+            println(`content script XMLHttpRequest: ${show(await sendToBackground({ type: "xhr", url: elsewhere }))}`);
+            println(`content script WebSocket: ${show(await sendToBackground({ type: "websocket", url: socketElsewhere }))}`);
+            println(`content script EventSource: ${show(await sendToBackground({ type: "eventsource", url: streamElsewhere }))}`);
+            await new Promise(resolve => setTimeout(resolve, 0));
+            println(`policy violations: ${violations.join(", ")}`);
+            done();
+        });
+    </script>
+</body>
