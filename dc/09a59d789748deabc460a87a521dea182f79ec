@@ -1,0 +1,16 @@
+Ladybird refreshes the connected FontFace after descriptor removal.
+Blink’s AbstractPropertySetCSSStyleDeclaration::removeProperty() calls
+DidMutate(), and StyleRuleCSSStyleDeclaration::DidMutate() notifies the
+stylesheet. WebKit’s PropertySetCSSDescriptors::removeProperty() also
+calls didMutate(). Gecko’s CSSFontFaceRuleDecl::RemoveProperty() resets
+the descriptor through Servo_FontFaceRule_ResetDescriptor(), without a
+matching update notification there. Ladybird keeps the connected face
+synchronized with the rule.
+
+Ladybird refreshes a connected face after cssText replacement, keeping
+its identity when src is unchanged. Blink notifies the stylesheet in
+StyleRuleCSSStyleDeclaration::DidMutate(), and Chrome updates rendering
+but replaces the connected object. WebKit calls didMutate() from
+PropertySetCSSDescriptors::setCssText(). Gecko rejects cssText changes
+in CSSFontFaceRuleDecl::SetCssText(). Ladybird preserves its connection
+semantics: A changed src disconnects the old face and creates another.
