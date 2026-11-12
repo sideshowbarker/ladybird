@@ -30,3 +30,26 @@ cannot contain a range endpoint, as HTMLSelectElement reports via
 canContainRangeEndPoint(). Gecko’s HTMLEditUtils identifies controls in
 IsNeverElementContentsEditableByUser(), using IsReplacedElement()
 to exclude select, optgroup and option contents from editing commands.
+
+Ladybird handles replacement selections crossing from a select into
+editable text before deleting that text. An outer start boundary maps
+before or after the control; an interior start rejects the replacement
+without deleting anything. Selections confined to controls keep their
+protection against editing the contents.
+
+Blink maps the first and last control offsets outside the control in
+PositionTemplate::ParentAnchoredEquivalent(). Its text insertion uses
+the normalized selection in InsertTextCommand::DoApply(). Chrome
+replaces the selected text at either edge, but leaves the editor alone
+when the selection starts between options. Ladybird matches those cases.
+
+WebKit maps these control offsets outside the node in its Position::
+parentAnchoredEquivalent(). Its HTMLSelectElement rejects internal
+editing endpoints through canContainRangeEndPoint(), so the position
+mapping keeps insertion outside the control.
+
+Gecko moves crossing replacement ranges outside controls in the method
+AutoClonedRangeArray::AdjustRangesNotInReplacedNorVoidElements(). It
+preserves a partly selected control by moving the start after it.
+Ladybird follows Chrome at the first boundary instead: A replacement
+starting there includes the select itself in the deletion.
