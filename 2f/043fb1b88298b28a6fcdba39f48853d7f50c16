@@ -7,6 +7,5 @@ the 204 carries a Content-Type of image/png. Without one, it fires
 neither event and leaves an empty box, since Blink never commits a
 204 navigation: FrameLoader::CommitNavigation() checks that the
 browser process has already dropped it. WebKit’s DocumentLoader
-treats 204 as a null-body status through isHttpNullBodyStatus(), but
-its handling of one for an object element wasn’t traced, or tested
-in Safari.
+treats 204 as a null-body status through isHttpNullBodyStatus(); how
+it handles one for an object element wasn’t traced or tested.
