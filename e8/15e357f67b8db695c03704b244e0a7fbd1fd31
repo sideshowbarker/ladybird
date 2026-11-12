@@ -1,0 +1,9 @@
+Ladybird keeps the CSP of a PDF’s response off the PDF viewer, which
+brings its own. Gecko does the same: PdfStreamConverter, which hands
+the PDF to its pdf.js viewer, clears the response’s
+Content-Security-Policy and Content-Security-Policy-Report-Only
+headers (“We trust PDF viewer, using no CSP”). Chromium shows a PDF in
+the frame of its PDF extension, and PdfNavigationThrottle sets
+should_ignore_initiator_policies_for_inheritance so the PDF’s frame
+doesn’t inherit the navigation’s CSP. WebKit draws a PDF in its own
+plugin (PDFPluginBase), with no page scripts for a CSP to stop.
