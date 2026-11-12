@@ -1,5 +1,6 @@
 Ladybird captures the whole viewport for an element screenshot, and
-draws the region starting at the element’s rectangle from it.
+draws from it the region at the element’s bounding client rect, which
+is relative to the viewport.
 
 Gecko’s capture.canvas() draws the window from the rectangle’s left and
 top coordinates, through drawWindow() or drawSnapshot(). ChromeDriver’s
