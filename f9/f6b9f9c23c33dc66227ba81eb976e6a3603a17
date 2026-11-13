@@ -1,0 +1,25 @@
+Ladybird sizes a ratio-only replaced element from definite available
+inline space when measuring its fit-content size. Without that space,
+its intrinsic contribution starts at zero instead of the viewport
+size, with size constraints transferred through the aspect ratio.
+Cyclic percentage inline sizes use the default object size instead.
+
+Gecko returns zero for a missing natural inline size in nsImageFrame::
+IntrinsicISize. Its nsImageFrame::ComputeSize delegates used sizing to
+nsContainerFrame::ComputeSizeWithIntrinsicDimensions, which fills the
+containing block for a ratio-only image and subtracts its outer edges.
+
+Blink routes intrinsic contributions through ComputeReplacedSize,
+called by ComputeMinAndMaxContentContributionForReplaced. Within
+ComputeReplacedSizeInternal, definite inline space provides the
+stretch-fit size. Its indefinite-space fallback has zero content size,
+except that percentage inline lengths use the default natural size.
+
+WebKit separates intrinsic measurements from used-size calculations in
+RenderReplaced::computeReplacedLogicalWidth. A ratio-only element has a
+zero intrinsic width subject to transferred bounds. For used sizing,
+computeConstrainedLogicalWidth supplies the available width instead.
+
+The zero intrinsic fallback intentionally differs from CSS Sizing 3,
+which specifies the corresponding initial-containing-block dimension.
+It keeps a ratio-only image from widening a shrink-to-fit container.
