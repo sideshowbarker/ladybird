@@ -37,3 +37,32 @@ committing them, so translateX can become translate, and matrix can
 become matrix3d. Chrome retains more of the original function names
 and omits redundant arguments. These serialization differences leave
 the rendered transforms unchanged after committing and canceling.
+
+Ladybird commits zoomed lengths in unscaled CSS units. A registered
+custom property uses its computed initial value when neither the
+partial effect stack nor the base custom-property data supplies a
+value. Committing styles flushes pending style changes, and its
+layout reason is classified as requiring computed style.
+
+Blink serializes committed values through AnimationUtils::
+ForEachInterpolatedPropertyValue and computed-style property
+conversion. ComputedStyleUtils::ZoomAdjustedPixelValueForLength
+undoes zoom, and CustomProperty::CSSValueFromComputedStyleInternal
+reads the registered value from the computed style. Chrome 157
+retains a 100px inline width at effective zooms 2, 3, and 0.5, and
+commits a registered 1in initial value as 96px during a start delay.
+
+WebKit resolves the partial effect stack in WebAnimation::
+commitStyles, then uses Style::Extractor to serialize its computed
+values. Its custom-property extraction reads the style seeded by
+CustomPropertyRegistry::initialValuePrototypeStyle, which includes
+registered initial values. These conversions produce CSS values
+that can be applied as declarations without scaling them twice.
+
+Gecko composes the partial stack through EffectCompositor::
+ComposeServoAnimationRuleForEffect. CSSPixelLength::
+to_animated_value removes effective zoom, and AnimationValue::
+uncompute converts the sampled values into declarations. Its
+custom-property animation values come from the computed style via
+AnimationValue::from_computed_values. All three engines flush style
+before committing, matching the pending-style control in this change.
