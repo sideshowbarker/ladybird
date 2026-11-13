@@ -60,3 +60,32 @@ Node produces the same result when a timer keeps its event loop alive.
 A waitAsync promise alone doesn’t keep Node alive. Its lifetime
 policy differs from the standalone Ladybird async-wait driver, which
 waits for registered async waits when running a script from a file.
+
+Ladybird schedules finite Atomics.waitAsync waits in worklets with
+internal one-shot timers. The worklet owns the Core timers directly,
+traces their callbacks, cancels them when notification completes a wait,
+and stops any remaining timers when the global is finalized. Completion
+still queues a JavaScript engine task for the original realm. No
+setTimeout or setInterval API is exposed.
+
+HTML’s HostEnqueueTimeoutJob passes the realm’s global to run steps
+after a timeout. That algorithm only defines Window and
+WorkerGlobalScope globals, leaving a worklet integration gap. Creating a
+worklet realm does not remove Atomics.waitAsync, and the EcmaScript
+DoWait restriction on agents that cannot suspend applies only to
+synchronous waits. Ladybird marks its internal worklet timeout
+implementation AD-HOC to identify the gap.
+
+Chrome runs the reported AudioWorklet module without crashing. Inside
+the worklet, Atomics.waitAsync is a function and setTimeout is
+undefined. A second test observes timed-out and ok results for a finite
+wait and a notified wait. Blink’s V8 FutexEmulation::WaitAsync schedules
+an AsyncWaiterTimeoutTask through the isolate task runner; this does not
+require a DOM timer method. WebKit’s WaiterListManager::waitAsyncImpl
+likewise schedules an internal RunLoop::DispatchTimer.
+
+Gecko differs: Its WorkletThread DelayedDispatchToEventLoop returns
+false. SpiderMonkey’s AtomicsObject waitAsync path delegates delayed
+work to that hook. This source inspection does not establish a
+successful Firefox worklet timeout. Ladybird follows the measured Chrome
+behavior, using its own timer implementation.
