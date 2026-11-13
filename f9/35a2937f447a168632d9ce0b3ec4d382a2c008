@@ -72,3 +72,33 @@ serialization. The Chrome reference tests define the complete implicit
 lists and the tail entries retained for active image layers in shorter
 explicit keyframes. Relative lengths are computed for reflection, unlike
 a path that returns authored declarations directly.
+
+Ladybird copies CSS keyframes in offset order, preserving the relative
+order of frames at equal offsets. Copying leaves pending CSS changes
+unflushed: A copy sees the declaration set and default easing retained
+by the source. Blink clones the source model in KeyframeEffect::Create,
+Gecko copies mKeyframes in the KeyframeEffect copy constructor, and
+WebKit copies retained keyframes in copyPropertiesFromSource. Chrome
+probes confirm the order and the absence of a constructor style flush.
+
+Ladybird preserves keyframe metadata and implicit endpoints when the
+animation only sets custom properties, but omits their reflected values.
+Blink removes custom properties in ResolveComputedValues, while its
+CssKeyframeEffectModel::GetComputedKeyframes retains the frames and
+supplies endpoints. WebKit also excludes custom-property values for CSS
+animations in KeyframeEffect::getKeyframes. Gecko has custom-property
+name serialization in KeyframeEffect::GetKeyframes, so this omission is
+an interoperability choice matching Chrome and WebKit, not a claim that
+registered properties are non-animatable. CSSWG issue 5126 tracks the
+unresolved reflection behavior for custom properties in CSS animations.
+
+Ladybird coordinates background lists after resolving their lengths,
+and retains the resolved full list for implicit keyframes. This covers
+container-relative lengths after layout, and removes effective zoom
+when reflecting their computed values. Blink converts background sizes
+with CSSToStyleMap::MapFillSize, calling ConvertLengthOrAuto on each.
+WebKit resolves the components in CSSValueConversion<BackgroundSize>.
+Gecko derives ToComputedValue for GenericBackgroundSize, whose explicit
+sizes use computed length-percentage values. Chrome probes confirm that
+ordinary computed style returns the coordinated list, while keyframe
+reflection retains every underlying layer with resolved CSS lengths.
