@@ -41,3 +41,22 @@ the address used by the process-wide waiter list. V8 and JavaScriptCore
 also remove waits for dead contexts or agents, and can release
 unreferenced backing storage earlier. SpiderMonkey handles a dead
 backing buffer separately in WaitAsyncNotifyTask.
+
+Ladybird returns a module evaluation promise to its standalone host
+when a top-level await suspends evaluation. The host runs async-wait
+jobs and checks the promise for rejection afterward. Evaluation from
+a promise reaction returns without blocking the other queued jobs.
+The browser uses its own module and event-loop integration.
+
+V8 returns the evaluation promise to d8 in Shell::ExecuteModule. The
+shell processes host tasks before inspecting rejection. SpiderMonkey
+returns JS::ModuleEvaluate through ModuleLoader::loadAndExecute. In
+JavaScriptCore, runWithOptions attaches completion handlers to the
+loadAndEvaluateModule promise and drains microtasks outside it. Each
+host observes completion rather than requiring immediate settlement.
+
+Chrome completes a top-level wait with timed-out after its deadline.
+Node produces the same result when a timer keeps its event loop alive.
+A waitAsync promise alone doesn’t keep Node alive. Its lifetime
+policy differs from the standalone Ladybird async-wait driver, which
+waits for registered async waits when running a script from a file.
