@@ -1,0 +1,9 @@
+Ladybird rejects an Ed448 public key or signature R that encodes a
+point whose order divides the curve’s cofactor of 4, as the Secure
+Curves spec’s Ed448 verify steps require and as it already did for
+the small-order points of Ed25519.
+
+No other engine implements Ed448 in WebCrypto to compare against:
+Chrome and Firefox support only Ed25519 among the EdDSA curves, and so
+does WebKit, whose CryptoAlgorithmEd25519::isSmallOrderPoint makes the
+same check for Ed25519, matching encodings with the x-sign bit masked.
