@@ -34,3 +34,41 @@ with background-image. Reflection preserves all explicitly declared
 keyframe layers, but can’t recover discarded underlying layers. The
 computed-value serializer also retains an explicit zero second argument
 in translate(), and converts filter percentages to equivalent numbers.
+
+Ladybird copies CSS-derived keyframe declarations into an independent
+script effect, including custom properties, per-keyframe easing, the
+resource context, and the pseudo-element target. Blink clones the
+source model in KeyframeEffect::Create; StringKeyframeEffectModel::Clone
+retains the declarations and default keyframe easing. Gecko copies
+mKeyframes, mProperties, and mBaseValues in the KeyframeEffect copy
+constructor. WebKit copies parsed and blending keyframes and the
+pseudo-element identifier in KeyframeEffect::copyPropertiesFromSource.
+The declaration-preserving reflection and playback behavior here follows
+the Chrome reference tests.
+
+Ladybird retains the zoom used to compute transition
+endpoints and removes that zoom when reflecting or copying
+those endpoints. Blink serializes its retained interpolation
+values in TransitionKeyframe::AddKeyframePropertiesToV8Object
+using a temporary style. Gecko removes effective zoom in
+CSSPixelLength::to_animated_value and serializes retained
+animation values from KeyframeEffect::GetKeyframes. WebKit reads
+each retained blending-keyframe style through Style::Extractor in
+KeyframeEffect::getKeyframes. These approaches preserve endpoint lengths
+independently of the current target. Chrome omits property values with
+a null target; Ladybird keeps its endpoint reflection without a target,
+with the retained zoom applied.
+
+Ladybird retains computed background-list entries beyond the image
+layers for implicit CSS keyframes, while ordinary computed style
+and inheritance keep coordinated lists. Blink resolves unanimated
+property values in ResolveUnderlyingPropertyValues and includes them
+in CssKeyframeEffectModel::GetComputedKeyframes. Gecko adds base-value
+references in CSSAnimationKeyframeEffect::GetComputedKeyframes and
+serializes them in KeyframeEffect::GetKeyframes. WebKit fills implicit
+blending keyframes in KeyframeEffect::getKeyframes, preferring
+matching rule declarations or underlying declarations before computed
+serialization. The Chrome reference tests define the complete implicit
+lists and the tail entries retained for active image layers in shorter
+explicit keyframes. Relative lengths are computed for reflection, unlike
+a path that returns authored declarations directly.
