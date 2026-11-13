@@ -32,3 +32,26 @@ exclude IsNonReplacedInline frames when reading used dimensions.
 WebKit’s Style::PreferredSizeSharedAdaptor likewise excludes
 non-replaced inlines before reading the sizing box. Ladybird applies
 the same distinction when resolving width and height for CSSOM.
+
+Ladybird records the aligned baseline of an inline parent even when its
+only fragment belongs to a top- or bottom-aligned atomic child. The
+parent uses its own vertical-align offset and line-height bounds. Its
+child keeps its independent line-relative placement. This also supplies
+the parent font box used by absolutely positioned descendants.
+
+Blink’s InlineLayoutStateStack::ApplyBaselineShift resolves an inline
+box’s length shift independently of the pending positions of its top-
+and bottom-aligned descendants. WebKit’s
+LineBoxVerticalAligner::alignInlineLevelBoxes handles parent-relative
+and line-relative boxes separately. Gecko’s
+nsLineLayout::VerticalAlignFrames applies each inline span’s baseline
+shift while deferring top- and bottom-aligned frames to
+PlaceTopBottomCenterFrames. Ladybird keeps the same distinction when
+recording the parent’s geometry.
+
+The parent and overlay rectangles match Chrome for top- and bottom-
+aligned children under raised, lowered, and baseline-aligned parents.
+Chrome also shifts the atomic child by its ancestor’s length offset in
+these cases. Ladybird leaves that child at the line edge on both master
+and this branch; this change addresses the parent geometry and leaves
+that separate difference unchanged.
