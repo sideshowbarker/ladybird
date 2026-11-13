@@ -23,3 +23,22 @@ computeConstrainedLogicalWidth supplies the available width instead.
 The zero intrinsic fallback intentionally differs from CSS Sizing 3,
 which specifies the corresponding initial-containing-block dimension.
 It keeps a ratio-only image from widening a shrink-to-fit container.
+
+Ladybird derives a missing intrinsic inline size from a natural block
+size and the preferred aspect ratio before using available inline space
+or the ratio-only fallback. Min-content queries use the same transfer.
+Minimum inline and block sizes constrain the intrinsic contribution.
+
+Blink does this in ComputeReplacedSizeInternal, which uses a natural
+block size to derive the inline size before falling back to available
+space. ComputeMinAndMaxContentContributionForReplaced calls that sizing
+path for intrinsic contributions. Gecko transfers the intrinsic block
+size through the ratio in nsContainerFrame::
+ComputeSizeWithIntrinsicDimensions, called by nsImageFrame::ComputeSize.
+WebKit uses the natural height and ratio in RenderReplaced::
+computeReplacedLogicalWidth, then applies the width constraints.
+
+Chrome gives a 120px intrinsic width to an SVG image with a 60px natural
+height and a 2:1 ratio. It keeps that width in both 80px and 200px
+fit-content containers. Ladybird matches these results, including the
+minimum-size, maximum-size, and preferred-aspect-ratio controls.
