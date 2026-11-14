@@ -1,0 +1,7 @@
+Ladybird keeps margins from collapsing through a box whose inline
+content has a line with text on it, even at height 0. Each engine does
+the same: Blink’s InlineLayoutAlgorithm resets the end margin strut
+after any line that isn’t an empty line box. WebKit’s RenderBlockFlow
+has childrenPreventSelfCollapsing() ask whether its inline layout
+isSelfCollapsingContent(). And in Gecko, nsBlockFrame::CachedIsEmpty()
+is false once any of the block’s lines isn’t empty.
