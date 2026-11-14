@@ -1,0 +1,25 @@
+Ladybird accepts SVG canvas image sources with missing natural sizes,
+resolves their concrete size against the output bitmap, and rasterizes
+at that size before drawing. Explicit zero natural dimensions remain
+unusable. Element width and height attributes don’t supply the image
+size for drawImage(). This follows the HTML image-usability rules and
+the CSS default-sizing algorithm used by the drawing-images steps.
+
+Blink resolves SVG sizes through ImageElementBase::ElementSize and
+GetSourceImageForCanvas, using SVGImageForContainer::ConcreteObjectSize
+with the default object size. WebKit resolves them in imageElementSize
+and CanvasDrawImageSizing::resolve, passing the output bitmap size from
+CanvasRenderingContext2DBase. Both accept dimensionless SVG sources and
+use the output bitmap for the missing-size fallback, as Ladybird does.
+
+Gecko accepts vector sources in nsLayoutUtils::SurfaceFromElement and
+passes deferred vector drawing data to CanvasRenderingContext2D::
+DrawImage. Its missing intrinsic dimensions fall back to 300 by 150 in
+that path. Ladybird instead follows the output-bitmap fallback required
+by HTML, matching Blink and WebKit for differently sized canvases.
+
+The saved optimitech.com slider uses drawImage() with SVG backgrounds
+that have a viewBox but no width or height. Chrome draws those images.
+The canvas regression also checks explicit dimensions, one missing
+natural dimension, no ratio, zero sizes, source crops, transformed
+output, element attributes, and SVG image elements.
