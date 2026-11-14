@@ -1,0 +1,9 @@
+Ladybird takes a relatively positioned inline’s extent on a line that
+holds a block it contains from that block’s margin box, so an abspos
+box positioned against the inline starts where the line does. Each
+engine places it there too, from the inline’s own pieces: Blink’s
+inline_containing_block_utils unites the inline’s items on its first
+and last line boxes, Gecko’s AbsoluteContainingBlock walks the
+inline’s continuations and skips the block siblings of an IB split,
+and WebKit’s PositionedLayoutConstraints reads the inline’s line
+boxes through InlineIterator::lineLeftmostInlineBoxFor().
