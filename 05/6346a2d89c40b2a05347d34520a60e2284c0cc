@@ -1,0 +1,39 @@
+Ladybird rasterizes repeated vector backgrounds and cached nested
+SVG display lists at a resolution that includes the destination
+transform. It keeps the recorded resolution as a lower bound, and
+includes the raster resolution in cache lookup. The same SVG resource
+can therefore render at different scales without reusing a magnified
+bitmap recorded for another destination.
+
+Blink derives its raster scale from the screen-space transform in
+LayerImpl::GetIdealContentsScale, and applies it to picture tilings
+in PictureLayerImpl::UpdateIdealScales. WebKit sizes SVG pattern
+buffers from the drawing context transform in SVGImage::drawPattern.
+Its GraphicsLayerCA::updateRootRelativeScale accumulates ancestor
+transform scales for the backing resolution in updateContentsScale.
+Gecko bypasses the SVG surface cache in VectorImage::Draw when it
+records drawing commands for WebRender. PictureInstance::assign_surface
+then uses local-to-device and parent-surface scales for its surfaces.
+These paths preserve vector detail at the final scale, which is the
+behavior Ladybird matches for smooth vector-image magnification.
+
+Nearest-neighbor tiles keep their recorded pixel grid. Chrome matches
+that behavior in the fractional-transform, pixelated-background
+control: Enlarging its vector raster changes the edge coverage before
+the nearest-neighbor sampling, and no longer produces the same pixels.
+
+Repeated-tile enlargement is limited to 16384 pixels per dimension
+and 128 MiB, while keeping the recorded tile as its minimum size.
+Perspective tiles keep their recorded resolution. Nested-list rasters
+retain the 128 MiB per-raster limit, 512 MiB cache budget, and direct
+replay fallback. Rotated, skewed, mirrored, or destination-reading
+nested lists still replay directly without caching a raster image.
+The sampled scale determines the raster size, so an animated scale
+selects or creates a cached image as its raster dimensions change.
+
+Chrome renders the reported animated curves sharply at four times
+their layout size. A reference with an animated repeated SVG matches
+untransformed vector backgrounds at uniform and nonuniform scales.
+The GPU regression reuses one nested resource at several scales,
+after a clipped cache warmup, and compares complete images against
+direct vector replay. Both regressions fail without the patch.
