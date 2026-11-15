@@ -1,0 +1,5 @@
+At the end of an XMLHttpRequest’s body, Ladybird fires a progress event
+only if bytes arrived since the last one, or if the body is empty. Gecko
+does the same, in XMLHttpRequestMainThread::ChangeStateToDoneInternal().
+And in Blink and WebKit, the XMLHttpRequestProgressEventThrottle class
+flushes only a still-pending progress event, so neither repeats one.
