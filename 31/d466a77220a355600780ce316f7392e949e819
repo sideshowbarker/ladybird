@@ -1,0 +1,14 @@
+Ladybird gives the platform the media session that most recently
+appeared or started playing, across all tabs, and keeps a paused
+one there until another plays or its page goes away. Chromium makes
+the same choice in AudioFocusManager::MaybeUpdateActiveSession(),
+and Gecko’s ControllerManager::UpdateMainControllerIfNeeded()
+makes a controller that starts playing the main one. WebKit’s
+GPUProcess::recomputeNowPlayingOwner() prefers the largest
+main-content media instead.
+
+When the metadata has no title, Ladybird shows the tab’s title,
+as Chromium’s MediaSessionImpl::BuildMetadata() and Gecko’s
+MediaStatusManager::FillMissingTitleAndArtworkIfNeeded() do. WebKit
+uses the media element’s title attribute, then the document title
+(HTMLMediaElement::mediaSessionTitle()).
