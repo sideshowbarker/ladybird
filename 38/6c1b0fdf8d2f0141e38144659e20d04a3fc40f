@@ -1,18 +1,19 @@
-When the last in-flow children of a block formatting context root are
-a run of boxes that margins collapse through, Ladybird collapses all of
-their margins together with the bottom margin of the box before the
-run, and only the end of the run extends the root. And a line holding
-text or ending in a forced break keeps margins from collapsing through
-its box at any height.
+When margins collapse through the last in-flow children of a block
+formatting context root, Ladybird adds the collapsed margin that the
+margin state holds at the end of the root’s flow (descendants’ margins
+included) below the last box they don’t collapse through, or below the
+top content edge, and nothing else in the run extends the root. And a
+line holding text or ending in a forced break keeps margins from
+collapsing through its box at any height.
 
 Blink appends both margins of a self-collapsing child to a single
 MarginStrut (margin_strut.Append in BlockLayoutAlgorithm), and a new
-formatting context adds that strut's Sum() to its intrinsic block size
+formatting context adds that strut’s Sum() to its intrinsic block size
 once, at the end. WebKit tracks the same collapsed margin in its
 RenderBlockFlow::MarginInfo, adds it in handleAfterSideOfBlock(), and
 decides which blocks collapse through in isSelfCollapsingBlock(). Gecko
 decides it with nsBlockFrame::IsEmpty() and nsLineBox::IsEmpty(), where
 a text frame holding text is never empty, whatever its height.
 
-In Chrome, the test's 15 cases come out the same, and so does the
+In Chrome, the test’s 16 cases come out the same, and so does the
 html height in each of the 40 updated expectations.
