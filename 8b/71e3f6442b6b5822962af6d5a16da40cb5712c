@@ -1,0 +1,11 @@
+Ladybird measures the rows of every table from its cells laid out at
+the used widths of their columns, and never from a cell’s block size
+at its max-content inline size. Blink’s ComputeMinimumRowBlockSize()
+lays out each cell at its column’s width (Layout() with a constraint
+space from the column locations) before it takes the row’s minimum.
+WebKit’s RenderTableSection::calcRowLogicalHeight() lays out each cell
+(layoutIfNeeded()) and uses logicalHeightForRowSizing(). And Gecko’s
+nsTableRowGroupFrame::CalculateRowBSizes() works from rows whose cells
+were already reflowed at their column widths.
+
+In Chrome, every case in the test comes out the same as in Ladybird.
