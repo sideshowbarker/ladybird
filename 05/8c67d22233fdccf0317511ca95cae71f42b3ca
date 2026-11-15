@@ -1,0 +1,6 @@
+Ladybird resolves a MediaMetadata’s artwork URLs against the base URL
+of the current settings object, as Blink and WebKit do: Blink completes
+them with ExecutionContext::From(script_state) in media_session_utils,
+and WebKit parses them with the ScriptExecutionContext its IDL passes as
+CurrentScriptExecutionContext. Gecko follows the spec text instead, and
+resolves them against GetEntryDocument()’s base URI.
