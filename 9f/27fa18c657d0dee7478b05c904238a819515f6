@@ -16,5 +16,5 @@ decides which blocks collapse through in isSelfCollapsingBlock(). Gecko
 decides it with nsBlockFrame::IsEmpty() and nsLineBox::IsEmpty(), where
 a text frame holding text is never empty, whatever its height.
 
-In Chrome, the test’s 21 cases come out the same, and so does the
+In Chrome, the test’s 23 cases come out the same, and so does the
 html height in each of the 40 updated expectations.
