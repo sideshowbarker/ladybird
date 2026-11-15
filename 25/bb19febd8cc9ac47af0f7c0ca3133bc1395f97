@@ -1,0 +1,13 @@
+Ladybird publishes Now Playing from its UI process, through
+MPNowPlayingInfoCenter and MPRemoteCommandCenter, with the title,
+artist, album, artwork, duration, elapsed time, and rate. Chromium’s
+NowPlayingInfoCenterDelegateCocoa and Gecko’s
+MediaHardwareKeysEventSourceMacMediaCenter publish the same way, from
+their browser processes. WebKit publishes from its GPU process through
+private MediaRemote calls (MediaSessionManagerCocoa::
+setNowPlayingInfo()).
+
+Ladybird enables play, pause, toggle, stop, next and previous track,
+and change-playback-position from the session’s supported actions, and
+leaves the skip and scanning commands off — the same set Chromium’s
+RemoteCommandCenterDelegate enables. Gecko leaves stop off too.
