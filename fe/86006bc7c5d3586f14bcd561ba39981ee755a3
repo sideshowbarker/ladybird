@@ -1,0 +1,8 @@
+For a response with a content coding, Ladybird reports an unknown length
+in every XMLHttpRequest progress event. Chromium does the same:
+URLRequestJob only takes the expected content size from Content-Length
+when the body isn’t filtered by a decoding SourceStream, so Blink’s
+XMLHttpRequest::DispatchProgressEvent() gets no expected length for it.
+WebKit’s XMLHttpRequest::didReceiveData() instead reports Content-Length
+until the received length passes it, and Gecko reports the channel’s
+encoded progress against Content-Length.
