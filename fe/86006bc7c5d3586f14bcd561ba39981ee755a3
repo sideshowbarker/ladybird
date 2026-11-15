@@ -1,7 +1,0 @@
-Once an XMLHttpRequest’s decoded bytes pass the response’s Content-
-Length, Ladybird reports the length as unknown, as Blink and WebKit do:
-Blink’s XMLHttpRequest::DispatchProgressEvent() and WebKit’s XML-
-HttpRequest::didReceiveData() both make an event length-computable only
-while the received length is at most the expected content length, and
-report a total of 0 otherwise. Gecko instead reports the channel’s own
-progress, in encoded bytes, against the Content-Length.
