@@ -1,0 +1,29 @@
+Ladybird includes empty inline boxes in the alignment of lines with
+text, atomic content, or a forced break. Phantom lines retain zero
+height and allow block margins to collapse. Each forced break adds
+the metrics of its enclosing inline box, without letting the break
+element’s own line-height enlarge the line.
+
+Blink’s InlineBoxState::ComputeTextMetrics calculates inline text
+metrics. InlineLayoutStateStack::AddBoxFragmentPlaceholder skips
+vertical metrics when is_empty_line_ is set.
+
+Gecko’s nsLineLayout::VerticalAlignLine calls SetSpanForEmptyLine
+and sets zero block size when mLineIsEmpty is set. Occupied lines use
+VerticalAlignFrames to include their inline boxes’ metrics.
+
+WebKit’s LineBoxBuilder::constructInlineLevelBoxes marks the parent
+inline box as contentful for preserved newlines and, in standards
+mode, hard line breaks. Ladybird follows the same separation between
+inline participation and phantom-line elision.
+
+Chrome gives 56px to an inline with line-height:56px containing a
+break, and 112px to two such breaks. An empty inline followed by
+two breaks gives 75px: Only the first line includes that inline.
+A solitary empty inline stays 0px. The imported empty-inline and
+phantom-line WPT cases exercise the same distinction.
+
+Empty inline boxes remain pending through line fitting, so an oversized
+first word or image stays on its first occupied line. A whitespace-only
+inline before a soft wrap contributes its metrics to the preceding
+line. Chrome gives the same results.
