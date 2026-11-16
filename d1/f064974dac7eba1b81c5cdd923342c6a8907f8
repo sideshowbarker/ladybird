@@ -1,9 +1,13 @@
-When the page has no handler for an action, Ladybird applies it to the
-active document’s controlled media, and never rewinds on stop. Chromium
-does the same for play, pause, stop, and seeking, in MediaSessionImpl::
-Resume(), Suspend(), Stop(), and Seek(), and so does Gecko, in
-ContentPlaybackController. WebKit sends the command to its selected
-media element, in HTMLMediaElement::didReceiveRemoteControlCommand().
+When the page has no handler for an action, Ladybird applies it
+to the active document’s controlled media, and never rewinds on
+stop. Chromium does the same for play, pause, and seeking, in
+MediaSessionImpl::Resume(), Suspend(), and Seek(), and so does Gecko,
+in ContentPlaybackController. Ladybird’s stop pauses and then ends
+the session, as Chromium’s MediaSessionImpl::Stop() does, and as Gecko
+does by unregistering the stopped media (ContentMediaController::
+PauseOrStopMedia()); WebKit only pauses. WebKit sends the
+command to its selected media element, in HTMLMediaElement::
+didReceiveRemoteControlCommand().
 
 Ladybird’s default play resumes only the media its default pause paused,
 like Gecko’s ContentMediaController. Without an offset in the action,
