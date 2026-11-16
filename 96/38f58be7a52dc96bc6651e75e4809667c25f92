@@ -1,0 +1,43 @@
+Ladybird aligns column flex items using baselines measured along the
+horizontal cross axis. Horizontal text synthesizes a border-edge
+baseline; orthogonal text supplies a content baseline. Compatible
+first- and last-baseline groups align from their respective physical
+edges, and their combined extents contribute to a wrapped line’s size.
+Scroll-container baselines are clamped to the border edges. Baselines
+exported to the parent remain independent of cross-axis alignment.
+
+Blink selects the baseline set in FlexLayoutAlgorithm::BaselineAscent
+and SynthesizedBaselineAscent. These functions transform its distance
+into the flex axis, and include the corresponding margin. The helpers
+DetermineBaselineWritingMode and DetermineBaselineGroup select the
+axis and sharing group. LogicalBoxFragment supplies natural or
+synthesized baselines, and clamps scroll-container baselines.
+
+Gecko’s FlexItem::BaselineOffsetFromOuterCrossEdge synthesizes a
+baseline when the item’s block axis is the main axis. Otherwise, it
+uses FlexItem::ResolvedAscent and converts the distance from the item’s
+block-start edge to the requested cross edge. These decisions keep a
+column item’s vertical baseline out of its horizontal placement.
+
+WebKit selects baselines in FlexFormattingUtils, whose function
+marginBoxAscentForFlexItem chooses natural or synthesized baselines
+from the item and container axes, and clamps scrolling items. In
+FlexFormattingContext, performBaselineAlignment places compatible
+groups from the edge selected by the item’s block flow and first/last
+baseline preference, after calculating their shared baseline.
+
+The probes ran in Chrome 157.0.8103.78, Firefox 151.0, and WebKit 26.5.
+All three place both reduced-case items at x=0, and pass all five
+subtests of align-items-baseline-column-horz.html with x offsets 144,
+159, 37, 22, and 27. Ladybird matches those results and the 119 retained
+numeric regression cases’ Chrome results. Checks include reversed and
+wrapped columns, RTL, first/last baselines, margins, borders, scrolling,
+mixed writing modes, nested formatting contexts, and shifted inlines.
+
+The engines disagree on negative margins, empty vertical items, some
+middle-aligned atomic boxes, and mixed text orientations. Ladybird
+matches Chrome in those retained cases. Separate sub/super probes
+still expose Ladybird’s approximate font-based shifts. SerenitySans
+middle alignment also retains a font-metric difference. These separate
+metric rules aren’t changed. The sources were inspected for behavior;
+their implementation structure and text weren’t copied.

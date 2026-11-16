@@ -1,0 +1,16 @@
+Ladybird’s vertical inline layout uses the line’s central baseline for
+mixed or upright text, and the alphabetic baseline for sideways text.
+Empty atomic boxes and flex/grid items synthesize the same baseline
+type. Glyphs and propagated decorations retain alphabetic paint
+anchors. Blink selects the type with ComputedStyle::GetFontBaseline,
+and InlineBoxState::ComputeTextMetrics uses that type for the line’s
+metrics. WebKit uses adjustIdeographicBaselineIfApplicable to adjust
+the vertical line’s metrics and atomic boxes in LineBoxBuilder. Gecko’s
+nsLineLayout::VerticalAlignFrames resolves inline alignment using the
+line’s writing mode and the font metrics of its inline content.
+
+In a vertical line, a middle-aligned span now sits at x=8, rather than
+x=2, as it does in Chrome 157.0.8103.78 and WebKit 26.5, and a
+baseline-aligned box at x=25, rather than x=24, as in those two and
+Firefox 151.0. A top-aligned atomic box nested in that span moves from
+x=12 to x=18, as in WebKit; Chrome gives x=26 and Firefox x=10.
