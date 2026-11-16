@@ -1,7 +1,0 @@
-Ladybird now commits an animated custom property from the animation’s
-finish event, while its element runs another animation, rather than
-crashing. Run in Chrome 157.0.8103.78, Firefox 151.0, and WebKit 26.5,
-the new test commits --x: 0px for each of its three elements in all
-three engines, as Ladybird now does. The crash came from a cache of
-interval values that Ladybird keeps on its published animation effects,
-which has no counterpart to compare in the other engines.
