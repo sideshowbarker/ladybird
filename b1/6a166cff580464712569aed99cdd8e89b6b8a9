@@ -14,10 +14,10 @@ Decimal in HTMLInputElement::GetNumberInputCols, while GetCols gives
 an explicit size priority over the derived character count.
 
 Ladybird intentionally counts authored decimal text without Decimal
-normalization or its precision limits. It falls back to the default
-width for exponent forms, and counts the sign and fractional zeros on
-zero values. This keeps the common bounded-decimal case simple, but
-differs from the other engines for those numeric representations.
+normalization or its precision limits, and falls back to the default
+width for exponent forms. That keeps the common bounded-decimal case
+simple, but differs from the other engines for exponent forms. A zero
+takes one column however it’s written, as in all three engines.
 
 The styled spin buttons reserve their own inline size beside the text,
 as Blink and WebKit do through their decoration-sizing paths, and Gecko
