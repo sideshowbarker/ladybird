@@ -1,0 +1,41 @@
+Ladybird lays out dependent table-cell contents again after row sizes
+are assigned, using the stretched content size as a definite percentage
+basis. It retains the automatic content extent for alignment, and keeps
+the assigned row sizes when percentage-sized contents overflow them.
+Descendant dependency information reaches the table through each cell
+layout result, including anonymous and table wrappers. It also covers
+orthogonal contents whose available inline size depends on row height.
+
+Blink separates the final cell size from its initial definiteness in
+ComputeCellBlockSize. A fixed-height cell is definite, as is a cell that
+grew when its table has a specified block size. The row algorithm uses
+SetupTableCellConstraintSpaceBuilder to pass this state to the child
+layout, which consumes it in ComputeInitialBlockSizeForFragment.
+TableRowLayoutAlgorithm::Layout repeats percentage-dependent layouts
+before determining the row baseline with RowBaselineTabulator.
+
+WebKit repeats qualifying percentage-dependent layouts through its
+RenderTableSection::relayoutCellIfFlexed method. The override comes from
+RenderTableCell::setOverridingLogicalHeightFromRowHeight. Its baseline
+update only raises the saved row baseline. Ladybird rebuilds affected
+row baselines after every dependent cell has been laid out, so baselines
+can shrink and alignment is independent of cell order, matching Chrome.
+
+Gecko requests a special block-size reflow through its table and cell
+frames. nsTableCellFrame::NotifyPercentBSize registers percentage-sized
+contents, and nsTableFrame::RequestSpecialBSizeReflow marks ancestors.
+nsTableCellFrame::Reflow obtains the spanned row size without borders
+and padding through CalcUnpaginatedBSize. In standards mode, its method
+NeedsToObserve restricts the descendant observer to table frames.
+
+Runtime comparisons used Chrome 157.0.8103.78, Firefox 151.0, and WebKit
+26.5. Ladybird follows Chrome where they differ: Non-table children grow
+in specified-height tables, even without a percentage height on the
+cell. Intrinsic table heights also qualify. WebKit agrees on most such
+cases, but differs for fixed-height cells beside taller siblings, some
+anonymous-block cases, shrinking baselines, and repeated height changes.
+Firefox restricts many standards-mode cases to table children. Both
+vertical writing modes use the horizontal row extent for percentages.
+Auto-sized orthogonal contents receive the final available row size,
+but keep the viewport cap in orthogonal_flow_inline_size. Their size
+agrees with Firefox and WebKit, and remains different from Chrome.
