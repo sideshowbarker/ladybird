@@ -13,6 +13,11 @@ image. Ladybird scales it down to at most 512px. Chromium resizes it to
 150px (FilterAndResizeImagesForMaximalSize()), while Gecko and WebKit
 pass it on at its decoded size.
 
+Ladybird puts an artwork entry whose sizes include “any” first, as
+Gecko’s GetMediaArtworkFetchOrder() does. WebKit scores “any” as the
+ideal size (imageDimensionsScore()), and Chromium’s MediaImageManager::
+GetImageScore() gives it a fallback score of its own.
+
 These comparisons come from reading each engine’s source, at Chromium
 8658d682eac5, WebKit 047a16c96ccd, and Gecko 06fa2674be3d: What an
 engine hands the OS media controls isn’t observable from page script, so
