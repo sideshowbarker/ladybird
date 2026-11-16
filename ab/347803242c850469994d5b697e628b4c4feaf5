@@ -32,10 +32,11 @@ the largest texture. So under scale(1000), Ladybird and Chrome both show
 the edge of the tile’s curve soft, where WebKit shows it sharp. (Firefox
 never finished its screenshot of that case.)
 
-Where the scale gives the tile a fractional size in device pixels,
-Ladybird rounds that size down. The tile is then drawn up to a pixel
-larger than it was rasterized, which softens it a little: Under
-scale(3.7), a 24x12 tile comes out softer in Ladybird than in Chrome.
+Where the scale would give the tile a fractional size in device pixels,
+Ladybird lowers it to the nearest scale that gives the tile whole pixels
+on each side. The tile is then drawn a little larger than it was
+rasterized, which softens it: Under scale(3.7), a 24x12 tile is recorded
+at 88x44, and comes out softer in Ladybird than in Chrome.
 
 One difference is left as it was. All three engines draw an SVG
 background with “image-rendering: pixelated” as smooth under scale(4) as
