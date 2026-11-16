@@ -11,6 +11,6 @@ hands its viewport size to SVGDocumentWrapper::UpdateViewportBounds.
 
 Run in Chrome 157.0.8103.78, Firefox 151.0, and WebKit 26.5 (the build
 that Playwright ships), an img element and a background that doesn’t
-repeat both show that ellipse under scale(2, 4). In Chrome, each one
+repeat both show that ellipse under scale(2, 4). In all three, each one
 matches, pixel for pixel, the same image drawn at 48x96 with its
 preserveAspectRatio set to none.
