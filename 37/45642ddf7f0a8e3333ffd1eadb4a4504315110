@@ -33,3 +33,9 @@ SVG with only a viewBox) fits its subregion at that ratio, as in Chrome
 with an SVG that has a width but no height. Blink draws an SVG image at
 its container’s size, so the image’s own viewBox does the fitting.
 WebKit 26.5 draws nothing there.
+
+A descendant that a transform moves out past the box’s start edge (a
+child with translateX(-100px), e.g.) counts toward the object bounding
+box too: Ladybird maps each descendant’s border box through its own
+transform and its ancestors’ up to the filtered box. Chrome 157, Firefox
+151 and WebKit 26.5 all draw such a child whole.
