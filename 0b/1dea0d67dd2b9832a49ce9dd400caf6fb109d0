@@ -1,0 +1,15 @@
+Ladybird picks the font of each character of canvas text by the
+character’s emoji presentation, and keeps an emoji sequence in one font.
+Blink does the same: BaseRenderingContext2D::DrawTextInternal() shapes
+canvas text with the same shaper and font fallback as other text. So
+do WebKit, in CanvasRenderingContext2D::drawTextInternal(), and Gecko,
+whose CanvasBidiProcessor makes its text runs through gfxFontGroup.
+
+WordPress draws four emoji sequences, and each of them again with zero
+width spaces in it, and takes a sequence as supported where the two
+drawings differ. In Chrome 157.0.8103.79, Firefox 151.0, and WebKit
+26.5, all four differ, as they do in Ladybird. The new test prints the
+same lines in the three engines as in Ladybird, with two exceptions:
+WebKit draws the color glyph for an emoji with a text variation selector
+where the color font is listed first. And in Firefox, a letter that
+follows an emoji and a joiner isn’t as wide as an Ahem glyph.
