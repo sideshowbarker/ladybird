@@ -33,14 +33,21 @@ mode too (Document::InLineHeightQuirksMode()). Ladybird doesn’t: Its
 line builder knows quirks mode only.
 
 Chrome 157.0.8103.79, Firefox 151.0, and Playwright’s WebKit 26.5 ran
-the cases of the two tests added here, inline-box-struts.html and its
-quirks-mode twin. In standards mode, the three agree on all 85 cases,
-and Ladybird gives what they give: the heights with an empty box under
-each vertical-align value, with nested boxes, in vertical writing modes,
-beside blocks, at soft wraps and forced breaks, and the position of the
-empty box on its line. In quirks mode, Ladybird gives what Chrome and
-WebKit give on all 85 cases of that test, and Firefox differs from those
-two engines on some of them.
+the cases of the three tests added here. Two of those tests are
+inline-box-struts.html and its quirks-mode twin. In standards mode, the
+three agree on all 85 cases, and Ladybird gives what they give: the
+heights with an empty box under each vertical-align value, with nested
+boxes, in vertical writing modes, beside blocks, at soft wraps and
+forced breaks, and the position of the empty box on its line. In quirks
+mode, Ladybird gives what Chrome and WebKit give on all 85 cases of that
+test, and Firefox differs from those two engines on some of them.
+
+A third test, inline-box-strut-client-rects.html, has 12 cases of where
+the client rects of such a box are: after the start edges of the boxes
+around it, on a justified line, and on each of two lines that end in
+forced breaks. Ladybird gives what WebKit gives on all 12 cases. Chrome
+differs on one, where it adds a rect for a forced break. And Firefox
+differs on two, where it widens a justified space by 2px less.
 
 The same run found differences that the tests leave out, and that this
 change doesn’t address. A tall inline box with vertical-align:middle or
