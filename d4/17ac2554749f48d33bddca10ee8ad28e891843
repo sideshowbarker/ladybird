@@ -1,0 +1,17 @@
+Ladybird resolves filter regions and primitive subregions as Chrome 157
+and Firefox 151 do, verified at runtime on 24 cases: default, fractional
+and percentage subregions in both units, zero widths, feImage fitting,
+and the filter region on SVG and HTML elements. The two differ on a
+negative width: Chrome disables the primitive, as the spec says, and
+Ladybird does too, while Firefox ignores the attribute. WebKit
+(Playwright’s 26.5 build) treats a zero-size primitive as an error that
+hides the element, so it’s no reference here.
+
+For an HTML element, Blink’s PaintLayer::UpdateFilterReferenceBox()
+takes LocalBoundingBoxIncludingSelfPaintingDescendants(), the box’s
+visual overflow grown by its self-painting descendants, and its
+ComputeFilterViewport() takes the box’s size for userSpaceOnUse
+percentages. Ladybird has no visual overflow, so it grows the border box
+by the scrollable overflow and the descendants’ border boxes instead.
+All three engines render filter-region-transformed-child-001 and
+filter-region-negative-positioned-child-001 that way.
