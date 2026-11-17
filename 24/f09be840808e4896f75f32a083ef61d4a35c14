@@ -1,0 +1,11 @@
+A column flex container with a preferred aspect ratio now grows to the
+sum of its items’ outer hypothetical main sizes, as Blink’s
+FlexLayoutAlgorithm does: Its intrinsic block size for a column
+container is the sum of the items’ hypothetical main sizes, and that’s
+the automatic minimum for a box with an aspect ratio.
+
+Run in Chrome 157.0.8103.79, Firefox 151.0, and WebKit 26.5
+(Playwright’s build), the test’s eleven cases (flexible and scrollable
+items, gaps, min-height: 0 on an item or the container, overflow: hidden
+on the container, wrapping, column-reverse, and a row container) come
+out the same in all three, and the same as Ladybird now.
