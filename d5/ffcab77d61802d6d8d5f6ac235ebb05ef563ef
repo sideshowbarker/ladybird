@@ -6,9 +6,11 @@ messages ePointerClick and ePointerAuxClick, which EventDispatcher::
 CreateEvent() turns into DOM PointerEvents.
 
 Run in Chrome 157.0.8103.79, Firefox 151.0, and WebKit 26.5, all three
-fire all three events as PointerEvents with pointerType mouse. Firefox
-and WebKit set isPrimary on them, as Ladybird does; Chrome doesn’t. A
-contextmenu’s detail is 0 in Chrome and WebKit, as in Ladybird, and 1
-in Firefox. And on an embedded YouTube player, a click on the progress
-bar seeks, and a click on the video pauses and resumes it, in Chrome
-and in Ladybird with this change — but not in Ladybird without it.
+fire all three events as PointerEvents with pointerType mouse. Chrome
+leaves isPrimary false on them, as the spec requires and as Ladybird
+does; Firefox and WebKit set it. A contextmenu’s pressure is 0 in
+Chrome and Firefox, as in Ladybird, and 0.5 in WebKit. Its detail is 0
+in Chrome and WebKit, as in Ladybird, and 1 in Firefox. And on an
+embedded YouTube player, a click on the progress bar seeks, and a click
+on the video pauses and resumes it, in Chrome and in Ladybird with this
+change — but not in Ladybird without it.
