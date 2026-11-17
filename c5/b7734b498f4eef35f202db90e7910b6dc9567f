@@ -1,0 +1,16 @@
+When nothing listens for an untrusted event, Ladybird skips building
+its path and running its dispatch phases, sets its target to the target
+itself, and still runs the steps that end a dispatch. It does that only
+outside a shadow tree, for an event with no related or touch targets.
+WebKit takes a similar shortcut in EventDispatcher::dispatchEvent(): If
+the document has no listeners for the type, nothing has a default event
+handler, and neither the node nor the relatedTarget is in a shadow tree,
+it sets the target and returns before resetAfterDispatch(). So in WebKit
+26.5, cancelBubble stays true after such a dispatch, and a relatedTarget
+in a shadow tree isn’t retargeted. Blink’s EventDispatcher::Dispatch()
+always builds the event path, and Gecko’s EventDispatcher::Dispatch()
+always builds the event target chain. In 12 variants (detached nodes,
+text nodes, fragments, shadow trees with and without composed, slotted
+nodes, related targets in and out of shadow trees, re-dispatch, flags
+set before dispatch, the document, non-bubbling events), Ladybird now
+gives the same results as Chrome 157.0.8103.78 and Firefox 151.0.
