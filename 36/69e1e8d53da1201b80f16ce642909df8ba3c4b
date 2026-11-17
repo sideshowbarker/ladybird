@@ -1,0 +1,14 @@
+Ladybird now keeps a flex container’s items in order-modified document
+order for every flex direction, and reverses them only where a line lays
+them out from the main-end edge. Blink does the same: its
+FlexChildIterator hands out the children sorted by order, and
+FlexLayoutAlgorithm applies is_reverse_direction_ only when it places
+them. WebKit iterates RenderFlexibleBox’s children with OrderIterator,
+and Gecko with CSSOrderAwareFrameIterator, reversing at positioning
+through IsMainAxisReversed().
+
+Run in Chrome 157.0.8103.79, Firefox 151.0, and WebKit 26.5
+(Playwright’s build), the test’s six cases (row-reverse, row-reverse
+with positive orders, column-reverse, a wrapping row-reverse,
+row-reverse in rtl, and row) come out the same in all three, and the
+same as Ladybird now.
