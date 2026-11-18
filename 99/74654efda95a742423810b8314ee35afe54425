@@ -1,0 +1,10 @@
+Ladybird’s tabs.removeCSS() removes the style sheets an insertCSS()
+call added with the same code or file and the same cssOrigin, from the
+frames the call names, through the same injection path as
+scripting.removeCSS(). Firefox does the same, in
+ExtensionTabsBase::removeCSS() (ext-tabs-base.js), which runs the
+shared _execute() with a removeCSS flag. Chromium’s
+TabsRemoveCSSFunction is an ExecuteCodeInTabFunction whose
+ShouldRemoveCSS() returns true, and WebKit’s
+WebExtensionContext::tabsRemoveCSS() takes the same injection
+parameters as its insertCSS counterpart.
