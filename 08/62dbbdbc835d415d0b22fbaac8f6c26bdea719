@@ -1,0 +1,11 @@
+Ladybird caps each serialized history state at 16 MiB, and drops the
+states of a session history’s oldest entries once its states add up
+past 512 MiB. Run in Chrome 157, Firefox 151, and WebKit 26.5: Firefox
+throws past 16 MiB for a single state (nsDocShell::AddState(), the
+browser.history.maxStateObjectSize pref), and Chrome and WebKit don’t.
+WebKit instead throws a QuotaExceededError once a document’s states
+pass 64 MB in all (History::updateAndCheckStateObjectQuota()). Chrome
+and Firefox bound the total by keeping at most 50 entries (Blink’s
+kMaxSessionHistoryEntries, Gecko’s browser.sessionhistory.max_entries
+pref), dropping the oldest whole. None of them nulls a state while
+keeping its entry, so that part is Ladybird’s own.
