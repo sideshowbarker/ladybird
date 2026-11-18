@@ -1,0 +1,4 @@
+Moving a source into a video that has no src, and hasn’t started
+resource selection, now starts it in Ladybird, as the spec’s source
+moving steps ask. Run in Chrome 157.0.8103.79 and Firefox 151.0, both
+load the source; WebKit 26.5 has no moveBefore().
