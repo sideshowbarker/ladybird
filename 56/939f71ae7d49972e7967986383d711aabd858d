@@ -1,0 +1,37 @@
+Ladybird routes an extension’s runtime messages in the UI process:
+every page registers the contexts it hosts, a message goes to each
+context of the extension’s own pages but the sender’s, the first reply
+settles the request, and declines from every target mean nobody
+replied. WebKit’s WebExtensionContext::runtimeSendMessage() picks the
+processes with a listener for the event through processes(eventType,
+contentWorldType), sends each a DispatchRuntimeMessageEvent with an
+async reply, and an EagerCallbackAggregator completes the sender with
+the first non-null reply (WebExtensionContextAPIRuntimeCocoa.mm).
+Blink’s MessageService in the browser process opens a channel with
+OpenChannelToExtension() to the extension’s frames and service worker
+(OpenChannelImpl()), delivers through DispatchMessage(), and closes the
+channel in CloseChannel() when the receivers’ ports go away
+(message_service.cc). Gecko’s ProxyMessenger.recvRuntimeMessage() in
+ExtensionParent.sys.mjs casts the message to every child context of
+the extension through ConduitsParent’s castRuntimeMessage() and
+resolves with the first defined response.
+
+Runtime messages go only to an extension’s own pages, never to content
+scripts, as in Blink’s ExtensionMessagePort::CreateForExtension()
+and WebKit’s WebExtensionContext::runtimeSendMessage(). Gecko’s
+ConduitsParent::_cast() keeps content scripts out for a content-script
+sender, but still has a route from extension pages to content scripts.
+
+The broker takes the sender from its own view of the sending document,
+as Blink’s ValidateSourceContextAndExtractExtensionId() validates
+the source through its RenderFrameHost and Gecko’s verifyEnv() checks
+principals and ancestry. A dispatch id answers only from the page
+it went to, as Gecko’s ConduitsParent::receiveMessage() rejects the
+wrong actor and WebKit’s Connection::takeAsyncReplyHandler() keeps
+its handlers per connection.
+
+While a background page starts, a message waits for it, as with Blink’s
+MessageService::EnqueuePendingMessageForLazyBackgroundLoad(), Gecko’s
+wakeupBackground(), which normalizeArgs() awaits, and WebKit’s
+m_actionsToPerformAfterBackgroundContentLoads. The 30-second deadline
+for a page that never loads is Ladybird’s own.
