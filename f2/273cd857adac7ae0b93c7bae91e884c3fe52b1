@@ -1,0 +1,5 @@
+When a video’s candidate fails, and the video is adopted before the
+failure’s task runs, and its old document then goes away, Ladybird
+now goes on to the next source. Run in Chrome 157.0.8103.79 and
+Firefox 151.0, Firefox loads the next source, as Ladybird does, and
+Chrome never does. With the old document kept, both load it.
