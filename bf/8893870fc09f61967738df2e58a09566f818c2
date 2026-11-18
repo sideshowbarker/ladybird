@@ -1,0 +1,6 @@
+Ladybird’s UI process folds every listener’s filter into the set it
+sends RequestServer, so a request no listener could hear never waits.
+Chromium does the same kind of filtering in the browser process before
+a request reaches the renderer’s listeners (WebRequestEventRouter::
+GetMatchingListeners), and Firefox’s parent process matches each
+listener’s filter in WebRequest.sys.mjs before it wakes anything.
