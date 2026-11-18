@@ -12,3 +12,9 @@ end at 16 spaces (with tab-size: 8), and three tabs at 24. Under
 tab-size: 2px, three tabs end at 8px in Chrome, 18px in Firefox,
 and 12px in WebKit; Ladybird gives 12px, as WebKit does, and as the
 spec’s rule for each tab gives.
+
+In Chrome 157.0.8103.79, Firefox 151.0, and WebKit 26.5, a range around
+each tab of a run spans from where the character before the tab ends to
+the tab’s own stop — as “a\t\tX” under tab-size: 8 gives its tabs 1 to
+8 and 8 to 16 spaces. Ladybird gives each tab a spacer glyph of its own,
+so its ranges come out the same.
