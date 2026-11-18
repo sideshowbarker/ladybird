@@ -1,0 +1,35 @@
+Ladybird parses manifest.json in the UI process into one model for
+manifest versions 2 and 3, reads the content scripts at load time,
+and generates the page that hosts background scripts. WebKit’s
+WebExtension::parseManifest() and its parse*Properties() helpers do
+the same in the UI process, with generatedBackgroundContent() for
+the background scripts and isWebAccessibleResource(requestURL,
+pageURL) for resource access. Blink’s Extension::Create() runs the
+manifest handlers (content_scripts_handler.cc, web_accessible_
+resources_info.cc, csp_info.cc) in the browser process, generates
+the background page in GenerateBackgroundPageContents() of
+extension_protocols.cc, and gates resource loads with
+AllowExtensionResourceLoad(). Gecko’s ExtensionData.parseManifest()
+in Extension.sys.mjs produces the same shape, WebExtensionPolicy::
+IsWebAccessiblePath() and SourceMayAccessPath() answer resource
+access, and ExtensionProtocolHandler::AllowExternalResource() refuses
+a file outside the extension directory, as Ladybird’s open_resource()
+does with the file it has opened. The version-2 “permissions” list
+mixing host patterns with permission names is split the way Gecko’s
+ExtensionData does in parseManifest().
+
+Ladybird refuses an encoded “/” in an extension resource path, as Blink
+does in ExtensionURLToRelativeFilePath(), which decodes the path with
+UnescapeBinaryURLComponentSafe() and fail_on_path_separators set.
+Gecko instead decodes escaped dots and slashes before the URL is
+normalized, in SubstitutingProtocolHandler::NewURI(), and then its
+ResolveURI() rejects a decoded backslash.
+
+Ladybird checks the real location of the file it opened against
+the extension directory. The other engines check by path: Blink’s
+ExtensionResource::GetFilePath() requires the normalized resource
+to be under the normalized root, Gecko’s ExtensionProtocolHandler::
+NewStream() checks nsIFile::Contains(), and WebKit’s WebExtension::
+resourceFileURLForPath() compares real paths. Checking the opened
+file rather than its path means a symlink swapped in after the
+check can’t escape either.
