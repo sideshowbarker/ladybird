@@ -13,3 +13,9 @@ PaintLayer::UpdateFilterReferenceBox(), by visual overflow, and Gecko in
 SVGIntegrationUtils::GetSVGBBoxForNonSVGFrame(), by ink overflow.
 Ladybird’s own ink overflow can’t stand in for those, since it always
 reserves room for a focus outline, which would grow every box.
+
+Blink’s ShadowData::RectOutsets() takes a box’s outer shadow as reaching
+its spread, negative or not, plus three standard deviations of its blur,
+and Ladybird does the same. All three engines agree on a negative
+spread. For a 20px blur, Chrome 157 and Ladybird reach 30px, and Firefox
+151 and WebKit 26.5 reach 28px.
