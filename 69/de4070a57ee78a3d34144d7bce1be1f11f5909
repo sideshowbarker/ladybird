@@ -14,3 +14,8 @@ WebKit, as in Ladybird; Chrome breaks there too. With display: none,
 it takes one line in all three. A div holding only a wbr is one line
 tall in Chrome and Firefox and has no height in WebKit, and Ladybird
 gives it no height either.
+
+A span with 6px of right padding around “xx<wbr>”, followed by “yy”
+in a right-aligned 3ch box, ends at the right edge of the box on
+the first line in all three engines, with its padding on that line;
+Ladybird places it the same way.
