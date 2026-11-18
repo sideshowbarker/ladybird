@@ -12,3 +12,10 @@ whose unicode-range leaves it out, Chrome and Firefox draw three
 periods, and WebKit falls back to another font’s U+2026. Ladybird draws
 three periods, as Blink’s LineTruncator::ComputeEllipsisText() and
 Gecko’s gfxFontGroup::MakeEllipsisTextRun() choose to.
+
+Where text-overflow elides a line, Chrome and Firefox count the elided
+text toward the scrollable overflow where its relative offset puts
+it, on either side of the line, and so does Ladybird; WebKit leaves
+the offset out. So in a 50px box, 80px of right-to-left text shifted
+10px to the left gives a scrollWidth of 90 in Chrome, Firefox, and
+Ladybird, and 80 in WebKit.
