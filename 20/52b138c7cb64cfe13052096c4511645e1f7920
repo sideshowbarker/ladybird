@@ -1,11 +1,11 @@
 Ladybird caps each serialized history state at 16 MiB, and gives a
-tab’s whole session history a 1 GiB budget for state, enforced in the
-UI process. Gecko also caps each state at 16 MiB, and throws past it,
-in nsDocShell::AddState() (the browser.history.maxStateObjectSize
-pref). WebKit’s History::updateAndCheckStateObjectQuota() instead
-allows each main-frame document 64 MB of state in all, and throws a
-QuotaExceededError past that. Blink sets no limit on a state’s size.
-But Blink and Gecko both bound the total by keeping at most 50 session
-history entries (Blink’s kMaxSessionHistoryEntries, and Gecko’s
-browser.sessionhistory.max_entries pref), which Ladybird doesn’t do
-yet, so its budget for state bounds the total instead.
+tab’s whole session history a 1 GiB budget for its encoded size,
+enforced in the UI process. Gecko also caps each state at 16 MiB, in
+nsDocShell::AddState() (the browser.history.maxStateObjectSize pref),
+and throws past it. WebKit’s History::updateAndCheckStateObjectQuota()
+instead allows each main-frame document 64 MB of state and URLs in
+all, and throws a QuotaExceededError past that. Blink sets no limit on
+a state’s size. But Blink and Gecko both bound the total by keeping at
+most 50 session history entries (Blink’s kMaxSessionHistoryEntries,
+and Gecko’s browser.sessionhistory.max_entries pref), which Ladybird
+doesn’t do yet, so its size budget bounds the total instead.
