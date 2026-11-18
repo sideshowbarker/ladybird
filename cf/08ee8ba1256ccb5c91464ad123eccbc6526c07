@@ -1,0 +1,7 @@
+Ladybird anchors a text chunk by the least and the greatest position its
+characters cover, as the text layout algorithm of SVG 2 has it. Blink
+does the same in SvgTextLayoutAlgorithm::ApplyAnchoring(), and Gecko in
+SVGTextFrame::DoAnchoring(): In Chrome 157.0.8103.79 and Firefox 151.0,
+the new test gives the same character positions as in Ladybird. WebKit
+26.5 anchors a chunk by where its last character ends instead, so it
+gives other positions for each case in the test.
