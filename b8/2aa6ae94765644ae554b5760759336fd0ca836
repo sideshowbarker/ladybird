@@ -1,0 +1,18 @@
+Ladybird runs every extension storage operation in order on one worker,
+and replaces a versioned JSON file atomically before publishing a
+change. Quota counts each key’s UTF-8 bytes plus its value’s JSON, and a
+write that leaves a value unchanged reports no change for it.
+
+Chromium counts quota the same way, in SettingsStorageQuotaEnforcer::
+Allocate(), from JSON written by base::WriteJson() (whose escapes
+and number formats Ladybird’s quota count follows exactly),
+and LeveldbValueStore::Set() drops unchanged values in AddToBatch().
+Ladybird matches those rules, with a JSON file in place of LevelDB.
+
+Gecko stores structured clones in an IndexedDB transaction,
+in ExtensionStorageIDB.set(), and aborts it when a put fails;
+so a failed write is atomic there too, but every supplied key is
+reported. WebKit runs WebExtensionStorageSQLiteStore::setKeyedData() on
+a storage queue and completes on the main queue, just as Ladybird does;
+but it writes SQLite rows one at a time, so a failure partway leaves
+the earlier keys written.
