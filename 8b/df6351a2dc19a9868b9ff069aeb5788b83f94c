@@ -1,0 +1,15 @@
+Ladybird bounds an HTML element’s SVG filter target by what the element
+and its descendants paint: their border boxes, inline boxes included,
+and outer shadows, each cut by its containing blocks’ overflow clips
+along the axes they clip and moved by their transforms, in that order.
+Chrome 157, Firefox 151 and WebKit 26.5 all draw a box’s shadow, a
+positioned box that escapes an “overflow: hidden” box, and an inline box
+moved out past the start edge whole under an identity filter, verified
+at runtime with the new tests. Chrome and Firefox also draw the child of
+a rotated box that clips only its x-axis whole, and WebKit cuts it.
+
+The other engines bound the target by what the box paints: Blink in
+PaintLayer::UpdateFilterReferenceBox(), by visual overflow, and Gecko in
+SVGIntegrationUtils::GetSVGBBoxForNonSVGFrame(), by ink overflow.
+Ladybird’s own ink overflow can’t stand in for those, since it always
+reserves room for a focus outline, which would grow every box.
