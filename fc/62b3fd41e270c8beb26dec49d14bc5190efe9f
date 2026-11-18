@@ -1,0 +1,15 @@
+Ladybird resolves a relative URL given to tabs.create() or tabs.update()
+against the extension, as Chromium’s ExtensionTabUtil::
+PrepareURLForNavigation(), Gecko’s ext-tabs.js, and WebKit’s
+WebExtensionContextAPITabsCocoa.mm do. It rejects a javascript: URL, a
+file: URL, and an unparsable one with Chromium’s texts for them
+(kJavaScriptUrlsNotAllowedInExtensionNavigations,
+kFileUrlsNotAllowedInExtensionNavigations, and kInvalidUrlError), in the
+same wording, since extensions compare those errors. It also rejects
+another extension’s page, which Chromium’s navigation throttle blocks.
+
+A call with no tab id acts on the active tab of the caller’s window, as
+Chromium’s GetDefaultTab() does, failing with kNoSelectedTabError. And
+an extension’s page may close its tab with window.close() whatever the
+tab’s history holds, since extension_webkit_preferences.cc in Chromium
+sets allow_scripts_to_close_windows for an extension’s own pages.

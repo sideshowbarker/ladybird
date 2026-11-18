@@ -1,0 +1,30 @@
+Ladybird creates each Port synchronously, queues its early
+JSON messages until the channel exists, marks it disconnected before
+running onDisconnect, and never fires that event on the side that called
+disconnect(). An error disconnect sets both port.error and, while the
+listeners run, runtime.lastError.
+
+Chromium returns its Port at once too, and GinPort::DisconnectHandler()
+closes it without firing the local event. GinPort::PostMessageHandler()
+throws an Error on a disconnected port, and serializes the
+message before sending it; NativeRendererMessagingService::
+DispatchOnDisconnectToListeners() scopes lastError around the event.
+Ladybird matches all of that, and adds port.error.
+
+Gecko creates the Port in Messenger::connect() before it asks
+the parent process, Port::getAPI() exposes error and the receiver’s
+sender, and recvPortDisconnect() sets the error before emitting
+onDisconnect. Ladybird matches that API shape, with JSON in
+place of structured cloning.
+
+WebKit marks m_disconnected before the listeners run, in
+WebExtensionAPIPort::fireDisconnectEventIfNeeded(), as Ladybird does.
+But WebKit’s disconnect() also fires the caller’s own onDisconnect;
+Ladybird doesn’t, matching Chromium and Gecko.
+
+On a clean close, Ladybird clears a Port’s listener lists rather
+than revoking them, so removeListener() and hasListener() keep
+working during and after onDisconnect — as Chromium’s EventEmitter::
+RemoveListener(), Gecko’s EventManager::removeListener(), and
+WebKit’s WebExtensionAPIEvent::removeListener() all allow. Only a
+detached context revokes them.
