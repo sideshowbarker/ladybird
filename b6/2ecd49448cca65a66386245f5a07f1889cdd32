@@ -1,0 +1,18 @@
+Ladybird completes every extension API call through settle_api_call(),
+which resolves a promise or invokes a callback. A failed call
+invokes its callback with no arguments, and runtime.lastError is set
+only while that callback runs; the enclosing value comes back afterward,
+even when callbacks nest. The value lives on the messaging context,
+and an exception the callback throws goes to the console through
+HTML::report_exception().
+
+Chromium does the same in APIRequestHandler::AsyncResultHandler::
+ResolveRequest(), which tells callbacks from promises, sets
+APILastError around the callback, and clears it afterward.
+Gecko scopes the error with BaseContext.withLastError(), clearing it
+in a finally clause, and builds promises with BaseContext.wrapPromise(),
+both in ExtensionCommon.sys.mjs. And WebKit scopes m_lastError around
+its callback handler, through WebExtensionAPIRuntimeBase::reportError().
+So all three match Ladybird’s callback and rejection behavior; restoring
+the enclosing value, rather than clearing it, also keeps an outer
+callback’s error when callbacks nest.
