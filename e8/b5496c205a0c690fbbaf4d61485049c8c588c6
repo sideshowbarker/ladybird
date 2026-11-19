@@ -1,0 +1,12 @@
+Ladybird’s storage.sync keeps each extension’s items in a local file,
+under the limits extensions expect: 102,400 bytes in all, 8,192 bytes
+for any one item, and 512 items. Chromium enforces the same three
+in its SettingsStorageQuotaEnforcer, and WebKit checks the per-item
+limit in WebExtensionAPIStorageArea::set() and reports the same
+quotaBytes() and quotaBytesPerItem(); Gecko’s ext-storage.js uses the
+same 8,192-byte item limit.
+
+Ladybird’s quota errors name the constant an extension sees, as in
+“QUOTA_BYTES_PER_ITEM quota exceeded”. Chromium’s current enforcer puts
+its own enum value’s name there instead (Resource:: kQuotaBytesPerItem),
+which no extension can usefully compare against.
