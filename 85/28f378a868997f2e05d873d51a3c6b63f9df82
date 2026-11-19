@@ -1,0 +1,7 @@
+Ladybird’s runtime.openOptionsPage() reuses a tab already showing
+the options page, or opens one, as Chromium’s ExtensionTabUtil::
+OpenOptionsPage() does through its singleton-tab navigation; Gecko shows
+an options_ui page inside about:addons, which Ladybird doesn’t have.
+An extension without an options page gets Chromium’s “Could not create
+an options page.”, and runtime.setUninstallURL() takes only an http or
+https URL, failing otherwise with Chromium’s “Invalid URL” text.
