@@ -1,0 +1,20 @@
+Ladybird keeps failed installed directories available for retry, and
+revokes a loaded extension when its reload fails. Chromium disables
+before reload in ExtensionRegistrar::DoReloadExtension(), and records
+failed paths in failed_to_reload_unpacked_extensions_. This matches the
+failed-reload behavior. Gecko loads the manifest before activation in
+XPIInstall.installTemporaryAddon(), called by AddonWrapper.reload() for
+temporary installs. Ladybird deliberately keeps failed entries across
+restarts, so the user can fix the directory and reload it, and revokes a
+failed reload.
+
+Ladybird prepares an install without persisting it, and grants newly
+declared permissions only when the install is confirmed. Chromium
+UnpackedInstaller::InstallExtension() grants active permissions without
+an unpacked-install confirmation. Ladybird deliberately requires that
+confirmation and keeps command-line reload grants unchanged. WebKit
+WebExtensionContext::setGrantedPermissions() keeps explicit grants;
+WebExtensionController::load() removes a context when loading fails, and
+unload() notifies processes without deleting stored data. Ladybird
+likewise separates revocation from storage deletion. WebKit leaves
+management UI and failed-entry persistence to its embedding application.
