@@ -1,0 +1,13 @@
+Ladybird now types each number in a text node by rules W2, W4, and W5 of
+UAX #9, and always shapes its glyphs left to right. By rule W7, a number
+goes into the line as part of the left-to-right text before it, if there
+is any, and otherwise as part of the right-to-left text around it.
+Blink, Gecko, and WebKit instead resolve the levels of a whole paragraph
+with ICU’s ubidi: Blink in BidiParagraph::SetParagraph(), Gecko in
+mozilla::intl::Bidi::SetParagraph(), and WebKit in InlineItemsBuilder::
+breakAndComputeBidiLevels(). Chrome 157.0.8103.79 and Firefox 151.0 lay
+out all 33 paragraphs of the new test the way this change does. WebKit
+26.5 differs in three: two left-to-right paragraphs with Hebrew or
+Arabic-Indic digits, and a plaintext paragraph. And since all three
+engines resolve levels across the whole paragraph, they also get a
+number split across elements right, which this change doesn’t.
