@@ -1,0 +1,6 @@
+Ladybird fires windows.onFocusChanged once for each change of the
+focused browser window, and with WINDOW_ID_NONE when focus leaves
+every window of the browser, as Firefox’s ext-windows.js does through
+its windowTracker focus events and Chromium’s WindowsEventRouter::
+OnActiveWindowChanged; an extension that may not see a private window
+hears WINDOW_ID_NONE for it, as in Firefox’s canAccessWindow check.
