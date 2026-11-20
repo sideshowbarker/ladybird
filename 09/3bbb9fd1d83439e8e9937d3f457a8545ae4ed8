@@ -1,0 +1,10 @@
+Ladybird displays HTML and SVG embeds in a child navigable, and raster
+embeds as images. Blink’s HTMLEmbedElement::UpdatePluginInternal()
+and WebKit’s HTMLEmbedElement::updateWidget() delegate loading
+to their plugin and frame loaders. Gecko’s HTMLEmbedElement uses
+nsObjectLoadingContent::LoadObject() to select a representation.
+
+Chrome 158.0.8127.36, Firefox 151.0 and WebKit 26.5 all gave HTML a
+child window and a 300 by 150 viewport. SVG had a child window and used
+its natural size. PNG had its natural size and no child window. Chrome
+and WebKit suppressed a display:none embed. Firefox loaded its document.
