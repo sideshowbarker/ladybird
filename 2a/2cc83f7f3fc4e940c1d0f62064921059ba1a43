@@ -1,0 +1,7 @@
+Ladybird resolves legacy writing modes before pairing a logical margin
+with its physical side during cascade rollback. Chrome 158.0.8127.36,
+Firefox 151.0 and WebKit 26.5 all restored the earlier layer’s 7px
+margin in both directions for all six aliases. Blink maps the keywords
+in CssValueIDToPlatformEnum() and rolls back in ResolveRevertLayer().
+Gecko declares the aliases on WritingModeProperty. WebKit accepts the
+legacy values in its writing-mode descriptor in CSSProperties.json.
