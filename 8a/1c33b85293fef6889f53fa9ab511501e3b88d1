@@ -14,3 +14,10 @@ decoding a raster response. A denied response clears the previous
 representation. With the document’s embedder policy set to require-corp,
 Chrome, Firefox and WebKit all displayed the 100 by 50 image from the
 same origin and from a second origin that explicitly allowed embedding.
+
+An embed in an object’s fallback content starts loading when the
+object starts showing that content, and its load delays the document’s
+load event. In Chrome 158, Firefox 151, and WebKit 26.5, such an embed
+fired its load event before the window’s. Firefox loaded it again each
+time the object returned to its fallback content, as Ladybird does.
+Chrome kept the embed loaded while the object showed an image.
