@@ -8,3 +8,9 @@ Chrome 158.0.8127.36, Firefox 151.0 and WebKit 26.5 all gave HTML a
 child window and a 300 by 150 viewport. SVG had a child window and used
 its natural size. PNG had its natural size and no child window. Chrome
 and WebKit suppressed a display:none embed. Firefox loaded its document.
+
+Ladybird applies the embedding document’s resource policy before
+decoding a raster response. A denied response clears the previous
+representation. With the document’s embedder policy set to require-corp,
+Chrome, Firefox and WebKit all displayed the 100 by 50 image from the
+same origin and from a second origin that explicitly allowed embedding.
