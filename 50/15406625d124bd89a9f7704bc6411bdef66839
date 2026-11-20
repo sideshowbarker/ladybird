@@ -1,0 +1,9 @@
+Ladybird preserves the six specified spellings of writing-mode,
+and computes horizontal-tb or vertical-rl before resolving logical
+sides. Blink maps the identifiers in CssValueIDToPlatformEnum()
+for WritingMode. WebKit maps the legacy values declared in
+CSSProperties.json, and Gecko accepts aliases on WritingModeProperty.
+
+Chrome 157.0.8103.79 and WebKit 26.5 kept the legacy spelling in the
+declaration. Firefox 151.0 serialized its modern equivalent. All three
+computed the same writing modes, independently of direction.
