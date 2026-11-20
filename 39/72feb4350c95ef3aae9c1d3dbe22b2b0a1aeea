@@ -30,3 +30,8 @@ In a vertical flex row, a 25% width resolves to 50px in a 200px
 container. Ladybird, Chrome and Firefox use the resolved width to
 derive a 25px height from the image’s 2:1 ratio. WebKit uses its
 300px fallback width and a 150px height in the same case.
+
+For a 2:1 image with a 60px height, Ladybird and Chrome apply the
+calculation in a calc-size() minimum or maximum to the transferred
+120px width. Adding 10px gives a 130px minimum, and subtracting 10px
+gives a 110px maximum. Firefox and WebKit ignore these declarations.
