@@ -18,3 +18,15 @@ keep a 50px width under a min-content minimum. WebKit uses 300px. At
 a definite height of 60px, all three use the 2:1 ratio and resolve the
 minimum to 120px. Blink computes the keyword limits using the definite
 block size or natural dimensions in ComputeReplacedSizeInternal().
+
+In a 200px row flex container, Chrome resolves an intrinsic minimum
+on a 32px-wide ratio-only image to 200px, or 64px with a 32px maximum
+height. FlexLayoutAlgorithm asks the child for its content contribution
+when resolving the main-axis limits. The same image in block and grid
+layout measures 32px. Firefox uses 32px in all three layouts. WebKit
+uses 300px, including when the maximum height caps it at 32px.
+
+In a vertical flex row, a 25% width resolves to 50px in a 200px
+container. Ladybird, Chrome and Firefox use the resolved width to
+derive a 25px height from the image’s 2:1 ratio. WebKit uses its
+300px fallback width and a 150px height in the same case.
