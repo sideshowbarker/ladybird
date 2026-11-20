@@ -1,0 +1,10 @@
+Ladybird paints one mask for each CRLF pair in text a script creates.
+A lone CR and a lone LF each get a mark. Chrome 158.0.8127.36 also
+paints one mark for CRLF in LayoutText::SecureText(). Firefox 151.0
+and WebKit 26.5 paint two. Gecko masks each character in
+nsCaseTransformTextRunFactory::TransformString(). WebKit masks the
+characters of the rendered string in RenderText::secureText().
+
+When pre-line preserves a line feed in unmasked text, Ladybird keeps
+the line break even when CR and LF form one grapheme. Two CRLF pairs
+produce three lines in all three engines, with ASCII or Latin text.
