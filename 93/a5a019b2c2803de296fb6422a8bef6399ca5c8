@@ -1,0 +1,12 @@
+Ladybird accepts the three prefixed text-align values, and uses physical
+left and right for their block alignment in either text direction. Blink
+resolves the keyword in BlockLayoutAlgorithm, WebKit resolves inline
+margins in RenderBox::computeInlineDirectionMargins(), and Gecko accepts
+prefixed aliases for TextAlignKeyword.
+
+Chrome 157.0.8103.79, Firefox 151.0, and WebKit 26.5 agreed on
+auto margins, asymmetric fixed margins, and safe overflow in both
+directions. They also mapped left and right to the top and bottom
+edges in both vertical writing modes. Firefox serializes the values
+with its own prefix. Ladybird serializes them with the WebKit prefix,
+as Chrome and WebKit do.
