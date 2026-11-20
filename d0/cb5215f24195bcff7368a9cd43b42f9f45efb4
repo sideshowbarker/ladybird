@@ -21,3 +21,10 @@ load event. In Chrome 158, Firefox 151, and WebKit 26.5, such an embed
 fired its load event before the window’s. Firefox loaded it again each
 time the object returned to its fallback content, as Ladybird does.
 Chrome kept the embed loaded while the object showed an image.
+
+When window.stop() stops an embed’s fetch before its response, Ladybird
+stops delaying the load event on it, so the document’s readyState
+reaches “complete”. For an image, Chrome 158 and Firefox 151 report
+“complete” right after window.stop() too, and Chrome fires an error
+event at the embed; WebKit 26.5 keeps “interactive”. None of the three
+fires a load event at the window then.
