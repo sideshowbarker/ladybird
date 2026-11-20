@@ -36,3 +36,8 @@ document embed at the top of an open shadow root, at 100 by 50 and 300
 by 150. And when window.stop() stops an embed’s fetch while the body of
 a raster image is still arriving, Ladybird ends the image too, so that
 the document’s readyState reaches “complete”.
+
+Removing an embed while the body of its raster image is still arriving
+ends that image, so it no longer delays the load event. Firefox 151
+fired the window’s load event right after the removal; Chrome 158
+finished loading the image, and fired it then.
