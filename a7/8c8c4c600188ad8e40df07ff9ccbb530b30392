@@ -1,0 +1,14 @@
+Ladybird resolves a replaced box’s intrinsic width
+independently of the min-content contribution it makes to
+its parent. Blink uses ComputeReplacedSizeInternal() for
+the box and ComputeMinAndMaxContentContributionForReplaced()
+for its contribution. Gecko resolves replaced sizes in
+nsContainerFrame::ComputeSizeWithIntrinsicDimensions().
+WebKit resolves the width keywords in
+RenderReplaced::computeIntrinsicKeywordLogicalWidths().
+
+Chrome 158.0.8127.36, Firefox 151.0 and WebKit 26.5 all preserved the
+300 by 150 image under a 100% maximum in a 400px block, and reduced it
+to 200 by 100 under a 50% maximum. A 20 by 30 canvas with a 60px height
+measured 40px across in block, grid and flex containers. Chrome also
+resolved a calc-size() adding 5px to min-content to 45px.
