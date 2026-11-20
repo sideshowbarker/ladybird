@@ -1,0 +1,14 @@
+Ladybird positions a self-aligned block using the edge its writing
+mode and direction place on the containing block’s inline axis. Chrome
+158.0.8127.36 matched both offsets in 200 combinations of writing
+modes, directions, and widths. Blink maps the child’s edges in
+WebkitTextAlignAndJustifySelfOffset(). Firefox 151.0 and WebKit 26.5
+used the prefixed parent alignment throughout these cases, in Gecko’s
+ReflowInput::CalculateBlockSideMargins() and WebKit’s
+RenderBox::computeInlineDirectionMargins().
+
+For baseline, Ladybird and Chrome use the container’s start edge even
+when the child has the opposite direction. CSS Align specifies safe
+self-start. With a 100px RTL child in a 200px LTR block, changing the
+parent alignment from left to center to right gave offsets of 0, 50,
+and 100px in Firefox and WebKit, and 0px throughout in Chrome.
