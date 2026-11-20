@@ -1,0 +1,7 @@
+Ladybird now takes the extent of a line box from unsnapped text
+offsets, so a fractional line height adds up exactly line by line. Blink
+keeps offsets in LayoutUnit, in 1/64 pixels, and doesn’t round text
+to whole pixels in layout, and Gecko and WebKit keep fractional offsets
+too. Chrome 157.0.8103.79, Firefox 151.0, and Playwright’s WebKit
+26.5 ran the cases of the test added here, and agree to within Firefox’s
+fractions; Ladybird gives what Chrome and WebKit give.
