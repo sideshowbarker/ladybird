@@ -10,3 +10,14 @@ directions. They also mapped left and right to the top and bottom
 edges in both vertical writing modes. Firefox serializes the values
 with its own prefix. Ladybird serializes them with the WebKit prefix,
 as Chrome and WebKit do.
+
+Ladybird measures float exclusions at the edge where a block aligns. It
+also repositions an unchanged child when the container changes its
+alignment or overflow safety. Chrome 158.0.8127.36 aligned the block
+within the float-free space and honored all three overflow settings, in
+BlockLayoutAlgorithm and WebkitTextAlignAndJustifySelfOffset().
+
+Firefox 151.0 and WebKit 26.5 kept the block at its legacy alignment in
+these probes. Gecko measures float exclusions in
+BlockReflowState::GetFloatAvailableSpaceWithState(). WebKit passes the
+space between floats to RenderBox::computeInlineDirectionMargins().
