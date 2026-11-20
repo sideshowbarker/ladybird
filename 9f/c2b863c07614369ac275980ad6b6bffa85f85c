@@ -28,3 +28,11 @@ reaches “complete”. For an image, Chrome 158 and Firefox 151 report
 “complete” right after window.stop() too, and Chrome fires an error
 event at the embed; WebKit 26.5 keeps “interactive”. None of the three
 fires a load event at the window then.
+
+Ladybird loads an embed in a shadow tree once it’s connected, though the
+spec’s “in a document” condition hasn’t been updated for shadow trees.
+Chrome 158, Firefox 151, and WebKit 26.5 all loaded an image embed and a
+document embed at the top of an open shadow root, at 100 by 50 and 300
+by 150. And when window.stop() stops an embed’s fetch while the body of
+a raster image is still arriving, Ladybird ends the image too, so that
+the document’s readyState reaches “complete”.
