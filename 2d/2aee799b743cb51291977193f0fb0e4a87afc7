@@ -35,3 +35,9 @@ For a 2:1 image with a 60px height, Ladybird and Chrome apply the
 calculation in a calc-size() minimum or maximum to the transferred
 120px width. Adding 10px gives a 130px minimum, and subtracting 10px
 gives a 110px maximum. Firefox and WebKit ignore these declarations.
+
+In a grid whose row is 100px, a 200 by 100 replaced item with height:50%
+resolves an intrinsic minimum or maximum width against that row, as it
+does its width. Ladybird sizes it 100 by 50 with width:200px and
+max-width:max-content or min-content, and with width:20px and
+min-width:min-content, as Chrome 158, Firefox 151, and WebKit 26.5 do.
