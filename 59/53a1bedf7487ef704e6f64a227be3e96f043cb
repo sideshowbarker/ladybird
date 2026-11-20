@@ -1,0 +1,13 @@
+Ladybird expands each scroll container by 1250px above and below, and
+625px to either side. Blink sets the vertical margin from the effective
+connection type in LazyLoadMediaObserver::StartMonitoringNearViewport()
+and halves it for the horizontal margin. On a 4G connection, Blink uses
+1250px vertically. Gecko configures its lazy-loading observer in
+DOMIntersectionObserver::CreateLazyLoadObserver(). WebKit uses a 100%
+fallback in LazyLoadElementObserver::intersectionObserver().
+
+Chrome 158.0.8127.36 loaded the image 624px beyond a horizontal edge
+and left the one at 626px unloaded. It loaded the image 1249px beyond a
+vertical edge and left the one at 1251px unloaded. Chrome and Firefox
+151.0 both loaded ten of forty images in the 300px carousel before
+scrolling. WebKit 26.5 loaded seven.
