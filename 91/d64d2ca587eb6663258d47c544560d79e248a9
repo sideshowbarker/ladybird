@@ -15,7 +15,7 @@ RenderBlockFlow::collapseMarginsWithChildInfo() ignores a quirky
 margin in a MarginInfo whose quirkContainer() is a table cell or the
 body. Gecko follows the spec’s text instead: Its quirk.css zeroes
 the margins of the children of body, td and th with :-moz-first-node,
-:-moz-last-node and :-moz-only-whitespace. On 33 static cases and
+:-moz-last-node and :-moz-only-whitespace. On 35 static cases and
 8 dynamic changes, Ladybird now gives exactly the results of Chrome
 158, which WebKit 26.5 shares on all but one. Firefox 151 agrees on
 the dynamic changes, and its quirk gives other results on 13 of the
