@@ -41,3 +41,9 @@ resolves an intrinsic minimum or maximum width against that row, as it
 does its width. Ladybird sizes it 100 by 50 with width:200px and
 max-width:max-content or min-content, and with width:20px and
 min-width:min-content, as Chrome 158, Firefox 151, and WebKit 26.5 do.
+
+A 100 by 100 canvas with height:60px, min-height:100px and
+max-height:50px is 100px tall, as the minimum wins. In a min-content
+grid column, with width:min-content or max-content, Ladybird transfers
+that 100px height, and the column is 100px wide. Chrome 158 and WebKit
+26.5 do the same. Firefox 151 makes the column and the canvas 60px wide.
