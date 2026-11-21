@@ -19,3 +19,8 @@ Of a dy on the <text> and one on a <tspan> that starts with the same
 character, Chrome, Firefox, and WebKit all apply only the inner one; and
 a dx on the first character moves the text after text-anchor places it.
 Ladybird now does both (engine-compare, the same versions).
+
+text-anchor on a path places the span the characters cover, as it does
+for ordinary text, so a dx that moves a character back past the first
+one extends it. Chrome 158 and Firefox 151 do the same; WebKit 26.5
+anchors by the final advance instead (engine-compare).
