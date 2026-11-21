@@ -1,0 +1,17 @@
+Ladybird’s UI process now opens a local file for a renderer only under
+the user’s home directory, the temporary directories, and mounted
+volumes, once every symbolic link in the path is resolved, and never
+anything under /proc, /sys, or /dev. File: navigations read through the
+same check, whoever started them.
+
+That allow list is close to ChromeOS’s: IsAccessAllowedChromeOS() in
+chrome/browser/net/chrome_network_delegate.cc allows only the user’s
+files (MyFiles), removable media (/media), the temporary directory, and
+a few system log and asset directories, and checks both the path and
+its absolute form. Desktop Chrome (IsAccessAllowed() allows any path
+there, and its FileURLLoader streams the bytes rather than handing over
+a descriptor) and Firefox (whose file:// content process gets a
+read-only tree of “/” in SandboxBrokerPolicyFactory) allow every
+path, so a desktop Ladybird is stricter than either.
+
+This comparison comes from reading the engines’ sources only.
