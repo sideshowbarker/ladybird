@@ -20,3 +20,8 @@ All three engines omit a trailing separator when selecting the first
 cell or row. Blink checks ShouldEmitTabBeforeNode and WebKit checks
 shouldEmitTabBeforeNode. Gecko tracks the cells already serialized in
 nsPlainTextSerializer::DoOpenContainer with mHasWrittenCellsForRow.
+
+Ladybird excludes unselectable cells and rows from the selected text,
+but still visits descendants that allow selection. Chrome and Firefox
+omit the text of a table with user-select:none and preserve text from
+selectable descendants. WebKit includes all the cells in that table.
