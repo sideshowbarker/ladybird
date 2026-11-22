@@ -1,0 +1,19 @@
+Ladybird now paints a non-repeating linear gradient whose stops are
+outside 0%-100% by running its gradient line from its first stop to its
+last, clips a conic gradient’s stops to 0 and 1 with edge colors
+interpolated in its interpolation space, and collapses a radial
+gradient’s negative stops to 0 the same way, scaling its ending shape
+for stops past 1. Blink does the same in CSSGradientValue::AddStops():
+It moves the endpoints of a linear gradient and the angles of a conic
+one by AdjustedGradientDomainForOffsetRange(), and for a radial one runs
+ClampNegativeOffsets() and then AdjustGradientRadiiForOffsetRange().
+WebKit’s normalizeStopsAndEndpointsOutsideRange() (StyleGradient.cpp)
+rescales a linear gradient’s stops and endpoints, and for radial and
+conic gradients collapses negative stops to 0 with a color from
+interpolateColors() in the gradient’s interpolation method. Gecko’s
+nsCSSGradientRenderer adjusts a linear gradient’s line and runs
+ClampColorStops(), and moves a radial gradient’s negative stops to 0
+with the interpolated color. In Chrome 158, Firefox 151 and WebKit 26.5
+(engine-compare), the issue’s cases, an angled gradient, a hard stop,
+oklab and hsl interpolation and a repeating gradient all render as
+Ladybird now does, within one level per channel.
