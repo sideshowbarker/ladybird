@@ -1,0 +1,10 @@
+Ladybird gives the native controls a normal line height so that a page
+can collapse its own line boxes without hiding playback time. Blink
+styles its current-time and time-remaining displays in
+mediaControls.css. WebKit styles TimeLabel through the time-label class,
+and Gecko sets a system font on the positionDurationBox containing the
+two time labels.
+
+Chrome 158.0.8127.37, Firefox 151.0, and WebKit 26.5 all showed the time
+on audio controls inside a parent with zero line height, including
+before metadata had loaded.
