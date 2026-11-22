@@ -11,3 +11,12 @@ between two zero-margin paragraphs. WebKit inserted one. Chrome and
 WebKit applied text-transform and omitted image alternative text.
 Firefox included the alternative text. All three kept a space between
 words across a soft wrap.
+
+When a selection contains only a preserved line feed, Ladybird keeps
+it, as Firefox and WebKit do. Chrome and WebKit also keep the space
+before a preserved line feed between two spans when text follows it.
+
+All three engines omit a trailing separator when selecting the first
+cell or row. Blink checks ShouldEmitTabBeforeNode and WebKit checks
+shouldEmitTabBeforeNode. Gecko tracks the cells already serialized in
+nsPlainTextSerializer::DoOpenContainer with mHasWrittenCellsForRow.
