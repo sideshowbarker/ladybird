@@ -1,0 +1,14 @@
+A multi-column box of auto height balances its columns to hold where
+its content’s boxes, lines, and floats reach in Ladybird, never less,
+even where the content ends with a negative margin. Chrome 158, Firefox
+151, and WebKit 26.5 agree on every case in the test, among them a
+margin collapsing through its parent, an empty last child, lines
+overflowing a fixed-height box, overlapping boxes, two columns, and a
+definite height (which still overflows into a new column). Blink’s
+ColumnLayoutAlgorithm::CalculateBalancedColumnBlockSize() takes each
+content run as the larger of BlockSizeForFragmentation() and the
+fragment’s block size. Gecko’s nsColumnSetFrame measures each column
+with nsLayoutUtils::CalculateContentBEnd(): the furthest block end of a
+frame, its lines, and its children. And WebKit’s RenderMultiColumnSet::
+calculateBalancedHeight() stretches the columns by the smallest space
+shortage while the content makes more columns than it asked for.
