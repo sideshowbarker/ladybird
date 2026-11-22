@@ -25,3 +25,21 @@ Ladybird excludes unselectable cells and rows from the selected text,
 but still visits descendants that allow selection. Chrome and Firefox
 omit the text of a table with user-select:none and preserve text from
 selectable descendants. WebKit includes all the cells in that table.
+
+Ladybird includes SVG text and tspans in selected text. Blink reads the
+selected DOM offsets through GetMappingUnitsForDOMRange in
+TextIteratorTextNodeHandler. WebKit reads the text renderer in
+TextIterator::handleTextNode. Gecko serializes visible text through
+Selection::Stringify and nsPlainTextSerializer::AppendText.
+
+Chrome 158.0.8127.37, Firefox 151.0, and WebKit 26.5 all included
+visible SVG text in full and partial selections. All three included a
+visible tspan inside a hidden text element. Firefox and WebKit preserved
+the spaces on both sides of a line feed when a selection covered one
+text node under white-space:pre-line. Chrome removed both spaces.
+
+Ladybird keeps a selected line feed when the nearest caret boundary
+skips an adjoining collapsible space. All three browsers kept the line
+feed when two spans split the text on either side of it. Chrome and
+WebKit also put separators around visible SVG text embedded between
+two HTML text nodes. Firefox joined the surrounding text directly.
