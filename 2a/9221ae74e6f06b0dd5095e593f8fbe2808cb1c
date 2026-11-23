@@ -8,7 +8,9 @@ overlapping boxes, column-fill:auto, two columns, and a definite height
 two auto-filled columns, which it splits evenly. All three agree that
 lines overflowing a box that avoids breaks count too, whether the box
 is a child of the column root, nested deeper, or holds the lines in a
-block of its own.
+block of its own, and next to a positioned child of the box. Before a
+forced break inside such a box, Chrome and WebKit agree with Ladybird
+at 49px, where Firefox adds the 5px box after the break.
 
 Two neighboring cases split the engines, and Ladybird now counts the
 overflowing lines in both. In two columns, Chrome and Firefox move a
