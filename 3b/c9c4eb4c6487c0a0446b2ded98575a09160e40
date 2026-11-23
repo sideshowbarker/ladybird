@@ -11,5 +11,8 @@ substitution”), the argument grammar of var() takes any
 and variable-reference.html upstream expect “var(--x ())” and
 “var(--prop 20px)” to be valid at parse time. WebKit 26.5, the
 shipping release, still rejects them, as do Chrome and Firefox.
-Ladybird’s imported copy of var-parsing.html is the older version,
-whose five failing cases now pass.
+Upstream css/css-env/env-parsing.html made the same change for env()
+in November 2026. Ladybird’s imported copies of var-parsing.html and
+env-parsing.html are the older versions; with this change, all of
+their cases pass, and so do six more in indexed-env.tentative.html and
+syntax.tentative.html.
