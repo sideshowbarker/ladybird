@@ -5,7 +5,18 @@ every case in the test, among them a margin collapsing through its
 parent, an empty last child, lines overflowing a fixed-height box,
 overlapping boxes, column-fill:auto, two columns, and a definite height
 (which still overflows into a new column). WebKit 26.5 agrees on all but
-two auto-filled columns, which it splits evenly.
+two auto-filled columns, which it splits evenly. All three agree that
+lines overflowing a box that avoids breaks count too, whether the box
+is a child of the column root, nested deeper, or holds the lines in a
+block of its own.
+
+Two neighboring cases split the engines, and Ladybird now counts the
+overflowing lines in both. In two columns, Chrome and Firefox move a
+box that avoids breaks, with lines far past its end, to the second
+column and grow the columns to hold them; WebKit keeps it in the first
+column and grows that one, as Ladybird now does. And Firefox and WebKit
+count lines overflowing a box with size containment, where Chrome
+doesn’t.
 
 In Blink, ColumnLayoutAlgorithm::CalculateBalancedColumnBlockSize()
 takes each content run as the larger of BlockSizeForFragmentation() and
