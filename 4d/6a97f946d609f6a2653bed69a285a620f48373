@@ -7,6 +7,8 @@ cubic-bezier() and linear() functions, none, all, “ease ease”, a
 comma-separated list, allow-discrete, two times, the “ease-in
 ease-out” animation from CSS Values 4’s own example, and that
 “transition: 0.15s ease” starts a transition when the width changes.
+All three also serialize “transition: ease 1s” as “1s”, as Ladybird now
+does, where it gave “ease 1s” before.
 
 All three parse the shorthand in that order. Blink and WebKit each
 match it against a transitionShorthandForParsing() that lists
