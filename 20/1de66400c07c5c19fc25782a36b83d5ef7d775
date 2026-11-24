@@ -1,0 +1,18 @@
+Ladybird now shows each MP4 frame until the next frame in presentation
+order starts, whatever its own sample duration says. Firefox does the
+same: Its Moof::Moof() (MoofParser.cpp) sorts each fragment’s samples
+by composition time and ends each one at the next one’s start, and
+mp4parse’s create_sample_table() does the same for a sample table. And
+Chrome’s VideoRendererAlgorithm::UpdateFrameStatistics() ends each
+queued frame at the next frame’s timestamp, so the frame’s duration
+never decides when it’s replaced. WebKit plays MP4 through AVFoundation,
+so its source shows nothing comparable.
+
+Firefox sorts a whole sample table at once. Ladybird looks only at the
+16 samples on either side of each one in decode order instead, since a
+few table entries can describe billions of samples.
+
+The issue’s file, and a plain MP4 remuxed from it with “ffmpeg -c
+copy” (which keeps the uneven decode times), each play 4 seconds with
+no frames dropped in Chrome 158, Firefox 151, and WebKit 26.5. Ladybird
+dropped 43 and 45 of 96 before this change, and drops none after it.
