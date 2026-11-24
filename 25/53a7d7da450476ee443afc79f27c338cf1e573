@@ -1,0 +1,13 @@
+Ladybird links its bundled FFmpeg at startup and loads a system
+libavcodec beside it only when that library’s libavutil can’t be
+confused with the bundled one: Under glibc, the bundled libraries’
+own version nodes keep the two apart, and elsewhere, the libavutil
+majors have to match. Gecko avoids the problem a different way: Its
+FFVPXRuntimeLinker loads the bundled libmozavcodec and libmozavutil,
+and its FFmpegRuntimeLinker loads the system libavcodec, both with
+PR_LD_LOCAL (RTLD_LOCAL), so neither library’s symbols ever reach the
+global namespace, and each libavcodec binds to its own libavutil —
+symbol versions or not. Blink links a single FFmpeg at build time and
+never loads another at runtime, and WebKit decodes through GStreamer’s
+gst-libav, with no bundled FFmpeg beside it. (From reading the source,
+not from running those engines on musl.)
