@@ -1,0 +1,17 @@
+Ladybird positions the thumb along the inline axis of the range
+control. Its endpoints are inset from the track ends by half the
+thumb size. Blink’s SliderThumbElement::SetPositionFromPoint,
+WebKit’s SliderThumbElement::setPositionFromPoint, and Gecko’s
+nsRangeFrame::GetValueAtEventPoint also use the available travel to
+map the pointer to a value.
+
+Chrome 158.0.8127.38, Firefox 151.0, and WebKit 26.5 agreed on both
+endpoints for clicks and drags in all five writing modes and both
+directions. An author-sized 12px thumb traveled 108px along a 120px
+vertical track in each engine. Rotating the input or its parent by
+90 degrees counterclockwise put the maximum at the top in all three.
+
+At 70% on a 160px horizontal track, the 16px thumb starts 100.8px
+along the track. Ladybird lays the thumb out there and snaps its box
+during painting. Chrome, Firefox, and WebKit also painted the thumb
+with the same edge coverage as a circle laid out at that offset.
