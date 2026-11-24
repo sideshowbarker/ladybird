@@ -17,3 +17,7 @@ When a custom control has a hidden validation anchor, Ladybird
 reports the next invalid field whose anchor can be shown. Firefox
 151.0 and WebKit 26.5 also focused that next field. Chrome
 158.0.8127.38 focused the custom-element host.
+
+Ladybird suppresses the prompt if focusing hides the anchor. Chrome
+158, Firefox 151, and WebKit 26.5 also focus only the first control
+when its focus handler hides it and a second invalid field is visible.
