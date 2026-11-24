@@ -15,3 +15,9 @@ At 70% on a 160px horizontal track, the 16px thumb starts 100.8px
 along the track. Ladybird lays the thumb out there and snaps its box
 during painting. Chrome, Firefox, and WebKit also painted the thumb
 with the same edge coverage as a circle laid out at that offset.
+
+When the thumb has no layout box, Ladybird measures pointer travel
+across the entire track. Firefox 151.0 also accepted clicks and
+drags on the track. Chrome 158.0.8127.38 and WebKit 26.5 left the
+value unchanged. Keeping the track interactive preserves the behavior
+of pages that hide the thumb and draw their own indicator.
