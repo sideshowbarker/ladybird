@@ -18,6 +18,7 @@ A loaded cross-origin feImage image taints the canvas in Ladybird, in
 Chrome 158 (whose SVGFEImageElement::TaintsOrigin() decides), and in
 Firefox 151; an image that hasn’t loaded yet draws nothing and leaves
 the canvas readable in Ladybird and in Chrome. Firefox taints even a
-pending same-origin image. And like a CSS filter, a canvas filter with
-more than 256 primitives doesn’t apply in Ladybird, where Chrome 158
-still applies one with 257 of them.
+pending same-origin image. And Ladybird caps the primitives of all the
+filters a canvas filter list refers to, together, at 256, as it caps a
+CSS filter’s one resolved filter, where Chrome 158 and Firefox 151 still
+apply two references to a filter with 200 primitives.
