@@ -8,3 +8,7 @@ in &notit; in text and preserved the literal spelling in a voice
 annotation. Firefox 151.0 also distinguished text from annotations,
 but preserved numeric references in cue text and left all references
 in the tested annotation untouched.
+
+WebVTT section 6.4 requires text-context decoding even in annotations.
+Ladybird uses attribute-context decoding there to preserve the literal
+spelling of &notit; that all three browsers expose in a voice title.
