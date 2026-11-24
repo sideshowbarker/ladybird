@@ -1,0 +1,19 @@
+Ladybird matches the letters typed into a select against its option
+labels. Repeating a letter cycles through matches, and extending a
+prefix starts at the current option. In a popup, typing highlights
+the match and pressing Enter accepts it.
+
+Blink calls TypeAhead::HandleEvent from HTMLSelectElement::
+TypeAheadFind. WebKit calls TypeAhead::handleEvent with MatchPrefix
+and CycleFirstChar. In Gecko, HTMLSelectElement::HandleKeyPress builds
+the search string. IsOptionInteractivelySelectable filters the matches.
+
+Chrome 158.0.8127.38, Firefox 151.0, and WebKit 26.5 selected Finnish
+on both fi and ff in a list containing a disabled Fiction option,
+followed by French and Finnish. Each also selected Finnish when a
+keydown listener replaced the options before the default action ran.
+
+For list boxes, Ladybird skips options without a rendered row. Firefox
+also skipped hidden and display:none options. Chrome and WebKit chose
+those options when their labels matched. All three skipped disabled
+options in both collapsed selects and list boxes.
