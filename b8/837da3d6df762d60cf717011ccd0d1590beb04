@@ -1,0 +1,10 @@
+Ladybird creates the srcdoc parser with the encoding used to produce
+its response body. Blink passes UTF-8 to FillStaticResponse in
+RenderFrameImpl. WebKit supplies UTF-8 in the ResourceResponse from
+FrameLoader::defaultSubstituteDataForURL. Gecko converts the supplied
+string to UTF-8 and sets the channel charset in
+NS_NewInputStreamChannelInternal.
+
+Chrome 158.0.8127.38, Firefox 151.0, and WebKit 26.5 preserved the
+apostrophe, euro sign, and emoji with no declaration, a UTF-8
+declaration, and a conflicting windows-1252 declaration.
