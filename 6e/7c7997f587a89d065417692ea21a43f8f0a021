@@ -1,0 +1,10 @@
+Ladybird uses the HTML tokenizer for character references in cue text
+and annotations. Blink calls ConsumeHTMLEntity from its VTT tokenizer.
+WebKit calls consumeHTMLEntity from WebVTTTokenizer. Gecko decodes cue
+text in the unescapeEntities helper inside parseContent.
+
+Chrome 158.0.8127.37 and WebKit 26.5 both decoded the legacy reference
+in &notit; in text and preserved the literal spelling in a voice
+annotation. Firefox 151.0 also distinguished text from annotations,
+but preserved numeric references in cue text and left all references
+in the tested annotation untouched.
