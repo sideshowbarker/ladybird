@@ -1,0 +1,9 @@
+Ladybird converts every row of a bi-planar video frame, the last one
+included, even when the planes end right after their last samples.
+Chromium converts NV12 frames with libyuv’s NV12ToARGBMatrix(), from
+PaintCanvasVideoRenderer in media/gfx/paint_canvas_video_renderer.cc,
+and Gecko’s dom/media/ImageConversion.cpp uses libyuv as well. libyuv
+walks a frame a row at a time, for its height, reading its width from
+each row, so a last row without padding converts like any other. WebKit
+on Cocoa leaves the conversion of such frames to Core Video, through
+PixelBufferConformerCV and ImageTransferSessionVT, as read from source.
