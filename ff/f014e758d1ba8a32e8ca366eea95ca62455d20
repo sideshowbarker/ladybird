@@ -1,0 +1,5 @@
+Ladybird keeps the address field’s standard context menu until the
+field opens another one. Qt 6.11.3’s Cocoa application delegate queues
+the platform menu item’s activation in “qt_itemFired:”. QMenu queues
+the corresponding QAction::trigger call. The menu owns the action,
+so it must survive the return from native menu tracking.
