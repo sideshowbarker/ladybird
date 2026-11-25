@@ -1,0 +1,13 @@
+Ladybird keeps one connected UDP socket to a custom DNS server, and
+now replaces it as soon as a send on it fails, resending the query on
+the new socket. Chromium’s built-in DNS client never keeps one: Its
+DnsTransactionImpl::MakeUdpAttempt() asks for a new, randomly bound
+datagram socket for every attempt, which DnsUDPAttempt::Start()
+connects, so a network change never leaves it sending from an address
+that’s gone. Gecko and WebKit don’t talk to a DNS server over UDP
+themselves; their plain lookups go through the system resolver. All
+of that is from reading their sources. The failure itself was checked
+in a Linux network namespace: After the address a connected UDP socket
+had been sending from was removed and another interface took over the
+default route, every send on the socket failed with ENETUNREACH, and
+a new socket picked up the new address.
