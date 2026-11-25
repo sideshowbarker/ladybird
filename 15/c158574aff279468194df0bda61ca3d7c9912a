@@ -1,8 +1,8 @@
 On macOS, Ladybird now keeps scrollbars shown whenever NSScroller’s
 preferredScrollerStyle is legacy. That’s how all three engines choose
-between overlay and classic scrollbars there: Blink in OsSettings-
-ProviderMac::PrefersOverlayScrollbars(), Gecko in the UseOverlay-
-Scrollbars lookup of widget/cocoa/nsLookAndFeel.mm, and WebKit in
+between overlay and classic scrollbars there: Blink in the function
+OsSettingsProviderMac::PrefersOverlayScrollbars(), Gecko in its lookup
+of UseOverlayScrollbars in widget/cocoa/nsLookAndFeel.mm, and WebKit in
 ScrollerStyle::recommendedScrollerStyle(). Run on this Mac (a MacBook
 with only its trackpad), Chrome 158 gave a page a 15px classic scrollbar
 with “Show scroll bars” set to “Always”, and overlay scrollbars with
