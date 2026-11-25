@@ -4,8 +4,3 @@ with TKillCompatTrap(), which calls tgkill() with getpid(), for
 pthread_kill() in Android’s bionic and in musl. Chromium’s
 RestrictKillTarget() kills the process for any tkill(), but Chromium
 doesn’t support musl. From reading the sources.
-
-Ladybird’s IPC policy allows select() along with pselect6(), poll(),
-and ppoll(). Gecko’s SandboxFilter.cpp allows its CASES_FOR_select,
-and Chromium’s syscall_sets.cc lists select among the calls it allows
-on x86. From reading the sources.
