@@ -1,0 +1,8 @@
+Ladybird sets a video decoder’s max_pixels through av_opt_set_int(),
+which finds the field through the library’s own option table, since its
+decoders run against libavcodec majors whose AVCodecContext layouts
+differ. Gecko’s FFmpegDataDecoder sets the same kind of limit by writing
+max_pixels directly, which is safe there: Gecko compiles that code once
+per libavcodec major, against that major’s own headers. Blink sets no
+max_pixels at all, and WebKit leaves decoding to GStreamer. (All from
+reading the engines’ source.)
