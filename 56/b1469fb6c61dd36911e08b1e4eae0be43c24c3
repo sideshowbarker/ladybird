@@ -1,0 +1,21 @@
+Ladybird’s IndexedDB backend runs in Hub, one for each browsing
+session, and every agent reaches it over IPC. Blink does the same
+in its browser process: In content/browser/indexed_db/instance, a
+BucketContext holds a storage bucket’s databases, and each Database’s
+ConnectionCoordinator runs its connection queue. WebKit holds them in
+its network process, in IDBServer’s UniqueIDBDatabase objects, and Gecko
+in its parent process, through the FactoryOp and Database actors of
+dom/indexedDB/ActorsParent.cpp.
+
+A version change fires blocked only while a connection that hasn’t
+been asked to close is still open. Blink and Gecko do the same: Blink
+fires blocked when a connection acknowledges that it ignored the
+versionchange event (ConnectionCoordinator’s OnVersionChangeIgnored()),
+and it sends none to a close-pending connection; Gecko’s FactoryOp::
+SendVersionChangeMessages() leaves out every Database that IsClosed().
+WebKit differs, and follows the spec: When every connection is close-
+pending, UniqueIDBDatabase::maybeNotifyConnectionsOfVersionChange()
+notifies the request that it’s blocked. On a page that creates a
+transaction, closes its connection, and then opens the database at a
+higher version (or deletes it), Chrome 158 and Firefox 151 fired no
+blocked event, and WebKit 26.5 fired one.
