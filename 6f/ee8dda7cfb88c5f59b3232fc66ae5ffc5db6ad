@@ -1,0 +1,14 @@
+Ladybird keeps IndexedDB databases in the profile’s SQLite browsing
+database, with a row for each database’s shape, a row for each record
+with its index keys, and stable ids for object stores and indexes. The
+other engines keep stable ids too, but store index records as rows of
+their own, and read records from disk as transactions need them: Blink
+in its SQLite backing store (content/browser/indexed_db/instance/
+sqlite’s DatabaseConnection, with object_stores, indexes, records, and
+index_references tables) or LevelDB, WebKit in SQLiteIDBBackingStore’s
+ObjectStoreInfo, Records, and IndexRecords tables, and Gecko in a
+SQLite database for each origin, with the object_store, object_data,
+and index_data tables of dom/indexedDB/DBSchema.cpp. Ladybird instead
+loads all of a storage key’s databases into memory when its first
+client connects, and writes through on each commit, which keeps the
+backend’s record and index code the same with or without persistence.
