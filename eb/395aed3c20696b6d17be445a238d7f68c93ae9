@@ -1,0 +1,13 @@
+Ladybird now keeps IndexedDB databases in Hub, so every agent of a
+browsing session sees the same ones, whichever process it runs in,
+as in the other engines: Blink holds them in its browser process
+(content/browser/indexed_db/instance’s BucketContext), WebKit in
+its network process (IDBServer), and Gecko in its parent process
+(dom/indexedDB/ActorsParent.cpp). In Chrome 158, a page’s storage
+survived the browsing-context-group switch that the two Cross-Origin-
+Opener-Policy values of web.whatsapp.com cause, served from a local test
+server. Before this change, Ladybird lost the page’s database.
+
+A transaction that a page creates just before it closes the connection
+commits on its own once the task ends, in Chrome 158, Firefox 151, and
+WebKit 26.5, and now in Ladybird too.
