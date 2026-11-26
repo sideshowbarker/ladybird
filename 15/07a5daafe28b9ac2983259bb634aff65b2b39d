@@ -11,3 +11,9 @@ server. Before this change, Ladybird lost the page’s database.
 A transaction that a page creates just before it closes the connection
 commits on its own once the task ends, in Chrome 158, Firefox 151, and
 WebKit 26.5, and now in Ladybird too.
+
+An index key that only the generated key reaches, through an object that
+the value holds at both the store’s key path and the index’s, is none,
+so the record gets no index record there. Chrome 158, Firefox 151, and
+WebKit 26.5 all do that. The spec instead injects the key before it
+extracts the index keys, which would give that index the generated key.
