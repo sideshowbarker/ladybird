@@ -1,0 +1,6 @@
+Ladybird allows mlock() and munlock() to the processes that load a GPU
+driver, and refuses mlockall() and mlock2(). Chromium allows mlock and
+munlock to every process, and puts mlockall and munlockall in its
+restricted set: SyscallSets::IsAllowedAddressSpaceAccess() lists them
+that way. Firefox’s SandboxFilter.cpp allows mlock and munlock too, and
+neither engine allows mlock2. From reading the sources.
