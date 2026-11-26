@@ -1,0 +1,8 @@
+Ladybird reads a clipboard’s plain-text types in turn and keeps the
+first text one of them answers, as a single text/plain. Chromium does
+the same on X11: X11ClipboardOzone reads plain text in one request over
+the targets GetTextAtomsFrom() lists (UTF8_STRING, STRING, TEXT,
+text/plain, and text/plain;charset=utf-8). Firefox’s nsClipboard reads
+its one text flavor with GetClipboardText(), through GTK’s text
+request. From reading the sources; a reporter of the Bitwarden reports
+found that Brave, Chromium, and Firefox all paste from it.
