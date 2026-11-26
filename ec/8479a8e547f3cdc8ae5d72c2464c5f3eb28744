@@ -1,6 +1,6 @@
-Ladybird’s IndexedDB backend runs in the UI process, one for each
-browsing session, and every agent reaches it over IPC. Blink does the
-same in its browser process: In content/browser/indexed_db/instance, a
+Ladybird’s IndexedDB backend runs in Hub, one for each browsing
+session, and every agent reaches it over IPC. Blink does the same
+in its browser process: In content/browser/indexed_db/instance, a
 BucketContext holds a storage bucket’s databases, and each Database’s
 ConnectionCoordinator runs its connection queue. WebKit holds them in
 its network process, in IDBServer’s UniqueIDBDatabase objects, and Gecko
