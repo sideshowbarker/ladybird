@@ -1,0 +1,29 @@
+Ladybird’s sidePanel namespace requires the sidePanel permission and
+its sidebarAction namespace the manifest’s sidebar_action key; both
+drive one panel per window. sidePanel.open() needs a user activation
+and rejects with the fixed string otherwise, as do sidebarAction’s
+open(), close(), and toggle(); every other refusal uses a fixed string
+too, and a per-tab page set through sidebarAction is dropped when the
+tab navigates while one set through sidePanel stays.
+
+Chrome’s side_panel.idl gates the namespace on the sidePanel permission,
+and SidePanelOpenFunction::Run() refuses without user_gesture() with
+“`sidePanel.open()` may only be called in response to a user gesture.”,
+then with “At least one of `tabId` and `windowId` must be provided”;
+SidePanelService::OpenSidePanelForWindow() and OpenSidePanelForTab()
+answer “No active side panel for windowId: N” and “... tabId: N” when
+the options have no path or are disabled. Its per-tab options outlive
+navigations, and SetOpenSidePanelOnIconClick() makes the action icon
+open the panel instead of the popup.
+
+Firefox’s sidebar_action.json gives sidebarAction to every extension
+that has the manifest key, marks open(), close(), and toggle() as
+requireUserInput, and ext-sidebarAction.js refuses tabId and windowId
+together (“Only one of tabId and windowId can be specified.”), keeps a
+panel, title, and icon per tab and per window, and drops a tab’s when
+the tab navigates somewhere else.
+
+WebKit’s WebExtensionContextAPISidebarCocoa.mm implements both
+namespaces over one WebExtensionSidebar model, refuses both identifiers
+at once, and refuses open() for a disabled sidebar or one without a
+panel; it has no gesture check of its own.
