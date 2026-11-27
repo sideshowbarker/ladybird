@@ -1,0 +1,9 @@
+Ladybird fires runtime.onInstalled with reason “install” the first
+time an extension is loaded, and with “update” when its manifest
+version changes; and it fires runtime.onStartup when the browser starts,
+for the extensions already installed. WebKit decides the same way, from
+the version it last saw, in WebExtensionContext::
+fireRuntimeInstalledEventIfNeeded() and WebExtensionContext::
+fireRuntimeStartupEventIfNeeded(). Chromium’s RuntimeEventRouter also
+fires “update” whenever an unpacked extension is reloaded, even at the
+same version, which Ladybird doesn’t.
