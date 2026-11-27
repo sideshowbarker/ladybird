@@ -1,0 +1,7 @@
+When ICU’s break rules can’t be loaded, Ladybird now segments text
+with a fallback that needs no ICU data, and logs that once. V8
+has no such fallback: Its JSSegmenter::New() only DCHECKs that
+ICU created the break iterator, so it assumes the data is there.
+ECMA-402’s Intl.Segmenter constructor has no step that throws for valid
+options, so Intl.Segmenter shares the fallback rather than throwing an
+error the spec doesn’t allow.
