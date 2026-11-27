@@ -16,3 +16,10 @@ row. Blink reveals the caret with ScrollAlignment::TopAlways after
 MoveCommands::ModifySelectionWithPageGranularity(), so from the view’s
 first row, it ends the same way. On macOS, Chrome and WebKit center the
 caret’s line after Option+Page Down instead; Ladybird doesn’t.
+
+In a single-line input, a plain Page Up/Down still scrolls the page, as
+in both engines: Gecko’s sInputHandlers in ShortcutKeyDefinitions.cpp
+has no Page Down binding, so the key reaches the browser’s page
+scrolling, and Blink’s MoveCommands::VerticalScrollDistance() returns 0
+for a focused input, which is neither editable itself nor scrollable, so
+MovePageDown isn’t handled.
