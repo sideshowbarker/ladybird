@@ -1,0 +1,23 @@
+Ladybird keeps each port channel in ExtensionMessageBroker, checks
+every port operation against the registered context, and records every
+receiver before dispatching to any. The opener’s messages wait for every
+acknowledgment. A receiver that leaves, by navigating away or by calling
+disconnect(), leaves the opener connected until the last receiver goes.
+
+Chromium records the opener and receiver sides in MessageService::
+OpenChannelImpl(), and ExtensionMessagePort::UnregisterFrame()
+closes the port only once IsValidPort() finds no receiver left.
+Ladybird applies that rule to a receiver’s explicit disconnect
+as well as to its teardown.
+
+Gecko holds port messages back with portPromises in ProxyMessenger::
+recvPortConnect() until onConnect has run, as Ladybird does
+with its acknowledgments. But Gecko’s recvConduitClosed() disconnects
+the opposite side when any receiver closes; Ladybird keeps the opener
+connected to the receivers that remain.
+
+WebKit queues JSON messages in m_portQueuedMessages, from
+WebExtensionContext::portPostMessage(), and drops a page’s ports through
+disconnectPortsForPage() and m_pagePortMap. Ladybird queues opening
+messages too, with a limit of 1,024, and closes both sides of every
+channel when an extension is disabled, removed, or reloaded.
