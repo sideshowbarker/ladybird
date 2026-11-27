@@ -16,12 +16,13 @@ JSHistory::state() caches it too. And an uncaught error stays in
 its world: Blink’s ErrorEvent::CanBeDispatchedInWorld() limits
 its dispatch the same way.
 
-Ladybird clones in generated bindings, behind the [CloneAcrossWorlds]
-IDL extended attribute, so its implementation getters stay realm-free.
-WebKit clones in its custom bindings too (JSCustomEventCustom.cpp and
-its siblings). But Blink does it in implementation code, where
-CustomEvent::detail() takes a ScriptState for WorldSafeV8Reference::
-GetAcrossWorld(); only the cloning itself, in ToWorldSafeValue(), lives
-in its bindings. And Gecko’s generated getters pass the value through
-MaybeWrapValue(), and so through JS_WrapValue(), which wraps it for
-the reader’s compartment rather than cloning it.
+Ladybird clones in two places in its bindings: in the generated getter
+of History.state, behind the [CloneAcrossWorlds] IDL extended attribute,
+and in the getters of the interfaces implemented in Rust, which get the
+caller’s realm with every call. WebKit clones in its custom bindings too
+(JSCustomEventCustom.cpp and its siblings). But Blink does it in
+implementation code, where CustomEvent::detail() takes a ScriptState for
+WorldSafeV8Reference::GetAcrossWorld(); only the cloning itself, in
+ToWorldSafeValue(), lives in its bindings. And Gecko’s generated getters
+pass the value through MaybeWrapValue() and on to JS_WrapValue(), which
+wraps it for the reader’s compartment rather than cloning it.
