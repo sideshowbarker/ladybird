@@ -1,0 +1,8 @@
+Ladybird’s windows API derives windows from the tabs an extension
+can see, so a private window doesn’t exist for an extension not
+allowed there, and a background page’s current window is the one
+last focused — as Chromium’s WindowsGetCurrentFunction answers for
+a page with no window of its own. get(WINDOW_ID_CURRENT) answers
+the same, and the errors (“No window with id: N.”, “No current
+window”, “No last-focused window”) keep Chromium’s wording from its
+ExtensionTabUtil and tabs_constants.h.
