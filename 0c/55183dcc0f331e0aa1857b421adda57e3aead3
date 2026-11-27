@@ -1,0 +1,7 @@
+Ladybird keeps an extension popup between 25×25 and 800×600 CSS pixels,
+sized to its page’s content. The maximum matches all three engines:
+Chromium’s kExtensionPopupMaxSize, Gecko’s ExtensionPopups maxWidth and
+maxHeight, and WebKit’s maximumPopoverWidth and maximumPopoverHeight.
+The minimum is Chromium’s kExtensionPopupMinSize. A popup closes when
+the window’s active tab changes, as Chromium’s ExtensionPopup::
+OnTabStripModelChanged() closes it.
