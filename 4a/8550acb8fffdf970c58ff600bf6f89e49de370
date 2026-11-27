@@ -1,0 +1,7 @@
+Ladybird’s generated background page puts the background scripts in its
+body, after a head that holds only the charset. All three engines do the
+same. Chromium’s GenerateBackgroundPageContents() and WebKit’s
+WebExtension::generatedBackgroundContent() both emit a doctype and an
+open body tag, then the scripts, and Gecko’s WebExtensionPolicy::
+BackgroundPageHTML() emits a head with the charset meta, then a body
+holding the scripts, so the body exists while any of them runs.
