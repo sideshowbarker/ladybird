@@ -1,0 +1,6 @@
+Ladybird reads “action” only in manifest version 3 and “browser_action”
+only in version 2. All three engines do the same: Chromium’s
+_manifest_features.json gives action a min_manifest_version of 3 and
+browser_action a max_manifest_version of 2, Gecko’s browser_action.json
+schema sets the same limits, and WebKit’s WebExtension reads action when
+it supports manifest version 3.
