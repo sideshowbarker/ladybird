@@ -1,0 +1,6 @@
+When ICU has no offset for a named time zone, Ladybird now treats
+the time zone as UTC, and logs that once. ICU falls back the same way
+itself: With the broken 2026.48.0 aarch64 data library, ucal_open() for
+America/New_York returned U_USING_FALLBACK_WARNING and a zone offset
+of 0. ECMA-262 leaves GetNamedTimeZoneOffsetNanoseconds’ result to the
+implementation’s time-zone data, and gives it no failure case.
