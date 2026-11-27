@@ -1,0 +1,13 @@
+Ladybird gives ladybird-extension://<id>/ URLs a tuple origin keyed by
+the extension’s id. Blink registers chrome-extension as a standard
+scheme (url::AddStandardScheme with SCHEME_WITH_HOST in
+ChromeContentClient::AddAdditionalSchemes), so its origins are
+ordinary tuple origins with the extension id as host. Gecko’s
+moz-extension is a standard URL scheme too (URI_STD in
+ExtensionProtocolHandler), and each extension’s pages get a content
+principal for moz-extension://<uuid>, which BasePrincipal::AddonPolicy()
+maps back to the WebExtensionPolicy. WebKit registers webkit-extension
+as a custom scheme on the WKWebViewConfiguration and marks it secure
+and same-origin-capable through WebExtensionMatchPattern::
+registerCustomURLScheme() and the page configuration’s URL scheme
+handler, which likewise yields one origin per extension.
