@@ -1,0 +1,6 @@
+Ladybird reads optional_permissions in both manifest versions and
+optional_host_permissions in version 3, and starts every optional
+permission ungranted, keeping the grant in Settings. Chromium parses
+the same keys in its PermissionsParser, and WebKit in WebExtension::
+populatePermissionsPropertiesIfNeeded() (whose optionalPermissions() it
+checks requests against).
