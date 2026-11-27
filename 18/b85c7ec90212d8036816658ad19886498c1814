@@ -1,0 +1,13 @@
+Ladybird takes a storage request’s extension identity from the UI
+process’s own record of the requesting context, at its current revision,
+and requires the storage permission. It sends committed changes to every
+live context of the extension, the writer’s included.
+
+Chromium routes writes through its StorageFrontend, and from
+OnSettingsChanged(), dispatches storage.onChanged and the area’s
+event with EventRouter::DispatchEventToExtension(). Gecko binds
+ext-storage’s callMethodInParentProcess() to context.extension, so
+the identity comes from the caller’s context as well. WebKit checks the
+storage permission in WebExtensionContext::isStorageMessageAllowed(),
+where unlimitedStorage alone suffices too; Ladybird requires storage
+itself, as Chromium does.
