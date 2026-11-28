@@ -13,8 +13,8 @@ WebKit injects DocumentStart from HTMLConstructionSite::
 insertHTMLHtmlStartTagBeforeHTML() and DocumentEnd from FrameLoader::
 finishedParsing(), folds DocumentIdle into DocumentEnd, and matches
 at injection time with UserContentURLPattern::matchesPatterns(url,
-allowlist, blocklist), with UserContentMatchParentFrame for about:
-blank (LocalFrame::injectUserScriptImmediately()). Gecko’s
+allowlist, blocklist), with UserContentMatchParentFrame for about:blank
+(LocalFrame::injectUserScriptImmediately()). Gecko’s
 ExtensionPolicyService::CheckDocument() runs on document-element-
 inserted and Script.injectInto() awaits promiseDocumentReady for
 document_end and Promise.race([promiseDocumentIdle,
