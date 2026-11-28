@@ -8,12 +8,12 @@ ChromeContentBrowserClientExtensionsPart::IsSuitableHost() refuses an
 enabled extension’s security principal a process that ProcessMap doesn’t
 list for that extension, and refuses a process ProcessMap lists for any
 extension to a principal that isn’t one. Gecko instead puts every
-moz-extension: document in the one extension process that all extensions
-share (IsolationBehavior::Extension in dom/ipc/ProcessIsolation.cpp, for
-RemoteType::Kind::Extension), so Ladybird’s rule, like Chromium’s, is
-the stricter one. WebKit sends an extension’s privileged identifier only
-to the process of a page whose configuration requires that extension’s
-base URL (WebExtensionController::parameters()).
+“moz-extension:” document in one extension process, which all extensions
+share (dom/ipc/ProcessIsolation.cpp gives IsolationBehavior::Extension
+the RemoteType::Kind::Extension), so Ladybird’s rule, like Chromium’s,
+is the stricter one. WebKit sends an extension’s privileged identifier
+only to the process of a page whose configuration requires that
+extension’s base URL (WebExtensionController::parameters()).
 
 Those are claims from reading each engine’s source code; none of the
 engines was run to check them.
