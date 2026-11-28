@@ -1,0 +1,7 @@
+Every Ladybird process now ignores SIGPIPE from the start, and the
+programs that Core::Process spawns get SIGPIPE’s default action back.
+Chromium does both: SetupSignalHandlers() in content_main.cc ignores
+SIGPIPE in every process, and base::LaunchProcess() resets each signal
+to its default in the child (ResetChildSignalHandlersToDefaults()).
+WebKit’s AuxiliaryProcess::platformInitialize() ignores SIGPIPE in its
+auxiliary processes on Unix. That’s from reading the source.
