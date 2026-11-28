@@ -1,0 +1,8 @@
+Ladybird maps a table’s cellspacing to border-spacing as HTML’s
+rendering section says, parsing it with the rules for parsing
+non-negative integers: “10%” and “10.7” give 10px, “+4” gives 4px,
+and “-3” or “abc” set nothing, leaving the default 2px. Run headless,
+Firefox 151.0 gives exactly those values. Chrome 158.0.8127.38 and
+WebKit 26.5 ignore a value that ends in a percent sign or starts with
+a plus sign, and WebKit keeps a fraction (“10.7” gives 10.7px). We
+follow HTML and Firefox here, since the spec defines these values.
