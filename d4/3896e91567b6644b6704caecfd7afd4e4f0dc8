@@ -1,8 +1,8 @@
 Ladybird resolves a relative URL given to tabs.create() or tabs.update()
 against the extension, as Chromium’s ExtensionTabUtil::
 PrepareURLForNavigation(), Gecko’s ext-tabs.js, and WebKit’s
-WebExtensionContextAPITabsCocoa.mm do. It rejects a javascript: URL, a
-file: URL, and an unparsable one with Chromium’s texts for them
+WebExtensionContextAPITabsCocoa.mm do. It rejects a “javascript:” URL, a
+“file:” URL, and an unparsable one with Chromium’s texts for them
 (kJavaScriptUrlsNotAllowedInExtensionNavigations,
 kFileUrlsNotAllowedInExtensionNavigations, and kInvalidUrlError), in the
 same wording, since extensions compare those errors. It also rejects
