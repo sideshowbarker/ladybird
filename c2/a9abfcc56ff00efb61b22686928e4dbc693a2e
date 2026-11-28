@@ -1,0 +1,12 @@
+When a plain Tab accepts a writing suggestion, Ladybird fires its
+keydown with the keyCode 229 and with isComposing set, as for a key an
+input method takes. Of the other engines, only WebKit shows macOS
+writing suggestions inline. Its WebViewImpl::showInlinePredictionsFor-
+Candidate() hands them to “showCompletionForCandidate:” of
+NSSpellChecker, which draws them without marked text. And its
+KeyboardEvent takes isComposing from Editor::hasComposition(), in
+viewIsCompositing(), so going by WebKit’s source alone, its keydown for
+that Tab has isComposing false. Chromium and Gecko have no inline-
+completion code in their macOS widget layers. With isComposing set, Tab
+accepts the suggestion in GitHub’s comment fields, which would
+otherwise type a tab themselves.
