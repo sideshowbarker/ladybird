@@ -1,0 +1,6 @@
+Ladybird rejects a negative value whose first digit is zero, such as
+“-03”, when it parses an attribute with HTML’s rules for parsing
+non-negative integers, and parses “-0”, “-00”, and “-0x” as 0. Run
+headless, Chrome 158.0.8127.38, Firefox 151.0, and WebKit 26.5 do the
+same for colspan and rowspan: “-03”, “-01”, and “-10” give the
+defaults, and “-0” gives a rowSpan of 0.
