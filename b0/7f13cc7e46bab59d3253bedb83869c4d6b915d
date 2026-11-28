@@ -1,7 +1,5 @@
-Every Ladybird process now ignores SIGPIPE from the start, and the
-programs that Core::Process spawns get SIGPIPE’s default action back.
-Chromium does both: SetupSignalHandlers() in content_main.cc ignores
-SIGPIPE in every process, and base::LaunchProcess() resets each signal
-to its default in the child (ResetChildSignalHandlersToDefaults()).
-WebKit’s AuxiliaryProcess::platformInitialize() ignores SIGPIPE in its
-auxiliary processes on Unix. That’s from reading the source.
+Ladybird’s Clippy configuration now rejects std’s print macros in
+code that runs in its processes. Firefox’s Rust code has no such rule:
+WebRender still writes with “eprintln!” on paths that a debug flag
+turns on, and Blink and WebKit have no Rust code. That’s from reading
+the source.
