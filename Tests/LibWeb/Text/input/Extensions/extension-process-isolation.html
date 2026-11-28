@@ -1,0 +1,23 @@
+<!doctype html>
+<script src="../include.js"></script>
+<script src="support-tabs.js"></script>
+<body>
+    <script>
+        // A web page that an extension's page opens without an opener runs in a process of its own, and never in the
+        // extension page's, which may speak for the extension.
+        asyncTest(async done => {
+            await contentScriptReady();
+            const url = new URL(
+                await httpTestServer().createEcho("GET", `/process-isolation-${crypto.randomUUID()}`, {
+                    status: 200,
+                    headers: { "Content-Type": "text/html" },
+                    body: `<!DOCTYPE html><script>document.documentElement.dataset.pid = internals.webContentProcessId();<\/script>`,
+                })
+            );
+            url.hostname = uniqueLocalhostHostname("process-isolation");
+            const reply = await sendToBackground({ type: "start", target: url.href });
+            println(`web page shares the extension page's process: ${reply.shared}`);
+            done();
+        });
+    </script>
+</body>

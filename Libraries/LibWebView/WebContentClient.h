@@ -149,6 +149,13 @@ public:
     // documents processes of their own, which host nothing else.
     Optional<String> const& hosted_web_ui() const { return m_hosted_web_ui; }
     void set_hosted_web_ui(String host) { m_hosted_web_ui = move(host); }
+    // The extension whose own documents the process has hosted, which the process may speak for. Site isolation gives
+    // such documents processes of their own, which host nothing else.
+    Optional<String> const& hosted_extension() const { return m_hosted_extension; }
+    void set_hosted_extension(String id) { m_hosted_extension = move(id); }
+    // Whether every document the process has hosted is an about:blank one, which starts out empty: Such a process holds
+    // nothing a site made.
+    bool has_hosted_only_about_blank_documents() const { return !m_has_hosted_more_than_about_blank_documents; }
     // A process can take in a tab of an origin only if all it has ever hosted, and so may still hold, is tabs of that
     // origin with their same-site and data: URL iframes. An origin-keyed tab keeps apart from the other origins of
     // its site, so it only joins origin-keyed tabs of its origin, in a process that has not hosted iframes of those
@@ -283,6 +290,8 @@ private:
     bool m_has_hosted_documents_of_several_sites { false };
     bool m_has_hosted_local_file_content { false };
     Optional<String> m_hosted_web_ui;
+    Optional<String> m_hosted_extension;
+    bool m_has_hosted_more_than_about_blank_documents { false };
     Optional<URL::Origin> m_origin_of_hosted_tabs;
     bool m_hosted_tabs_are_origin_keyed { false };
     bool m_has_hosted_more_than_tabs_of_one_origin { false };

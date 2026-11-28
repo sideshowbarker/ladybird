@@ -1,0 +1,1 @@
+web page shares the extension page's process: false

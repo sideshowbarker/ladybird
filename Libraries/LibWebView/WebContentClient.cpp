@@ -80,6 +80,9 @@ void WebContentClient::close_worker_agent(Web::PageId page_id, Web::HTML::Worker
 
 void WebContentClient::note_hosted_document(CanonicalDocument const& document)
 {
+    if (!Web::HTML::url_matches_about_blank(document.creation_url()))
+        m_has_hosted_more_than_about_blank_documents = true;
+
     // NB: An about:blank document starts out empty, and its origin is that of a document the process already hosts or
     //     an opaque one that nothing else can script.
     if (m_has_hosted_more_than_tabs_of_one_origin || Web::HTML::url_matches_about_blank(document.creation_url()))

@@ -981,22 +981,32 @@ RefPtr<WebContentClient> CanonicalNavigable::process_to_host_for_site_isolation(
 // holds, and about:blank documents no other process can reach. Local file content goes to no other process.
 // Likewise, a process that has hosted a WebUI's documents may speak for that WebUI, so it hosts only that WebUI's
 // documents and about:blank documents no other process can reach, and a WebUI's documents go to no other process.
+// And so does a process that has hosted an extension's own documents, which may speak for that extension.
 RefPtr<WebContentClient> CanonicalNavigable::process_to_host(CanonicalDocument const& document, Optional<URL::Origin> const& initiator_origin) const
 {
     auto process = process_to_host_for_site_isolation(document, initiator_origin);
 
-    // NB: Without site isolation, every document stays with the process holding its navigable, local file content and
-    //     WebUI documents too, and that process may then read local files or speak for the WebUI for as long as it lives.
+    // NB: Without site isolation, every document stays with the process holding its navigable, local file content,
+    //     WebUI documents, and extension documents too, and that process may then read local files or speak for the
+    //     WebUI or the extension for as long as it lives.
     if (Application::the().tab_processes() == TabProcesses::PerTabWithoutSiteIsolation)
         return process;
     auto process_has_hosted_local_file_content = process && process->has_hosted_local_file_content();
     auto process_has_hosted_web_ui = process && process->hosted_web_ui().has_value();
+    auto process_has_hosted_extension = process && process->hosted_extension().has_value();
 
     if (document.web_ui_host().has_value())
         return process && process->hosted_web_ui() == document.web_ui_host() ? process : nullptr;
+    // NB: A process that has hosted only about:blank documents holds nothing a site made, so an extension's document
+    //     may take it, as a view's first document takes the process its initial about:blank came with.
+    if (document.extension_id().has_value()) {
+        if (process && process->hosted_extension() == document.extension_id())
+            return process;
+        return process && !process->hosted_extension().has_value() && process->has_hosted_only_about_blank_documents() ? process : nullptr;
+    }
     if (document.is_local_file_content())
         return process_has_hosted_local_file_content ? process : nullptr;
-    if (!process_has_hosted_local_file_content && !process_has_hosted_web_ui)
+    if (!process_has_hosted_local_file_content && !process_has_hosted_web_ui && !process_has_hosted_extension)
         return process;
     if (process_has_hosted_local_file_content && document.origin().is_file_origin())
         return process;
@@ -1035,6 +1045,8 @@ ErrorOr<NonnullRefPtr<WebContentPage>> CanonicalNavigable::obtain_page_to_host(C
         // NB: The page took the view's preferences before it hosted the WebUI, so it now takes the interface theme.
         page->async_set_preferred_color_scheme(Application::the().interface_color_scheme());
     }
+    if (auto const& extension_id = document.extension_id(); extension_id.has_value())
+        page->client().set_hosted_extension(*extension_id);
     return page;
 }
 
@@ -1154,14 +1166,16 @@ void CanonicalNavigable::populate_document(NonnullRefPtr<CanonicalDocumentState>
 
 // https://html.spec.whatwg.org/multipage/browsing-the-web.html#navigate-to-a-javascript:-url
 // NB: newDocument's URL is the active document's, as the process hosting both reports it. Whatever URL it reports,
-//     newDocument holds no local file content and displays no WebUI unless the active document does, as its contents
-//     come from that process.
+//     newDocument holds no local file content, displays no WebUI, and belongs to no extension unless the active
+//     document does, as its contents come from that process.
 void CanonicalNavigable::populate_document_for_javascript_url(CanonicalNavigation& navigation, NonnullRefPtr<CanonicalSessionHistoryEntry> history_entry, NonnullRefPtr<CanonicalDocument> document)
 {
     document->determine_whether_it_is_local_file_content(blob_url_store());
     if (document->is_local_file_content() && !active_document().is_local_file_content())
         return;
     if (document->web_ui_host().has_value() && document->web_ui_host() != active_document().web_ui_host())
+        return;
+    if (document->extension_id().has_value() && document->extension_id() != active_document().extension_id())
         return;
     navigation.history_entry = move(history_entry);
     populate_document(navigation.history_entry->document_state, move(document));

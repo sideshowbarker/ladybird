@@ -108,6 +108,9 @@ public:
     // the UI process.
     Optional<String> const& web_ui_host() const { return m_web_ui_host; }
 
+    // The id of the extension the document belongs to, if it was created from one of the extension's own URLs.
+    Optional<String> const& extension_id() const { return m_extension_id; }
+
     void make_active();
 
 private:
@@ -127,6 +130,7 @@ private:
     u32 m_unload_counter { 0 };
     bool m_is_local_file_content { false };
     Optional<String> m_web_ui_host;
+    Optional<String> m_extension_id;
     RefPtr<WebContentPage> m_host;
 };
 

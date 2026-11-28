@@ -5,6 +5,7 @@
  */
 
 #include <LibURL/Site.h>
+#include <LibWebCommon/Extensions/Scheme.h>
 #include <LibWebView/BlobURLStore.h>
 #include <LibWebView/CanonicalBrowsingContext.h>
 #include <LibWebView/CanonicalBrowsingContextGroup.h>
@@ -47,6 +48,8 @@ CanonicalDocument::CanonicalDocument(Web::HTML::CrossProcessId id, URL::URL crea
         if (auto page = WebUI::page_for_host(m_creation_url.path_segments().first()); page.has_value() && page->type != WebUI::PageType::Static)
             m_web_ui_host = MUST(String::from_utf8(page->host));
     }
+    if (m_creation_url.scheme() == Web::Extensions::scheme)
+        m_extension_id = MUST(String::from_utf8(m_creation_url.serialized_host()));
 }
 
 CanonicalDocument::~CanonicalDocument() = default;
