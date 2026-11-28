@@ -1,0 +1,6 @@
+Ladybird’s management.getSelf() returns the fields Firefox’s
+getExtensionInfoForAddon() (ext-management.js) fills for the calling
+extension, with installType “normal” for an archive install and
+“development” for one loaded from a directory — as Firefox reports a
+temporarily installed one. Chromium’s ManagementGetSelfFunction::Run()
+returns the same ExtensionInfo shape. WebKit has no management API.
