@@ -1,0 +1,10 @@
+Ladybird’s PNG encoder now leaves the color values of an opaque pixel
+as they are and zeroes those of a fully transparent one, dividing by
+alpha only for a translucent pixel, and passes a row that’s opaque
+throughout without unpremultiplying it at all. Gecko’s nsPNGEncoder::
+ConvertHostARGBRow() takes the same shortcuts for each pixel and divides
+with the same rounding. Blink encodes through Skia’s SkPngEncoderBase,
+which converts each premultiplied row with SkConvertPixels(), and skips
+the conversion for an image whose alpha type is opaque. WebKit’s Cocoa
+port leaves the conversion to CoreGraphics, through ImageUtilitiesCG’s
+call to CGImageDestinationAddImage(). From reading the source.
