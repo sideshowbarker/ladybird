@@ -1,0 +1,19 @@
+Ladybird names a key by its position in a KeyboardEvent’s code, and
+the Qt UI takes that position from the native key code: the macOS
+virtual key, the Windows scan code, or the XKB keycode less 8. Run on
+Linux X11 with real key events under setxkbmap us, de, ua and fr,
+Chrome 149, Firefox 151 and WebKit 26.5 (GTK) all do the same for code:
+the German key at the US Y position gives key “z” and code “KeyY”.
+For keyCode, a letter key that types a Cyrillic letter gives 70 for the
+F position in Chrome, and in Firefox once an ASCII-capable layout is
+configured alongside (ua,us), and 0 in WebKit; Ladybird gives 70. The
+AZERTY digit-row key that types “&” gives 49 in Chrome and Firefox and
+55 in WebKit; Ladybird gives 49. The German “ö” key gives 192 in
+Chrome, 59 in Firefox and 0 in WebKit; Ladybird’s 0 is unchanged.
+Chrome’s DomCodeFromNSEvent swaps kVK_ISO_Section and kVK_ANSI_Grave on
+an ISO keyboard; Ladybird maps only kVK_ISO_Section, to Backquote, and
+leaves kVK_ANSI_Grave to the key the layout reports.
+
+All three engines agree on the keys a layout names: The AZERTY key at
+the US M position, which types a comma, gives keyCode 188, and Ctrl
+with the German key at the US Y position gives 90; Ladybird does too.
