@@ -1,0 +1,10 @@
+The space bar, with or without Shift, fires keypress in Ladybird, with
+the key " ", a keyCode and a charCode of 32, between keydown and
+beforeinput, and canceling that keypress keeps the space out of a
+textarea. Run headless with real key presses, Chrome 158.0.8127.38,
+Firefox 151.0, and WebKit 26.5 all do the same. In their sources, Blink
+dispatches keypress for the char event the platform makes for any key
+that types text, in its KeyboardEventManager::KeyEvent(), and WebKit
+for the char event its EventHandler::keyEvent() disambiguates. Gecko
+dispatches it for every key but modifier and dead keys, as its
+WidgetKeyboardEvent::ShouldCauseKeypressEvents() decides.
