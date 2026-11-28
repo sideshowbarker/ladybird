@@ -1,0 +1,7 @@
+Ladybird’s Event Timing still creates an entry for every event it
+times, and builds the target’s selector when the event’s processing
+ends, as the spec says. Blink does both too: WindowPerformance creates a
+PerformanceEventTiming for each timed event, and WindowPerformance::
+EventTimingProcessingEnd() sets the entry’s target selector. The changes
+here are in how Ladybird does that work, which has no counterpart to
+compare. That’s from reading the source.
