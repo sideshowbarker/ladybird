@@ -1,0 +1,4 @@
+When a transaction that isn’t an upgrade aborts, Ladybird now leaves
+its connection’s version as it was. Chrome 158, Firefox 151, and WebKit
+26.5 do the same: After a read-only transaction aborts, db.version still
+reads the version the database was opened at.
