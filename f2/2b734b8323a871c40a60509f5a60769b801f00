@@ -1,0 +1,9 @@
+Ladybird now applies a JPEG’s EXIF orientation when it decodes the
+image, so an img, a CSS background, drawImage() and createImageBitmap()
+all show the image oriented, and its natural size swaps for a quarter
+turn. Chrome 158, Firefox 151 and WebKit 26.5 do the same for all eight
+orientations (run with engine-compare). All three also orient the
+image for createImageBitmap() with imageOrientation: “none”, so
+none of them passes createImageBitmap-exif-orientation_none.html
+either. An EXIF orientation in a WebP stays ignored: Chrome and Firefox
+ignore it too, and only WebKit applies it.
