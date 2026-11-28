@@ -1,0 +1,5 @@
+Ladybird’s Clippy configuration now rejects std’s print macros in
+code that runs in its processes. Firefox’s Rust code has no such rule:
+WebRender still writes with “eprintln!” on paths that a debug flag
+turns on, and Blink and WebKit have no Rust code. That’s from reading
+the source.
