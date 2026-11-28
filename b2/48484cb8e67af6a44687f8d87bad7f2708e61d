@@ -4,6 +4,6 @@ under the same id. Chromium’s WebRequestProxyingURLLoaderFactory does
 the same, adding a Non-Authoritative-Reason header. Firefox redirects
 the channel itself instead (channel.redirectTo in WebRequest.sys.mjs),
 which listeners also hear as a redirect under the same id. All
-three allow a redirect to a data: URL or to the extension’s own
+three allow a redirect to a “data:” URL or to the extension’s own
 web-accessible resource, while Fetch still refuses a server’s redirect
 to anything but HTTP(S).
