@@ -1,0 +1,4 @@
+Ladybird now applies an AVIF’s irot rotation and then its imir
+mirroring when it decodes the image. Chrome 158, Firefox 151 and WebKit
+26.5 show all twelve combinations of rotation and mirroring the same
+way (run with engine-compare).
