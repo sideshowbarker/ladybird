@@ -1,0 +1,6 @@
+Ladybird’s Rust code now drops a log line that it can’t write to
+stderr, as its C++ warnln() and dbgln() do. Chromium does the same: Its
+base::logging WriteToFd() gives up on the first failed write() to
+stderr. WebKit’s vprintf_stderr_common() ignores what vfprintf()
+returns. Gecko’s Rust code (WebRender) uses eprintln! only on paths
+that a debug flag turns on. From reading the source.
