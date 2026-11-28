@@ -1,0 +1,6 @@
+Ladybird now takes a screenshot that the Compositor process was lost
+before taking again, once the relaunched process is up. Chromium
+doesn’t: Its DevTools Page.captureScreenshot fails with “Unable to
+capture screenshot” when the capture comes back empty (PageHandler::
+ScreenshotCaptured()), which is what a capture interrupted by a GPU
+process restart returns. That’s from reading the source.
